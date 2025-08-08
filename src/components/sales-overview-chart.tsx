@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
 interface SalesOverviewChartProps {
@@ -31,11 +31,11 @@ const chartConfig = {
 export function SalesOverviewChart({ salesData }: SalesOverviewChartProps) {
   const chartData = useMemo(() => {
     return salesData.map((sale) => ({
-      date: format(new Date(sale.date), "dd MMM", { locale: ptBR }),
+      date: format(parseISO(sale.date), "dd MMM", { locale: ptBR }),
       grossValue: sale.grossValue,
       costs: sale.costs.reduce((acc, cost) => acc + cost.amount, 0),
       netValue: sale.netValue,
-    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    })).sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
   }, [salesData]);
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Sale } from "@/lib/types";
 import {
@@ -97,7 +97,7 @@ export function SalesTable({ salesData, onSalesUpdate }: SalesTableProps) {
                 {salesData.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell>
-                      {format(new Date(sale.date), "dd/MM/yyyy", { locale: ptBR })}
+                      {format(parseISO(sale.date), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
