@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
@@ -262,7 +264,13 @@ export default function EstoquePage() {
   }, [inventory]);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR');
+  const formatDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), "dd/MM/yyyy", { locale: ptBR });
+    } catch (error) {
+      return 'Data inválida';
+    }
+  };
 
   if (isLoading) {
     return (
