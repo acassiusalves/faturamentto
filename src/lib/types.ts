@@ -26,3 +26,22 @@ export interface Sale {
   costs: Cost[];
   netValue: number;
 }
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  productId: string;
+  name: string;
+  sku: string;
+  costPrice: number;
+  quantity: number;
+  serialNumber: string;
+  gtin: string;
+  origin: string;
+  createdAt: string;
+}
