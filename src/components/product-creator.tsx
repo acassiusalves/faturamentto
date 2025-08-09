@@ -68,9 +68,11 @@ export function ProductCreator({ category }: ProductCreatorProps) {
 
   const handleAttributeSelect = (key: string, value: string) => {
     setFormState(prev => {
+        // Se o valor selecionado for o mesmo, desmarque. Caso contrário, selecione o novo.
         const newValue = prev[key] === value ? "" : value;
-        return {...prev, [key]: newValue };
+        return { ...prev, [key]: newValue };
     });
+    // Feche o popover após a seleção
     setOpenPopovers(prev => ({...prev, [key]: false}));
   };
   
@@ -328,34 +330,44 @@ export function ProductCreator({ category }: ProductCreatorProps) {
                  <div key={attr.key} className="space-y-2">
                     <Label>{attr.label}</Label>
                     <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" role="combobox" aria-expanded={openPopovers[attr.key]} className="w-full justify-between font-normal">
-                                <span className="truncate">
-                                    {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
-                                </span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0" style={{width: 'var(--radix-popover-trigger-width)'}}>
-                            <Command>
-                                <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                <CommandList>
-                                    <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                    <CommandGroup>
-                                        {attr.values.map(val => (
-                                            <CommandItem
-                                                key={val}
-                                                value={val}
-                                                onSelect={() => handleAttributeSelect(attr.key, val)}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                {val}
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openPopovers[attr.key]}
+                          className="w-full justify-between font-normal"
+                        >
+                          <span className="truncate">
+                            {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                        <Command>
+                          <CommandInput
+                            placeholder={`Buscar ${attr.label.toLowerCase()}...`}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                          />
+                          <CommandList>
+                            <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+                            <CommandGroup>
+                              {attr.values.map((val) => (
+                                <CommandItem
+                                  key={val}
+                                  value={val}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onSelect={() => handleAttributeSelect(attr.key, val)}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
+                                  {val}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
                     </Popover>
                  </div>
               ))}
