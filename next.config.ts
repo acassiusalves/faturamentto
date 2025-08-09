@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'files-product.magalu.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   devIndicators: {
