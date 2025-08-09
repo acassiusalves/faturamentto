@@ -2,15 +2,15 @@ import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, Api
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Mock data
-let mockInventory: InventoryItem[] = [
+export let mockInventory: InventoryItem[] = [
     { id: 'IP15-123', productId: 'PROD001', name: 'iPhone 15 Pro Max', sku: 'IP15PM', costPrice: 7500, quantity: 1, serialNumber: 'SN123456789', gtin: '1234567890123', origin: 'Fornecedor A', createdAt: new Date().toISOString() },
     { id: 'IP15-124', productId: 'PROD001', name: 'iPhone 15 Pro Max', sku: 'IP15PM', costPrice: 7500, quantity: 1, serialNumber: 'SN123456790', gtin: '1234567890123', origin: 'Fornecedor A', createdAt: new Date().toISOString() },
     { id: 'S23-ABC', productId: 'PROD002', name: 'Samsung Galaxy S23 Ultra', sku: 'S23U', costPrice: 6800, quantity: 1, serialNumber: 'SNABCDEFGHIJK', gtin: '9876543210987', origin: 'Fornecedor B', createdAt: new Date().toISOString() },
 ];
 
-let mockProducts: Product[] = [];
+export let mockProducts: Product[] = [];
 
-let mockSales: Sale[] = [
+export let mockSales: Sale[] = [
   {
     id: "SALE001",
     date: "2024-05-01",
@@ -44,9 +44,9 @@ let mockSales: Sale[] = [
   },
 ];
 
-let mockPickingLog: PickedItemLog[] = [];
+export let mockPickingLog: PickedItemLog[] = [];
 
-let mockAppSettings: {
+export let mockAppSettings: {
     iderisPrivateKey?: string;
     googleSheetsApiKey?: string;
     allMappings?: AllMappingsState;
@@ -56,15 +56,15 @@ let mockAppSettings: {
     iderisApiStatus?: ApiKeyStatus;
     googleSheetsApiStatus?: ApiKeyStatus;
 } = {
-    iderisPrivateKey: "mock-private-key",
-    iderisApiStatus: "valid",
+    iderisPrivateKey: "",
+    iderisApiStatus: "unchecked",
     allMappings: {},
     friendlyFieldNames: {},
     fileNames: {},
     fileData: {},
 };
 
-let mockCompanyCosts: {
+export let mockCompanyCosts: {
     fixed: CompanyCost[];
     variable: CompanyCost[];
 } = {
@@ -78,7 +78,7 @@ let mockCompanyCosts: {
     ]
 };
 
-let mockProductSettings: { [key: string]: ProductCategorySettings } = {};
+export let mockProductSettings: { [key: string]: ProductCategorySettings } = {};
 
 
 // Mock service functions
@@ -184,32 +184,6 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
     await new Promise(resolve => setTimeout(resolve, 300));
 };
 
-
-export const loadAppSettings = async (): Promise<typeof mockAppSettings | null> => {
-    console.log("Loading app settings...");
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return mockAppSettings;
-}
-
-export const saveAppSettings = async (uid: string, settings: Partial<typeof mockAppSettings>): Promise<void> => {
-    console.log("Saving app settings for user:", uid, settings);
-    await new Promise(resolve => setTimeout(resolve, 200));
-    mockAppSettings = { ...mockAppSettings, ...settings };
-}
-
-
-export const loadSales = async (): Promise<Sale[]> => {
-    console.log("Loading sales...");
-    await new Promise(resolve => setTimeout(resolve, 400));
-    return [...mockSales];
-};
-
-export const saveSales = async (sales: Sale[]): Promise<void> => {
-    console.log("Saving new sales:", sales);
-    await new Promise(resolve => setTimeout(resolve, 400));
-    mockSales.push(...sales);
-};
-
 export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale | null> => {
     console.log("Finding sale by order number:", orderNumber);
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -266,8 +240,3 @@ export const saveCompanyCosts = async (uid: string, costs: typeof mockCompanyCos
     mockCompanyCosts = costs;
     await new Promise(resolve => setTimeout(resolve, 300));
 };
-
-
-// These functions were moved to services/ideris.ts
-// export const testIderisConnection = async...
-// export const fetchOrdersFromIderis = async...

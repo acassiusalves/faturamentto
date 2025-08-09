@@ -20,7 +20,8 @@ import { removeAccents } from "@/lib/utils";
 import { SuggestionDialog } from "@/components/suggestion-dialog";
 import { systemFields } from "@/lib/system-fields";
 import { iderisFields } from "@/lib/ideris-fields";
-import { saveAppSettings, loadAppSettings, saveSales, loadSales } from "@/lib/mock-services";
+import { saveAppSettings, loadAppSettings } from "@/services/firestore";
+import { saveSales, loadSales } from "@/services/firestore";
 import { fetchOrdersFromIderis } from "@/services/ideris";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
@@ -28,6 +29,8 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+const DEFAULT_USER_ID = 'default-user';
 
 
 const marketplaces = [
@@ -83,8 +86,8 @@ export default function MappingPage() {
     async function loadData() {
         setIsDataLoading(true);
         const [settings, sales] = await Promise.all([
-            loadAppSettings(),
-            loadSales()
+            loadAppSettings(DEFAULT_USER_ID),
+            loadSales(DEFAULT_USER_ID)
         ]);
         
         if (settings) {
@@ -127,12 +130,12 @@ export default function MappingPage() {
     const updatedAllMappings = { ...allMappings, [marketplaceId]: newMappings };
     setAllMappings(updatedAllMappings);
     // Directly save to mock service
-    await saveAppSettings("user-id-placeholder", { allMappings: updatedAllMappings });
+    await saveAppSettings(DEFAULT_USER_ID, { allMappings: updatedAllMappings });
   };
   
   const handleFriendlyNamesChange = async (newFriendlyNames: Record<string, string>) => {
     setFriendlyNames(newFriendlyNames);
-    await saveAppSettings("user-id-placeholder", { friendlyFieldNames: newFriendlyNames });
+    await saveAppSettings(DEFAULT_USER_ID, { friendlyFieldNames: newFriendlyNames });
      toast({
       title: "Nomes Amigáveis Salvos",
       description: "Os nomes das colunas foram atualizados.",
@@ -158,11 +161,12 @@ export default function MappingPage() {
     
     const fileContent = await file.text();
     
+    const currentSettings = await loadAppSettings(DEFAULT_USER_ID);
     const settingsToSave = {
         fileNames: updatedFileNames,
-        fileData: { ...((await loadAppSettings())?.fileData || {}), [marketplaceId]: fileContent },
+        fileData: { ...(currentSettings?.fileData || {}), [marketplaceId]: fileContent },
     };
-    await saveAppSettings("user-id-placeholder", settingsToSave);
+    await saveAppSettings(DEFAULT_USER_ID, settingsToSave);
 
     Papa.parse(fileContent, {
         encoding: "UTF-8",
@@ -213,15 +217,15 @@ export default function MappingPage() {
     };
 
     try {
-        const existingSales = await loadSales();
+        const existingSales = await loadSales(DEFAULT_USER_ID);
         const existingSaleIds = existingSales.map(s => s.id);
-        const data = await fetchOrdersFromIderis("user-id-placeholder", iderisPrivateKey, finalDateRange, existingSaleIds, progressCallback);
+        const data = await fetchOrdersFromIderis(DEFAULT_USER_ID, iderisPrivateKey, finalDateRange, existingSaleIds, progressCallback);
         
         if (data.length === 0) {
             toast({ title: "Nenhuma Venda Nova Encontrada", description: "Não foram encontradas novas vendas no período selecionado ou todas já foram importadas." });
         } else {
-            await saveSales(data);
-            const currentSales = await loadSales();
+            await saveSales(DEFAULT_USER_ID, data);
+            const currentSales = await loadSales(DEFAULT_USER_ID);
             setImportedSalesCount(currentSales.length);
             toast({
               title: "Importação Concluída!",
@@ -247,11 +251,13 @@ export default function MappingPage() {
     delete updatedMappings[marketplaceId];
     setAllMappings(updatedMappings);
 
-    const currentSettings = await loadAppSettings();
+    const currentSettings = await loadAppSettings(DEFAULT_USER_ID);
     const updatedFileData = { ...currentSettings?.fileData };
-    delete updatedFileData[marketplaceId];
+    if (updatedFileData) {
+        delete updatedFileData[marketplaceId];
+    }
 
-    await saveAppSettings("user-id-placeholder", { fileNames: updatedFileNames, allMappings: updatedMappings, fileData: updatedFileData });
+    await saveAppSettings(DEFAULT_USER_ID, { fileNames: updatedFileNames, allMappings: updatedMappings, fileData: updatedFileData });
 
     setHeaders(prev => {
         const newState = {...prev};
@@ -274,21 +280,21 @@ export default function MappingPage() {
     
     setIsTestingConnection(true);
     try {
-        await saveAppSettings("user-id-placeholder", { iderisPrivateKey });
-        const result = await testIderisConnection("user-id-placeholder", iderisPrivateKey);
+        await saveAppSettings(DEFAULT_USER_ID, { iderisPrivateKey });
+        const result = await testIderisConnection(DEFAULT_USER_ID, iderisPrivateKey);
         
         if (result.success) {
             setIderisApiStatus('valid');
-            await saveAppSettings("user-id-placeholder", { iderisApiStatus: 'valid' });
+            await saveAppSettings(DEFAULT_USER_ID, { iderisApiStatus: 'valid' });
             toast({ title: "Sucesso!", description: "A conexão com a API da Ideris foi bem-sucedida e as credenciais foram salvas." });
         } else {
             setIderisApiStatus('invalid');
-            await saveAppSettings("user-id-placeholder", { iderisApiStatus: 'invalid' });
+            await saveAppSettings(DEFAULT_USER_ID, { iderisApiStatus: 'invalid' });
             toast({ variant: "destructive", title: "Falha na Conexão", description: result.message });
         }
     } catch (e: any) {
         setIderisApiStatus('invalid');
-        await saveAppSettings("user-id-placeholder", { iderisApiStatus: 'invalid' });
+        await saveAppSettings(DEFAULT_USER_ID, { iderisApiStatus: 'invalid' });
         toast({ variant: "destructive", title: "Erro Inesperado", description: e.message || "Não foi possível verificar a conexão." });
     } finally {
         setIsTestingConnection(false);
@@ -311,12 +317,12 @@ export default function MappingPage() {
             
             if (fetchedHeaders.length === 0) {
                 setGoogleSheetsApiStatus('invalid');
-                await saveAppSettings("user-id-placeholder", { googleSheetsApiStatus: 'invalid' });
+                await saveAppSettings(DEFAULT_USER_ID, { googleSheetsApiStatus: 'invalid' });
                 toast({ variant: "destructive", title: "Nenhum Cabeçalho Encontrado", description: "A planilha está vazia ou a primeira linha não contém dados. Verifique o ID e se a planilha está pública." });
                 setSheetHeaders([]);
             } else {
                 setGoogleSheetsApiStatus('valid');
-                await saveAppSettings("user-id-placeholder", { googleSheetsApiStatus: 'valid' });
+                await saveAppSettings(DEFAULT_USER_ID, { googleSheetsApiStatus: 'valid' });
                 setSheetHeaders(fetchedHeaders);
                 const orderNumberCandidate = fetchedHeaders.find(h => removeAccents(h.toLowerCase()).includes('pedido'));
                 if (orderNumberCandidate) {
@@ -326,7 +332,7 @@ export default function MappingPage() {
             }
         } catch (error) {
             setGoogleSheetsApiStatus('invalid');
-            await saveAppSettings("user-id-placeholder", { googleSheetsApiStatus: 'invalid' });
+            await saveAppSettings(DEFAULT_USER_ID, { googleSheetsApiStatus: 'invalid' });
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
             toast({ variant: "destructive", title: "Erro ao Mapear", description: errorMessage });
             setSheetHeaders([]);
@@ -339,7 +345,7 @@ export default function MappingPage() {
         if (!googleSheetsApiKey) return;
         setIsMappingSheet(true);
         try {
-            await saveAppSettings("user-id-placeholder", { googleSheetsApiKey });
+            await saveAppSettings(DEFAULT_USER_ID, { googleSheetsApiKey });
             toast({ title: "Chave de API Salva!", description: "Agora você pode inserir o ID da planilha para mapear." });
         } catch(e) {
              toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a chave de API."});
@@ -367,7 +373,7 @@ export default function MappingPage() {
     const handleSaveAndImportSheet = async () => {
         setIsImportingSheet(true);
         try {
-            const result = await importFromSheet("user-id-placeholder", googleSheetId, googleSheetsApiKey, sheetFriendlyNames, sheetAssociationKey);
+            const result = await importFromSheet(DEFAULT_USER_ID, googleSheetId, googleSheetsApiKey, sheetFriendlyNames, sheetAssociationKey);
             if (result.success) {
                 toast({
                     title: "Importação Concluída!",
@@ -388,7 +394,7 @@ export default function MappingPage() {
         setGoogleSheetsApiKey("");
         setGoogleSheetsApiStatus("unchecked");
         setSheetHeaders([]); // Clear mapped headers as the key is being changed
-        await saveAppSettings("user-id-placeholder", { googleSheetsApiKey: "", googleSheetsApiStatus: "unchecked" });
+        await saveAppSettings(DEFAULT_USER_ID, { googleSheetsApiKey: "", googleSheetsApiStatus: "unchecked" });
         toast({ title: "Chave de API Removida", description: "Por favor, insira e valide a nova chave." });
     }
 
