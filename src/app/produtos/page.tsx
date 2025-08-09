@@ -7,19 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Smartphone, Laptop, Settings, Loader2 } from "lucide-react";
 
 export default function ProdutosPage() {
-
-  const [loading, setLoading] = useState(true);
-
+  const [isClient, setIsClient] = useState(false);
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    setIsClient(true);
   }, []);
 
-
-  if (loading) {
+  if (!isClient) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <Loader2 className="animate-spin" />
@@ -38,15 +31,17 @@ export default function ProdutosPage() {
       </div>
 
       <Tabs defaultValue="celulares" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="celulares">
+        <TabsList className="flex justify-between h-auto p-1">
+            <div className="flex items-center">
+              <TabsTrigger value="celulares">
                 <Smartphone className="mr-2" />
                 Celulares
-            </TabsTrigger>
-            <TabsTrigger value="notebooks" disabled>
+              </TabsTrigger>
+              <TabsTrigger value="notebooks" disabled>
                 <Laptop className="mr-2" />
                 Notebooks (Em Breve)
-            </TabsTrigger>
+              </TabsTrigger>
+            </div>
            <TabsTrigger value="configuracoes">
             <Settings className="mr-2" />
             Configurações
@@ -65,5 +60,3 @@ export default function ProdutosPage() {
     </div>
   );
 }
-
-    
