@@ -15,6 +15,7 @@ export interface Cost {
   description: string;
   amount: number;
   category: CostCategory;
+  isPercentage?: boolean;
 }
 
 export interface Sale {
@@ -35,10 +36,26 @@ export interface Sale {
   [key: string]: any;
 }
 
+export interface ProductAttribute {
+  key: string;
+  label: string;
+  values: string[];
+}
+
+export interface ProductCategorySettings {
+    id: string;
+    name: string;
+    attributes: ProductAttribute[];
+}
+
 export interface Product {
   id: string;
   name: string;
   sku: string;
+  category: 'Celular' | 'Notebook';
+  attributes: Record<string, string>;
+  createdAt: string;
+  associatedSkus?: string[];
 }
 
 export interface InventoryItem {

@@ -1,4 +1,4 @@
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost } from './types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings } from './types';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Mock data
@@ -8,11 +8,7 @@ let mockInventory: InventoryItem[] = [
     { id: 'S23-ABC', productId: 'PROD002', name: 'Samsung Galaxy S23 Ultra', sku: 'S23U', costPrice: 6800, quantity: 1, serialNumber: 'SNABCDEFGHIJK', gtin: '9876543210987', origin: 'Fornecedor B', createdAt: new Date().toISOString() },
 ];
 
-let mockProducts: Product[] = [
-    { id: 'PROD001', name: 'iPhone 15 Pro Max', sku: 'IP15PM' },
-    { id: 'PROD002', name: 'Samsung Galaxy S23 Ultra', sku: 'S23U' },
-    { id: 'PROD003', name: 'Google Pixel 8 Pro', sku: 'GP8P' },
-];
+let mockProducts: Product[] = [];
 
 let mockSales: Sale[] = [
   {
@@ -82,6 +78,8 @@ let mockCompanyCosts: {
     ]
 };
 
+let mockProductSettings: { [key: string]: ProductCategorySettings } = {};
+
 
 // Mock service functions
 export const loadInventoryItems = async (): Promise<InventoryItem[]> => {
@@ -113,7 +111,42 @@ export const deleteInventoryItem = async (itemId: string): Promise<void> => {
 export const loadProducts = async (): Promise<Product[]> => {
     console.log("Loading mock products...");
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [...mockProducts];
+    return [...mockProducts].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const saveProduct = async (product: Product): Promise<void> => {
+    console.log("Saving product:", product.id);
+    const index = mockProducts.findIndex(p => p.id === product.id);
+    if (index > -1) {
+        mockProducts[index] = product;
+    } else {
+        mockProducts.unshift(product);
+    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+};
+
+export const saveProducts = async (products: Product[]): Promise<void> => {
+    console.log("Saving multiple products");
+    mockProducts.push(...products);
+    await new Promise(resolve => setTimeout(resolve, 300));
+};
+
+export const deleteProduct = async (productId: string): Promise<void> => {
+    console.log("Deleting product:", productId);
+    mockProducts = mockProducts.filter(p => p.id !== productId);
+    await new Promise(resolve => setTimeout(resolve, 300));
+};
+
+export const loadProductSettings = async (categoryId: string): Promise<ProductCategorySettings | null> => {
+    console.log(`Loading product settings for category: ${categoryId}`);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return mockProductSettings[categoryId] || null;
+};
+
+export const saveProductSettings = async (categoryId: string, settings: ProductCategorySettings): Promise<void> => {
+    console.log(`Saving product settings for category: ${categoryId}`);
+    mockProductSettings[categoryId] = settings;
+    await new Promise(resolve => setTimeout(resolve, 200));
 };
 
 export const findInventoryItemBySN = async (serialNumber: string): Promise<InventoryItem | undefined> => {
@@ -125,7 +158,7 @@ export const findInventoryItemBySN = async (serialNumber: string): Promise<Inven
 export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
     console.log("Loading today's picking log...");
     await new Promise(resolve => setTimeout(resolve, 300));
-    return [...mockPickingLog];
+    return [...mockPickingLog].sort((a, b) => new Date(b.pickedAt).getTime() - new Date(a.pickedAt).getTime());
 };
 
 export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
