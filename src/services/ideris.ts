@@ -251,4 +251,6 @@ export async function fetchOrdersFromIderis(
       if (error instanceof Error) {
         throw new Error(`Não foi possível buscar os pedidos da Ideris: ${error.message}`);
       }
-      throw new Error('Ocorreu um erro desconhecido
+      throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
+  }
+}
