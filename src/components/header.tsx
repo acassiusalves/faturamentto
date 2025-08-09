@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link";
-import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map } from 'lucide-react';
+import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3 } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 
@@ -47,9 +47,9 @@ export function Header() {
                     </Link>
                 </Button>
                 <Button asChild variant="ghost" size="sm">
-                    <Link href="/custos">
-                        <PiggyBank className="mr-2" />
-                        Custos
+                    <Link href="/dre">
+                        <BarChart3 className="mr-2" />
+                        DRE
                     </Link>
                 </Button>
                 <Button asChild variant="ghost" size="sm">

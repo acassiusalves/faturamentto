@@ -146,9 +146,9 @@ export default function CostsPage() {
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Central de Custos</h1>
+        <h1 className="text-3xl font-bold font-headline">Central de Custos Operacionais</h1>
         <p className="text-muted-foreground">
-          Gerencie os custos fixos e variáveis da sua empresa para um cálculo preciso da lucratividade.
+          Gerencie os custos fixos e variáveis da sua empresa. Estes valores serão usados no cálculo do DRE.
         </p>
       </div>
 
