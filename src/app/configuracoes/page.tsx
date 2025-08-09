@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -170,12 +171,12 @@ export default function SettingsPage() {
                             <TableBody>
                                 {users.length > 0 ? users.map(user => (
                                     <TableRow key={user.id}>
-                                        <TableCell className="font-medium">{user.email}</TableCell>
+                                        <TableCell className="font-medium">{user.email || "Email não disponível"}</TableCell>
                                         <TableCell>
                                             <Select
                                                 value={user.role}
                                                 onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
-                                                disabled={user.email.toLowerCase().includes('admin@')}
+                                                disabled={user.email?.toLowerCase().includes('admin@')}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecione a função" />
