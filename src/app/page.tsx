@@ -4,12 +4,11 @@ import { SalesDashboard } from '@/components/sales-dashboard';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { loadAppSettings, saveSales, loadSales } from '@/services/firestore';
+import { loadAppSettings, saveSales, loadSales } from '@/lib/mock-services';
 import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Loader2 } from 'lucide-react';
 
 const SYNC_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
-const DEFAULT_USER_ID = 'default-user';
 
 export default function Home() {
   const router = useRouter();
@@ -23,8 +22,13 @@ export default function Home() {
 
   const autoSyncIderis = useCallback(async (isSilent: boolean = false) => {
     if (isSyncing) return;
-    const settings = await loadAppSettings(DEFAULT_USER_ID);
-    if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') return;
+    const settings = await loadAppSettings();
+    if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
+        if (!isSilent) {
+            toast({ variant: 'destructive', title: 'Sincronização Pausada', description: 'Valide sua chave da Ideris na página de Mapeamento para buscar novos pedidos.'});
+        }
+        return;
+    }
 
     setIsSyncing(true);
     if (!isSilent) {
@@ -36,13 +40,13 @@ export default function Home() {
         const from = new Date();
         from.setDate(to.getDate() - 1); // Check last 24 hours
 
-        const existingSales = await loadSales(DEFAULT_USER_ID);
+        const existingSales = await loadSales();
         const existingSaleIds = existingSales.map(s => s.id);
         
-        const newSales = await fetchOrdersFromIderis(DEFAULT_USER_ID, settings.iderisPrivateKey, { from, to }, existingSaleIds);
+        const newSales = await fetchOrdersFromIderis(settings.iderisPrivateKey, { from, to }, existingSaleIds);
 
         if (newSales.length > 0) {
-            await saveSales(DEFAULT_USER_ID, newSales);
+            await saveSales(newSales);
              toast({
               title: "Painel Atualizado!",
               description: `${newSales.length} novo(s) pedido(s) foram importados da Ideris.`,
@@ -61,7 +65,7 @@ export default function Home() {
   useEffect(() => {
 
     async function initializeDashboard() {
-        const settings = await loadAppSettings(DEFAULT_USER_ID);
+        const settings = await loadAppSettings();
         let isConfigured = false;
         
         if (settings?.iderisPrivateKey && settings.iderisApiStatus === 'valid') {
@@ -94,7 +98,7 @@ export default function Home() {
 
     const intervalId = setInterval(async () => {
       console.log("Iniciando rotina de sincronização automática no Dashboard...");
-      const settings = await loadAppSettings(DEFAULT_USER_ID);
+      const settings = await loadAppSettings();
       if (settings?.iderisPrivateKey && settings.iderisApiStatus === 'valid') {
         await autoSyncIderis(true); // Silent sync in background
       }
@@ -115,3 +119,5 @@ export default function Home() {
   
   return <SalesDashboard isSyncing={isSyncing} lastSyncTime={lastSyncTime} />;
 }
+
+    

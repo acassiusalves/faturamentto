@@ -55,7 +55,7 @@ async function getValidAccessToken(privateKey: string): Promise<string> {
     return await generateAccessToken(privateKey);
 }
 
-export async function testIderisConnection(userId: string, privateKey: string): Promise<{ success: boolean; message: string; }> {
+export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string; }> {
     try {
         const accessToken = await generateAccessToken(privateKey);
         if (accessToken) {
@@ -120,7 +120,7 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
     const finalSale = cleanedSale as Sale;
     finalSale.id = `ideris-${(mappedSale as any).order_id || `temp-${index}`}`;
     finalSale.costs = finalSale.costs || [];
-    finalSale.productDescription = finalSale.productDescription || (finalSale as any).item_title;
+    finalSale.productName = finalSale.productName || (finalSale as any).item_title;
 
 
     return finalSale;
@@ -233,7 +233,6 @@ async function performFetchWithRetry(
 }
 
 export async function fetchOrdersFromIderis(
-    userId: string, 
     privateKey: string, 
     dateRange: DateRange, 
     existingSaleIds: string[],

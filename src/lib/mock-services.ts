@@ -18,8 +18,8 @@ export let mockSales: Sale[] = [
     productName: "Camiseta estampada de algodão",
     grossRevenue: 79.9,
     costs: [
-      { id: "C01", description: "Taxa de venda", value: 12.78, category: "Taxas do Marketplace" },
-      { id: "C02", description: "Custo de envio", value: 15.0, category: "Frete" },
+      { id: "C01", type: "Taxa de venda", value: 12.78, isPercentage: false },
+      { id: "C02", type: "Custo de envio", value: 15.0, isPercentage: false },
     ],
     netValue: 52.12,
     orderNumber: "ORD-001",
@@ -34,7 +34,7 @@ export let mockSales: Sale[] = [
     salesChannel: "Amazon",
     productName: "Fone de ouvido Bluetooth 5.0",
     grossRevenue: 199.9,
-    costs: [{ id: "C03", description: "Taxa Amazon", value: 29.99, category: "Taxas do Marketplace" }],
+    costs: [{ id: "C03", type: "Taxa Amazon", value: 29.99, isPercentage: false }],
     netValue: 169.91,
     orderNumber: "ORD-002",
     sku: "S23U",
@@ -187,7 +187,7 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
 export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale | null> => {
     console.log("Finding sale by order number:", orderNumber);
     await new Promise(resolve => setTimeout(resolve, 300));
-    const sale = mockSales.find(s => s.orderNumber?.toLowerCase() === orderNumber.toLowerCase());
+    const sale = mockSales.find(s => (s as any).order_code?.toLowerCase() === orderNumber.toLowerCase());
     return sale || null;
 };
 
@@ -235,8 +235,43 @@ export const loadCompanyCosts = async (): Promise<typeof mockCompanyCosts | null
     return mockCompanyCosts;
 };
 
-export const saveCompanyCosts = async (uid: string, costs: typeof mockCompanyCosts): Promise<void> => {
-    console.log("Saving company costs for user:", uid, costs);
+export const saveCompanyCosts = async (costs: typeof mockCompanyCosts): Promise<void> => {
+    console.log("Saving company costs", costs);
     mockCompanyCosts = costs;
     await new Promise(resolve => setTimeout(resolve, 300));
 };
+
+export async function saveSales(sales: Sale[]): Promise<void> {
+    console.log(`Saving ${sales.length} sales`);
+    
+    sales.forEach(newSale => {
+        const index = mockSales.findIndex(existing => existing.id === newSale.id);
+        if (index !== -1) {
+            mockSales[index] = { ...mockSales[index], ...newSale };
+        } else {
+            mockSales.push(newSale);
+        }
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 400));
+}
+
+export async function loadSales(): Promise<Sale[]> {
+    console.log(`Loading sales`);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return [...mockSales];
+}
+
+export const loadAppSettings = async (): Promise<AppSettings | null> => {
+    console.log("Loading app settings");
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return mockAppSettings;
+}
+
+export const saveAppSettings = async (settings: Partial<any>): Promise<void> => {
+    console.log("Saving app settings", settings);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    Object.assign(mockAppSettings, settings);
+}
+
+    

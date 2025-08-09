@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategorySettings, ProductAttribute, InventoryItem } from '@/lib/types';
-import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts, loadInventoryItems } from '@/lib/mock-services';
+import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/lib/mock-services';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -468,3 +468,5 @@ export function ProductCreator({ category }: ProductCreatorProps) {
     </>
   );
 }
+
+    

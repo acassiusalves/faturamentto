@@ -16,10 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { saveSales, loadSales } from "@/services/firestore";
+import { saveSales, loadSales } from "@/lib/mock-services";
 import { Badge } from "./ui/badge";
 
-const DEFAULT_USER_ID = 'default-user';
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
   return (
@@ -63,7 +62,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   useEffect(() => {
     async function loadInitialData() {
         setIsLoading(true);
-        const storedSales = await loadSales(DEFAULT_USER_ID);
+        const storedSales = await loadSales();
         setSales(storedSales);
         setIsLoading(false);
     }
@@ -181,7 +180,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     // We only need to save the specific sale that was updated.
     const saleToUpdate = updatedSales.find(s => s.id === saleId);
     if (saleToUpdate) {
-        await saveSales(DEFAULT_USER_ID, [saleToUpdate]);
+        await saveSales([saleToUpdate]);
     }
   };
   
@@ -311,3 +310,5 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     </div>
   );
 }
+
+    

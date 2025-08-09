@@ -40,7 +40,7 @@ export default function CostsPage() {
     const updatedCosts = category === 'fixed' 
         ? { fixed: costs, variable: variableCosts } 
         : { fixed: fixedCosts, variable: costs };
-    saveCompanyCosts("user-id-placeholder", updatedCosts);
+    saveCompanyCosts(updatedCosts);
   };
 
   const handleAddCost = () => {
@@ -224,3 +224,5 @@ export default function CostsPage() {
     </div>
   );
 }
+
+    

@@ -157,7 +157,7 @@ export default function EstoquePage() {
     }));
 
     try {
-      const savedItems = await saveMultipleInventoryItems(newItems);
+      const savedItems = await saveMultipleInventoryItems(newItems as InventoryItem[]);
       setInventory(prev => [...savedItems, ...prev]);
       toast({
         title: `${newItems.length} Itens Adicionados!`,
@@ -599,3 +599,5 @@ export default function EstoquePage() {
     </div>
   );
 }
+
+    

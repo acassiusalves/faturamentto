@@ -20,7 +20,7 @@ import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings } from '@/lib/mock-services';
 import Image from 'next/image';
 import {
   DndContext,
@@ -116,7 +116,7 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
             setColumnOrder(defaultVisibleColumnsOrder);
         }
 
-        const settings = await loadAppSettings(DEFAULT_USER_ID);
+        const settings = await loadAppSettings();
         if (settings?.friendlyFieldNames) {
           setFriendlyNames(settings.friendlyFieldNames);
         }
@@ -431,3 +431,5 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
     </>
   );
 }
+
+    

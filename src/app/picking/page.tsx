@@ -77,7 +77,7 @@ export default function PickingPage() {
         const existingSales = await loadSales();
         const existingSaleIds = existingSales.map(s => s.id);
         
-        const newSales = await fetchOrdersFromIderis("user-id-placeholder", settings.iderisPrivateKey, { from, to }, existingSaleIds);
+        const newSales = await fetchOrdersFromIderis(settings.iderisPrivateKey, { from, to }, existingSaleIds);
 
         if (newSales.length > 0) {
             await saveSales(newSales);
@@ -184,7 +184,7 @@ export default function PickingPage() {
             logId: `log-${item.id}-${Date.now()}`,
         }));
 
-        savePickLog(logsToSave);
+        await savePickLog(logsToSave);
 
         for (const item of scannedItems) {
             if (!item.id.startsWith('manual-')) {
@@ -704,3 +704,4 @@ useEffect(() => {
   );
 }
 
+    
