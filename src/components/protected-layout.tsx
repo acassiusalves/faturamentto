@@ -17,8 +17,16 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
+    if (loading) return; // Don't do anything while loading
+
+    // If not logged in and not on the login page, redirect to login
+    if (!user && pathname !== '/login') {
       router.push('/login');
+    }
+
+    // If logged in and on the login page, redirect to dashboard
+    if (user && pathname === '/login') {
+      router.push('/');
     }
   }, [user, loading, router, pathname]);
 
@@ -30,30 +38,21 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  if (!user && pathname !== '/login') {
-    // Ainda pode mostrar o loader enquanto redireciona
+  // While redirecting, show a loader
+  if ((!user && pathname !== '/login') || (user && pathname === '/login')) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
-  
-  if (user && pathname === '/login') {
-      router.push('/');
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      );
-  }
 
-  // Se o usuário não estiver logado e estiver na página de login, renderize apenas os filhos (a própria página de login)
+  // If the user is not logged in and is on the login page, render only the children (the login page itself)
   if (!user && pathname === '/login') {
     return <>{children}</>;
   }
 
-  // Se o usuário estiver logado, renderize o layout principal com header e conteúdo
+  // If the user is logged in, render the main layout with header and content
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
