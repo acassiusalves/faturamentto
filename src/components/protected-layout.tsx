@@ -6,24 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Header } from './header';
+import { pagePermissions } from '@/lib/permissions';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
-
-const pagePermissions: Record<string, string[]> = {
-    '/': ['admin', 'financeiro', 'expedicao', 'sac'],
-    '/produtos': ['admin', 'expedicao'],
-    '/estoque': ['admin', 'expedicao'],
-    '/picking': ['admin', 'expedicao'],
-    '/arquivo': ['admin', 'expedicao', 'sac'],
-    '/dre': ['admin', 'financeiro'],
-    '/custos-geral': ['admin', 'financeiro'],
-    '/mapeamento': ['admin'],
-    '/configuracoes': ['admin'],
-    '/perfil': ['admin', 'financeiro', 'expedicao', 'sac'],
-    '/login': [], // Public page
-};
 
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { user, loading } = useAuth();

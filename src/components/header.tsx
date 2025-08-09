@@ -1,31 +1,22 @@
 
 "use client"
 import Link from "next/link";
-import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut, User, DollarSign } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
-
-const navLinks = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard, roles: ['admin', 'financeiro', 'expedicao', 'sac'] },
-    { href: "/produtos", label: "Produtos", icon: PackagePlus, roles: ['admin', 'expedicao'] },
-    { href: "/estoque", label: "Estoque", icon: Warehouse, roles: ['admin', 'expedicao'] },
-    { href: "/picking", label: "Picking", icon: PackageCheck, roles: ['admin', 'expedicao'] },
-    { href: "/arquivo", label: "Arquivo", icon: Archive, roles: ['admin', 'expedicao', 'sac'] },
-    { href: "/dre", label: "DRE", icon: BarChart3, roles: ['admin', 'financeiro'] },
-    { href: "/custos-geral", label: "Custos", icon: DollarSign, roles: ['admin', 'financeiro'] },
-    { href: "/mapeamento", label: "Mapeamento", icon: Map, roles: ['admin'] },
-];
-
-const settingsLinks = [
-    { href: "/configuracoes", title: "Configurações", icon: Settings, roles: ['admin'] },
-    { href: "/perfil", title: "Perfil", icon: User, roles: ['admin', 'financeiro', 'expedicao', 'sac'] },
-]
+import { navLinks, settingsLinks, pagePermissions } from "@/lib/permissions";
 
 export function Header() {
     const { user, logout } = useAuth();
 
     if (!user) return null;
+
+    const hasAccess = (href: string) => {
+        const allowedRoles = pagePermissions[href];
+        if (!allowedRoles) return false; // Default to deny if page not in config
+        return allowedRoles.includes(user.role);
+    };
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
@@ -38,7 +29,7 @@ export function Header() {
             </Link>
             
             <nav className="ml-auto flex items-center gap-2">
-                {navLinks.filter(link => link.roles.includes(user.role)).map(link => (
+                {navLinks.filter(link => hasAccess(link.href)).map(link => (
                     <Button asChild variant="ghost" size="sm" key={link.href}>
                         <Link href={link.href}>
                             <link.icon className="mr-2" />
@@ -48,7 +39,7 @@ export function Header() {
                 ))}
                 
                 <div className="flex items-center gap-1 border-l ml-2 pl-2">
-                    {settingsLinks.filter(link => link.roles.includes(user.role)).map(link => (
+                    {settingsLinks.filter(link => hasAccess(link.href)).map(link => (
                          <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
                             <Link href={link.href}>
                                 <link.icon />
