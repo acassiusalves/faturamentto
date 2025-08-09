@@ -57,7 +57,7 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
                     <div key={field.key} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-x-4">
                         <div>
                             <Badge variant="secondary" className="w-full justify-start py-2">
-                                {field.name}
+                                {field.label}
                             </Badge>
                         </div>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -66,7 +66,7 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
                                 id={`friendly-name-${field.key}`}
                                 value={friendlyNames[field.key] || ""}
                                 onChange={(e) => handleNameChange(field.key, e.target.value)}
-                                placeholder={field.name} // Default to original label
+                                placeholder={field.label} // Default to original label
                             />
                         </div>
                          <Button variant="ghost" size="sm" onClick={() => handleReset(field.key)}>

@@ -22,7 +22,7 @@ interface MappingFormProps {
 }
 
 const getIderisFieldLabel = (key: string) => {
-    return iderisFields.find(f => f.key === key)?.name || key;
+    return iderisFields.find(f => f.key === key)?.label || key;
 };
 
 export function MappingForm({ marketplaceId, sourceFields, systemFieldsToMap, initialMappings, onSave, isIderisApi = false }: MappingFormProps) {
