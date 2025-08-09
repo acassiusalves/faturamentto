@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { SkuAssociationDialog } from './sku-association-dialog';
 import { Badge } from './ui/badge';
+import { ProductBulkImportDialog } from './product-bulk-import-dialog';
 
 
 interface ProductCreatorProps {
@@ -35,6 +36,7 @@ export function ProductCreator({ category }: ProductCreatorProps) {
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [isSkuDialogOpen, setIsSkuDialogOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [selectedProductForSku, setSelectedProductForSku] = useState<Product | null>(null);
 
 
@@ -250,6 +252,42 @@ export function ProductCreator({ category }: ProductCreatorProps) {
     }
   };
   
+  const handleBulkImportSave = async (importedProducts: Omit<Product, 'id' | 'createdAt'>[]) => {
+    const productsToSave: Product[] = [];
+    let skippedCount = 0;
+    
+    // Filter out duplicates before saving
+    const productsWithNoDuplicates = importedProducts.filter(newProd => {
+        const nameExists = products.some(p => p.name.toLowerCase() === newProd.name.toLowerCase());
+        const skuExists = products.some(p => p.sku === newProd.sku);
+        if (nameExists || skuExists) {
+            skippedCount++;
+            return false;
+        }
+        return true;
+    });
+    
+    productsWithNoDuplicates.forEach(p => {
+        const newProduct: Product = {
+            ...p,
+            id: `prod-${Date.now()}-${Math.random()}`,
+            createdAt: new Date().toISOString(),
+        };
+        productsToSave.push(newProduct);
+    });
+
+    if (productsToSave.length > 0) {
+      await saveProducts(productsToSave);
+      setProducts(prev => [...productsToSave, ...prev]);
+    }
+    
+    toast({
+        title: "Importação Concluída",
+        description: `${productsToSave.length} produtos foram importados. ${skippedCount} produtos já existentes foram ignorados.`
+    });
+    setIsBulkImportOpen(false);
+  }
+  
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR');
 
   if (isLoading) {
@@ -356,23 +394,29 @@ export function ProductCreator({ category }: ProductCreatorProps) {
       <div className="md:col-span-2">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center gap-4">
-              <div className="flex-1">
+            <div className="flex justify-between items-center gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
                 <CardTitle>Modelos Cadastrados</CardTitle>
                 <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
               </div>
-              <div className="relative w-full max-w-xs">
-                <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome ou SKU..."
-                  className="pl-9"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
-                  <Hash className="h-4 w-4" />
-                  <span>{filteredProducts.length} de {products.length} Modelos</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nome ou SKU..."
+                      className="pl-9 w-full sm:w-auto"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                   <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
+                       <Upload className="mr-2 h-4 w-4" />
+                       Importar em Massa
+                   </Button>
+                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
+                      <Hash className="h-4 w-4" />
+                      <span>{filteredProducts.length} de {products.length} Modelos</span>
+                  </div>
               </div>
             </div>
           </CardHeader>
@@ -463,6 +507,15 @@ export function ProductCreator({ category }: ProductCreatorProps) {
             onClose={handleSkuDialogClose}
             product={selectedProductForSku}
             onSave={handleSkuSave}
+        />
+    )}
+    {settings && (
+        <ProductBulkImportDialog
+            isOpen={isBulkImportOpen}
+            onClose={() => setIsBulkImportOpen(false)}
+            category={category}
+            settings={settings}
+            onSave={handleBulkImportSave}
         />
     )}
     </>
