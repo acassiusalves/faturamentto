@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link";
-import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut } from 'lucide-react';
+import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut, User } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
@@ -58,6 +58,12 @@ export function Header() {
                     <Link href="/mapeamento">
                         <Map className="mr-2" />
                         Mapeamento
+                    </Link>
+                </Button>
+                 <Button asChild variant="ghost" size="sm">
+                    <Link href="/perfil">
+                        <User className="mr-2" />
+                        Perfil
                     </Link>
                 </Button>
                  <Button onClick={logout} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
