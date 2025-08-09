@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -45,6 +46,7 @@ const initialCategories: ProductCategorySettings[] = [
                 'Prata', 'Star Blue', 'Twiligth Blue', 'Sky Blue', 'Onys Gray', 'Night Black', 'Cool Blue', 'Coral Green', 'Polar White', 'Silver'
             ]},
             { key: 'rede', label: 'Rede', values: ['4G', '5G'] },
+            { key: 'origem', label: 'Origem', values: ['Nacional', 'Importado'] },
         ]
     }
 ];
@@ -215,3 +217,5 @@ export function ProductSettings() {
         </Card>
     );
 }
+
+    
