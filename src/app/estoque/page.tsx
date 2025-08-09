@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
@@ -9,7 +10,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
-import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN } from '@/services/firestore';
+import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,7 @@ export default function EstoquePage() {
   const { toast } = useToast();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [origins, setOrigins] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [productPopoverOpen, setProductPopoverOpen] = useState(false);
@@ -68,14 +69,19 @@ export default function EstoquePage() {
   useEffect(() => {
     async function loadData() {
         setIsLoading(true);
-        const [items, loadedProducts] = await Promise.all([
+        const [items, loadedProducts, productSettings] = await Promise.all([
           loadInventoryItems(),
           loadProducts(),
+          loadProductSettings('celular')
         ]);
         setInventory(items);
         setProducts(loadedProducts);
-        // Mock suppliers
-        setSuppliers(["Fornecedor A", "Fornecedor B", "Fornecedor C"]);
+        if (productSettings) {
+            const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
+            if (originAttribute) {
+                setOrigins(originAttribute.values);
+            }
+        }
         setIsLoading(false);
     }
     loadData();
@@ -92,8 +98,8 @@ export default function EstoquePage() {
     setProductPopoverOpen(false);
   };
   
-  const handleOriginSelectionChange = (supplier: string) => {
-    form.setValue('origin', supplier, { shouldValidate: true });
+  const handleOriginSelectionChange = (origin: string) => {
+    form.setValue('origin', origin, { shouldValidate: true });
     setOriginPopoverOpen(false);
   }
 
@@ -421,33 +427,33 @@ export default function EstoquePage() {
                                     )}
                                     >
                                     {field.value
-                                        ? suppliers.find((s) => s === field.value)
-                                        : "Selecione um fornecedor..."}
+                                        ? origins.find((s) => s === field.value)
+                                        : "Selecione uma origem..."}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
                                 </FormControl>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-full p-0" style={{width: 'var(--radix-popover-trigger-width)'}}>
                                 <Command>
-                                    <CommandInput placeholder="Buscar fornecedor..." />
+                                    <CommandInput placeholder="Buscar origem..." />
                                     <CommandList>
-                                    <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
+                                    <CommandEmpty>Nenhuma origem encontrada.</CommandEmpty>
                                     <CommandGroup>
-                                        {suppliers.map((supplier) => (
+                                        {origins.map((origin) => (
                                         <CommandItem
-                                            value={supplier}
-                                            key={supplier}
-                                            onSelect={() => handleOriginSelectionChange(supplier)}
+                                            value={origin}
+                                            key={origin}
+                                            onSelect={() => handleOriginSelectionChange(origin)}
                                         >
                                             <Check
                                             className={cn(
                                                 "mr-2 h-4 w-4",
-                                                supplier === field.value
+                                                origin === field.value
                                                 ? "opacity-100"
                                                 : "opacity-0"
                                             )}
                                             />
-                                            {supplier}
+                                            {origin}
                                         </CommandItem>
                                         ))}
                                     </CommandGroup>
