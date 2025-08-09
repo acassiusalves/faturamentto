@@ -55,19 +55,22 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
 
   const handleSubmit = async (data: NewUserFormValues) => {
     setIsSaving(true);
-    await onSave(data.email, data.role);
-    // Don't close the dialog on error, let the user retry or see the error.
-    // The parent component will close it on success.
-    setIsSaving(false);
+    try {
+        await onSave(data.email, data.role);
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      form.reset();
+      onClose();
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        form.reset();
-      }
-      onClose();
-    }}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Convidar Novo Usuário</DialogTitle>
@@ -100,7 +103,7 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma função" />
-                      </Trigger>
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {availableRoles.map((role) => (
