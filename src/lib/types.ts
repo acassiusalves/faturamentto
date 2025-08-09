@@ -27,13 +27,43 @@ export interface Sale {
   costs: Cost[];
   netValue: number;
   totalCost?: number;
-  // Picking Page related fields
   orderNumber?: string;
   item_sku?: string;
   item_title?: string;
   item_quantity?: number;
   auth_name?: string;
-  // Custom mapped fields
+  customer_document?: string;
+  status?: string;
+  state_name?: string;
+  total?: number;
+  value_with_shipping?: number;
+  fee_order?: number;
+  commissionPercentage?: number;
+  fee?: number;
+  fee_shipment?: number;
+  tax?: number;
+  packaging?: number;
+  unitCost?: number;
+  left_over?: number;
+  profitPercentage?: number;
+  refundedValue?: number;
+  item_image?: string;
+  paid_amount?: number;
+  discount?: number;
+  discount_marketplace?: number;
+  friendlyName?: string;
+  statusDescription?: string;
+  verified?: boolean;
+  realStatus?: string;
+  returnStatus?: string;
+  verified2?: boolean;
+  ticket?: string;
+  resolved?: boolean;
+  notes?: string;
+  returnTracking?: string;
+  transferForecast?: string;
+  transferDate?: string;
+  editedLabel?: boolean;
   [key: string]: any;
 }
 

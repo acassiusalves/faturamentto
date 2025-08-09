@@ -78,7 +78,7 @@ export function MappingForm({ marketplaceId, sourceFields, systemFieldsToMap, in
                 htmlFor={`mapping-${marketplaceId}-${field.key}`}
                 className={cn(currentSelectionKey && 'text-primary font-semibold')}
               >
-                  {field.name}
+                  {field.label}
               </Label>
                <Popover open={openPopovers[field.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [field.key]: isOpen }))}>
                 <PopoverTrigger asChild>
