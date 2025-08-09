@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { pagePermissions as defaultPagePermissions } from '@/lib/permissions';
+import { loadAppSettings } from '@/services/firestore';
 
 interface AuthUser {
     uid: string;
@@ -36,19 +37,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch user role from Firestore
+        // Fetch user role from Firestore and settings
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const settingsDocRef = doc(db, 'users', 'default-user', 'app-data', 'settings');
         
-        const [userDoc, settingsDoc] = await Promise.all([
+        const [userDoc, appSettings] = await Promise.all([
             getDoc(userDocRef),
-            getDoc(settingsDocRef)
+            loadAppSettings() // Load global permissions
         ]);
         
         const role = userDoc.exists() ? userDoc.data().role : 'expedicao'; // Default role if not set
 
-        if (settingsDoc.exists() && settingsDoc.data().permissions) {
-            setPagePermissions(settingsDoc.data().permissions);
+        if (appSettings && appSettings.permissions) {
+            // Ensure admin always has all permissions
+            const dynamicPermissions = { ...appSettings.permissions };
+            for(const page in dynamicPermissions) {
+                if(!dynamicPermissions[page].includes('admin')) {
+                    dynamicPermissions[page].push('admin');
+                }
+            }
+            setPagePermissions(dynamicPermissions);
         }
 
         setUser({

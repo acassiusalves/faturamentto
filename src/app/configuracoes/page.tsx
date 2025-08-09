@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Users, Lock, UserPlus, ShieldCheck, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { pagePermissions, availableRoles } from "@/lib/permissions";
+import { pagePermissions as defaultPagePermissions, availableRoles } from "@/lib/permissions";
 import { saveAppSettings, loadAppSettings } from "@/services/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -22,16 +21,24 @@ const mockUsers = [
 
 export default function SettingsPage() {
     const [users, setUsers] = useState(mockUsers);
-    const [permissions, setPermissions] = useState(pagePermissions);
+    const [permissions, setPermissions] = useState(defaultPagePermissions);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     
     useEffect(() => {
         async function loadData() {
+            setIsLoading(true);
             const settings = await loadAppSettings();
             if (settings && settings.permissions) {
-                setPermissions(settings.permissions);
+                // Merge loaded permissions with defaults to ensure new pages are included
+                const mergedPermissions = { ...defaultPagePermissions };
+                for (const page in mergedPermissions) {
+                    if (settings.permissions[page]) {
+                        mergedPermissions[page] = settings.permissions[page];
+                    }
+                }
+                setPermissions(mergedPermissions);
             }
             setIsLoading(false);
         }
@@ -65,7 +72,7 @@ export default function SettingsPage() {
             await saveAppSettings({ permissions: permissions });
             toast({
                 title: "Permissões Salvas!",
-                description: "As regras de acesso foram atualizadas."
+                description: "As regras de acesso foram atualizadas. Pode ser necessário que os usuários recarreguem a página para ver as mudanças."
             })
         } catch (e) {
             toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar as permissões."})
@@ -90,7 +97,7 @@ export default function SettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Lock /> Permissões por Função</CardTitle>
-                    <CardDescription>Defina o que cada função pode ver e fazer no sistema.</CardDescription>
+                    <CardDescription>Defina o que cada função pode ver e fazer no sistema. A função de Administrador sempre tem acesso a tudo.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-auto">
@@ -110,7 +117,7 @@ export default function SettingsPage() {
                                         {availableRoles.map(role => (
                                             <TableCell key={`${page}-${role.key}`} className="text-center">
                                                 <Checkbox
-                                                    checked={permissions[page].includes(role.key)}
+                                                    checked={permissions[page]?.includes(role.key)}
                                                     onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
                                                     disabled={role.key === 'admin'}
                                                 />
@@ -124,7 +131,7 @@ export default function SettingsPage() {
                 </CardContent>
                  <CardFooter className="justify-end">
                     <Button onClick={handleSaveChanges} disabled={isSaving}>
-                        {isSaving && <Loader2 className="animate-spin"/>}
+                        {isSaving && <Loader2 className="animate-spin mr-2"/>}
                         Salvar Alterações de Permissão
                     </Button>
                 </CardFooter>
@@ -173,11 +180,11 @@ export default function SettingsPage() {
                         </Table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                       (Em breve) A lista de usuários será carregada automaticamente do Firebase.
+                       (Em breve) A lista de usuários será carregada automaticamente do Firebase e a alteração de função será salva.
                     </p>
                 </CardContent>
                 <CardFooter className="justify-between items-center">
-                     <Button variant="outline">
+                     <Button variant="outline" disabled>
                         <UserPlus />
                         Adicionar Novo Usuário
                     </Button>

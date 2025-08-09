@@ -287,9 +287,10 @@ export const saveCompanyCosts = async (costs: { fixed: CompanyCost[]; variable: 
 
 
 // --- APP SETTINGS (MAPPING, API KEYS, etc.) ---
+const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
+
 export const loadAppSettings = async (): Promise<any | null> => {
-    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
-    const snapshot = await getDoc(docRef);
+    const snapshot = await getDoc(settingsDocRef);
     if (snapshot.exists()) {
         return snapshot.data();
     }
@@ -297,8 +298,5 @@ export const loadAppSettings = async (): Promise<any | null> => {
 }
 
 export const saveAppSettings = async (settings: Partial<any>): Promise<void> => {
-    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
-    await setDoc(docRef, settings, { merge: true });
+    await setDoc(settingsDocRef, settings, { merge: true });
 }
-
-    
