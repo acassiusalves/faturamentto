@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, Firestore, enableNetwork } from 'firebase/firestore';
 
 const firebaseConfig = {
   "projectId": "marketflow-flmb6",
@@ -12,8 +12,28 @@ const firebaseConfig = {
   "messagingSenderId": "565748530082"
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+let app: FirebaseApp;
+let db: Firestore;
+
+if (typeof window !== 'undefined' && !getApps().length) {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  try {
+    enableNetwork(db);
+    console.log("Firebase network enabled.");
+  } catch (error) {
+    console.warn("Could not enable network for Firestore. This might happen on subsequent reloads.", error);
+  }
+} else if (getApps().length > 0) {
+    app = getApp();
+    db = getFirestore(app);
+}
+
+// Fallback for server-side rendering or environments where `window` is not defined
+if (!app) {
+    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    db = getFirestore(app);
+}
+
 
 export { app, db };
