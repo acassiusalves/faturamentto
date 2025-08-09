@@ -1,18 +1,49 @@
+
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, KeyRound } from "lucide-react";
+import { Loader2, User, KeyRound, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 export default function ProfilePage() {
-    const { user, loading } = useAuth();
+    const { user, loading, updateUsername } = useAuth();
     const { toast } = useToast();
+    const [displayName, setDisplayName] = useState("");
+    const [isSavingName, setIsSavingName] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            setDisplayName(user.displayName || "");
+        }
+    }, [user]);
+
+    const handleNameSave = async () => {
+        if (!user) return;
+        setIsSavingName(true);
+        try {
+            await updateUsername(displayName);
+            toast({
+                title: "Sucesso!",
+                description: "Seu nome de usuário foi atualizado.",
+            });
+        } catch (error: any) {
+            console.error("Erro ao atualizar nome:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Não foi possível atualizar seu nome de usuário.",
+            });
+        } finally {
+            setIsSavingName(false);
+        }
+    };
 
     const handlePasswordReset = async () => {
         if (!user?.email) return;
@@ -65,6 +96,10 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-1">
+                            <Label htmlFor="displayName">Nome de Usuário</Label>
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
                             <Label htmlFor="email">Email</Label>
                             <Input id="email" value={user.email || ""} readOnly disabled />
                         </div>
@@ -73,6 +108,12 @@ export default function ProfilePage() {
                             <Input id="creation-date" value={formatDate(user.metadata.creationTime)} readOnly disabled />
                         </div>
                     </CardContent>
+                    <CardFooter>
+                        <Button onClick={handleNameSave} disabled={isSavingName}>
+                            {isSavingName ? <Loader2 className="animate-spin" /> : <Save />}
+                            Salvar Nome
+                        </Button>
+                    </CardFooter>
                 </Card>
                 
                 <Card>
