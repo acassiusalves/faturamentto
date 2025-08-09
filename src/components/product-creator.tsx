@@ -462,12 +462,12 @@ export function ProductCreator({ category }: ProductCreatorProps) {
                                         <span>{product.associatedSkus.length}</span>
                                     </div>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto max-w-xs p-3">
-                                  <div className="space-y-2">
-                                    <h4 className="font-medium leading-none text-sm">SKUs Associados</h4>
-                                    <div className="flex flex-wrap gap-1">
+                                <PopoverContent className="w-auto p-0">
+                                  <div className="p-3 space-y-2">
+                                    <p className="text-sm font-semibold text-foreground">SKUs associados a este produto</p>
+                                    <div className="grid grid-cols-3 gap-x-4 gap-y-1 max-h-48 overflow-y-auto pr-2">
                                       {product.associatedSkus.map(sku => (
-                                        <Badge key={sku} variant="secondary">{sku}</Badge>
+                                        <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
                                       ))}
                                     </div>
                                   </div>
