@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
