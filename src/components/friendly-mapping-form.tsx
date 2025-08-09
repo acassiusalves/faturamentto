@@ -29,8 +29,8 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
   const handleSave = () => {
     onSave(friendlyNames);
     toast({
-      title: "Nomes Amigáveis Salvos",
-      description: "Os nomes foram atualizados com sucesso.",
+        title: "Nomes Amigáveis Salvos",
+        description: "Os nomes foram atualizados com sucesso.",
     });
   };
   
@@ -79,8 +79,8 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
         </div>
       <div className="flex justify-end">
         <Button onClick={handleSave}>
-          <Save className="mr-2"/>
-          Salvar Nomes Amigáveis
+            <Save className="mr-2" />
+            Salvar Nomes Amigáveis
         </Button>
       </div>
     </div>

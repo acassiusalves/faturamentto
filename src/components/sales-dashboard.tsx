@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { DollarSign, TrendingDown, TrendingUp, Search, Filter, FileDown, AlertCircle, Loader2, RefreshCw, CalendarCheck } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck } from "lucide-react";
 import { startOfMonth, endOfMonth, isSameDay } from "date-fns";
 
 import type { Sale, Cost } from "@/lib/types";
@@ -15,8 +15,11 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
-import { saveSales, loadSales } from "@/lib/mock-services";
+import { useRouter } from "next/navigation";
+import { saveSales, loadSales } from "@/services/firestore";
 import { Badge } from "./ui/badge";
+
+const DEFAULT_USER_ID = 'default-user';
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
   return (
@@ -47,6 +50,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     // Set the date range to the current month when the component mounts
@@ -59,7 +63,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   useEffect(() => {
     async function loadInitialData() {
         setIsLoading(true);
-        const storedSales = await loadSales();
+        const storedSales = await loadSales(DEFAULT_USER_ID);
         setSales(storedSales);
         setIsLoading(false);
     }
@@ -73,7 +77,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     }
     // Custos adicionados manualmente
     sale.costs.forEach(cost => {
-      const costValue = cost.isPercentage ? (sale.grossValue * cost.amount) / 100 : cost.amount;
+      const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
       total += costValue;
     });
     return total;
@@ -81,7 +85,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   
   const calculateNetRevenue = useCallback((sale: Sale): number => {
       const totalAddedCost = sale.costs.reduce((acc, cost) => {
-        const costValue = cost.isPercentage ? (sale.grossValue * cost.amount) / 100 : cost.amount;
+        const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
         return acc + costValue;
       }, 0);
       
@@ -97,7 +101,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         if(dateRange?.from && dateRange?.to) {
             try {
                 // The date from Ideris is payment_approved_date
-                const saleDateStr = (sale as any).payment_approved_date || sale.date;
+                const saleDateStr = (sale as any).payment_approved_date;
                 if (!saleDateStr) return false;
 
                 const saleDate = new Date(saleDateStr);
@@ -124,8 +128,6 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       const matchesSearch = searchTerm === "" ||
         (sale as any).item_sku?.toLowerCase().includes(lowerSearchTerm) ||
         (sale as any).order_code?.toLowerCase().includes(lowerSearchTerm) ||
-        sale.productDescription.toLowerCase().includes(lowerSearchTerm) ||
-        sale.orderNumber?.toLowerCase().includes(lowerSearchTerm) ||
         (sale as any).order_id?.toString().toLowerCase().includes(lowerSearchTerm);
       
       return matchesMarketplace && matchesSearch && matchesState && matchesAccount;
@@ -133,12 +135,12 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   }, [sales, searchTerm, marketplace, dateRange, stateFilter, accountFilter]);
 
   const stats = useMemo(() => {
-    const grossRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || sale.grossValue || 0), 0);
+    const grossRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
     const totalCosts = filteredSales.reduce((acc, sale) => {
         // From Ideris, 'fee_order' is the commission, and 'fee_shipment' is the shipping cost.
         const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
         const manuallyAddedCosts = sale.costs.reduce((costAcc, cost) => {
-            const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || sale.grossValue || 0) * cost.amount) / 100 : cost.amount;
+            const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
             return costAcc + costValue;
         }, 0);
         return acc + iderisCosts + manuallyAddedCosts;
@@ -151,7 +153,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     const today = new Date();
     const todaysSales = sales.filter(sale => {
       try {
-        const saleDateStr = (sale as any).payment_approved_date || sale.date;
+        const saleDateStr = (sale as any).payment_approved_date;
         if (!saleDateStr) return false;
         return isSameDay(new Date(saleDateStr), today);
       } catch (e) {
@@ -159,7 +161,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       }
     });
 
-    const grossRevenue = todaysSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || sale.grossValue || 0), 0);
+    const grossRevenue = todaysSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
     return { grossRevenue };
   }, [sales]);
 
@@ -179,11 +181,11 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     // We only need to save the specific sale that was updated.
     const saleToUpdate = updatedSales.find(s => s.id === saleId);
     if (saleToUpdate) {
-        await saveSales([saleToUpdate]);
+        await saveSales(DEFAULT_USER_ID, [saleToUpdate]);
     }
   };
   
-  const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name || s.marketplace).filter(Boolean)))], [sales]);
+  const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
   const states = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean)))], [sales]);
   const accounts = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).auth_name).filter(Boolean)))], [sales]);
 
@@ -196,7 +198,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     return (
        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <Loader2 className="animate-spin" />
-        <p className="ml-2">Carregando painel...</p>
+        <p className="ml-2">Carregando dashboard...</p>
       </div>
     );
   }
@@ -212,7 +214,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
             {isSyncing ? (
               <Badge variant="secondary" className="animate-pulse">
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sincronizando...
+                Sincronizando com Ideris...
               </Badge>
             ) : (
                 <Badge variant="outline" className="text-muted-foreground font-normal">
@@ -225,7 +227,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       {!isLoading && sales.length === 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Bem-vindo!</AlertTitle>
+          <AlertTitle>Bem-vindo ao MarketFlow!</AlertTitle>
           <AlertDescription>
             Parece que você ainda não importou nenhuma venda. Vá para a <Link href="/mapeamento" className="font-semibold underline">página de Mapeamento</Link> para configurar suas conexões e importar seus dados.
           </AlertDescription>
@@ -235,8 +237,8 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
-        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos Ideris + Manuais"/>
-        <StatsCard title="Lucro Líquido (Período)" value={formatCurrency(stats.netRevenue)} icon={TrendingUp} description="Lucro Ideris - custos manuais"/>
+        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos da planilha + adicionados"/>
+        <StatsCard title="Lucro Líquido (Período)" value={formatCurrency(stats.netRevenue)} icon={TrendingUp} description="Lucro da planilha - custos adicionados"/>
       </div>
 
       <Card>

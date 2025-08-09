@@ -14,33 +14,33 @@ export let mockSales: Sale[] = [
   {
     id: "SALE001",
     date: "2024-05-01",
-    marketplace: "Mercado Livre",
-    productDescription: "Camiseta estampada de algodão",
-    grossValue: 79.9,
+    salesChannel: "Mercado Livre",
+    productName: "Camiseta estampada de algodão",
+    grossRevenue: 79.9,
     costs: [
-      { id: "C01", description: "Taxa de venda", amount: 12.78, category: "Taxas do Marketplace" },
-      { id: "C02", description: "Custo de envio", amount: 15.0, category: "Frete" },
+      { id: "C01", description: "Taxa de venda", value: 12.78, category: "Taxas do Marketplace" },
+      { id: "C02", description: "Custo de envio", value: 15.0, category: "Frete" },
     ],
     netValue: 52.12,
     orderNumber: "ORD-001",
-    item_sku: "SKU-TSHIRT",
+    sku: "SKU-TSHIRT",
     item_title: "Camiseta estampada de algodão",
-    item_quantity: 1,
-    auth_name: 'Conta Principal'
+    quantity: 1,
+    account: 'Conta Principal'
   },
   {
     id: "SALE002",
     date: "2024-05-02",
-    marketplace: "Amazon",
-    productDescription: "Fone de ouvido Bluetooth 5.0",
-    grossValue: 199.9,
-    costs: [{ id: "C03", description: "Taxa Amazon", amount: 29.99, category: "Taxas do Marketplace" }],
+    salesChannel: "Amazon",
+    productName: "Fone de ouvido Bluetooth 5.0",
+    grossRevenue: 199.9,
+    costs: [{ id: "C03", description: "Taxa Amazon", value: 29.99, category: "Taxas do Marketplace" }],
     netValue: 169.91,
     orderNumber: "ORD-002",
-    item_sku: "S23U",
+    sku: "S23U",
     item_title: "Samsung Galaxy S23 Ultra",
-    item_quantity: 2,
-    auth_name: 'Conta Secundaria'
+    quantity: 2,
+    account: 'Conta Secundaria'
   },
 ];
 

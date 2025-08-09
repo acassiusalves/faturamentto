@@ -1,4 +1,4 @@
-export type Marketplace = "Mercado Livre" | "Amazon" | "Shopee" | "Outro";
+export type SalesChannel = "Mercado Livre" | "Amazon" | "Shopee" | "Outro" | "Ideris";
 
 export const COST_CATEGORIES = [
   "Frete",
@@ -13,46 +13,72 @@ export type CostCategory = (typeof COST_CATEGORIES)[number];
 export interface Cost {
   id: string;
   description: string;
-  amount: number;
+  value: number;
   category: CostCategory;
   isPercentage?: boolean;
 }
 
 export interface Sale {
   id: string;
-  date: string;
-  marketplace: Marketplace;
-  productDescription: string;
-  grossValue: number;
+  orderNumber: string;
+  date: string; // ISO string
+  salesChannel: SalesChannel;
+  account?: string;
+  
+  // Product
+  productName: string;
+  sku: string;
+  quantity: number;
+  productImage?: string;
+  
+  // Financials
+  grossRevenue: number; // Receita bruta
+  totalWithShipping?: number;
+  paidAmount?: number;
+  
   costs: Cost[];
   netValue: number;
-  totalCost?: number;
-  orderNumber?: string;
-  item_sku?: string;
-  item_title?: string;
-  item_quantity?: number;
-  auth_name?: string;
-  customer_document?: string;
+  
+  // Status & Customer
   status?: string;
-  state_name?: string;
-  total?: number;
-  value_with_shipping?: number;
-  fee_order?: number;
+  statusDescription?: string;
+  state?: string;
+  cpf?: string;
+
+  // Detailed financial fields from system-fields.ts for mapping
+  commission?: number;
   commissionPercentage?: number;
   fee?: number;
-  fee_shipment?: number;
+  shippingCost?: number;
   tax?: number;
   packaging?: number;
   unitCost?: number;
-  left_over?: number;
+  totalCost?: number;
+  profit?: number;
   profitPercentage?: number;
   refundedValue?: number;
-  item_image?: string;
-  paid_amount?: number;
   discount?: number;
-  discount_marketplace?: number;
+  discountMarketplace?: number;
+  
+  // Ideris specific fields - can be merged or kept separate
+  order_code?: string;
+  marketplace_name?: string;
+  auth_name?: string;
+  document_value?: string;
+  state_name?: string;
+  value_with_shipping?: number;
+  fee_shipment?: number;
+  fee_order?: number;
+  net_amount?: number;
+  left_over?: number;
+  item_title?: string;
+  item_sku?: string;
+  item_quantity?: number;
+  item_image?: string;
+  payment_approved_date?: string;
+
+  // Other fields from system-fields
   friendlyName?: string;
-  statusDescription?: string;
   verified?: boolean;
   realStatus?: string;
   returnStatus?: string;
@@ -64,8 +90,10 @@ export interface Sale {
   transferForecast?: string;
   transferDate?: string;
   editedLabel?: boolean;
-  [key: string]: any;
+
+  [key: string]: any; // For any other properties from APIs
 }
+
 
 export interface ProductAttribute {
   key: string;
