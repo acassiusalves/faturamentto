@@ -1,6 +1,6 @@
 
 import {initializeApp} from "firebase-admin/app";
-import {getAuth} from "firebase-admin/auth";
+import {getAuth, AuthError} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
@@ -49,32 +49,36 @@ export const inviteUser = onCall(async (request) => {
     logger.info(`Criando usuário para o email: ${email}`);
     const userRecord = await auth.createUser({
       email,
-      emailVerified: false, // User will verify their email
-      // Generate a random password. The user will reset it.
+      emailVerified: false,
       password: Math.random().toString(36).slice(-8),
-      displayName: email.split("@")[0], // A sensible default
+      displayName: email.split("@")[0],
     });
     logger.info(`Usuário ${userRecord.uid} criado com sucesso.`);
 
     // 5. Set Custom Claims (for role-based access control)
     await auth.setCustomUserClaims(userRecord.uid, {role});
-    logger.info(`Claim de função "${role}" definida para o usuário ${userRecord.uid}.`);
+    logger.info(
+      `Claim de função "${role}" definida para o usuário ${userRecord.uid}.`
+    );
 
     // 6. Create User Document in Firestore
     await db.collection("users").doc(userRecord.uid).set({
       email: email,
       role: role,
     });
-    logger.info(`Documento do usuário criado no Firestore para ${userRecord.uid}.`);
-
-    // You would typically send a welcome/password reset email here.
-    // For this example, we'll just return a success message.
+    logger.info(
+      `Documento do usuário criado no Firestore para ${userRecord.uid}.`
+    );
 
     return {result: `Usuário ${email} convidado com a função ${role}.`};
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Falha ao criar usuário:", error);
-    if (error.code === "auth/email-already-exists") {
-      throw new HttpsError("already-exists", "Este email já está em uso por outro usuário.");
+    const authError = error as AuthError;
+    if (authError.code === "auth/email-already-exists") {
+      throw new HttpsError(
+        "already-exists",
+        "Este email já está em uso por outro usuário."
+      );
     }
     throw new HttpsError("internal", "Erro interno ao criar o usuário.");
   }
