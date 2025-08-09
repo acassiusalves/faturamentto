@@ -26,6 +26,7 @@ export interface Sale {
   grossValue: number;
   costs: Cost[];
   netValue: number;
+  totalCost?: number;
   // Picking Page related fields
   orderNumber?: string;
   item_sku?: string;

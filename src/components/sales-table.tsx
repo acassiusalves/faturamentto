@@ -23,22 +23,32 @@ import { AmazonLogo, MercadoLivreLogo } from "./icons";
 interface SalesTableProps {
   data: Sale[];
   onUpdateSaleCosts: (saleId: string, costs: Cost[]) => void;
+  calculateTotalCost: (sale: Sale) => number;
+  calculateNetRevenue: (sale: Sale) => number;
   formatCurrency: (value: number) => string;
   isLoading: boolean;
 }
 
-const MarketplaceIcon = ({ marketplace }: { marketplace: string }) => {
-  switch (marketplace) {
-    case "Mercado Livre":
+const MarketplaceIcon = ({ marketplace }: { marketplace?: string }) => {
+  if (!marketplace) return <Store className="h-5 w-5 text-muted-foreground" />;
+  switch (marketplace.toLowerCase()) {
+    case "mercado livre":
       return <MercadoLivreLogo className="h-5 w-auto" />;
-    case "Amazon":
+    case "amazon":
       return <AmazonLogo className="h-5 w-5" />;
     default:
       return <Store className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
-export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading }: SalesTableProps) {
+export function SalesTable({ 
+    data, 
+    onUpdateSaleCosts, 
+    calculateTotalCost, 
+    calculateNetRevenue, 
+    formatCurrency, 
+    isLoading 
+}: SalesTableProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -55,9 +65,9 @@ export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading 
     }
   };
 
-  const totalGross = data.reduce((acc, sale) => acc + sale.grossValue, 0);
-  const totalCosts = data.reduce((acc, sale) => acc + sale.costs.reduce((costAcc, c) => costAcc + c.amount, 0), 0);
-  const totalNet = data.reduce((acc, sale) => acc + sale.netValue, 0);
+  const totalGross = data.reduce((acc, sale) => acc + (sale.grossValue || (sale as any).value_with_shipping || 0), 0);
+  const totalCosts = data.reduce((acc, sale) => acc + calculateTotalCost(sale), 0);
+  const totalNet = data.reduce((acc, sale) => acc + calculateNetRevenue(sale), 0);
 
   return (
     <>
@@ -73,7 +83,7 @@ export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading 
                   <TableHead className="w-[100px]">Data</TableHead>
                   <TableHead>Marketplace</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Custos</TableHead>
+                  <TableHead>Custos Adicionais</TableHead>
                   <TableHead className="text-right">Valor Bruto</TableHead>
                   <TableHead className="text-right">Total Custos</TableHead>
                   <TableHead className="text-right font-semibold">Valor Líquido</TableHead>
@@ -88,35 +98,44 @@ export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading 
                     </TableCell>
                   </TableRow>
                 ) : data.length > 0 ? (
-                  data.map((sale) => (
+                  data.map((sale) => {
+                    const grossValue = sale.grossValue || (sale as any).value_with_shipping || 0;
+                    const saleDate = (sale as any).payment_approved_date || sale.date;
+                    const marketplaceName = (sale as any).marketplace_name || sale.marketplace;
+                    const productTitle = (sale as any).item_title || sale.productDescription;
+                    const totalCost = calculateTotalCost(sale);
+                    const netValue = calculateNetRevenue(sale);
+                    
+                    return (
                     <TableRow key={sale.id}>
                       <TableCell>
-                        {format(parseISO(sale.date), "dd/MM/yyyy", { locale: ptBR })}
+                        {saleDate ? format(parseISO(saleDate), "dd/MM/yyyy", { locale: ptBR }) : '-'}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <MarketplaceIcon marketplace={sale.marketplace} />
-                          <span className="font-medium">{sale.marketplace}</span>
+                          <MarketplaceIcon marketplace={marketplaceName} />
+                          <span className="font-medium">{marketplaceName}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{sale.productDescription}</TableCell>
+                      <TableCell>{productTitle}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {sale.costs.map((cost) => (
                             <Badge key={cost.id} variant="secondary" className="font-normal">
                               {cost.description}: {formatCurrency(cost.amount)}
+                              {cost.isPercentage && '%'}
                             </Badge>
                           ))}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(sale.grossValue)}
+                        {formatCurrency(grossValue)}
                       </TableCell>
                       <TableCell className="text-right text-destructive">
-                        - {formatCurrency(sale.costs.reduce((acc, c) => acc + c.amount, 0))}
+                        - {formatCurrency(totalCost)}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-primary">
-                        {formatCurrency(sale.netValue)}
+                        {formatCurrency(netValue)}
                       </TableCell>
                       <TableCell className="text-center">
                         <Button
@@ -129,7 +148,7 @@ export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading 
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center">

@@ -46,7 +46,7 @@ const formSchema = z.object({
   description: z.string().min(2, {
     message: "A descrição deve ter pelo menos 2 caracteres.",
   }),
-  value: z.coerce.number().positive({
+  amount: z.coerce.number().positive({
     message: "O valor deve ser um número positivo.",
   }),
   category: z.enum(COST_CATEGORIES, {
@@ -68,7 +68,7 @@ export function AddCostDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: "",
-      value: 0,
+      amount: 0,
       isPercentage: false,
     },
   });
@@ -78,7 +78,7 @@ export function AddCostDialog({
     const newCost: Cost = {
       id: `COST-${Date.now()}`,
       description: values.description,
-      amount: values.value,
+      amount: values.amount,
       category: values.category,
       isPercentage: values.isPercentage,
     };
@@ -142,7 +142,7 @@ export function AddCostDialog({
         <DialogHeader>
           <DialogTitle>Adicionar Custo Manual</DialogTitle>
           <DialogDescription>
-            Adicione um novo custo para a venda <span className="font-bold">#{(sale as any).order_code}</span>.
+            Adicione um novo custo para a venda <span className="font-bold">#{(sale as any).order_code || sale.orderNumber}</span>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -162,7 +162,7 @@ export function AddCostDialog({
             />
             <FormField
               control={form.control}
-              name="value"
+              name="amount"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Valor (R$ ou %)</FormLabel>
