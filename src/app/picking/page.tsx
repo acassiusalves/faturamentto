@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService } from '@/lib/mock-services';
+import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem } from '@/lib/mock-services';
 
 import type { InventoryItem, PickedItemLog, Sale } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { fetchOrdersFromIderis } from '@/lib/mock-services';
+import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -77,7 +77,7 @@ export default function PickingPage() {
             return;
         }
 
-        const newSales = await fetchOrdersFromIderis(settings.iderisPrivateKey, { from, to }, existingSaleIds);
+        const newSales = await fetchOrdersFromIderis("user-id-placeholder", settings.iderisPrivateKey, { from, to }, existingSaleIds);
 
         if (newSales.length > 0) {
             await saveSales(newSales);

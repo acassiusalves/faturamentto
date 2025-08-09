@@ -217,29 +217,6 @@ export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale |
     return sale || null;
 };
 
-export const fetchOrdersFromIderis = async (
-    userId: string,
-    privateKey: string,
-    dateRange: { from: Date; to: Date },
-    existingSaleIds: string[],
-    progressCallback?: (progress: number, current: number, total: number) => void
-): Promise<Sale[]> => {
-    console.log(`Fetching new orders from Ideris mock for user ${userId}...`);
-    
-    // Simulate a longer process with progress updates
-    const totalSteps = 10;
-    for (let i = 0; i <= totalSteps; i++) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        if (progressCallback) {
-            progressCallback((i / totalSteps) * 100, i, totalSteps);
-        }
-    }
-    
-    // Return an empty array to simulate no new orders found
-    return [];
-};
-
-
 export const savePickLog = (logs: PickedItemLog[]) => {
     mockPickingLog.unshift(...logs);
 };
@@ -286,6 +263,11 @@ export const loadCompanyCosts = async (): Promise<typeof mockCompanyCosts | null
 
 export const saveCompanyCosts = async (uid: string, costs: typeof mockCompanyCosts): Promise<void> => {
     console.log("Saving company costs for user:", uid, costs);
-    await new Promise(resolve => setTimeout(resolve, 200));
     mockCompanyCosts = costs;
+    await new Promise(resolve => setTimeout(resolve, 300));
 };
+
+
+// These functions were moved to services/ideris.ts
+// export const testIderisConnection = async...
+// export const fetchOrdersFromIderis = async...
