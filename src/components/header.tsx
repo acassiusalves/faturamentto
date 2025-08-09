@@ -10,8 +10,8 @@ export function Header() {
             <Link href="/" className="flex items-center gap-3">
                 <MarketFlowLogo className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold font-headline">
-                    <span className="text-primary">Market</span>
-                    <span className="text-accent">Flow</span>
+                    <span className="text-primary">Fechamen</span>
+                    <span className="text-accent">tto</span>
                 </h1>
             </Link>
             
