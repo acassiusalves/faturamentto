@@ -67,4 +67,5 @@ export type ColumnMapping = {
 };
 
 export type AllMappingsState = {
-  [marketplaceId
+  [marketplaceId: string]: ColumnMapping;
+};
