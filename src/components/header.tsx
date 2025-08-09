@@ -5,10 +5,10 @@ import { LogOut } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
-import { navLinks, settingsLinks, pagePermissions } from "@/lib/permissions";
+import { navLinks, settingsLinks } from "@/lib/permissions";
 
 export function Header() {
-    const { user, logout } = useAuth();
+    const { user, logout, pagePermissions } = useAuth();
 
     if (!user) return null;
 

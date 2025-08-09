@@ -6,14 +6,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Header } from './header';
-import { pagePermissions } from '@/lib/permissions';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, pagePermissions } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -51,7 +50,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
         return;
     }
 
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router, pathname, pagePermissions]);
 
   if (loading) {
     return (

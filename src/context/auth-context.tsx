@@ -6,6 +6,7 @@ import { onAuthStateChanged, User, updateProfile, updatePassword } from 'firebas
 import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { pagePermissions as defaultPagePermissions } from '@/lib/permissions';
 
 interface AuthUser {
     uid: string;
@@ -22,6 +23,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUsername: (name: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
+  pagePermissions: Record<string, string[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,14 +31,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pagePermissions, setPagePermissions] = useState<Record<string, string[]>>(defaultPagePermissions);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Fetch user role from Firestore
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        const settingsDocRef = doc(db, 'users', 'default-user', 'app-data', 'settings');
+        
+        const [userDoc, settingsDoc] = await Promise.all([
+            getDoc(userDocRef),
+            getDoc(settingsDocRef)
+        ]);
+        
         const role = userDoc.exists() ? userDoc.data().role : 'expedicao'; // Default role if not set
+
+        if (settingsDoc.exists() && settingsDoc.data().permissions) {
+            setPagePermissions(settingsDoc.data().permissions);
+        }
 
         setUser({
           uid: firebaseUser.uid,
@@ -86,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     updateUsername,
     updateUserPassword,
+    pagePermissions
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

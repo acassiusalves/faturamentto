@@ -3,6 +3,13 @@
 
 import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User } from 'lucide-react';
 
+export const availableRoles = [
+  { key: 'admin', name: 'Administrador' },
+  { key: 'financeiro', name: 'Financeiro' },
+  { key: 'expedicao', name: 'Expedição' },
+  { key: 'sac', name: 'SAC' },
+];
+
 export const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/produtos", label: "Produtos", icon: PackagePlus },
@@ -19,6 +26,7 @@ export const settingsLinks = [
     { href: "/perfil", title: "Perfil", icon: User },
 ];
 
+// Default permissions, will be overridden by Firestore settings if they exist.
 export const pagePermissions: Record<string, string[]> = {
     // Page route: Allowed roles
     '/': ['admin', 'financeiro', 'expedicao', 'sac'],
