@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
@@ -272,7 +273,11 @@ export default function EstoquePage() {
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (dateString: string) => {
     try {
-      return format(parseISO(dateString), "dd/MM/yyyy", { locale: ptBR });
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+          return 'Data inválida';
+      }
+      return format(date, "dd/MM/yyyy", { locale: ptBR });
     } catch (error) {
       return 'Data inválida';
     }
