@@ -13,12 +13,20 @@ import {
   limit,
   orderBy,
   Timestamp,
+  enableNetwork,
 } from 'firebase/firestore';
 import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
 const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
+
+// Ensure network is enabled
+try {
+    enableNetwork(db);
+} catch (error) {
+    console.warn("Could not enable network for Firestore:", error);
+}
 
 // Helper to convert data for Firestore
 const toFirestore = (data) => {
