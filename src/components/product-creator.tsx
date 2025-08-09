@@ -66,7 +66,7 @@ export function ProductCreator({ category }: ProductCreatorProps) {
     loadData();
   }, [category, toast]);
 
-  const handleFormChange = (key: string, value: string) => {
+  const handleAttributeSelect = (key: string, value: string) => {
     setFormState(prev => {
         const newValue = prev[key] === value ? "" : value;
         return {...prev, [key]: newValue };
@@ -346,7 +346,7 @@ export function ProductCreator({ category }: ProductCreatorProps) {
                                             <CommandItem
                                                 key={val}
                                                 value={val}
-                                                onSelect={() => handleFormChange(attr.key, val)}
+                                                onSelect={() => handleAttributeSelect(attr.key, val)}
                                             >
                                                 <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
                                                 {val}
