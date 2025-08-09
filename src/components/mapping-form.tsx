@@ -143,3 +143,8 @@ export function MappingForm({ marketplaceId, sourceFields, systemFieldsToMap, in
         <Button onClick={handleSaveClick}>
             <Save className="mr-2 h-4 w-4" />
             Salvar Mapeamento de {marketplaceId}
+        </Button>
+      </div>
+    </div>
+  );
+}
