@@ -105,7 +105,8 @@ export function ProductSettings() {
 
         if (!inputValues) return;
         
-        const optionsToAdd = inputValues.split(/[,\n;]/).map(opt => opt.trim()).filter(Boolean);
+        // Split by comma, newline, semicolon, or space
+        const optionsToAdd = inputValues.split(/[,\n;\s]+/).map(opt => opt.trim()).filter(Boolean);
 
         if(optionsToAdd.length === 0) return;
 
