@@ -13,6 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { AppUser } from "@/lib/types";
 import { NewUserDialog } from "@/components/new-user-dialog";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { functions } from "@/lib/firebase";
 
 export default function SettingsPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
@@ -99,12 +101,25 @@ export default function SettingsPage() {
     }
     
     const handleCreateUser = async (email: string, role: string) => {
-        toast({
-            title: "Interface Pronta!",
-            description: `O próximo passo é conectar a uma Cloud Function para criar o usuário ${email} com a função ${role} e enviar o convite.`,
-            duration: 6000,
-        });
-        setIsNewUserDialogOpen(false);
+        const inviteUser = httpsCallable(functions, 'inviteUser');
+        try {
+            const result = await inviteUser({ email, role });
+            toast({
+                title: "Sucesso!",
+                description: (result.data as any).result || `Convite para ${email} enviado com sucesso.`,
+            });
+            // Recarregar lista de usuários para mostrar o novo membro
+            const appUsers = await loadUsersWithRoles();
+            setUsers(appUsers);
+            setIsNewUserDialogOpen(false);
+        } catch (error: any) {
+             console.error("Erro ao convidar usuário:", error);
+             toast({
+                variant: "destructive",
+                title: "Erro ao Enviar Convite",
+                description: error.message || "Ocorreu um erro desconhecido."
+             })
+        }
     }
 
     if (isLoading) {

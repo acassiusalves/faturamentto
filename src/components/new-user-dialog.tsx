@@ -56,6 +56,8 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
   const handleSubmit = async (data: NewUserFormValues) => {
     setIsSaving(true);
     await onSave(data.email, data.role);
+    // Don't close the dialog on error, let the user retry or see the error.
+    // The parent component will close it on success.
     setIsSaving(false);
   };
 
@@ -68,9 +70,9 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
     }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Usuário</DialogTitle>
+          <DialogTitle>Convidar Novo Usuário</DialogTitle>
           <DialogDescription>
-            Insira o email e a função para criar um novo acesso ao sistema.
+            Insira o email e a função para criar um novo acesso e enviar um convite.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -98,7 +100,7 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma função" />
-                      </SelectTrigger>
+                      </Trigger>
                     </FormControl>
                     <SelectContent>
                       {availableRoles.map((role) => (
@@ -115,9 +117,9 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
             
             <Alert variant="default" className="border-amber-500/50">
               <Info className="h-4 w-4" />
-              <AlertTitle className="font-semibold">Próximos Passos</AlertTitle>
+              <AlertTitle className="font-semibold">Como funciona?</AlertTitle>
               <AlertDescription>
-                Esta ação prepara o convite. Para a criação do usuário e o envio do email com a senha temporária, é necessário conectar esta interface a um serviço de backend (ex: Firebase Cloud Functions).
+                Ao salvar, um novo usuário será criado no Firebase com uma senha temporária. Idealmente, uma automação enviaria um email de boas-vindas para o novo usuário.
               </AlertDescription>
             </Alert>
             
@@ -127,7 +129,7 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
               </Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving && <Loader2 className="animate-spin mr-2" />}
-                Salvar (Simulação)
+                Salvar e Convidar Usuário
               </Button>
             </DialogFooter>
           </form>

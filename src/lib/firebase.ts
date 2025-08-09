@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, enableNetwork } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   "projectId": "marketflow-flmb6",
@@ -16,11 +17,13 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let functions;
 
 if (typeof window !== 'undefined' && !getApps().length) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  functions = getFunctions(app);
   try {
     enableNetwork(db);
     console.log("Firebase network enabled.");
@@ -31,6 +34,7 @@ if (typeof window !== 'undefined' && !getApps().length) {
     app = getApp();
     auth = getAuth(app);
     db = getFirestore(app);
+    functions = getFunctions(app);
 }
 
 // Fallback for server-side rendering or environments where `window` is not defined
@@ -43,6 +47,9 @@ if (!auth) {
 if (!db) {
     db = getFirestore(app);
 }
+if(!functions) {
+    functions = getFunctions(app);
+}
 
 
-export { app, db, auth };
+export { app, db, auth, functions };
