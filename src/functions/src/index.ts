@@ -6,6 +6,7 @@ import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {AuthError} from "firebase-admin/auth";
 
 initializeApp();
 
@@ -17,7 +18,7 @@ export const inviteUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError(
       "unauthenticated",
-      "Você deve estar logado para convidar usuários."
+      "Você deve estar logado para convidar usuários.",
     );
   }
 
@@ -28,7 +29,7 @@ export const inviteUser = onCall(async (request) => {
     if (!callerDoc.exists || callerDoc.data()?.role !== "admin") {
       throw new HttpsError(
         "permission-denied",
-        "Você precisa ser um administrador para executar esta ação."
+        "Você precisa ser um administrador para executar esta ação.",
       );
     }
   } catch (error) {
@@ -42,7 +43,7 @@ export const inviteUser = onCall(async (request) => {
   if (!email || !role) {
     throw new HttpsError(
       "invalid-argument",
-      "O email e a função (role) são obrigatórios."
+      "O email e a função (role) são obrigatórios.",
     );
   }
 
@@ -60,28 +61,32 @@ export const inviteUser = onCall(async (request) => {
 
     // 5. Set Custom Claims (for role-based access control)
     await auth.setCustomUserClaims(userRecord.uid, {role});
-    logger.info(`Claim de função '${role}' definida para o usuário ${userRecord.uid}.`);
+    logger.info(
+      `Claim de função "${role}" definida para o usuário ${userRecord.uid}.`,
+    );
 
     // 6. Create User Document in Firestore
     await db.collection("users").doc(userRecord.uid).set({
       email: email,
       role: role,
     });
-    logger.info(`Documento do usuário criado no Firestore para ${userRecord.uid}.`);
+    logger.info(
+      `Documento do usuário criado no Firestore para ${userRecord.uid}.`,
+    );
 
     // You would typically send a welcome/password reset email here.
     // For this example, we'll just return a success message.
 
     return {result: `Usuário ${email} convidado com a função ${role}.`};
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Falha ao criar usuário:", error);
-    if (error.code === "auth/email-already-exists") {
+    const authError = error as AuthError;
+    if (authError.code === "auth/email-already-exists") {
       throw new HttpsError(
         "already-exists",
-        "Este email já está em uso por outro usuário."
+        "Este email já está em uso por outro usuário.",
       );
     }
     throw new HttpsError("internal", "Erro interno ao criar o usuário.");
   }
 });
-
