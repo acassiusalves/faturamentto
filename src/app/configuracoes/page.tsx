@@ -12,14 +12,16 @@ import { Badge } from "@/components/ui/badge";
 // Mock data - Em uma implementação real, isso viria do Firebase (Auth + Firestore)
 const mockUsers = [
   { id: '1', email: 'admin@fechamentto.com', role: 'admin' },
-  { id: '2', email: 'operador1@fechamentto.com', role: 'operador' },
+  { id: '2', email: 'expedicao@fechamentto.com', role: 'expedicao' },
   { id: '3', email: 'financeiro@fechamentto.com', role: 'financeiro' },
+  { id: '4', email: 'sac@fechamentto.com', role: 'sac' },
 ];
 
 const availableRoles = [
   { key: 'admin', name: 'Administrador' },
-  { key: 'operador', name: 'Operador de Estoque' },
   { key: 'financeiro', name: 'Financeiro' },
+  { key: 'expedicao', name: 'Expedição' },
+  { key: 'sac', name: 'SAC' },
 ];
 
 export default function SettingsPage() {
@@ -125,18 +127,26 @@ export default function SettingsPage() {
                        </div>
                        <div>
                             <h3 className="font-semibold flex items-center gap-2">
-                                <Badge variant="secondary">Operador de Estoque</Badge>
+                                <Badge variant="secondary">Financeiro</Badge>
+                            </h3>
+                            <p className="text-sm text-muted-foreground pl-2 border-l-2 ml-2 mt-1">
+                                Acesso a: Dashboard, DRE e Custos.
+                            </p>
+                       </div>
+                        <div>
+                            <h3 className="font-semibold flex items-center gap-2">
+                                <Badge variant="secondary">Expedição</Badge>
                             </h3>
                             <p className="text-sm text-muted-foreground pl-2 border-l-2 ml-2 mt-1">
                                 Acesso a: Dashboard, Produtos, Estoque, Picking e Arquivo.
                             </p>
                        </div>
-                        <div>
+                       <div>
                             <h3 className="font-semibold flex items-center gap-2">
-                                <Badge variant="secondary">Financeiro</Badge>
+                                <Badge variant="secondary">SAC</Badge>
                             </h3>
                             <p className="text-sm text-muted-foreground pl-2 border-l-2 ml-2 mt-1">
-                                Acesso a: Dashboard, DRE e Custos.
+                               Acesso a: Dashboard, Pedidos e Arquivo.
                             </p>
                        </div>
                         <p className="text-xs text-muted-foreground pt-4">
