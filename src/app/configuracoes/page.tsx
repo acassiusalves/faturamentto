@@ -12,6 +12,7 @@ import { saveAppSettings, loadAppSettings, loadUsersWithRoles, updateUserRole } 
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { AppUser } from "@/lib/types";
+import { NewUserDialog } from "@/components/new-user-dialog";
 
 export default function SettingsPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
@@ -19,6 +20,7 @@ export default function SettingsPage() {
     const [isSavingPermissions, setIsSavingPermissions] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
     const { toast } = useToast();
     
     useEffect(() => {
@@ -95,12 +97,22 @@ export default function SettingsPage() {
             setIsSavingUsers(false);
         }
     }
+    
+    const handleCreateUser = async (email: string, role: string) => {
+        toast({
+            title: "Interface Pronta!",
+            description: `O próximo passo é conectar a uma Cloud Function para criar o usuário ${email} com a função ${role} e enviar o convite.`,
+            duration: 6000,
+        });
+        setIsNewUserDialogOpen(false);
+    }
 
     if (isLoading) {
         return <div className="flex items-center justify-center h-[calc(100vh-200px)]"><Loader2 className="animate-spin" /><p className="ml-2">Carregando...</p></div>
     }
 
     return (
+        <>
         <div className="flex flex-col gap-8 p-4 md:p-8">
             <div>
                 <h1 className="text-3xl font-bold font-headline">Configurações do Sistema</h1>
@@ -199,12 +211,9 @@ export default function SettingsPage() {
                             </TableBody>
                         </Table>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                       (Em breve) A criação de novos usuários será feita através de um convite.
-                    </p>
                 </CardContent>
                 <CardFooter className="justify-between items-center">
-                     <Button variant="outline" disabled>
+                     <Button variant="outline" onClick={() => setIsNewUserDialogOpen(true)}>
                         <UserPlus />
                         Adicionar Novo Usuário
                     </Button>
@@ -215,5 +224,13 @@ export default function SettingsPage() {
                 </CardFooter>
             </Card>
         </div>
+        
+        <NewUserDialog
+            isOpen={isNewUserDialogOpen}
+            onClose={() => setIsNewUserDialogOpen(false)}
+            onSave={handleCreateUser}
+            availableRoles={availableRoles}
+        />
+        </>
     )
 }
