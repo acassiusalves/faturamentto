@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { Sale } from "@/lib/types";
+import type { Sale, Cost } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -21,16 +21,11 @@ import { AddCostDialog } from "@/components/add-cost-dialog";
 import { AmazonLogo, MercadoLivreLogo } from "./icons";
 
 interface SalesTableProps {
-  salesData: Sale[];
-  onSalesUpdate: (sales: Sale[]) => void;
+  data: Sale[];
+  onUpdateSaleCosts: (saleId: string, costs: Cost[]) => void;
+  formatCurrency: (value: number) => string;
+  isLoading: boolean;
 }
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-};
 
 const MarketplaceIcon = ({ marketplace }: { marketplace: string }) => {
   switch (marketplace) {
@@ -43,7 +38,7 @@ const MarketplaceIcon = ({ marketplace }: { marketplace: string }) => {
   }
 };
 
-export function SalesTable({ salesData, onSalesUpdate }: SalesTableProps) {
+export function SalesTable({ data, onUpdateSaleCosts, formatCurrency, isLoading }: SalesTableProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
@@ -53,24 +48,16 @@ export function SalesTable({ salesData, onSalesUpdate }: SalesTableProps) {
   };
 
   const handleAddCost = (saleId: string, cost: Sale["costs"][0]) => {
-    const updatedSales = salesData.map((sale) => {
-      if (sale.id === saleId) {
-        const newCosts = [...sale.costs, cost];
-        const totalCosts = newCosts.reduce((acc, c) => acc + c.amount, 0);
-        return {
-          ...sale,
-          costs: newCosts,
-          netValue: sale.grossValue - totalCosts,
-        };
-      }
-      return sale;
-    });
-    onSalesUpdate(updatedSales);
+    const sale = data.find(s => s.id === saleId);
+    if(sale) {
+      const newCosts = [...sale.costs, cost];
+      onUpdateSaleCosts(saleId, newCosts);
+    }
   };
 
-  const totalGross = salesData.reduce((acc, sale) => acc + sale.grossValue, 0);
-  const totalCosts = salesData.reduce((acc, sale) => acc + sale.costs.reduce((costAcc, c) => costAcc + c.amount, 0), 0);
-  const totalNet = salesData.reduce((acc, sale) => acc + sale.netValue, 0);
+  const totalGross = data.reduce((acc, sale) => acc + sale.grossValue, 0);
+  const totalCosts = data.reduce((acc, sale) => acc + sale.costs.reduce((costAcc, c) => costAcc + c.amount, 0), 0);
+  const totalNet = data.reduce((acc, sale) => acc + sale.netValue, 0);
 
   return (
     <>
@@ -94,48 +81,62 @@ export function SalesTable({ salesData, onSalesUpdate }: SalesTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {salesData.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell>
-                      {format(parseISO(sale.date), "dd/MM/yyyy", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MarketplaceIcon marketplace={sale.marketplace} />
-                        <span className="font-medium">{sale.marketplace}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{sale.productDescription}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {sale.costs.map((cost) => (
-                           <Badge key={cost.id} variant="secondary" className="font-normal">
-                             {cost.description}: {formatCurrency(cost.amount)}
-                           </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(sale.grossValue)}
-                    </TableCell>
-                    <TableCell className="text-right text-destructive">
-                      - {formatCurrency(sale.costs.reduce((acc, c) => acc + c.amount, 0))}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-primary">
-                      {formatCurrency(sale.netValue)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleAddCostClick(sale)}
-                      >
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Custo
-                      </Button>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      Carregando dados...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : data.length > 0 ? (
+                  data.map((sale) => (
+                    <TableRow key={sale.id}>
+                      <TableCell>
+                        {format(parseISO(sale.date), "dd/MM/yyyy", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MarketplaceIcon marketplace={sale.marketplace} />
+                          <span className="font-medium">{sale.marketplace}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{sale.productDescription}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {sale.costs.map((cost) => (
+                            <Badge key={cost.id} variant="secondary" className="font-normal">
+                              {cost.description}: {formatCurrency(cost.amount)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(sale.grossValue)}
+                      </TableCell>
+                      <TableCell className="text-right text-destructive">
+                        - {formatCurrency(sale.costs.reduce((acc, c) => acc + c.amount, 0))}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-primary">
+                        {formatCurrency(sale.netValue)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleAddCostClick(sale)}
+                        >
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Custo
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      Nenhuma venda encontrada para os filtros selecionados.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
               <TableFooter>
                 <TableRow>

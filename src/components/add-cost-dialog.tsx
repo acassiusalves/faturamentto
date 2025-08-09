@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getCategorySuggestion } from "@/lib/actions";
 import { COST_CATEGORIES, type Cost, type Sale } from "@/lib/types";
 import { Loader2, Sparkles } from "lucide-react";
+import { Switch } from "./ui/switch";
 
 interface AddCostDialogProps {
   sale: Sale | null;
@@ -45,12 +46,13 @@ const formSchema = z.object({
   description: z.string().min(2, {
     message: "A descrição deve ter pelo menos 2 caracteres.",
   }),
-  amount: z.coerce.number().positive({
+  value: z.coerce.number().positive({
     message: "O valor deve ser um número positivo.",
   }),
   category: z.enum(COST_CATEGORIES, {
     errorMap: () => ({ message: "Por favor, selecione uma categoria válida." }),
   }),
+  isPercentage: z.boolean().default(false),
 });
 
 export function AddCostDialog({
@@ -66,7 +68,8 @@ export function AddCostDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: "",
-      amount: 0,
+      value: 0,
+      isPercentage: false,
     },
   });
 
@@ -74,7 +77,10 @@ export function AddCostDialog({
     if (!sale) return;
     const newCost: Cost = {
       id: `COST-${Date.now()}`,
-      ...values,
+      description: values.description,
+      amount: values.value,
+      category: values.category,
+      isPercentage: values.isPercentage,
     };
     onAddCost(sale.id, newCost);
     toast({
@@ -126,12 +132,17 @@ export function AddCostDialog({
   if (!sale) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if(!open) {
+            form.reset();
+        }
+        onOpenChange(open);
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Adicionar Custo</DialogTitle>
+          <DialogTitle>Adicionar Custo Manual</DialogTitle>
           <DialogDescription>
-            Adicione um novo custo para a venda de "{sale.productDescription}".
+            Adicione um novo custo para a venda <span className="font-bold">#{(sale as any).order_code}</span>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -143,7 +154,7 @@ export function AddCostDialog({
                 <FormItem>
                   <FormLabel>Descrição do Custo</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Taxa de processamento" {...field} />
+                    <Input placeholder="Ex: Imposto ST" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -151,14 +162,34 @@ export function AddCostDialog({
             />
             <FormField
               control={form.control}
-              name="amount"
+              name="value"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor (R$)</FormLabel>
+                  <FormLabel>Valor (R$ ou %)</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="15.50" {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isPercentage"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                        <FormLabel>É uma porcentagem?</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                            Ative se o custo for um percentual sobre o valor bruto da venda.
+                        </p>
+                    </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />
@@ -200,7 +231,7 @@ export function AddCostDialog({
               )}
             />
             <DialogFooter>
-              <Button type="submit" className="bg-accent hover:bg-accent/90">Adicionar Custo</Button>
+              <Button type="submit">Adicionar Custo</Button>
             </DialogFooter>
           </form>
         </Form>
