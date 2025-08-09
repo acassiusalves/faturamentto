@@ -169,15 +169,25 @@ export function ProductCreator({ category }: ProductCreatorProps) {
 }, [products, formState, canSubmit, orderedAttributes]);
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) {
-      return products;
+    let results = products;
+
+    if (searchTerm) {
+      const lowercasedTerm = searchTerm.toLowerCase();
+      results = results.filter(product => {
+        const nameMatch = product.name.toLowerCase().includes(lowercasedTerm);
+        const skuMatch = product.sku.toLowerCase().includes(lowercasedTerm);
+        const associatedSkuMatch = product.associatedSkus?.some(sku => sku.toLowerCase().includes(lowercasedTerm));
+        return nameMatch || skuMatch || associatedSkuMatch;
+      });
     }
-    const lowercasedTerm = searchTerm.toLowerCase();
-    return products.filter(product => {
-      const nameMatch = product.name.toLowerCase().includes(lowercasedTerm);
-      const skuMatch = product.sku.toLowerCase().includes(lowercasedTerm);
-      const associatedSkuMatch = product.associatedSkus?.some(sku => sku.toLowerCase().includes(lowercasedTerm));
-      return nameMatch || skuMatch || associatedSkuMatch;
+
+    // Sort the results: products with associated SKUs first
+    return results.sort((a, b) => {
+        const aHasSkus = (a.associatedSkus?.length || 0) > 0;
+        const bHasSkus = (b.associatedSkus?.length || 0) > 0;
+        if (aHasSkus && !bHasSkus) return -1;
+        if (!aHasSkus && bHasSkus) return 1;
+        return 0;
     });
   }, [products, searchTerm]);
 
