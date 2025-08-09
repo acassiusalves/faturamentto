@@ -6,7 +6,6 @@ import { LayoutDashboard, Package, ScanLine, ShoppingCart, Archive, Map, DollarS
 
 import { cn } from "@/lib/utils"
 import { MarketFlowLogo } from "@/components/icons"
-import { Button, buttonVariants } from "@/components/ui/button"
 
 const links = [
   {
@@ -63,7 +62,7 @@ export function TopNav() {
                         href={link.href}
                         className={cn(
                             "transition-colors hover:text-foreground/80",
-                            pathname === link.href ? "text-foreground" : "text-foreground/60"
+                            pathname === link.href ? "text-foreground font-semibold" : "text-foreground/60"
                         )}
                     >
                     {link.name}
