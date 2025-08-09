@@ -57,3 +57,9 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
           <Button onClick={() => onSave(friendlyNames)}>
             <Save className="mr-2" />
             Salvar Nomes Amigáveis
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
