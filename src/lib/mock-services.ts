@@ -96,6 +96,31 @@ export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
     return [...mockPickingLog];
 };
 
+export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
+    console.log("Loading all picking logs...");
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // In a real app, this would fetch from a persistent store.
+    // Here we just return the in-memory log.
+    return [...mockPickingLog].sort((a, b) => new Date(b.pickedAt).getTime() - new Date(a.pickedAt).getTime());
+};
+
+export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id' | 'createdAt'>): Promise<void> => {
+    console.log("Saving manual picking log:", logData);
+    const newLog: PickedItemLog = {
+        ...logData,
+        id: `manual-${logData.serialNumber}-${Date.now()}`,
+        logId: `log-manual-${Date.now()}`,
+        productId: `manual-${logData.sku}`,
+        gtin: '',
+        origin: 'Manual',
+        quantity: 1,
+        createdAt: new Date().toISOString(),
+    };
+    mockPickingLog.unshift(newLog);
+    await new Promise(resolve => setTimeout(resolve, 300));
+};
+
+
 export const loadAppSettings = async (): Promise<{ iderisPrivateKey?: string } | null> => {
     console.log("Loading app settings...");
     await new Promise(resolve => setTimeout(resolve, 100));
