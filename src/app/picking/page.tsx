@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2 } from 'lucide-react';
+import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchOrdersFromIderis } from '@/services/ideris';
@@ -84,7 +84,6 @@ export default function PickingPage() {
             toast({
               title: "Painel Atualizado!",
               description: `${newSales.length} novo(s) pedido(s) foram importados.`,
-              className: 'bg-green-100 border-green-300 text-green-800'
             });
         } else {
              toast({ title: "Tudo certo!", description: "Seu painel já está atualizado com os últimos pedidos." });
@@ -146,6 +145,11 @@ export default function PickingPage() {
             toast({ variant: "destructive", title: "Produto Incorreto", description: `Este item (SKU ${item.sku}) não corresponde ao produto do pedido (SKU Pai ${parentProduct.sku}).` });
             return;
         }
+        
+        toast({
+            title: "Produto Correto!",
+            description: `O item ${item.name} foi adicionado ao pedido.`,
+        });
 
         setScannedItems(prev => [...prev, item]);
         setCurrentSN('');
@@ -508,9 +512,17 @@ useEffect(() => {
             </Card>
 
              <Card className={scannedItems.length === 0 ? 'bg-muted/50 border-dashed' : 'border-primary'}>
-                <CardHeader>
-                    <CardTitle>Produtos Lidos</CardTitle>
-                    <CardDescription>Itens do estoque que foram bipados.</CardDescription>
+                <CardHeader className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Produtos Lidos</CardTitle>
+                        <CardDescription>Itens do estoque que foram bipados.</CardDescription>
+                    </div>
+                    {scannedItems.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-green-600 font-semibold text-sm">
+                            <span>SKU Associado</span>
+                            <CheckCircle className="h-5 w-5" />
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent>
                      {scannedItems.length > 0 ? (
