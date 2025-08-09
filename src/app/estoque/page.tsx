@@ -327,6 +327,9 @@ export default function EstoquePage() {
                               <CommandEmpty>
                                 <div className="text-center p-4 text-sm">
                                   Nenhum produto encontrado.
+                                  <Link href="/produtos" className="text-primary underline">
+                                      Cadastre um novo produto.
+                                  </Link>
                                 </div>
                               </CommandEmpty>
                               <CommandGroup>

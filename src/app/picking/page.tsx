@@ -119,22 +119,11 @@ export default function PickingPage() {
     
     setIsSearchingSN(true);
     try {
-        let item = await findInventoryItemBySN(currentSN.trim());
+        const item = await findInventoryItemBySN(currentSN.trim());
 
         if (!item) {
-             console.warn(`SN ${currentSN.trim()} não encontrado. Criando item temporário para teste.`);
-             item = {
-                id: `manual-${currentSN.trim()}-${Date.now()}`,
-                productId: `manual-${(foundSale as any).item_sku || 'unknown'}`,
-                name: (foundSale as any).item_title || 'Produto não cadastrado',
-                sku: (foundSale as any).item_sku || 'SKU-INDEFINIDO',
-                serialNumber: currentSN.trim(),
-                costPrice: 0,
-                quantity: 1,
-                createdAt: new Date().toISOString(),
-                origin: 'Picking sem estoque',
-                gtin: '',
-             };
+             toast({ variant: "destructive", title: "SN não encontrado", description: `O SN ${currentSN.trim()} não foi encontrado no estoque. Verifique se o item foi cadastrado.` });
+             return;
         }
         
         setScannedItems(prev => [...prev, item!]);
