@@ -9,21 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2, User, KeyRound, Save, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ProfilePage() {
-    const { user, loading, updateUsername } = useAuth();
+    const { user, loading, updateUsername, updateUserPassword } = useAuth();
     const { toast } = useToast();
     const [displayName, setDisplayName] = useState("");
     const [isSavingName, setIsSavingName] = useState(false);
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
     const [isNewUser, setIsNewUser] = useState(false);
 
     useEffect(() => {
         if (user) {
             setDisplayName(user.displayName || "");
-            // A new user is one that hasn't set their display name yet
             if (!user.displayName) {
                 setIsNewUser(true);
             }
@@ -46,7 +46,7 @@ export default function ProfilePage() {
                 title: "Sucesso!",
                 description: "Seu nome de usuário foi atualizado.",
             });
-            setIsNewUser(false); // The user has completed the setup
+            setIsNewUser(false);
         } catch (error: any) {
             console.error("Erro ao atualizar nome:", error);
             toast({
@@ -58,25 +58,31 @@ export default function ProfilePage() {
             setIsSavingName(false);
         }
     };
-
-    const handlePasswordReset = async () => {
-        if (!user?.email) return;
+    
+    const handlePasswordSave = async () => {
+        if (newPassword.length < 6) {
+            toast({ variant: "destructive", title: "Senha muito curta", description: "A nova senha deve ter pelo menos 6 caracteres." });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast({ variant: "destructive", title: "Senhas não coincidem", description: "Os campos de nova senha e confirmação devem ser iguais." });
+            return;
+        }
+        
+        setIsSavingPassword(true);
         try {
-            await sendPasswordResetEmail(auth, user.email);
-            toast({
-                title: "E-mail de Redefinição Enviado!",
-                description: "Verifique sua caixa de entrada para alterar sua senha.",
-            });
+            await updateUserPassword(newPassword);
+            toast({ title: "Sucesso!", description: "Sua senha foi alterada." });
+            setNewPassword("");
+            setConfirmPassword("");
         } catch (error: any) {
-            console.error("Erro ao enviar e-mail de redefinição de senha:", error);
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Não foi possível enviar o e-mail de redefinição de senha. Tente novamente mais tarde.",
-            });
+             console.error("Erro ao alterar senha:", error);
+             toast({ variant: "destructive", title: "Erro ao alterar senha", description: "Pode ser necessário fazer login novamente para realizar esta operação." });
+        } finally {
+            setIsSavingPassword(false);
         }
     };
-    
+
     const formatDate = (dateString: string | undefined) => {
         if (!dateString) return "Não disponível";
         return new Date(dateString).toLocaleDateString('pt-BR', {
@@ -147,16 +153,24 @@ export default function ProfilePage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><KeyRound />Segurança</CardTitle>
-                         <CardDescription>Gerencie a segurança da sua conta.</CardDescription>
+                         <CardDescription>Defina uma nova senha de acesso.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Clique no botão abaixo para receber um e-mail com as instruções para redefinir sua senha. Você será desconectado após solicitar a redefinição.
-                        </p>
-                         <Button onClick={handlePasswordReset}>
-                            Alterar Senha
-                        </Button>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="new-password">Nova Senha</Label>
+                            <Input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo de 6 caracteres"/>
+                        </div>
+                         <div className="space-y-1">
+                            <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
+                            <Input id="confirm-password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repita a nova senha"/>
+                        </div>
                     </CardContent>
+                    <CardFooter>
+                         <Button onClick={handlePasswordSave} disabled={isSavingPassword || !newPassword || !confirmPassword}>
+                            {isSavingPassword ? <Loader2 className="animate-spin" /> : <Save />}
+                            Salvar Nova Senha
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
         </div>

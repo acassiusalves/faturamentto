@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, User, updateProfile, updatePassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
   updateUsername: (name: string) => Promise<void>;
+  updateUserPassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,6 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Nenhum usuário logado para atualizar.");
     }
   };
+  
+  const updateUserPassword = async (password: string) => {
+    if (auth.currentUser) {
+        await updatePassword(auth.currentUser, password);
+    } else {
+        throw new Error("Nenhum usuário logado para alterar a senha.");
+    }
+  }
 
   const value = {
     user,
@@ -57,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     updateUsername,
+    updateUserPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
