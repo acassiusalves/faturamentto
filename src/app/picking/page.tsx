@@ -4,9 +4,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem } from '@/services/firestore';
+import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku } from '@/services/firestore';
 
-import type { InventoryItem, PickedItemLog, Sale } from '@/lib/types';
+import type { InventoryItem, PickedItemLog, Sale, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ export default function PickingPage() {
   
   const [pickSearchTerm, setPickSearchTerm] = useState('');
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(5);
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -114,26 +114,39 @@ export default function PickingPage() {
     return () => clearInterval(intervalId);
   }, [autoSyncIderis]);
   
- const handleAddSN = useCallback(async () => {
+  const handleAddSN = useCallback(async () => {
     if (!currentSN.trim() || !foundSale) return;
-    
+
     setIsSearchingSN(true);
     const snToSearch = currentSN.trim();
-    
+
     try {
         const item = await findInventoryItemBySN(snToSearch);
-
         if (!item) {
-             toast({ variant: "destructive", title: "SN não encontrado", description: `O SN ${snToSearch} não foi encontrado no estoque.` });
-             return;
+            toast({ variant: "destructive", title: "SN não encontrado", description: `O SN ${snToSearch} não foi encontrado no estoque.` });
+            return;
         }
 
         const saleSku = (foundSale as any).item_sku;
-        if (item.sku !== saleSku) {
-             toast({ variant: "destructive", title: "Produto Incorreto", description: `O SN ${snToSearch} pertence ao produto com SKU ${item.sku}, mas o pedido é para o SKU ${saleSku}.` });
-             return;
+        if (!saleSku) {
+            toast({ variant: "destructive", title: "SKU do Pedido Faltando", description: "Não foi possível identificar o SKU do produto no pedido." });
+            return;
         }
-        
+
+        // Find the parent product based on the SKU from the sale order
+        const parentProduct = await findProductByAssociatedSku(saleSku);
+
+        if (!parentProduct) {
+            toast({ variant: "destructive", title: "Produto Incompatível", description: `O SKU do pedido (${saleSku}) não está associado a nenhum produto cadastrado.` });
+            return;
+        }
+
+        // Check if the scanned item's SKU matches the parent product's main SKU
+        if (item.sku !== parentProduct.sku) {
+            toast({ variant: "destructive", title: "Produto Incorreto", description: `Este item (SKU ${item.sku}) não corresponde ao produto do pedido (SKU Pai ${parentProduct.sku}).` });
+            return;
+        }
+
         setScannedItems(prev => [...prev, item]);
         setCurrentSN('');
 
@@ -141,10 +154,10 @@ export default function PickingPage() {
         console.error("Error adding SN:", error);
         toast({ variant: "destructive", title: "Erro ao buscar SN." });
     } finally {
-       setIsSearchingSN(false);
-       serialNumberRef.current?.focus();
+        setIsSearchingSN(false);
+        serialNumberRef.current?.focus();
     }
-  }, [currentSN, foundSale, toast]);
+}, [currentSN, foundSale, toast]);
 
 
   const handleSNKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -700,3 +713,5 @@ useEffect(() => {
     </div>
   );
 }
+
+    
