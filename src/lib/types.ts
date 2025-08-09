@@ -1,117 +1,21 @@
-export type SalesChannel = "Mercado Livre" | "Amazon" | "Shopee" | "Outro" | "Ideris";
-
-export const COST_CATEGORIES = [
-  "Frete",
-  "Taxas do Marketplace",
-  "Impostos",
-  "Marketing",
-  "Outros",
-] as const;
-
-export type CostCategory = (typeof COST_CATEGORIES)[number];
-
 export interface Cost {
   id: string;
+  type: string;
+  value: number;
+  isPercentage: boolean;
+}
+
+export interface CompanyCost {
+  id:string;
   description: string;
   value: number;
-  category: CostCategory;
-  isPercentage?: boolean;
-}
-
-export interface Sale {
-  id: string;
-  orderNumber: string;
-  date: string; // ISO string
-  salesChannel: SalesChannel;
-  account?: string;
-  
-  // Product
-  productName: string;
-  sku: string;
-  quantity: number;
-  productImage?: string;
-  
-  // Financials
-  grossRevenue: number; // Receita bruta
-  totalWithShipping?: number;
-  paidAmount?: number;
-  
-  costs: Cost[];
-  netValue: number;
-  
-  // Status & Customer
-  status?: string;
-  statusDescription?: string;
-  state?: string;
-  cpf?: string;
-
-  // Detailed financial fields from system-fields.ts for mapping
-  commission?: number;
-  commissionPercentage?: number;
-  fee?: number;
-  shippingCost?: number;
-  tax?: number;
-  packaging?: number;
-  unitCost?: number;
-  totalCost?: number;
-  profit?: number;
-  profitPercentage?: number;
-  refundedValue?: number;
-  discount?: number;
-  discountMarketplace?: number;
-  
-  // Ideris specific fields - can be merged or kept separate
-  order_code?: string;
-  marketplace_name?: string;
-  auth_name?: string;
-  document_value?: string;
-  state_name?: string;
-  value_with_shipping?: number;
-  fee_shipment?: number;
-  fee_order?: number;
-  net_amount?: number;
-  left_over?: number;
-  item_title?: string;
-  item_sku?: string;
-  item_quantity?: number;
-  item_image?: string;
-  payment_approved_date?: string;
-
-  // Other fields from system-fields
-  friendlyName?: string;
-  verified?: boolean;
-  realStatus?: string;
-  returnStatus?: string;
-  verified2?: boolean;
-  ticket?: string;
-  resolved?: boolean;
-  notes?: string;
-  returnTracking?: string;
-  transferForecast?: string;
-  transferDate?: string;
-  editedLabel?: boolean;
-
-  [key: string]: any; // For any other properties from APIs
-}
-
-
-export interface ProductAttribute {
-  key: string;
-  label: string;
-  values: string[];
-}
-
-export interface ProductCategorySettings {
-    id: string;
-    name: string;
-    attributes: ProductAttribute[];
 }
 
 export interface Product {
   id: string;
+  category: string;
   name: string;
   sku: string;
-  category: 'Celular' | 'Notebook';
   attributes: Record<string, string>;
   createdAt: string;
   associatedSkus?: string[];
@@ -119,35 +23,153 @@ export interface Product {
 
 export interface InventoryItem {
   id: string;
-  productId: string;
-  name: string;
-  sku: string;
+  productId: string; // Links to the Product template
+  name: string;      // The generated name from the Product, stored for convenience
   costPrice: number;
-  quantity: number;
   serialNumber: string;
-  gtin: string;
+  gtin?: string; // GTIN barcode
+  sku: string;
   origin: string;
-  createdAt: string;
+  quantity: number;
+  createdAt: string; // ISO 8601 string date
 }
 
-export interface PickedItemLog extends InventoryItem {
+export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };
+export type PickedItemLog = PickedItem & { logId: string; };
+
+
+export interface ProductAttribute {
+    key: string;
+    label: string;
+    values: string[];
+}
+
+export interface ProductCategorySettings {
+    id: string; // e.g., 'celular'
+    name: string; // e.g., 'Celulares'
+    attributes: ProductAttribute[];
+}
+
+
+export type AllMappingsState = { [key: string]: Partial<ColumnMapping> };
+
+// Interface Sale com todos os campos possíveis para mapeamento
+export interface Sale {
+  // Core fields from user request
+  id: string;
+  productName: string;
+  sku: string;
   orderNumber: string;
-  pickedAt: string;
-  logId: string;
+  cpf: string;
+  salesChannel: string;
+  account: string;
+  status: string;
+  saleDate: string;
+  state: string;
+  quantity: number;
+  priceWithoutShipping: number;
+  total: number; // Mapped to totalWithShipping or another field as needed
+  totalWithShipping: number;
+  commission: number;
+  commissionPercentage: number;
+  fee: number;
+  shippingCost: number;
+  tax: number;
+  packaging: number;
+  unitCost: number;
+  totalCost: number;
+  profit: number;
+  profitPercentage: number;
+  netValue: number;
+  refundedValue: number;
+  productImage: string;
+  paidAmount: number;
+  discount: number;
+  discountMarketplace: number;
+  
+  // Other potential fields from sheets/API
+  friendlyName: string;
+  statusDescription: string;
+  verified: string;
+  realStatus: string;
+  returnStatus: string;
+  verified2: string;
+  ticket: string;
+  resolved: string;
+  notes: string;
+  returnTracking: string;
+  transferForecast: string;
+  transferDate: string;
+  editedLabel: string;
+
+  // App-specific fields
+  costs: Cost[];
+  grossRevenue: number;
+  sheetData?: Record<string, any>;
+}
+
+// This mapping now covers all possible fields user might want to map
+export interface ColumnMapping {
+    id?: string;
+    productName?: string;
+    sku?: string;
+    orderNumber?: string;
+    cpf?: string;
+    salesChannel?: string;
+    account?: string;
+    status?: string;
+    saleDate?: string;
+    state?: string;
+    quantity?: string;
+    priceWithoutShipping?: string;
+    total?: string;
+    totalWithShipping?: string;
+    commission?: string;
+    commissionPercentage?: string;
+    fee?: string;
+    shippingCost?: string;
+    tax?: string;
+    packaging?: string;
+    unitCost?: string;
+    totalCost?: string;
+    profit?: string;
+    profitPercentage?: string;
+    netValue?: string;
+    refundedValue?: string;
+    productImage?: string;
+    paidAmount?: string;
+    discount?: string;
+    discountMarketplace?: string;
+    friendlyName?: string;
+    statusDescription?: string;
+    verified?: string;
+    realStatus?: string;
+    returnStatus?: string;
+    verified2?: string;
+    ticket?: string;
+    resolved?: string;
+    notes?: string;
+    returnTracking?: string;
+    transferForecast?: string;
+    transferDate?: string;
+    editedLabel?: string;
+}
+
+// Type for the AI's direct output
+export interface SuggestMappingOutput {
+  reasoning: string;
+}
+
+export interface SuggestionRequest {
+  headersForAI: string[]; // Labels for Ideris, headers for CSV
+  allSourceHeaders: string[]; // Keys for Ideris, headers for CSV
+  isIderis: boolean;
+}
+
+export interface UserData {
+  uid: string;
+  email: string;
+  creationTime: string;
 }
 
 export type ApiKeyStatus = "unchecked" | "valid" | "invalid";
-
-export type ColumnMapping = {
-  [systemField: string]: string; // systemField -> sourceField
-};
-
-export type AllMappingsState = {
-  [marketplaceId: string]: ColumnMapping;
-};
-
-export interface CompanyCost {
-  id: string;
-  description: string;
-  value: number;
-}
