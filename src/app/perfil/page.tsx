@@ -7,25 +7,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, KeyRound, Save } from "lucide-react";
+import { Loader2, User, KeyRound, Save, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ProfilePage() {
     const { user, loading, updateUsername } = useAuth();
     const { toast } = useToast();
     const [displayName, setDisplayName] = useState("");
     const [isSavingName, setIsSavingName] = useState(false);
+    const [isNewUser, setIsNewUser] = useState(false);
 
     useEffect(() => {
         if (user) {
             setDisplayName(user.displayName || "");
+            // A new user is one that hasn't set their display name yet
+            if (!user.displayName) {
+                setIsNewUser(true);
+            }
         }
     }, [user]);
 
     const handleNameSave = async () => {
-        if (!user) return;
+        if (!user || !displayName.trim()) {
+            toast({
+                variant: "destructive",
+                title: "Campo Obrigatório",
+                description: "O nome de usuário não pode estar em branco.",
+            });
+            return;
+        }
         setIsSavingName(true);
         try {
             await updateUsername(displayName);
@@ -33,6 +46,7 @@ export default function ProfilePage() {
                 title: "Sucesso!",
                 description: "Seu nome de usuário foi atualizado.",
             });
+            setIsNewUser(false); // The user has completed the setup
         } catch (error: any) {
             console.error("Erro ao atualizar nome:", error);
             toast({
@@ -87,8 +101,18 @@ export default function ProfilePage() {
                     Veja as informações da sua conta e gerencie suas configurações.
                 </p>
             </div>
+            
+             {isNewUser && (
+                <Alert variant="default" className="border-primary">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle className="font-bold">Bem-vindo(a) ao Sistema!</AlertTitle>
+                    <AlertDescription>
+                        Este é o seu primeiro acesso. Por favor, defina um nome de usuário e altere sua senha para continuar.
+                    </AlertDescription>
+                </Alert>
+            )}
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 items-start">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><User />Informações da Conta</CardTitle>
@@ -97,7 +121,7 @@ export default function ProfilePage() {
                     <CardContent className="space-y-4">
                         <div className="space-y-1">
                             <Label htmlFor="displayName">Nome de Usuário</Label>
-                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Digite seu nome aqui" />
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="email">Email</Label>
