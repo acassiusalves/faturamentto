@@ -31,6 +31,8 @@ export interface Sale {
   item_title?: string;
   item_quantity?: number;
   auth_name?: string;
+  // Custom mapped fields
+  [key: string]: any;
 }
 
 export interface Product {
@@ -57,3 +59,12 @@ export interface PickedItemLog extends InventoryItem {
   pickedAt: string;
   logId: string;
 }
+
+export type ApiKeyStatus = "unchecked" | "valid" | "invalid";
+
+export type ColumnMapping = {
+  [systemField: string]: string; // systemField -> sourceField
+};
+
+export type AllMappingsState = {
+  [marketplaceId

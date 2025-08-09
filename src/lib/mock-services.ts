@@ -1,5 +1,5 @@
-
-import type { InventoryItem, Product, Sale, PickedItemLog } from './types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus } from './types';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Mock data
 let mockInventory: InventoryItem[] = [
@@ -49,6 +49,24 @@ let mockSales: Sale[] = [
 ];
 
 let mockPickingLog: PickedItemLog[] = [];
+
+let mockAppSettings: {
+    iderisPrivateKey?: string;
+    googleSheetsApiKey?: string;
+    allMappings?: AllMappingsState;
+    friendlyFieldNames?: Record<string, string>;
+    fileNames?: { [key: string]: string };
+    fileData?: { [key: string]: string };
+    iderisApiStatus?: ApiKeyStatus;
+    googleSheetsApiStatus?: ApiKeyStatus;
+} = {
+    iderisPrivateKey: "mock-private-key",
+    iderisApiStatus: "valid",
+    allMappings: {},
+    friendlyFieldNames: {},
+    fileNames: {},
+    fileData: {},
+};
 
 
 // Mock service functions
@@ -121,11 +139,18 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
 };
 
 
-export const loadAppSettings = async (): Promise<{ iderisPrivateKey?: string } | null> => {
+export const loadAppSettings = async (): Promise<typeof mockAppSettings | null> => {
     console.log("Loading app settings...");
     await new Promise(resolve => setTimeout(resolve, 100));
-    return { iderisPrivateKey: "mock-private-key" };
+    return mockAppSettings;
 }
+
+export const saveAppSettings = async (uid: string, settings: Partial<typeof mockAppSettings>): Promise<void> => {
+    console.log("Saving app settings for user:", uid, settings);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    mockAppSettings = { ...mockAppSettings, ...settings };
+}
+
 
 export const loadSales = async (): Promise<Sale[]> => {
     console.log("Loading sales...");
@@ -147,13 +172,24 @@ export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale |
 };
 
 export const fetchOrdersFromIderis = async (
+    userId: string,
     privateKey: string,
-    options: { from: Date; to: Date },
-    existingSaleIds: string[]
+    dateRange: { from: Date; to: Date },
+    existingSaleIds: string[],
+    progressCallback?: (progress: number, current: number, total: number) => void
 ): Promise<Sale[]> => {
-    console.log("Fetching new orders from Ideris mock...");
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-    // Return an empty array to simulate no new orders
+    console.log(`Fetching new orders from Ideris mock for user ${userId}...`);
+    
+    // Simulate a longer process with progress updates
+    const totalSteps = 10;
+    for (let i = 0; i <= totalSteps; i++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (progressCallback) {
+            progressCallback((i / totalSteps) * 100, i, totalSteps);
+        }
+    }
+    
+    // Return an empty array to simulate no new orders found
     return [];
 };
 
