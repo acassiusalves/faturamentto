@@ -82,15 +82,15 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  if (!user && pathname === '/login') {
-    return <>{children}</>;
+  if (pathname === '/login') {
+      return <>{children}</>;
   }
 
   if (user) {
-    const showHeader = !(!user.displayName && pathname !== '/perfil');
+    const isFirstTimeSetup = !user.displayName && pathname === '/perfil';
     return (
       <div className="flex flex-col min-h-screen">
-        {showHeader && <Header />}
+        {!isFirstTimeSetup && <Header />}
         <main className="flex-1 container mx-auto py-8">
           {children}
         </main>

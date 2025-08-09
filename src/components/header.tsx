@@ -38,31 +38,28 @@ export function Header() {
             </Link>
             
             <nav className="ml-auto flex items-center gap-2">
-                {navLinks.map(link => (
-                    link.roles.includes(user.role) && (
-                        <Button asChild variant="ghost" size="sm" key={link.href}>
-                            <Link href={link.href}>
-                                <link.icon className="mr-2" />
-                                {link.label}
-                            </Link>
-                        </Button>
-                    )
+                {navLinks.filter(link => link.roles.includes(user.role)).map(link => (
+                    <Button asChild variant="ghost" size="sm" key={link.href}>
+                        <Link href={link.href}>
+                            <link.icon className="mr-2" />
+                            {link.label}
+                        </Link>
+                    </Button>
                 ))}
                 
-                {settingsLinks.map(link => (
-                    link.roles.includes(user.role) && (
+                <div className="flex items-center gap-1 border-l ml-2 pl-2">
+                    {settingsLinks.filter(link => link.roles.includes(user.role)).map(link => (
                          <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
                             <Link href={link.href}>
                                 <link.icon />
                             </Link>
                         </Button>
-                    )
-                ))}
+                    ))}
 
-                 <Button onClick={logout} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <LogOut className="mr-2" />
-                    Sair
-                </Button>
+                     <Button onClick={logout} variant="ghost" size="icon" title="Sair" className="text-destructive hover:text-destructive">
+                        <LogOut />
+                    </Button>
+                </div>
             </nav>
         </header>
     )
