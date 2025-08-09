@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -456,9 +457,10 @@ export function ProductCreator({ category }: ProductCreatorProps) {
                             {product.associatedSkus && product.associatedSkus.length > 0 && (
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                                    <Link2 className="h-4 w-4 text-primary" />
-                                  </Button>
+                                    <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
+                                        <Link2 className="h-4 w-4" />
+                                        <span>{product.associatedSkus.length}</span>
+                                    </div>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto max-w-xs p-3">
                                   <div className="space-y-2">
