@@ -61,10 +61,9 @@ export function Header() {
                         Mapeamento
                     </Link>
                 </Button>
-                 <Button asChild variant="ghost" size="sm">
-                    <Link href="/perfil">
-                        <User className="mr-2" />
-                        {user?.displayName || 'Perfil'}
+                 <Button asChild variant="ghost" size="icon">
+                    <Link href="/perfil" title={user?.displayName || 'Perfil'}>
+                        <User />
                     </Link>
                 </Button>
                  <Button onClick={logout} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
