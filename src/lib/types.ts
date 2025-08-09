@@ -69,3 +69,9 @@ export type ColumnMapping = {
 export type AllMappingsState = {
   [marketplaceId: string]: ColumnMapping;
 };
+
+export interface CompanyCost {
+  id: string;
+  description: string;
+  value: number;
+}

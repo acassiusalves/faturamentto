@@ -1,4 +1,4 @@
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus } from './types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost } from './types';
 import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Mock data
@@ -66,6 +66,20 @@ let mockAppSettings: {
     friendlyFieldNames: {},
     fileNames: {},
     fileData: {},
+};
+
+let mockCompanyCosts: {
+    fixed: CompanyCost[];
+    variable: CompanyCost[];
+} = {
+    fixed: [
+        { id: 'fixed-1', description: 'Aluguel do Escritório', value: 2500 },
+        { id: 'fixed-2', description: 'Plano de Internet', value: 150 },
+    ],
+    variable: [
+        { id: 'variable-1', description: 'Embalagens (por unidade)', value: 1.5 },
+        { id: 'variable-2', description: 'Taxa de Cartão (%)', value: 2.5 },
+    ]
 };
 
 
@@ -231,3 +245,15 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
         mockInventory.unshift(itemToAddBack);
     }
 }
+
+export const loadCompanyCosts = async (): Promise<typeof mockCompanyCosts | null> => {
+    console.log("Loading company costs...");
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return mockCompanyCosts;
+};
+
+export const saveCompanyCosts = async (uid: string, costs: typeof mockCompanyCosts): Promise<void> => {
+    console.log("Saving company costs for user:", uid, costs);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    mockCompanyCosts = costs;
+};
