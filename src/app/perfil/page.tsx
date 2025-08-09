@@ -103,6 +103,10 @@ export default function ProfilePage() {
                             <Label htmlFor="email">Email</Label>
                             <Input id="email" value={user.email || ""} readOnly disabled />
                         </div>
+                         <div className="space-y-1">
+                            <Label htmlFor="uid">UID do Usuário</Label>
+                            <Input id="uid" value={user.uid} readOnly disabled />
+                        </div>
                         <div className="space-y-1">
                             <Label htmlFor="creation-date">Data de Criação da Conta</Label>
                             <Input id="creation-date" value={formatDate(user.metadata.creationTime)} readOnly disabled />
