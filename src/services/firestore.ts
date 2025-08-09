@@ -13,8 +13,9 @@ import {
   limit,
   orderBy,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -286,7 +287,7 @@ export const saveCompanyCosts = async (costs: { fixed: CompanyCost[]; variable: 
 };
 
 
-// --- APP SETTINGS (MAPPING, API KEYS, etc.) ---
+// --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
 
 export const loadAppSettings = async (): Promise<any | null> => {
@@ -299,4 +300,15 @@ export const loadAppSettings = async (): Promise<any | null> => {
 
 export const saveAppSettings = async (settings: Partial<any>): Promise<void> => {
     await setDoc(settingsDocRef, settings, { merge: true });
+}
+
+export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
+    const usersCol = collection(db, 'users');
+    const snapshot = await getDocs(usersCol);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppUser));
+}
+
+export const updateUserRole = async (uid: string, role: string): Promise<void> => {
+    const userDocRef = doc(db, 'users', uid);
+    await updateDoc(userDocRef, { role });
 }

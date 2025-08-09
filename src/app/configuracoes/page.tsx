@@ -7,31 +7,28 @@ import { Users, Lock, UserPlus, ShieldCheck, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pagePermissions as defaultPagePermissions, availableRoles } from "@/lib/permissions";
-import { saveAppSettings, loadAppSettings } from "@/services/firestore";
+import { saveAppSettings, loadAppSettings, loadUsersWithRoles, updateUserRole } from "@/services/firestore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data - Em uma implementação real, isso viria do Firebase (Auth + Firestore)
-const mockUsers = [
-  { id: '1', email: 'admin@fechamentto.com', role: 'admin' },
-  { id: '2', email: 'expedicao@fechamentto.com', role: 'expedicao' },
-  { id: '3', email: 'financeiro@fechamentto.com', role: 'financeiro' },
-  { id: '4', email: 'sac@fechamentto.com', role: 'sac' },
-];
+import type { AppUser } from "@/lib/types";
 
 export default function SettingsPage() {
-    const [users, setUsers] = useState(mockUsers);
+    const [users, setUsers] = useState<AppUser[]>([]);
     const [permissions, setPermissions] = useState(defaultPagePermissions);
-    const [isSaving, setIsSaving] = useState(false);
+    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+    const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     
     useEffect(() => {
         async function loadData() {
             setIsLoading(true);
-            const settings = await loadAppSettings();
+            const [settings, appUsers] = await Promise.all([
+                loadAppSettings(),
+                loadUsersWithRoles()
+            ]);
+
             if (settings && settings.permissions) {
-                // Merge loaded permissions with defaults to ensure new pages are included
                 const mergedPermissions = { ...defaultPagePermissions };
                 for (const page in mergedPermissions) {
                     if (settings.permissions[page]) {
@@ -40,6 +37,7 @@ export default function SettingsPage() {
                 }
                 setPermissions(mergedPermissions);
             }
+            setUsers(appUsers);
             setIsLoading(false);
         }
         loadData();
@@ -66,8 +64,8 @@ export default function SettingsPage() {
         });
     };
 
-    const handleSaveChanges = async () => {
-        setIsSaving(true);
+    const handleSavePermissions = async () => {
+        setIsSavingPermissions(true);
         try {
             await saveAppSettings({ permissions: permissions });
             toast({
@@ -77,10 +75,26 @@ export default function SettingsPage() {
         } catch (e) {
             toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar as permissões."})
         } finally {
-            setIsSaving(false);
+            setIsSavingPermissions(false);
         }
     };
     
+    const handleSaveUsers = async () => {
+        setIsSavingUsers(true);
+        try {
+            const updatePromises = users.map(user => updateUserRole(user.id, user.role));
+            await Promise.all(updatePromises);
+            toast({
+                title: "Funções Salvas!",
+                description: "As funções dos usuários foram atualizadas com sucesso."
+            });
+        } catch (e) {
+             toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar as funções dos usuários."})
+        } finally {
+            setIsSavingUsers(false);
+        }
+    }
+
     if (isLoading) {
         return <div className="flex items-center justify-center h-[calc(100vh-200px)]"><Loader2 className="animate-spin" /><p className="ml-2">Carregando...</p></div>
     }
@@ -130,8 +144,8 @@ export default function SettingsPage() {
                     </div>
                 </CardContent>
                  <CardFooter className="justify-end">
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
-                        {isSaving && <Loader2 className="animate-spin mr-2"/>}
+                    <Button onClick={handleSavePermissions} disabled={isSavingPermissions}>
+                        {isSavingPermissions && <Loader2 className="animate-spin mr-2"/>}
                         Salvar Alterações de Permissão
                     </Button>
                 </CardFooter>
@@ -141,7 +155,7 @@ export default function SettingsPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Users /> Gestão de Usuários</CardTitle>
                     <CardDescription>
-                        Atribua funções para controlar o acesso de cada usuário.
+                        Atribua funções para controlar o acesso de cada usuário. Apenas usuários com função definida no Firestore são listados aqui.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -154,13 +168,14 @@ export default function SettingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.map(user => (
+                                {users.length > 0 ? users.map(user => (
                                     <TableRow key={user.id}>
                                         <TableCell className="font-medium">{user.email}</TableCell>
                                         <TableCell>
                                             <Select
                                                 value={user.role}
                                                 onValueChange={(newRole) => handleRoleChange(user.id, newRole)}
+                                                disabled={user.email.toLowerCase().includes('admin@')}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecione a função" />
@@ -175,12 +190,16 @@ export default function SettingsPage() {
                                             </Select>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="h-24 text-center">Nenhum usuário encontrado no Firestore.</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                       (Em breve) A lista de usuários será carregada automaticamente do Firebase e a alteração de função será salva.
+                       (Em breve) A criação de novos usuários será feita através de um convite.
                     </p>
                 </CardContent>
                 <CardFooter className="justify-between items-center">
@@ -188,7 +207,8 @@ export default function SettingsPage() {
                         <UserPlus />
                         Adicionar Novo Usuário
                     </Button>
-                    <Button disabled>
+                    <Button onClick={handleSaveUsers} disabled={isSavingUsers}>
+                         {isSavingUsers && <Loader2 className="animate-spin mr-2"/>}
                         Salvar Alterações de Usuário
                     </Button>
                 </CardFooter>

@@ -166,10 +166,10 @@ export interface SuggestionRequest {
   isIderis: boolean;
 }
 
-export interface UserData {
-  uid: string;
+export interface AppUser {
+  id: string; // UID from Firebase Auth
   email: string;
-  creationTime: string;
+  role: string;
 }
 
 export type ApiKeyStatus = "unchecked" | "valid" | "invalid";
