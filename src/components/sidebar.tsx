@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Package } from "lucide-react"
+import { LayoutDashboard, Package, ScanLine } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { MarketFlowLogo } from "@/components/icons"
@@ -24,6 +24,11 @@ const links = [
     name: "Estoque",
     href: "/estoque",
     icon: Package,
+  },
+  {
+    name: "Picking",
+    href: "/picking",
+    icon: ScanLine,
   },
 ]
 

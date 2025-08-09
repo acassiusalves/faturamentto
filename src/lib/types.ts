@@ -25,6 +25,12 @@ export interface Sale {
   grossValue: number;
   costs: Cost[];
   netValue: number;
+  // Picking Page related fields
+  orderNumber?: string;
+  item_sku?: string;
+  item_title?: string;
+  item_quantity?: number;
+  auth_name?: string;
 }
 
 export interface Product {
@@ -44,4 +50,10 @@ export interface InventoryItem {
   gtin: string;
   origin: string;
   createdAt: string;
+}
+
+export interface PickedItemLog extends InventoryItem {
+  orderNumber: string;
+  pickedAt: string;
+  logId: string;
 }
