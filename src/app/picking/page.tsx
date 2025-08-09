@@ -60,6 +60,12 @@ export default function PickingPage() {
 
   const autoSyncIderis = useCallback(async () => {
     if (isSyncing) return;
+    const settings = await loadAppSettings();
+    if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
+        toast({ variant: 'destructive', title: 'Sincronização Pausada', description: 'Valide sua chave da Ideris na página de Mapeamento para buscar novos pedidos.'})
+        return;
+    }
+    
     setIsSyncing(true);
     toast({ title: "Sincronizando...", description: "Buscando novos pedidos em segundo plano." });
 
@@ -71,12 +77,6 @@ export default function PickingPage() {
         const existingSales = await loadSales();
         const existingSaleIds = existingSales.map(s => s.id);
         
-        const settings = await loadAppSettings();
-        if (!settings?.iderisPrivateKey) {
-            toast({ variant: 'destructive', title: 'Configuração Incompleta', description: 'Chave privada da Ideris não encontrada.'})
-            return;
-        }
-
         const newSales = await fetchOrdersFromIderis("user-id-placeholder", settings.iderisPrivateKey, { from, to }, existingSaleIds);
 
         if (newSales.length > 0) {

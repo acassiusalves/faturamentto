@@ -23,7 +23,7 @@ export default function Home() {
   const autoSyncIderis = useCallback(async (isSilent: boolean = false) => {
     if (isSyncing) return;
     const settings = await loadAppSettings();
-    if (!settings?.iderisPrivateKey) return;
+    if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') return;
 
     setIsSyncing(true);
     if (!isSilent) {
