@@ -169,7 +169,7 @@ export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
     return [...mockPickingLog].sort((a, b) => new Date(b.pickedAt).getTime() - new Date(a.pickedAt).getTime());
 };
 
-export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id' | 'createdAt'>): Promise<void> => {
+export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id'>): Promise<void> => {
     console.log("Saving manual picking log:", logData);
     const newLog: PickedItemLog = {
         ...logData,
@@ -179,7 +179,6 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
         gtin: '',
         origin: 'Manual',
         quantity: 1,
-        createdAt: new Date().toISOString(),
     };
     mockPickingLog.unshift(newLog);
     await new Promise(resolve => setTimeout(resolve, 300));
