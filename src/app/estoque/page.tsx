@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
-import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN } from '@/lib/mock-services';
+import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -157,7 +157,7 @@ export default function EstoquePage() {
     }));
 
     try {
-      const savedItems = await saveMultipleInventoryItems(newItems as InventoryItem[]);
+      const savedItems = await saveMultipleInventoryItems(newItems as any);
       setInventory(prev => [...savedItems, ...prev]);
       toast({
         title: `${newItems.length} Itens Adicionados!`,
@@ -599,5 +599,3 @@ export default function EstoquePage() {
     </div>
   );
 }
-
-    

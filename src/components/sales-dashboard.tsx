@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { saveSales, loadSales } from "@/lib/mock-services";
+import { saveSales, loadSales } from "@/services/firestore";
 import { Badge } from "./ui/badge";
 
 
@@ -310,5 +310,3 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     </div>
   );
 }
-
-    

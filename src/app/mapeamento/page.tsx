@@ -20,7 +20,7 @@ import { removeAccents } from "@/lib/utils";
 import { SuggestionDialog } from "@/components/suggestion-dialog";
 import { systemFields } from "@/lib/system-fields";
 import { iderisFields } from "@/lib/ideris-fields";
-import { saveAppSettings, loadAppSettings, saveSales, loadSales } from "@/lib/mock-services";
+import { saveAppSettings, loadAppSettings, saveSales, loadSales } from "@/services/firestore";
 import { fetchOrdersFromIderis } from "@/services/ideris";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";

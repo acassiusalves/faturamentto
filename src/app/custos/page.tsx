@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, DollarSign, PlusCircle, Loader2 } from "lucide-react";
 import type { CompanyCost } from "@/lib/types";
-import { saveCompanyCosts, loadCompanyCosts } from "@/lib/mock-services";
+import { saveCompanyCosts, loadCompanyCosts } from "@/services/firestore";
 
 type CostCategory = "fixed" | "variable";
 
@@ -224,5 +224,3 @@ export default function CostsPage() {
     </div>
   );
 }
-
-    

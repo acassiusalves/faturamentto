@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem } from '@/lib/mock-services';
+import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem } from '@/services/firestore';
 
 import type { InventoryItem, PickedItemLog, Sale } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -703,5 +703,3 @@ useEffect(() => {
     </div>
   );
 }
-
-    

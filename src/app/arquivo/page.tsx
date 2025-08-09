@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { loadAllPickingLogs, saveManualPickingLog } from '@/lib/mock-services';
+import { loadAllPickingLogs, saveManualPickingLog } from '@/services/firestore';
 import type { PickedItemLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -288,5 +288,3 @@ export default function ArchivePage() {
     </>
   );
 }
-
-    

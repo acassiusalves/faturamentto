@@ -20,7 +20,7 @@ import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { loadAppSettings } from '@/lib/mock-services';
+import { loadAppSettings } from '@/services/firestore';
 import Image from 'next/image';
 import {
   DndContext,
@@ -431,5 +431,3 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
     </>
   );
 }
-
-    

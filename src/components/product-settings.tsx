@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { ProductCategorySettings, ProductAttribute } from '@/lib/types';
-import { loadProductSettings, saveProductSettings } from '@/lib/mock-services';
+import { loadProductSettings, saveProductSettings } from '@/services/firestore';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -208,5 +208,3 @@ export function ProductSettings() {
         </Card>
     );
 }
-
-    

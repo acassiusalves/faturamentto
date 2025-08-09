@@ -4,7 +4,7 @@ import { SalesDashboard } from '@/components/sales-dashboard';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { loadAppSettings, saveSales, loadSales } from '@/lib/mock-services';
+import { loadAppSettings, saveSales, loadSales } from '@/services/firestore';
 import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Loader2 } from 'lucide-react';
 
@@ -117,7 +117,5 @@ export default function Home() {
     );
   }
   
-  return <SalesDashboard isSyncing={isSyncing} lastSyncTime={lastSyncTime} />;
+  return <SalesDashboard isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
 }
-
-    
