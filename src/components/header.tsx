@@ -1,10 +1,12 @@
 "use client"
 import Link from "next/link";
-import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3 } from 'lucide-react';
+import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
+import { useAuth } from "@/context/auth-context";
 
 export function Header() {
+    const { logout } = useAuth();
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
             <Link href="/" className="flex items-center gap-3">
@@ -57,6 +59,10 @@ export function Header() {
                         <Map className="mr-2" />
                         Mapeamento
                     </Link>
+                </Button>
+                 <Button onClick={logout} variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                    <LogOut className="mr-2" />
+                    Sair
                 </Button>
             </nav>
         </header>

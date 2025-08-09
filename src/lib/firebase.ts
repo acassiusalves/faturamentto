@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, enableNetwork } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -13,10 +14,12 @@ const firebaseConfig = {
 };
 
 let app: FirebaseApp;
+let auth: Auth;
 let db: Firestore;
 
 if (typeof window !== 'undefined' && !getApps().length) {
   app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
   db = getFirestore(app);
   try {
     enableNetwork(db);
@@ -26,14 +29,20 @@ if (typeof window !== 'undefined' && !getApps().length) {
   }
 } else if (getApps().length > 0) {
     app = getApp();
+    auth = getAuth(app);
     db = getFirestore(app);
 }
 
 // Fallback for server-side rendering or environments where `window` is not defined
 if (!app) {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+}
+if (!auth) {
+    auth = getAuth(app);
+}
+if (!db) {
     db = getFirestore(app);
 }
 
 
-export { app, db };
+export { app, db, auth };
