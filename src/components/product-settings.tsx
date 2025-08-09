@@ -20,7 +20,6 @@ const initialCategories: ProductCategorySettings[] = [
         name: 'Celulares',
         attributes: [
             { key: 'marca', label: 'Marca', values: ['Xiaomi', 'Realme', 'Motorola', 'Samsung', 'LG'] },
-            { key: 'fornecedor', label: 'Fornecedor', values: [] },
             { key: 'modelo', label: 'Modelo', values: [
                 'Mi 11 Lite', 'Mi 11i', 'Mi 10T', 'Mi 10T Lite', 'Mi 10 Lite', 'Poco F5', 'Redmi Note 10', 'Redmi Note 10 Pro', 
                 'Redmi Note 10S', 'Redmi Note 10 Pro Max', 'Redmi Note 10T', 'Redmi Note 9', 'Redmi Note 9 Pro', 'Redmi Note 9T', 
@@ -63,33 +62,42 @@ export function ProductSettings() {
             const loadedSettingsPromises = initialCategories.map(cat => loadProductSettings(cat.id));
             const loadedSettings = await Promise.all(loadedSettingsPromises);
             
-            const finalSettings = initialCategories.map((cat, index) => {
-                const saved = loadedSettings[index];
-                // If settings were saved, merge them with defaults to ensure all attributes exist
-                if (saved) {
-                    const mergedAttributes = cat.attributes.map(defaultAttr => {
-                       const savedAttr = saved.attributes.find(sa => sa.key === defaultAttr.key);
-                       // If saved attribute has values, use them. Otherwise, use default values.
-                       if (savedAttr && savedAttr.values && savedAttr.values.length > 0) {
-                           return savedAttr;
-                       }
-                       return defaultAttr;
+            const finalSettings: ProductCategorySettings[] = [];
+            
+            for (let i = 0; i < initialCategories.length; i++) {
+                const cat = initialCategories[i];
+                let saved = loadedSettings[i];
+
+                // If no settings were saved for this category, save the initial default and use it.
+                if (!saved) {
+                    await saveProductSettings(cat.id, cat);
+                    saved = cat; 
+                     toast({
+                        title: "Configurações Iniciais Criadas",
+                        description: `As configurações padrão para ${cat.name} foram salvas.`,
                     });
-                    // Also make sure to respect the order from the initialCategories config
-                    const orderedAttributes = cat.attributes.map(defaultAttr => 
-                        mergedAttributes.find(m => m.key === defaultAttr.key) || defaultAttr
-                    );
-                    return { ...cat, attributes: orderedAttributes };
                 }
-                // If no settings were saved for this category, return the initial default.
-                return cat;
-            });
+                
+                // Merge to ensure all attributes exist and respect order
+                const mergedAttributes = cat.attributes.map(defaultAttr => {
+                   const savedAttr = saved!.attributes.find(sa => sa.key === defaultAttr.key);
+                   if (savedAttr && savedAttr.values && savedAttr.values.length > 0) {
+                       return savedAttr;
+                   }
+                   return defaultAttr;
+                });
+                
+                const orderedAttributes = cat.attributes.map(defaultAttr => 
+                    mergedAttributes.find(m => m.key === defaultAttr.key) || defaultAttr
+                );
+                finalSettings.push({ ...cat, attributes: orderedAttributes });
+            }
             
             setSettings(finalSettings);
             setIsLoading(false);
         }
         loadData();
-    }, []);
+    }, [toast]);
     
     const handleAddOption = (categoryIndex: number, attributeIndex: number) => {
         const attrKey = settings[categoryIndex].attributes[attributeIndex].key;
@@ -97,7 +105,6 @@ export function ProductSettings() {
 
         if (!inputValues) return;
         
-        // Split by comma, newline, or semicolon
         const optionsToAdd = inputValues.split(/[,\n;]/).map(opt => opt.trim()).filter(Boolean);
 
         if(optionsToAdd.length === 0) return;
@@ -117,7 +124,6 @@ export function ProductSettings() {
             setSettings(newSettings);
         }
         
-        // Clear input field
         setNewOption(prev => ({...prev, [attrKey]: ""}));
     };
     
