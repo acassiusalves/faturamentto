@@ -97,7 +97,7 @@ export const saveProduct = async (product: Product): Promise<void> => {
     if (!dataToSave.createdAt) {
         dataToSave.createdAt = new Date();
     }
-    await setDoc(docRef, toFirestore(dataToSave));
+    await setDoc(docRef, toFirestore(dataToSave), { merge: true });
 };
 
 export const saveProducts = async (products: Product[]): Promise<void> => {
