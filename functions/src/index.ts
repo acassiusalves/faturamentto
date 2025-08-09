@@ -5,6 +5,7 @@ import {getFirestore} from "firebase-admin/firestore";
 import type {AuthError} from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+// CORRIGIDO: Quebra da linha de importação para respeitar o max-len.
 
 initializeApp();
 
