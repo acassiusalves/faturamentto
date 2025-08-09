@@ -11,42 +11,61 @@ interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
+const pagePermissions: Record<string, string[]> = {
+    '/': ['admin', 'financeiro', 'expedicao', 'sac'],
+    '/produtos': ['admin', 'expedicao'],
+    '/estoque': ['admin', 'expedicao'],
+    '/picking': ['admin', 'expedicao'],
+    '/arquivo': ['admin', 'expedicao', 'sac'],
+    '/dre': ['admin', 'financeiro'],
+    '/custos-geral': ['admin', 'financeiro'],
+    '/mapeamento': ['admin'],
+    '/configuracoes': ['admin'],
+    '/perfil': ['admin', 'financeiro', 'expedicao', 'sac'],
+    '/login': [], // Public page
+};
+
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (loading) return; // Don't do anything while loading
+    if (loading) return; 
 
     const isLoginPage = pathname === '/login';
-    const isProfilePage = pathname === '/perfil';
+
+    if (!user) {
+        if (!isLoginPage) {
+            router.push('/login');
+        }
+        return;
+    }
     
-    // If not logged in and not on the login page, redirect to login
-    if (!user && !isLoginPage) {
-      router.push('/login');
-      return;
+    // User is logged in
+    if (isLoginPage) {
+        router.push('/');
+        return;
+    }
+    
+    const isNewUser = !user.displayName;
+    const isProfilePage = pathname === '/perfil';
+
+    if (isNewUser && !isProfilePage) {
+        router.push('/perfil');
+        return;
+    }
+    
+    // Role-based access control
+    const allowedRoles = pagePermissions[pathname];
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        console.warn(`Access Denied: User with role '${user.role}' tried to access '${pathname}'.`);
+        router.push('/'); // Redirect to dashboard if not permitted
+        return;
     }
 
-    if (user) {
-        const isNewUser = !user.displayName;
-
-        // If logged in and on the login page, redirect to dashboard
-        if (isLoginPage) {
-          router.push('/');
-          return;
-        }
-
-        // If it's a new user (no display name) and they are NOT on the profile page,
-        // force them to the profile page.
-        if (isNewUser && !isProfilePage) {
-            router.push('/perfil');
-            return;
-        }
-    }
   }, [user, loading, router, pathname]);
 
-  // Show a global loader while authentication is in progress
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -55,7 +74,6 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  // If there's no user and we are not on the login page, we're likely redirecting. Show loader.
   if (!user && pathname !== '/login') {
     return (
        <div className="flex items-center justify-center min-h-screen">
@@ -64,18 +82,12 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  // If the user is not logged in and is on the login page, render only the children (the login page itself)
   if (!user && pathname === '/login') {
     return <>{children}</>;
   }
 
-  // If the user is logged in, render the main layout.
-  // The logic inside useEffect handles redirection for new users.
   if (user) {
-    const isNewUser = !user.displayName;
-    // Don't render the main header if a new user is forced to the profile page
-    const showHeader = !isNewUser || pathname === '/perfil';
-
+    const showHeader = !(!user.displayName && pathname !== '/perfil');
     return (
       <div className="flex flex-col min-h-screen">
         {showHeader && <Header />}
@@ -86,6 +98,5 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     );
   }
 
-  // Fallback for any edge cases (shouldn't be reached)
   return null;
 }

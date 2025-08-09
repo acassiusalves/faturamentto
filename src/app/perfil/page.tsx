@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, KeyRound, Save, AlertCircle } from "lucide-react";
+import { Loader2, User, KeyRound, Save, AlertCircle, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 export default function ProfilePage() {
     const { user, loading, updateUsername, updateUserPassword } = useAuth();
@@ -140,6 +141,13 @@ export default function ProfilePage() {
                         <div className="space-y-1">
                             <Label htmlFor="creation-date">Data de Criação da Conta</Label>
                             <Input id="creation-date" value={formatDate(user.metadata.creationTime)} readOnly disabled />
+                        </div>
+                         <div className="space-y-1">
+                            <Label>Função (Permissão)</Label>
+                             <div className="flex items-center gap-2">
+                                <Shield className="h-5 w-5 text-muted-foreground" />
+                                <Badge variant="secondary" className="text-base">{user.role}</Badge>
+                            </div>
                         </div>
                     </CardContent>
                     <CardFooter>

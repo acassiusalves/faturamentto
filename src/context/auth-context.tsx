@@ -3,11 +3,20 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User, updateProfile, updatePassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+
+interface AuthUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    role: string;
+    metadata: User['metadata'];
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
@@ -18,13 +27,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser({ ...user }); // Create a new object to trigger re-renders
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Fetch user role from Firestore
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        const role = userDoc.exists() ? userDoc.data().role : 'expedicao'; // Default role if not set
+
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          role: role,
+          metadata: firebaseUser.metadata,
+        });
       } else {
         setUser(null);
       }
@@ -45,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUsername = async (name: string) => {
     if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: name });
-        // Manually update the user state to reflect the change immediately
         setUser(prevUser => prevUser ? ({ ...prevUser, displayName: name }) : null);
     } else {
         throw new Error("Nenhum usuário logado para atualizar.");
