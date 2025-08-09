@@ -9,4 +9,5 @@ export const systemFields = [
     { key: "marketplace_fee", name: "Taxa do Marketplace", required: false, description: "Taxa cobrada pelo marketplace sobre a venda."},
     { key: "shipping_cost", name: "Custo de Envio", required: false, description: "Valor pago pelo frete do produto."},
     { key: "customer_name", name: "Nome do Cliente", required: false, description: "Nome do comprador."},
-    { key: "customer_document", name: "
+    { key: "customer_document", name: "Documento do Cliente", required: false, description: "CPF ou CNPJ do comprador."}
+];
