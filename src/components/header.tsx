@@ -1,7 +1,7 @@
 
 "use client"
 import Link from "next/link";
-import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut, User } from 'lucide-react';
+import { Settings, LayoutDashboard, PiggyBank, Warehouse, PackagePlus, PackageCheck, Archive, Map, BarChart3, LogOut, User, DollarSign } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
@@ -55,14 +55,25 @@ export function Header() {
                         DRE
                     </Link>
                 </Button>
+                 <Button asChild variant="ghost" size="sm">
+                    <Link href="/custos-geral">
+                        <DollarSign className="mr-2" />
+                        Custos
+                    </Link>
+                </Button>
                 <Button asChild variant="ghost" size="sm">
                     <Link href="/mapeamento">
                         <Map className="mr-2" />
                         Mapeamento
                     </Link>
                 </Button>
-                 <Button asChild variant="ghost" size="icon">
-                    <Link href="/perfil" title={user?.displayName || 'Perfil'}>
+                 <Button asChild variant="ghost" size="icon" title="Configurações">
+                    <Link href="/configuracoes">
+                        <Settings />
+                    </Link>
+                </Button>
+                 <Button asChild variant="ghost" size="icon" title={user?.displayName || 'Perfil'}>
+                    <Link href="/perfil">
                         <User />
                     </Link>
                 </Button>

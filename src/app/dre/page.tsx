@@ -10,6 +10,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Loader2, DollarSign, TrendingDown, TrendingUp, HandCoins, Landmark, Calculator, ArrowRight, Wallet, Percent, FileText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 interface DRELineProps {
   label: string;
@@ -60,6 +61,7 @@ const DRELine = ({ label, value, isTotal, isNegative, isPositive, isPercentage, 
 
 
 export default function DREPage() {
+    const router = useRouter();
     const [sales, setSales] = useState<Sale[]>([]);
     const [costs, setCosts] = useState<{ fixed: CompanyCost[]; variable: CompanyCost[] } | null>(null);
     const [pickingLogs, setPickingLogs] = useState<PickedItemLog[]>([]);
@@ -216,7 +218,7 @@ export default function DREPage() {
                            <CardDescription>Vá para a página de custos para editar os valores fixos e variáveis.</CardDescription>
                         </CardHeader>
                          <CardContent>
-                             <Button onClick={() => window.location.href = '/custos-geral'} className="w-full">
+                             <Button onClick={() => router.push('/custos-geral')} className="w-full">
                                 Editar Custos
                              </Button>
                          </CardContent>
