@@ -118,15 +118,23 @@ export default function PickingPage() {
     if (!currentSN.trim() || !foundSale) return;
     
     setIsSearchingSN(true);
+    const snToSearch = currentSN.trim();
+    
     try {
-        const item = await findInventoryItemBySN(currentSN.trim());
+        const item = await findInventoryItemBySN(snToSearch);
 
         if (!item) {
-             toast({ variant: "destructive", title: "SN não encontrado", description: `O SN ${currentSN.trim()} não foi encontrado no estoque. Verifique se o item foi cadastrado.` });
+             toast({ variant: "destructive", title: "SN não encontrado", description: `O SN ${snToSearch} não foi encontrado no estoque.` });
+             return;
+        }
+
+        const saleSku = (foundSale as any).item_sku;
+        if (item.sku !== saleSku) {
+             toast({ variant: "destructive", title: "Produto Incorreto", description: `O SN ${snToSearch} pertence ao produto com SKU ${item.sku}, mas o pedido é para o SKU ${saleSku}.` });
              return;
         }
         
-        setScannedItems(prev => [...prev, item!]);
+        setScannedItems(prev => [...prev, item]);
         setCurrentSN('');
 
     } catch (error) {
