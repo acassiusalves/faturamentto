@@ -7,11 +7,11 @@ import { loadProductSettings, saveProductSettings } from '@/services/firestore';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { PlusCircle, Trash2, Loader2, Tag, Save } from 'lucide-react';
+import { Textarea } from './ui/textarea'; // Import Textarea
 
 // For now, we only have one category, but this structure allows for more in the future.
 const initialCategories: ProductCategorySettings[] = [
@@ -178,11 +178,11 @@ export function ProductSettings() {
                                         <h4 className="font-medium flex items-center gap-2"><Tag className="h-4 w-4 text-muted-foreground"/>{attr.label}</h4>
                                         <div className="pl-6 pt-2">
                                             <div className="flex gap-2 mb-2">
-                                                <Input 
-                                                    placeholder={`Adicionar nova ${attr.label.toLowerCase()}...`} 
+                                                <Textarea 
+                                                    placeholder={`Adicionar nova ${attr.label.toLowerCase()}...\nCole múltiplos valores separados por vírgula ou quebra de linha.`}
                                                     value={newOption[attr.key] || ""}
                                                     onChange={(e) => setNewOption(prev => ({ ...prev, [attr.key]: e.target.value }))}
-                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddOption(catIndex, attrIndex); }}}
+                                                    rows={3}
                                                 />
                                                 <Button size="icon" onClick={() => handleAddOption(catIndex, attrIndex)}>
                                                     <PlusCircle />
