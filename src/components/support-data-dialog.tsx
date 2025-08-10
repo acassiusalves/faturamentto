@@ -23,7 +23,7 @@ import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
@@ -322,5 +322,3 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     </Dialog>
   );
 }
-
-    
