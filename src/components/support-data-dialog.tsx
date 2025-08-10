@@ -218,9 +218,25 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
       try {
           const dataToSave: SupportData = { files: {} };
           for (const channelId in supportData.files) {
-              const validFiles = supportData.files[channelId].filter(f => f.fileName && f.associationKey);
+              const validFiles = supportData.files[channelId].filter(f => f.fileName);
               if (validFiles.length > 0) {
-                  dataToSave.files[channelId] = validFiles;
+                  const processedFiles = validFiles.map(file => {
+                      const finalFriendlyNames: Record<string, string> = {};
+                      file.headers.forEach(header => {
+                          const friendlyName = file.friendlyNames[header]?.trim();
+                          // Use a friendly name if it exists and is not empty, otherwise default to the header itself.
+                          if (friendlyName) {
+                              finalFriendlyNames[header] = friendlyName;
+                          } else {
+                              finalFriendlyNames[header] = header;
+                          }
+                      });
+                      return { ...file, friendlyNames: finalFriendlyNames };
+                  }).filter(f => f.associationKey); // Finally, ensure the file has an association key
+                  
+                  if (processedFiles.length > 0) {
+                      dataToSave.files[channelId] = processedFiles;
+                  }
               }
           }
           await saveMonthlySupportData(monthYearKey, dataToSave);
