@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings } from 'lucide-react';
-import type { Sale, SupportData } from '@/lib/types';
+import type { Sale, SupportData, SupportFile } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { loadSales, loadMonthlySupportData } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
+import Papa from "papaparse";
 
 // Helper to generate months
 const getMonths = () => {
@@ -63,7 +64,6 @@ export default function ConciliationPage() {
         if (monthYear) {
             loadMonthlySupportData(monthYear).then(data => {
                 setSupportData(data);
-                // TODO: Add logic here to merge support data with sales data.
             });
         }
     }, [dateRange]);
@@ -71,14 +71,7 @@ export default function ConciliationPage() {
 
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
-        let processedSales = sales;
-
-        // TODO: This is where we will merge the supportData into the sales data.
-        if (supportData) {
-           // console.log("Dados de apoio para o mês:", supportData);
-        }
-
-        return processedSales.filter(sale => {
+        let processedSales = sales.filter(sale => {
             try {
                 const saleDate = new Date((sale as any).payment_approved_date);
                 return saleDate >= dateRange.from! && saleDate <= dateRange.to!;
@@ -86,6 +79,50 @@ export default function ConciliationPage() {
                 return false;
             }
         });
+
+        if (supportData && supportData.files) {
+            const allFiles = Object.values(supportData.files).flat();
+            if (allFiles.length > 0) {
+                 const supportDataMap = new Map<string, Record<string, any>>();
+                 
+                 allFiles.forEach(file => {
+                    const parsedData = Papa.parse(file.fileContent, { header: true });
+                    parsedData.data.forEach((row: any) => {
+                       const key = row[file.associationKey];
+                       if(key) {
+                           if (!supportDataMap.has(key)) {
+                               supportDataMap.set(key, {});
+                           }
+                           const existingData = supportDataMap.get(key)!;
+                           
+                           // Merge data from the current row
+                           for(const header in row) {
+                               if (file.friendlyNames[header]) {
+                                   existingData[file.friendlyNames[header]] = row[header];
+                               }
+                           }
+                       }
+                    });
+                 });
+                 
+                 processedSales = processedSales.map(sale => {
+                     const saleKey = (sale as any).order_code;
+                     if(supportDataMap.has(saleKey)) {
+                         return {
+                             ...sale,
+                             sheetData: {
+                                 ...(sale.sheetData || {}),
+                                 ...supportDataMap.get(saleKey),
+                             }
+                         }
+                     }
+                     return sale;
+                 })
+            }
+        }
+        
+        return processedSales;
+
     }, [sales, dateRange, supportData]);
 
     const formatCurrency = (value: number) => {
