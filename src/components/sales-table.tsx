@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Sale } from '@/lib/types';
+import type { Sale, SupportData } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -43,6 +44,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface SalesTableProps {
   data: Sale[];
+  supportData: SupportData | null;
   onUpdateSaleCosts: (saleId: string, newCosts: Sale['costs']) => void;
   calculateTotalCost: (sale: Sale) => number;
   calculateNetRevenue: (sale: Sale) => number;
@@ -77,7 +79,7 @@ const SortableItem = ({ id, children }: { id: string; children: React.ReactNode 
 };
 
 
-export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -93,23 +95,35 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  
+  const supportDataColumns = useMemo(() => {
+    if (!supportData?.files) return [];
+    const allFriendlyNames = new Set<string>();
+    Object.values(supportData.files).flat().forEach(file => {
+        Object.values(file.friendlyNames).forEach(name => {
+            if(name) allFriendlyNames.add(name);
+        });
+    });
+    return Array.from(allFriendlyNames).map(name => ({ key: name, label: name, path: '' }));
+  }, [supportData]);
 
 
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
-        const savedVisibleColumns = localStorage.getItem(`visibleColumns-ideris-${DEFAULT_USER_ID}`);
+        const allColumns = [...iderisFields, ...supportDataColumns];
+        const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
         if (savedVisibleColumns) {
           setVisibleColumns(JSON.parse(savedVisibleColumns));
         } else {
           const defaults: Record<string, boolean> = {};
-          iderisFields.forEach(f => {
+          allColumns.forEach(f => {
               defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key);
           });
           setVisibleColumns(defaults);
         }
 
-        const savedColumnOrder = localStorage.getItem(`columnOrder-ideris-${DEFAULT_USER_ID}`);
+        const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
         if (savedColumnOrder) {
             setColumnOrder(JSON.parse(savedColumnOrder));
         } else {
@@ -122,16 +136,17 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
         }
     }
     loadData();
-  }, []);
+  }, [supportDataColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || iderisFields.find(f => f.key === fieldKey)?.label || fieldKey;
   };
   
   const handleVisibilityChange = (key: string, checked: boolean) => {
+    const allColumns = [...iderisFields, ...supportDataColumns];
     setVisibleColumns(prev => {
         const newVisibleColumns = { ...prev, [key]: checked };
-        localStorage.setItem(`visibleColumns-ideris-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
+        localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
         return newVisibleColumns;
     });
 
@@ -142,7 +157,7 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
         } else {
             newOrder = prevOrder.filter(k => k !== key);
         }
-        localStorage.setItem(`columnOrder-ideris-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
         return newOrder;
     });
   }
@@ -154,23 +169,25 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
         const oldIndex = items.indexOf(active.id as string);
         const newIndex = items.indexOf(over!.id as string);
         const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(`columnOrder-ideris-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
         return newOrder;
       });
     }
   };
   
   const columnsToShow = useMemo(() => {
+    const allColumns = [...iderisFields, ...supportDataColumns];
     return columnOrder
-      .map(key => iderisFields.find(field => field.key === key))
+      .map(key => allColumns.find(field => field.key === key))
       .filter((field): field is { key: string; label: string, path: string } => !!field && visibleColumns[field.key]);
-  }, [columnOrder, visibleColumns]);
+  }, [columnOrder, visibleColumns, supportDataColumns]);
 
   const availableColumnsForSelection = useMemo(() => {
+    const allColumns = [...iderisFields, ...supportDataColumns];
     const visibleKeys = new Set(columnsToShow.map(c => c.key));
-    const hidden = iderisFields.filter(f => !visibleKeys.has(f.key));
+    const hidden = allColumns.filter(f => !visibleKeys.has(f.key));
     return { visible: columnsToShow, hidden };
-  }, [columnsToShow]);
+  }, [columnsToShow, supportDataColumns]);
 
 
   const getColumnAlignment = (key: string) => {
@@ -230,7 +247,7 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
          <CardHeader className="flex flex-row items-center justify-between">
              <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                <CardTitle className="text-lg">Detalhes das Vendas (Ideris)</CardTitle>
+                <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -298,7 +315,14 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
                     return (
                       <TableRow key={sale.id}>
                         {columnsToShow.map(field => {
-                          let cellContent: any = (sale as any)[field.key];
+                          let cellContent: any;
+                          
+                          if(iderisFields.some(f => f.key === field.key)) {
+                             cellContent = (sale as any)[field.key];
+                          } else {
+                             cellContent = sale.sheetData?.[field.key];
+                          }
+
 
                           if (field.key === 'item_image' && cellContent) {
                              cellContent = <Image src={cellContent} alt={(sale as any).item_title || 'Imagem do Produto'} width={40} height={40} className="rounded-md object-cover h-10 w-10" />;
@@ -307,12 +331,13 @@ export function SalesTable({ data, onUpdateSaleCosts, calculateTotalCost, calcul
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
                           } else if (field.key === 'item_quantity') {
-                             // Do not format quantity as currency
                              cellContent = cellContent;
-                          } else if (getColumnAlignment(field.key) === 'text-right') {
-                            const isNumeric = typeof cellContent === 'number';
+                          } else if (getColumnAlignment(field.key) === 'text-right' || !isNaN(parseFloat(cellContent))) {
+                            const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && !isNaN(parseFloat(cellContent.replace(',', '.'))));
+                            const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
+                            
                             const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
-                            cellContent = <span className={className}>{isNumeric ? formatCurrency(cellContent) : cellContent}</span>;
+                            cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : cellContent}</span>;
                           }
 
                           return (

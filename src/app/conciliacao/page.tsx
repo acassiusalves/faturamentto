@@ -201,6 +201,7 @@ export default function ConciliationPage() {
 
             <SalesTable
               data={filteredSales}
+              supportData={supportData}
               onUpdateSaleCosts={updateSaleCosts}
               calculateTotalCost={calculateTotalCost}
               calculateNetRevenue={calculateNetRevenue}
