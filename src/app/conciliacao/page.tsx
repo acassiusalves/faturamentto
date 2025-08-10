@@ -3,24 +3,27 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import type { DateRange } from "react-day-picker";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
+import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { loadSales } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
-import { SalesTable } from '@/components/sales-table'; // Reutilizando a tabela de vendas
+import { SalesTable } from '@/components/sales-table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { loadSales } from '@/services/firestore';
+
+// Helper to generate months
+const getMonths = () => {
+    return Array.from({ length: 12 }, (_, i) => ({
+        value: i.toString(),
+        label: new Date(0, i).toLocaleString('pt-BR', { month: 'long' })
+    }));
+};
 
 export default function ConciliationPage() {
-    const router = useRouter();
     const [sales, setSales] = useState<Sale[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date()),
-    });
+    const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
+    const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
 
     useEffect(() => {
         async function fetchData() {
@@ -31,6 +34,19 @@ export default function ConciliationPage() {
         }
         fetchData();
     }, []);
+
+    useEffect(() => {
+        const monthNumber = parseInt(selectedMonth, 10);
+        if (!isNaN(monthNumber)) {
+            const currentYear = getYear(new Date());
+            const targetDate = setMonth(new Date(currentYear, 0, 1), monthNumber);
+            setDateRange({
+                from: startOfMonth(targetDate),
+                to: endOfMonth(targetDate),
+            });
+        }
+    }, [selectedMonth]);
+
 
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
@@ -88,10 +104,21 @@ export default function ConciliationPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Seleção de Período</CardTitle>
-                    <CardDescription>Filtre as vendas que você deseja analisar.</CardDescription>
+                    <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                        <SelectTrigger className="w-[280px]">
+                            <SelectValue placeholder="Selecione um mês" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {getMonths().map(month => (
+                                <SelectItem key={month.value} value={month.value}>
+                                    {month.label.charAt(0).toUpperCase() + month.label.slice(1)}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </CardContent>
             </Card>
 
