@@ -127,7 +127,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             initialColumnOrder = JSON.parse(savedColumnOrder);
         }
         
-        // Add new support columns to the end of the order if they aren't there already
         const currentOrderSet = new Set(initialColumnOrder);
         supportDataColumns.forEach(sc => {
             if (!currentOrderSet.has(sc.key)) {
@@ -148,8 +147,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
     let initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
     
-    // Ensure all available columns have a visibility setting.
-    // Default new columns to visible if they are part of the default order or from support data.
     allAvailableColumns.forEach(col => {
       if (!(col.key in initialSettings)) {
         const isDefault = defaultVisibleColumnsOrder.includes(col.key);
@@ -312,6 +309,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                             checked={visibleColumns[field.key] === true}
                                             onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
                                             className="flex items-center gap-2"
+                                            // ESTA É A CORREÇÃO: Impede o fechamento do menu no clique
                                             onSelect={(e) => e.preventDefault()}
                                         >
                                             <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -334,6 +332,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                 checked={visibleColumns[field.key] === true}
                                 onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
                                 className="flex items-center gap-2"
+                                // ESTA É A CORREÇÃO: Impede o fechamento do menu no clique
                                 onSelect={(e) => e.preventDefault()}
                                 >
                                 <span>{getColumnHeader(field.key)}</span>
