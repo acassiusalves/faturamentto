@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,12 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import Papa from "papaparse";
 import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
-import type { SupportData, SupportFile } from "@/lib/types";
+import type { SupportData, SupportFile, Sale } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
-
 
 const marketplaces = [
   { id: "magalu", name: "Magalu" },
@@ -37,14 +36,44 @@ const marketplaces = [
 interface SupportDataDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  monthYearKey: string; // e.g., "2024-08"
+  monthYearKey: string;
+  salesData: Sale[];
 }
 
-export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportDataDialogProps) {
+export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: SupportDataDialogProps) {
   const [supportData, setSupportData] = useState<SupportData>({ files: {} });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  const associationStats = useMemo(() => {
+    const stats: Record<string, { associated: number, notAssociated: number }> = {};
+    if (!salesData || salesData.length === 0) return stats;
+
+    const saleKeys = new Set(salesData.map(s => (s as any).order_code));
+
+    for (const channelId in supportData.files) {
+      for (const file of supportData.files[channelId]) {
+        if (file.fileContent && file.associationKey) {
+          const parsedData = Papa.parse(file.fileContent, { header: true });
+          let associated = 0;
+          let notAssociated = 0;
+          parsedData.data.forEach((row: any) => {
+            const key = row[file.associationKey];
+            if (key) {
+              if (saleKeys.has(key)) {
+                associated++;
+              } else {
+                notAssociated++;
+              }
+            }
+          });
+          stats[file.id] = { associated, notAssociated };
+        }
+      }
+    }
+    return stats;
+  }, [supportData, salesData]);
 
   useEffect(() => {
     if (isOpen && monthYearKey) {
@@ -69,7 +98,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         .finally(() => setIsLoading(false));
     }
   }, [isOpen, monthYearKey]);
-  
+
   const handleFileArrayChange = (channelId: string, newFiles: SupportFile[]) => {
       setSupportData(prev => ({
           ...prev,
@@ -84,7 +113,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     const reader = new FileReader();
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
-    const processHeaders = (headers: string[], content: string) => {
+    const processFileContent = (content: string, headers: string[]) => {
         const fileList = supportData.files[channelId] || [];
         const updatedList = fileList.map(f => {
             if (f.id === fileId) {
@@ -103,28 +132,31 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         toast({ title: `Arquivo ${file.name} lido com sucesso!` });
     };
 
-    if (fileExtension === 'csv') {
-        reader.onload = (e) => {
-            const content = e.target?.result as string;
+    reader.onload = (e) => {
+        const result = e.target?.result;
+        if (fileExtension === 'csv') {
+            const content = result as string;
             Papa.parse(content, {
                 preview: 1,
                 complete: (results) => {
                     const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
-                    processHeaders(headers, content);
+                    processFileContent(content, headers);
                 },
             });
-        };
-        reader.readAsText(file);
-    } else if (fileExtension === 'xlsx') {
-        reader.onload = (e) => {
-            const data = e.target?.result;
-            const workbook = XLSX.read(data, { type: 'array' });
+        } else if (fileExtension === 'xlsx') {
+            const workbook = XLSX.read(result, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             const headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
-            processHeaders(headers, JSON.stringify(json));
-        };
+            const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+            processFileContent(csvContent, headers);
+        }
+    };
+
+    if (fileExtension === 'csv') {
+        reader.readAsText(file);
+    } else if (fileExtension === 'xlsx') {
         reader.readAsArrayBuffer(file);
     } else {
         toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
@@ -229,9 +261,10 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                     const filesForChannel = supportData.files[mp.id] || [];
                     return (
                         <TabsContent key={mp.id} value={mp.id} className="mt-0">
-                             {/* BÔNUS: Alterado para 'multiple' para melhor UX */}
-                             <Accordion type="multiple" className="w-full space-y-4" defaultValue={filesForChannel.map(f => f.id)}>
-                                {filesForChannel.map(fileData => (
+                             <Accordion type="multiple" className="w-full space-y-4">
+                                {filesForChannel.map(fileData => {
+                                    const stats = associationStats[fileData.id];
+                                    return (
                                     <AccordionItem key={fileData.id} value={fileData.id} className="border-b-0">
                                         <Card>
                                              <div className="flex items-center w-full p-4">
@@ -253,7 +286,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                                 </Button>
                                             </div>
                                             <AccordionContent className="p-4 pt-0">
-                                                <div className="flex items-center gap-4 py-4 border-t">
+                                                <div className="flex flex-col sm:flex-row items-center gap-4 py-4 border-t">
                                                     <Input
                                                         id={`upload-${mp.id}-${fileData.id}`}
                                                         type="file"
@@ -267,6 +300,16 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                                             {fileData.fileName ? "Trocar Arquivo" : "Selecionar Arquivo"}
                                                         </Label>
                                                     </Button>
+                                                    {stats && (
+                                                      <div className="flex flex-col text-sm font-medium">
+                                                          <span className="flex items-center gap-1.5 text-green-600">
+                                                            {stats.associated} pedidos Associados <CheckCircle className="h-4 w-4" />
+                                                          </span>
+                                                          <span className="flex items-center gap-1.5 text-destructive">
+                                                            {stats.notAssociated} pedidos não associados <XCircle className="h-4 w-4" />
+                                                          </span>
+                                                      </div>
+                                                    )}
                                                 </div>
                                                 {fileData.headers?.length > 0 && (
                                                     <div className="space-y-4 p-4 border rounded-lg bg-background">
@@ -306,7 +349,8 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                             </AccordionContent>
                                         </Card>
                                     </AccordionItem>
-                                ))}
+                                    )
+                                })}
                             </Accordion>
                             <div className="mt-4">
                                 <Button variant="secondary" onClick={() => handleAddNewFile(mp.id)} className="w-full border-dashed border">

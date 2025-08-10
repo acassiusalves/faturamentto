@@ -181,7 +181,7 @@ export interface SupportFile {
     id: string; // Unique ID for each file upload instance
     channelId: string; // e.g., 'magalu'
     fileName: string;
-    fileContent: string; // The raw CSV content
+    fileContent: string; // The raw file content (CSV or stringified JSON)
     headers: string[];
     friendlyNames: Record<string, string>;
     associationKey: string;

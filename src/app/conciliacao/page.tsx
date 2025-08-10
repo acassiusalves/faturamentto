@@ -225,6 +225,7 @@ export default function ConciliationPage() {
             isOpen={isSupportDataOpen}
             onClose={() => setIsSupportDataOpen(false)}
             monthYearKey={getMonthYearKey()}
+            salesData={filteredSales}
         />
         </>
     );
