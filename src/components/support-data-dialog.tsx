@@ -24,6 +24,7 @@ import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "./ui/scroll-area";
 
 const marketplaces = [
   { id: "magalu", name: "Magalu" },
@@ -149,7 +150,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[90vh]">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings /> Dados de Apoio para o Mês
@@ -162,7 +163,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         {isLoading ? (
           <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin" /></div>
         ) : (
-          <Tabs defaultValue={marketplaces[0].id} className="w-full h-full flex flex-col">
+          <Tabs defaultValue={marketplaces[0].id} className="w-full flex-grow flex flex-col">
             <TabsList>
               {marketplaces.map((mp) => (
                 <TabsTrigger key={mp.id} value={mp.id}>
@@ -171,11 +172,11 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                 </TabsTrigger>
               ))}
             </TabsList>
-            <div className="flex-grow overflow-y-auto pr-2">
+            <div className="flex-grow overflow-y-auto pr-2 mt-4">
                 {marketplaces.map((mp) => {
                     const fileData = supportData.files[mp.id];
                     return (
-                        <TabsContent key={mp.id} value={mp.id} className="mt-4">
+                        <TabsContent key={mp.id} value={mp.id} className="mt-0">
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Canal: {mp.name}</CardTitle>
@@ -199,35 +200,37 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                 <CardContent>
                                     {fileData && fileData.headers.length > 0 && (
                                         <div className="space-y-4 p-4 border rounded-lg">
-                                            <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 px-4 pb-2 border-b">
+                                            <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 px-4 pb-2 border-b sticky top-0 bg-card z-10">
                                                 <div />
                                                 <h4 className="font-semibold text-sm text-muted-foreground">Coluna do Arquivo</h4>
                                                 <div />
                                                 <h4 className="font-semibold text-sm text-muted-foreground">Nome Amigável</h4>
                                                 <h4 className="font-semibold text-sm text-muted-foreground text-center">Chave de Associação</h4>
                                             </div>
-                                            <RadioGroup 
-                                                value={fileData.associationKey} 
-                                                onValueChange={(value) => handleFileStateChange(mp.id, { associationKey: value })}
-                                            >
-                                                {fileData.headers.map(header => (
-                                                <div key={header} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveHeader(mp.id, header)}>
-                                                        <XCircle className="h-4 w-4"/>
-                                                    </Button>
-                                                    <Badge variant="secondary" className="font-normal justify-start py-2">{header}</Badge>
-                                                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                                    <Input 
-                                                            placeholder={header}
-                                                            value={fileData.friendlyNames[header] || ""}
-                                                            onChange={(e) => handleFileStateChange(mp.id, { friendlyNames: {...fileData.friendlyNames, [header]: e.target.value} })}
-                                                        />
-                                                    <div className="flex justify-center">
-                                                        <RadioGroupItem value={header} id={`radio-${mp.id}-${header}`} />
+                                            <ScrollArea className="h-[40vh]">
+                                                <RadioGroup 
+                                                    value={fileData.associationKey} 
+                                                    onValueChange={(value) => handleFileStateChange(mp.id, { associationKey: value })}
+                                                >
+                                                    {fileData.headers.map(header => (
+                                                    <div key={header} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2 pr-4">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveHeader(mp.id, header)}>
+                                                            <XCircle className="h-4 w-4"/>
+                                                        </Button>
+                                                        <Badge variant="secondary" className="font-normal justify-start py-2 truncate">{header}</Badge>
+                                                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                                        <Input 
+                                                                placeholder={header}
+                                                                value={fileData.friendlyNames[header] || ""}
+                                                                onChange={(e) => handleFileStateChange(mp.id, { friendlyNames: {...fileData.friendlyNames, [header]: e.target.value} })}
+                                                            />
+                                                        <div className="flex justify-center">
+                                                            <RadioGroupItem value={header} id={`radio-${mp.id}-${header}`} />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                ))}
-                                            </RadioGroup>
+                                                    ))}
+                                                </RadioGroup>
+                                            </ScrollArea>
                                         </div>
                                     )}
                                 </CardContent>
