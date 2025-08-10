@@ -106,29 +106,24 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     });
     return Array.from(allFriendlyNames).map(name => ({ key: name, label: name, path: '' }));
   }, [supportData]);
+  
+  const allAvailableColumns = useMemo(() => {
+      return [...iderisFields, ...supportDataColumns];
+  }, [supportDataColumns]);
 
 
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
-        const allColumns = [...iderisFields, ...supportDataColumns];
         const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
         
         if (savedVisibleColumns) {
           const parsedCols = JSON.parse(savedVisibleColumns);
-          // Add any new support columns that weren't saved before
-          supportDataColumns.forEach(col => {
-            if(!(col.key in parsedCols)) {
-                parsedCols[col.key] = true; // Default new columns to visible
-            }
-          });
           setVisibleColumns(parsedCols);
         } else {
           const defaults: Record<string, boolean> = {};
-          allColumns.forEach(f => {
-              // Default support columns to visible, others based on default list
-              const isSupportCol = supportDataColumns.some(sc => sc.key === f.key);
-              defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key) || isSupportCol;
+          allAvailableColumns.forEach(f => {
+              defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key) || supportDataColumns.some(sc => sc.key === f.key);
           });
           setVisibleColumns(defaults);
         }
@@ -136,17 +131,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
         if (savedColumnOrder) {
             let parsedOrder = JSON.parse(savedColumnOrder);
-            // Add any new support columns to the end of the order if they don't exist
-            supportDataColumns.forEach(col => {
-                if(!parsedOrder.includes(col.key)) {
-                    parsedOrder.push(col.key);
-                }
-            });
             setColumnOrder(parsedOrder);
         } else {
-            // Add support columns to the default order
-            const newDefaultOrder = [...defaultVisibleColumnsOrder, ...supportDataColumns.map(c => c.key)];
-            setColumnOrder(newDefaultOrder);
+            setColumnOrder([...defaultVisibleColumnsOrder, ...supportDataColumns.map(c => c.key)]);
         }
 
         const settings = await loadAppSettings();
@@ -155,10 +142,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         }
     }
     loadData();
-  }, [supportDataColumns]);
+  }, [allAvailableColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
-    return friendlyNames[fieldKey] || iderisFields.find(f => f.key === fieldKey)?.label || fieldKey;
+    return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
   };
   
   const handleVisibilityChange = (key: string, checked: boolean) => {
@@ -171,10 +158,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setColumnOrder(prevOrder => {
         let newOrder;
         if (checked) {
-            // Add to the end if it's not there
             newOrder = prevOrder.includes(key) ? prevOrder : [...prevOrder, key];
         } else {
-            // Remove from order
             newOrder = prevOrder.filter(k => k !== key);
         }
         localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
@@ -196,18 +181,16 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   };
   
   const columnsToShow = useMemo(() => {
-    const allColumns = [...iderisFields, ...supportDataColumns];
     return columnOrder
-      .map(key => allColumns.find(field => field.key === key))
+      .map(key => allAvailableColumns.find(field => field.key === key))
       .filter((field): field is { key: string; label: string, path: string } => !!field && visibleColumns[field.key]);
-  }, [columnOrder, visibleColumns, supportDataColumns, iderisFields]);
+  }, [columnOrder, visibleColumns, allAvailableColumns]);
 
   const availableColumnsForSelection = useMemo(() => {
-    const allColumns = [...iderisFields, ...supportDataColumns];
     const visibleKeys = new Set(columnsToShow.map(c => c.key));
-    const hidden = allColumns.filter(f => !visibleKeys.has(f.key));
+    const hidden = allAvailableColumns.filter(f => !visibleKeys.has(f.key));
     return { visible: columnsToShow, hidden };
-  }, [columnsToShow, supportDataColumns, iderisFields]);
+  }, [columnsToShow, allAvailableColumns]);
 
   const numericColumns = useMemo(() => {
     const iderisNumeric = iderisFields
@@ -376,12 +359,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
-                          } else if (numericColumns.has(field.key) && field.key !== 'item_quantity') {
-                            const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && !isNaN(parseFloat(cellContent.replace(',', '.'))));
-                            const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
-                            
-                            const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
-                            cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : cellContent}</span>;
+                          } else if (field.key !== 'item_quantity' && numericColumns.has(field.key)) {
+                              const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && cellContent && !isNaN(parseFloat(cellContent.replace(',', '.'))));
+                              const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
+                              
+                              const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
+                              cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : (cellContent || 'N/A')}</span>;
                           }
 
                           return (
