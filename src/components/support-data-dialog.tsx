@@ -52,9 +52,23 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
       setIsLoading(true);
       loadMonthlySupportData(monthYearKey)
         .then((data) => {
-          if (data) {
-            setSupportData(data);
+          if (data && data.files) {
+            const sanitizedFiles: { [key: string]: SupportFile[] } = {};
+            // Itera sobre cada canal nos dados carregados
+            for (const channelId in data.files) {
+              const fileData = data.files[channelId];
+              // Garante que o dado para cada canal seja um array
+              if (fileData && typeof fileData === 'object' && !Array.isArray(fileData)) {
+                // Se for um objeto (não array), converte seus valores para um array
+                sanitizedFiles[channelId] = Object.values(fileData);
+              } else {
+                // Se já for um array ou for nulo/inválido, usa o valor ou um array vazio
+                sanitizedFiles[channelId] = Array.isArray(fileData) ? fileData : [];
+              }
+            }
+            setSupportData({ files: sanitizedFiles });
           } else {
+            // Se não houver dados, inicializa com um objeto vazio
             setSupportData({ files: {} });
           }
         })
