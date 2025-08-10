@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -200,14 +200,14 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     return columnOrder
       .map(key => allColumns.find(field => field.key === key))
       .filter((field): field is { key: string; label: string, path: string } => !!field && visibleColumns[field.key]);
-  }, [columnOrder, visibleColumns, supportDataColumns]);
+  }, [columnOrder, visibleColumns, supportDataColumns, iderisFields]);
 
   const availableColumnsForSelection = useMemo(() => {
     const allColumns = [...iderisFields, ...supportDataColumns];
     const visibleKeys = new Set(columnsToShow.map(c => c.key));
     const hidden = allColumns.filter(f => !visibleKeys.has(f.key));
     return { visible: columnsToShow, hidden };
-  }, [columnsToShow, supportDataColumns]);
+  }, [columnsToShow, supportDataColumns, iderisFields]);
 
 
   const getColumnAlignment = (key: string) => {
@@ -291,32 +291,41 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 <DropdownMenuSeparator />
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                       <SortableContext items={columnsToShow.map(c => c.key)} strategy={verticalListSortingStrategy}>
-                          {availableColumnsForSelection.visible.map(field => (
-                              <SortableItem key={field.key} id={field.key}>
-                                  <DropdownMenuCheckboxItem
-                                      checked={visibleColumns[field.key] === true}
-                                      onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                      className="flex items-center gap-2"
-                                  >
-                                      <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                      <span>{getColumnHeader(field.key)}</span>
-                                  </DropdownMenuCheckboxItem>
-                              </SortableItem>
-                          ))}
+                          {availableColumnsForSelection.visible.map(field => {
+                               const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                               return (
+                                  <SortableItem key={field.key} id={field.key}>
+                                      <DropdownMenuCheckboxItem
+                                          checked={visibleColumns[field.key] === true}
+                                          onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                          className="flex items-center gap-2"
+                                      >
+                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                          <span>{getColumnHeader(field.key)}</span>
+                                          {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                      </DropdownMenuCheckboxItem>
+                                  </SortableItem>
+                               )
+                          })}
                       </SortableContext>
                   </DndContext>
                  <DropdownMenuLabel>Colunas Ocultas</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {availableColumnsForSelection.hidden.length > 0 ? (
-                    availableColumnsForSelection.hidden.map(field => (
-                        <DropdownMenuCheckboxItem
-                        key={field.key}
-                        checked={visibleColumns[field.key] === true}
-                        onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                        >
-                        {getColumnHeader(field.key)}
-                        </DropdownMenuCheckboxItem>
-                    ))
+                    availableColumnsForSelection.hidden.map(field => {
+                        const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                        return (
+                            <DropdownMenuCheckboxItem
+                            key={field.key}
+                            checked={visibleColumns[field.key] === true}
+                            onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                            className="flex items-center gap-2"
+                            >
+                            <span>{getColumnHeader(field.key)}</span>
+                             {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                            </DropdownMenuCheckboxItem>
+                        )
+                    })
                 ) : (
                     <DropdownMenuItem disabled>Nenhuma coluna oculta</DropdownMenuItem>
                 )}
@@ -483,3 +492,4 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     </>
   );
 }
+
