@@ -101,8 +101,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     if (!supportData?.files) return [];
     const allFriendlyNames = new Set<string>();
     Object.values(supportData.files).flat().forEach(file => {
-        Object.keys(file.friendlyNames).forEach(header => {
-            const friendlyName = file.friendlyNames[header];
+        if (!file.headers) return;
+        file.headers.forEach(header => {
+            const friendlyName = file.friendlyNames[header] || header;
             if(friendlyName) allFriendlyNames.add(friendlyName);
         });
     });
@@ -119,14 +120,22 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setIsClient(true);
     async function loadData() {
         const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
-        if (savedColumnOrder) {
-            let parsedOrder = JSON.parse(savedColumnOrder);
-            setColumnOrder(parsedOrder);
-        } else {
-            setColumnOrder([...defaultVisibleColumnsOrder, ...supportDataColumns.map(c => c.key)]);
-        }
-
         const settings = await loadAppSettings();
+        
+        let initialColumnOrder = defaultVisibleColumnsOrder;
+        if (savedColumnOrder) {
+            initialColumnOrder = JSON.parse(savedColumnOrder);
+        }
+        
+        // Add new support columns to the end of the order if they aren't there already
+        const currentOrderSet = new Set(initialColumnOrder);
+        supportDataColumns.forEach(sc => {
+            if (!currentOrderSet.has(sc.key)) {
+                initialColumnOrder.push(sc.key);
+            }
+        });
+        setColumnOrder(initialColumnOrder);
+
         if (settings?.friendlyFieldNames) {
             setFriendlyNames(settings.friendlyFieldNames);
         }
@@ -137,29 +146,20 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   useEffect(() => {
     const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-    const initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
-
-    const newDefaults = { ...initialSettings };
-    let settingsChanged = false;
-
-    allAvailableColumns.forEach(f => {
-        if (!(f.key in newDefaults)) {
-            const isDefaultIderis = defaultVisibleColumnsOrder.includes(f.key);
-            const isNewSupportCol = supportDataColumns.some(sc => sc.key === f.key);
-            newDefaults[f.key] = isDefaultIderis || isNewSupportCol;
-            if (isDefaultIderis || isNewSupportCol) {
-                 settingsChanged = true;
-            }
-        }
+    let initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
+    
+    // Ensure all available columns have a visibility setting.
+    // Default new columns to visible if they are part of the default order or from support data.
+    allAvailableColumns.forEach(col => {
+      if (!(col.key in initialSettings)) {
+        const isDefault = defaultVisibleColumnsOrder.includes(col.key);
+        const isSupport = supportDataColumns.some(sc => sc.key === col.key);
+        initialSettings[col.key] = isDefault || isSupport;
+      }
     });
 
-    if (settingsChanged) {
-        setVisibleColumns(newDefaults);
-        localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newDefaults));
-    } else if (Object.keys(visibleColumns).length === 0 && Object.keys(initialSettings).length > 0) {
-        setVisibleColumns(initialSettings);
-    }
-}, [allAvailableColumns, supportDataColumns, visibleColumns]);
+    setVisibleColumns(initialSettings);
+}, [allAvailableColumns, supportDataColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
