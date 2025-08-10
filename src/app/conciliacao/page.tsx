@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings } from 'lucide-react';
-import type { Sale } from '@/lib/types';
+import type { Sale, SupportData } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData, saveMonthlySupportData } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 
@@ -23,6 +23,7 @@ const getMonths = () => {
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
+    const [supportData, setSupportData] = useState<SupportData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
@@ -38,6 +39,13 @@ export default function ConciliationPage() {
         fetchData();
     }, []);
 
+    const getMonthYearKey = () => {
+        if (!dateRange?.from) return "";
+        const year = getYear(dateRange.from);
+        const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+    }
+
     useEffect(() => {
         const monthNumber = parseInt(selectedMonth, 10);
         if (!isNaN(monthNumber)) {
@@ -50,10 +58,27 @@ export default function ConciliationPage() {
         }
     }, [selectedMonth]);
 
+    useEffect(() => {
+        const monthYear = getMonthYearKey();
+        if (monthYear) {
+            loadMonthlySupportData(monthYear).then(data => {
+                setSupportData(data);
+                // TODO: Add logic here to merge support data with sales data.
+            });
+        }
+    }, [dateRange]);
+
 
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
-        return sales.filter(sale => {
+        let processedSales = sales;
+
+        // TODO: This is where we will merge the supportData into the sales data.
+        if (supportData) {
+           // console.log("Dados de apoio para o mês:", supportData);
+        }
+
+        return processedSales.filter(sale => {
             try {
                 const saleDate = new Date((sale as any).payment_approved_date);
                 return saleDate >= dateRange.from! && saleDate <= dateRange.to!;
@@ -61,7 +86,7 @@ export default function ConciliationPage() {
                 return false;
             }
         });
-    }, [sales, dateRange]);
+    }, [sales, dateRange, supportData]);
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -89,14 +114,6 @@ export default function ConciliationPage() {
         setIsSupportDataOpen(true);
     };
     
-    const getMonthYearKey = () => {
-        if (!dateRange?.from) return "";
-        const year = getYear(dateRange.from);
-        const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
-        return `${year}-${month}`;
-    }
-
-
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-[calc(100vh-200px)]">
