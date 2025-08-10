@@ -234,22 +234,24 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                 {filesForChannel.map(fileData => (
                                     <AccordionItem key={fileData.id} value={fileData.id} className="border-b-0">
                                         <Card>
-                                             <AccordionTrigger className="p-4 hover:no-underline">
-                                                <div className="flex justify-between items-center w-full">
-                                                    <div className="flex items-center gap-2">
-                                                        {fileData.fileName ? <CheckCircle className="text-green-500" /> : <XCircle className="text-destructive"/>}
-                                                        <span className="font-semibold">{fileData.fileName || "Novo Arquivo (não salvo)"}</span>
+                                             <div className="flex items-center w-full p-4">
+                                                <AccordionTrigger className="p-0 hover:no-underline flex-grow">
+                                                    <div className="flex justify-between items-center w-full">
+                                                        <div className="flex items-center gap-2">
+                                                            {fileData.fileName ? <CheckCircle className="text-green-500" /> : <XCircle className="text-destructive"/>}
+                                                            <span className="font-semibold">{fileData.fileName || "Novo Arquivo (não salvo)"}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <span className="text-sm text-muted-foreground">
+                                                                Inserido em: {formatDate(fileData.uploadedAt)}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <span className="text-sm text-muted-foreground">
-                                                            Inserido em: {formatDate(fileData.uploadedAt)}
-                                                        </span>
-                                                         <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveFile(mp.id, fileData.id);}}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </AccordionTrigger>
+                                                </AccordionTrigger>
+                                                <Button variant="ghost" size="icon" className="ml-2 flex-shrink-0" onClick={(e) => {e.stopPropagation(); handleRemoveFile(mp.id, fileData.id);}}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
                                             <AccordionContent className="p-4 pt-0">
                                                 <div className="flex items-center gap-4 py-4 border-t">
                                                     <Input
