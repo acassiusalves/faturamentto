@@ -2,10 +2,8 @@
 import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
-import type {AuthError} from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
-// CORRIGIDO: Quebra da linha de importação para respeitar o max-len.
 
 initializeApp();
 
@@ -72,16 +70,24 @@ export const inviteUser = onCall(async (request) => {
       `Documento do usuário criado no Firestore para ${userRecord.uid}.`
     );
 
-    return {result: `Usuário ${email} convidado com a função ${role}.`};
+    return {
+      result: `Usuário ${email} convidado com a função ${role}.`,
+    };
   } catch (error) {
     logger.error("Falha ao criar usuário:", error);
-    const authError = error as AuthError;
-    if (authError.code === "auth/email-already-exists") {
+    // CORREÇÃO: Verifica o erro de forma segura, sem importações.
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "auth/email-already-exists"
+    ) {
       throw new HttpsError(
         "already-exists",
         "Este email já está em uso por outro usuário."
       );
     }
+
     throw new HttpsError("internal", "Erro interno ao criar o usuário.");
   }
 });
