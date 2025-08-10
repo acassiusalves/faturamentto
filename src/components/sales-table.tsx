@@ -108,7 +108,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [supportData]);
   
   const allAvailableColumns = useMemo(() => {
-      return [...iderisFields, ...supportDataColumns];
+      const existingKeys = new Set(iderisFields.map(f => f.key));
+      const uniqueSupportCols = supportDataColumns.filter(sc => !existingKeys.has(sc.key));
+      return [...iderisFields, ...uniqueSupportCols];
   }, [supportDataColumns]);
 
 
@@ -136,20 +138,31 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     loadData();
   }, []);
 
-  useEffect(() => {
-    // This effect ensures that newly added support columns are made visible by default
-    // if no settings are saved yet.
-    const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-    if (!savedVisibleColumns && allAvailableColumns.length > iderisFields.length) {
-        const newDefaults: Record<string, boolean> = {};
-        allAvailableColumns.forEach(f => {
+ useEffect(() => {
+    const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
+    const initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
+
+    const newDefaults = { ...initialSettings };
+    let settingsChanged = false;
+
+    allAvailableColumns.forEach(f => {
+        if (!(f.key in newDefaults)) {
             const isDefaultIderis = defaultVisibleColumnsOrder.includes(f.key);
             const isNewSupportCol = supportDataColumns.some(sc => sc.key === f.key);
             newDefaults[f.key] = isDefaultIderis || isNewSupportCol;
-        });
+            if (isDefaultIderis || isNewSupportCol) {
+                 settingsChanged = true;
+            }
+        }
+    });
+
+    if (settingsChanged) {
         setVisibleColumns(newDefaults);
+        localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newDefaults));
+    } else {
+        setVisibleColumns(initialSettings);
     }
-  }, [allAvailableColumns, supportDataColumns]);
+}, [allAvailableColumns, supportDataColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -217,7 +230,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       });
     }
 
-    const nonNumericSku = ['item_sku'];
+    const nonNumericSku = ['item_sku', 'order_code', 'id', 'document_value'];
     const finalNumeric = new Set([...iderisNumeric, ...supportNumeric]);
     nonNumericSku.forEach(key => finalNumeric.delete(key));
 
@@ -494,5 +507,3 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     </>
   );
 }
-
-    

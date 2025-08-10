@@ -81,24 +81,27 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
+            const normalizeKey = (key: any) => String(key || '').replace(/\D/g, '');
             const allFiles = Object.values(supportData.files).flat();
+
             if (allFiles.length > 0) {
                  const supportDataMap = new Map<string, Record<string, any>>();
                  
                  allFiles.forEach(file => {
+                    if (!file.fileContent || !file.associationKey) return;
                     const parsedData = Papa.parse(file.fileContent, { header: true });
                     parsedData.data.forEach((row: any) => {
-                       const key = row[file.associationKey];
+                       const key = normalizeKey(row[file.associationKey]);
                        if(key) {
                            if (!supportDataMap.has(key)) {
                                supportDataMap.set(key, {});
                            }
                            const existingData = supportDataMap.get(key)!;
                            
-                           // Merge data from the current row
                            for(const header in row) {
-                               if (file.friendlyNames[header]) {
-                                   existingData[file.friendlyNames[header]] = row[header];
+                               const friendlyName = file.friendlyNames[header] || header;
+                               if (friendlyName) {
+                                   existingData[friendlyName] = row[header];
                                }
                            }
                        }
@@ -106,8 +109,8 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = (sale as any).order_code;
-                     if(supportDataMap.has(saleKey)) {
+                     const saleKey = normalizeKey((sale as any).order_code);
+                     if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
                              sheetData: {

@@ -118,6 +118,9 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
 
     const processFileContent = (content: string, headers: string[]) => {
         const fileList = supportData.files[channelId] || [];
+        const initialFriendlyNames: Record<string, string> = {};
+        headers.forEach(h => { initialFriendlyNames[h] = h; });
+
         const updatedList = fileList.map(f => {
             if (f.id === fileId) {
                 return {
@@ -125,6 +128,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
                     fileName: file.name,
                     fileContent: content,
                     headers: headers,
+                    friendlyNames: initialFriendlyNames,
                     associationKey: headers.find(h => /pedido/i.test(h)) || "",
                     uploadedAt: new Date().toISOString()
                 };
