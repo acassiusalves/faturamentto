@@ -209,22 +209,32 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     return { visible: columnsToShow, hidden };
   }, [columnsToShow, supportDataColumns, iderisFields]);
 
+  const numericColumns = useMemo(() => {
+    const iderisNumeric = iderisFields
+        .filter(f => f.path.toLowerCase().includes('value') || f.path.toLowerCase().includes('amount') || f.path.toLowerCase().includes('fee') || f.path.toLowerCase().includes('cost') || f.path.toLowerCase().includes('discount') || f.path.toLowerCase().includes('leftover') || f.path.toLowerCase().includes('profit'))
+        .map(f => f.key);
+        
+    const supportNumeric: string[] = [];
+    if (data.length > 0 && supportDataColumns.length > 0) {
+      const firstSale = data[0];
+      supportDataColumns.forEach(col => {
+          if (firstSale.sheetData && firstSale.sheetData[col.key]) {
+              const value = firstSale.sheetData[col.key];
+              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.'))))) {
+                  supportNumeric.push(col.key);
+              }
+          }
+      });
+    }
+
+    return new Set([...iderisNumeric, ...supportNumeric]);
+  }, [data, supportDataColumns]);
+
 
   const getColumnAlignment = (key: string) => {
-    const numericKeys = ['item_quantity', 'value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace'];
-    // Also consider support columns as potentially numeric, but default to left align
-    const supportColumn = supportDataColumns.find(sc => sc.key === key);
-    if(supportColumn) {
-        // Simple check if the first row of data for this column is numeric
-        const firstSaleWithData = data.find(s => s.sheetData && s.sheetData[key]);
-        if (firstSaleWithData) {
-            const value = firstSaleWithData.sheetData![key];
-            if (typeof value === 'number' || !isNaN(parseFloat(String(value).replace(',', '.')))) {
-                return 'text-right';
-            }
-        }
-    }
-    return numericKeys.includes(key) ? 'text-right' : 'text-left';
+    const nonNumericKeys = ['item_sku', 'order_code', 'id', 'document_value'];
+    if (nonNumericKeys.includes(key)) return 'text-left';
+    return numericColumns.has(key) ? 'text-right' : 'text-left';
   }
   
   const pageCount = Math.ceil(data.length / pageSize);
@@ -366,9 +376,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
-                          } else if (field.key === 'item_quantity') {
-                             cellContent = cellContent;
-                          } else if (getColumnAlignment(field.key) === 'text-right' || !isNaN(parseFloat(String(cellContent ?? '').replace(',', '.')))) {
+                          } else if (numericColumns.has(field.key) && field.key !== 'item_quantity') {
                             const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && !isNaN(parseFloat(cellContent.replace(',', '.'))));
                             const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
                             
@@ -492,4 +500,3 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     </>
   );
 }
-
