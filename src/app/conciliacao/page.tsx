@@ -9,7 +9,7 @@ import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings }
 import type { Sale, SupportData, SupportFile } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveSales } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
@@ -144,7 +144,17 @@ export default function ConciliationPage() {
     };
     
     const updateSaleCosts = (saleId: string, newCosts: Sale['costs']) => {
-        // Placeholder
+        let updatedSales: Sale[] = [];
+        setSales(prevSales => {
+          updatedSales = prevSales.map(sale =>
+            sale.id === saleId ? { ...sale, costs: newCosts } : sale
+          );
+          return updatedSales;
+        });
+        const saleToUpdate = updatedSales.find(s => s.id === saleId);
+        if (saleToUpdate) {
+            saveSales([saleToUpdate]);
+        }
     };
 
     const handleOpenSupportData = () => {
