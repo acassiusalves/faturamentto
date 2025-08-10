@@ -40,6 +40,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ScrollArea } from './ui/scroll-area';
 
 
 interface SalesTableProps {
@@ -156,7 +157,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         setVisibleColumns(newDefaults);
         localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newDefaults));
     } else if (Object.keys(visibleColumns).length === 0 && Object.keys(initialSettings).length > 0) {
-        // This handles the initial load case where visibleColumns is empty but localStorage has data
         setVisibleColumns(initialSettings);
     }
 }, [allAvailableColumns, supportDataColumns, visibleColumns]);
@@ -220,7 +220,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       supportDataColumns.forEach(col => {
           if (firstSale.sheetData && firstSale.sheetData[col.key]) {
               const value = firstSale.sheetData[col.key];
-              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value.replace(/\./g, '').replace(',', '.'))))) {
+              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(String(value).replace(/\./g, '').replace(',', '.'))))) {
                   supportNumeric.push(col.key);
               }
           }
@@ -299,48 +299,52 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuLabel>Colunas Visíveis</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                      <SortableContext items={columnsToShow.map(c => c.key)} strategy={verticalListSortingStrategy}>
-                          {availableColumnsForSelection.visible.map(field => {
-                               const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
-                               return (
-                                  <SortableItem key={field.key} id={field.key}>
-                                      <DropdownMenuCheckboxItem
-                                          checked={visibleColumns[field.key] === true}
-                                          onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                          className="flex items-center gap-2"
-                                      >
-                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                          <span>{getColumnHeader(field.key)}</span>
-                                          {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                      </DropdownMenuCheckboxItem>
-                                  </SortableItem>
-                               )
-                          })}
-                      </SortableContext>
-                  </DndContext>
-                 <DropdownMenuLabel>Colunas Ocultas</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {availableColumnsForSelection.hidden.length > 0 ? (
-                    availableColumnsForSelection.hidden.map(field => {
-                        const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
-                        return (
-                            <DropdownMenuCheckboxItem
-                            key={field.key}
-                            checked={visibleColumns[field.key] === true}
-                            onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                            className="flex items-center gap-2"
-                            >
-                            <span>{getColumnHeader(field.key)}</span>
-                             {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                            </DropdownMenuCheckboxItem>
-                        )
-                    })
-                ) : (
-                    <DropdownMenuItem disabled>Nenhuma coluna oculta</DropdownMenuItem>
-                )}
+                <ScrollArea className="h-[400px]">
+                    <DropdownMenuLabel>Colunas Visíveis</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={columnsToShow.map(c => c.key)} strategy={verticalListSortingStrategy}>
+                            {availableColumnsForSelection.visible.map(field => {
+                                const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                                return (
+                                    <SortableItem key={field.key} id={field.key}>
+                                        <DropdownMenuCheckboxItem
+                                            checked={visibleColumns[field.key] === true}
+                                            onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                            className="flex items-center gap-2"
+                                            onSelect={(e) => e.preventDefault()}
+                                        >
+                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                            <span>{getColumnHeader(field.key)}</span>
+                                            {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                        </DropdownMenuCheckboxItem>
+                                    </SortableItem>
+                                )
+                            })}
+                        </SortableContext>
+                    </DndContext>
+                    <DropdownMenuLabel>Colunas Ocultas</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {availableColumnsForSelection.hidden.length > 0 ? (
+                        availableColumnsForSelection.hidden.map(field => {
+                            const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                            return (
+                                <DropdownMenuCheckboxItem
+                                key={field.key}
+                                checked={visibleColumns[field.key] === true}
+                                onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                className="flex items-center gap-2"
+                                onSelect={(e) => e.preventDefault()}
+                                >
+                                <span>{getColumnHeader(field.key)}</span>
+                                {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                </DropdownMenuCheckboxItem>
+                            )
+                        })
+                    ) : (
+                        <DropdownMenuItem disabled>Nenhuma coluna oculta</DropdownMenuItem>
+                    )}
+                </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
         </CardHeader>
