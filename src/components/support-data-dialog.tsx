@@ -22,6 +22,7 @@ import Papa from "papaparse";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const marketplaces = [
   { id: "magalu", name: "Magalu" },
