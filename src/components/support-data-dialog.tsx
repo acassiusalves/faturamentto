@@ -50,7 +50,9 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
     if (!salesData || salesData.length === 0) return stats;
 
-    const saleKeys = new Set(salesData.map(s => (s as any).order_code));
+    const normalizeKey = (key: any) => String(key || '').replace(/\D/g, '');
+
+    const saleKeys = new Set(salesData.map(s => normalizeKey((s as any).order_code)));
 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
@@ -59,9 +61,10 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
           let associated = 0;
           let notAssociated = 0;
           parsedData.data.forEach((row: any) => {
-            const key = row[file.associationKey];
-            if (key) {
-              if (saleKeys.has(key)) {
+            const rawKey = row[file.associationKey];
+            if (rawKey) {
+              const normalizedKey = normalizeKey(rawKey);
+              if (normalizedKey && saleKeys.has(normalizedKey)) {
                 associated++;
               } else {
                 notAssociated++;
