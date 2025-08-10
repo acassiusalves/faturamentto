@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, XCircle, Upload, ArrowRight, Save, Settings, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Papa from "papaparse";
+import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
@@ -73,24 +74,47 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
 
   const handleFileUpload = (file: File, channelId: string) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      Papa.parse(content, {
-        preview: 1,
-        complete: (results) => {
-          const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
-          handleFileStateChange(channelId, { 
-              fileName: file.name,
-              fileContent: content,
-              headers: headers,
-              // Try to find a default association key
-              associationKey: headers.find(h => /pedido/i.test(h)) || ""
-          });
-          toast({ title: `Arquivo ${file.name} lido com sucesso!` });
-        },
-      });
-    };
-    reader.readAsText(file);
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+    if (fileExtension === 'csv') {
+        reader.onload = (e) => {
+            const content = e.target?.result as string;
+            Papa.parse(content, {
+                preview: 1,
+                complete: (results) => {
+                    const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
+                    handleFileStateChange(channelId, { 
+                        fileName: file.name,
+                        fileContent: content,
+                        headers: headers,
+                        associationKey: headers.find(h => /pedido/i.test(h)) || ""
+                    });
+                    toast({ title: `Arquivo CSV ${file.name} lido com sucesso!` });
+                },
+            });
+        };
+        reader.readAsText(file);
+    } else if (fileExtension === 'xlsx') {
+        reader.onload = (e) => {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
+            
+            handleFileStateChange(channelId, {
+                fileName: file.name,
+                fileContent: JSON.stringify(json), // Store content as JSON for XLSX
+                headers: headers,
+                associationKey: headers.find(h => /pedido/i.test(h)) || ""
+            });
+            toast({ title: `Arquivo XLSX ${file.name} lido com sucesso!` });
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
+    }
   };
   
   const handleRemoveHeader = (channelId: string, headerToRemove: string) => {
@@ -159,14 +183,14 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                         <Input
                                             id={`upload-${mp.id}`}
                                             type="file"
-                                            accept=".csv"
+                                            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                                             className="hidden"
                                             onChange={(e) => e.target.files && handleFileUpload(e.target.files[0], mp.id)}
                                         />
                                         <Button asChild variant="outline">
                                             <Label htmlFor={`upload-${mp.id}`} className="cursor-pointer">
                                                 <Upload className="mr-2" />
-                                                {fileData?.fileName ? "Trocar Arquivo" : "Selecionar Arquivo CSV"}
+                                                {fileData?.fileName ? "Trocar Arquivo" : "Selecionar Arquivo"}
                                             </Label>
                                         </Button>
                                         {fileData?.fileName && <p className="text-sm text-muted-foreground">Arquivo carregado: <span className="font-semibold">{fileData.fileName}</span></p>}
