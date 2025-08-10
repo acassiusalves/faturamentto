@@ -230,7 +230,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                     const filesForChannel = supportData.files[mp.id] || [];
                     return (
                         <TabsContent key={mp.id} value={mp.id} className="mt-0">
-                             <Accordion type="multiple" className="w-full space-y-4" defaultValue={filesForChannel.map(f => f.id)}>
+                             <Accordion type="single" collapsible className="w-full space-y-4">
                                 {filesForChannel.map(fileData => (
                                     <AccordionItem key={fileData.id} value={fileData.id} className="border-b-0">
                                         <Card>
