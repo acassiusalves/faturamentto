@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -218,18 +219,14 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
       try {
           const dataToSave: SupportData = { files: {} };
           for (const channelId in supportData.files) {
-              const validFiles = supportData.files[channelId].filter(f => f.fileName);
+              const validFiles = supportData.files[channelId].filter(f => f.fileName && f.fileContent);
               if (validFiles.length > 0) {
                   const processedFiles = validFiles.map(file => {
                       const finalFriendlyNames: Record<string, string> = {};
+                      // Ensure all headers are processed
                       file.headers.forEach(header => {
-                          const friendlyName = file.friendlyNames[header]?.trim();
-                          // Use a friendly name if it exists and is not empty, otherwise default to the header itself.
-                          if (friendlyName) {
-                              finalFriendlyNames[header] = friendlyName;
-                          } else {
-                              finalFriendlyNames[header] = header;
-                          }
+                          // If a friendly name exists and is not empty, use it. Otherwise, use the original header.
+                          finalFriendlyNames[header] = file.friendlyNames[header]?.trim() || header;
                       });
                       return { ...file, friendlyNames: finalFriendlyNames };
                   }).filter(f => f.associationKey); // Finally, ensure the file has an association key
