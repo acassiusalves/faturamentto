@@ -100,8 +100,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     if (!supportData?.files) return [];
     const allFriendlyNames = new Set<string>();
     Object.values(supportData.files).flat().forEach(file => {
-        Object.values(file.friendlyNames).forEach(name => {
-            if(name) allFriendlyNames.add(name);
+        Object.keys(file.friendlyNames).forEach(header => {
+            const friendlyName = file.friendlyNames[header];
+            if(friendlyName) allFriendlyNames.add(friendlyName);
         });
     });
     return Array.from(allFriendlyNames).map(name => ({ key: name, label: name, path: '' }));
@@ -113,15 +114,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       return [...iderisFields, ...uniqueSupportCols];
   }, [supportDataColumns]);
 
-
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
-        const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-        if (savedVisibleColumns) {
-            setVisibleColumns(JSON.parse(savedVisibleColumns));
-        }
-
         const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
         if (savedColumnOrder) {
             let parsedOrder = JSON.parse(savedColumnOrder);
@@ -136,9 +131,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         }
     }
     loadData();
-  }, []);
+  }, [supportDataColumns]);
 
- useEffect(() => {
+
+  useEffect(() => {
     const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
     const initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
 
@@ -159,10 +155,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     if (settingsChanged) {
         setVisibleColumns(newDefaults);
         localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newDefaults));
-    } else {
+    } else if (Object.keys(visibleColumns).length === 0 && Object.keys(initialSettings).length > 0) {
+        // This handles the initial load case where visibleColumns is empty but localStorage has data
         setVisibleColumns(initialSettings);
     }
-}, [allAvailableColumns, supportDataColumns]);
+}, [allAvailableColumns, supportDataColumns, visibleColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -223,7 +220,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       supportDataColumns.forEach(col => {
           if (firstSale.sheetData && firstSale.sheetData[col.key]) {
               const value = firstSale.sheetData[col.key];
-              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value.replace(',', '.'))))) {
+              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value.replace(/\./g, '').replace(',', '.'))))) {
                   supportNumeric.push(col.key);
               }
           }
@@ -239,8 +236,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
 
   const getColumnAlignment = (key: string) => {
-    const nonNumericKeys = ['item_sku', 'order_code', 'id', 'document_value'];
-    if (nonNumericKeys.includes(key)) return 'text-left';
     return numericColumns.has(key) ? 'text-right' : 'text-left';
   }
   
@@ -384,8 +379,19 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
                           } else if (numericColumns.has(field.key)) {
-                              const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && cellContent && !isNaN(parseFloat(cellContent.replace(',', '.'))));
-                              const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
+                              let isNumeric = false;
+                              let numericValue = 0;
+                              if (typeof cellContent === 'number') {
+                                  isNumeric = true;
+                                  numericValue = cellContent;
+                              } else if (typeof cellContent === 'string' && cellContent) {
+                                  const cleanedValue = cellContent.replace(/\./g, '').replace(',', '.');
+                                  const parsedValue = parseFloat(cleanedValue);
+                                  if (!isNaN(parsedValue)) {
+                                      isNumeric = true;
+                                      numericValue = parsedValue;
+                                  }
+                              }
                               
                               const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
                               cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : (cellContent || 'N/A')}</span>;
