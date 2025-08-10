@@ -113,21 +113,40 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     async function loadData() {
         const allColumns = [...iderisFields, ...supportDataColumns];
         const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
+        
         if (savedVisibleColumns) {
-          setVisibleColumns(JSON.parse(savedVisibleColumns));
+          const parsedCols = JSON.parse(savedVisibleColumns);
+          // Add any new support columns that weren't saved before
+          supportDataColumns.forEach(col => {
+            if(!(col.key in parsedCols)) {
+                parsedCols[col.key] = true; // Default new columns to visible
+            }
+          });
+          setVisibleColumns(parsedCols);
         } else {
           const defaults: Record<string, boolean> = {};
           allColumns.forEach(f => {
-              defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key);
+              // Default support columns to visible, others based on default list
+              const isSupportCol = supportDataColumns.some(sc => sc.key === f.key);
+              defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key) || isSupportCol;
           });
           setVisibleColumns(defaults);
         }
 
         const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
         if (savedColumnOrder) {
-            setColumnOrder(JSON.parse(savedColumnOrder));
+            let parsedOrder = JSON.parse(savedColumnOrder);
+            // Add any new support columns to the end of the order if they don't exist
+            supportDataColumns.forEach(col => {
+                if(!parsedOrder.includes(col.key)) {
+                    parsedOrder.push(col.key);
+                }
+            });
+            setColumnOrder(parsedOrder);
         } else {
-            setColumnOrder(defaultVisibleColumnsOrder);
+            // Add support columns to the default order
+            const newDefaultOrder = [...defaultVisibleColumnsOrder, ...supportDataColumns.map(c => c.key)];
+            setColumnOrder(newDefaultOrder);
         }
 
         const settings = await loadAppSettings();
@@ -143,7 +162,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   };
   
   const handleVisibilityChange = (key: string, checked: boolean) => {
-    const allColumns = [...iderisFields, ...supportDataColumns];
     setVisibleColumns(prev => {
         const newVisibleColumns = { ...prev, [key]: checked };
         localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
@@ -153,8 +171,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setColumnOrder(prevOrder => {
         let newOrder;
         if (checked) {
+            // Add to the end if it's not there
             newOrder = prevOrder.includes(key) ? prevOrder : [...prevOrder, key];
         } else {
+            // Remove from order
             newOrder = prevOrder.filter(k => k !== key);
         }
         localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
@@ -192,6 +212,18 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   const getColumnAlignment = (key: string) => {
     const numericKeys = ['item_quantity', 'value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace'];
+    // Also consider support columns as potentially numeric, but default to left align
+    const supportColumn = supportDataColumns.find(sc => sc.key === key);
+    if(supportColumn) {
+        // Simple check if the first row of data for this column is numeric
+        const firstSaleWithData = data.find(s => s.sheetData && s.sheetData[key]);
+        if (firstSaleWithData) {
+            const value = firstSaleWithData.sheetData![key];
+            if (typeof value === 'number' || !isNaN(parseFloat(String(value).replace(',', '.')))) {
+                return 'text-right';
+            }
+        }
+    }
     return numericKeys.includes(key) ? 'text-right' : 'text-left';
   }
   
@@ -221,12 +253,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const formatDate = (dateString: string | null) => {
       if (!dateString) return 'N/A';
       try {
-          // Check for ISO 8601 format (YYYY-MM-DD)
           if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
             const date = new Date(dateString);
             return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
           }
-          // Fallback for other formats, might be less reliable
           const date = new Date(dateString);
           if (isNaN(date.getTime())) {
               return dateString;
@@ -309,9 +339,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
               <TableBody>
                 {isLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                   paginatedData.map((sale) => {
-                    const totalCost = calculateTotalCost(sale);
-                    const netRevenue = calculateNetRevenue(sale);
-
                     return (
                       <TableRow key={sale.id}>
                         {columnsToShow.map(field => {
@@ -332,7 +359,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
                           } else if (field.key === 'item_quantity') {
                              cellContent = cellContent;
-                          } else if (getColumnAlignment(field.key) === 'text-right' || !isNaN(parseFloat(cellContent))) {
+                          } else if (getColumnAlignment(field.key) === 'text-right' || !isNaN(parseFloat(String(cellContent ?? '').replace(',', '.')))) {
                             const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && !isNaN(parseFloat(cellContent.replace(',', '.'))));
                             const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
                             
