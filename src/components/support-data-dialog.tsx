@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -163,7 +162,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
       const currentFile = (supportData.files[channelId] || []).find(f => f.id === fileId);
       if (!currentFile) return;
 
-      const newHeaders = currentFile.headers.filter(h => h !== headerToRemove);
+      const newHeaders = currentFile.headers?.filter(h => h !== headerToRemove);
       const newFriendlyNames = { ...currentFile.friendlyNames };
       delete newFriendlyNames[headerToRemove];
       const newAssociationKey = currentFile.associationKey === headerToRemove ? "" : currentFile.associationKey;
@@ -267,7 +266,6 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                                         </Label>
                                                     </Button>
                                                 </div>
-                                                {/* A MUDANÇA ESTÁ AQUI */}
                                                 {fileData.headers?.length > 0 && (
                                                     <div className="space-y-4 p-4 border rounded-lg bg-background">
                                                         <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 px-4 pb-2 border-b sticky top-0 bg-card z-10">
@@ -282,8 +280,8 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                                                 value={fileData.associationKey} 
                                                                 onValueChange={(value) => handleMappingChange(mp.id, fileData.id, { associationKey: value })}
                                                             >
-                                                                {fileData.headers.map(header => (
-                                                                <div key={header} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2 pr-4">
+                                                                {fileData.headers.map((header, index) => (
+                                                                  <div key={`header-${index}-${header}`} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2 pr-4">
                                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveHeader(mp.id, fileData.id, header)}>
                                                                         <XCircle className="h-4 w-4"/>
                                                                     </Button>
@@ -297,7 +295,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                                                                     <div className="flex justify-center">
                                                                         <RadioGroupItem value={header} id={`radio-${mp.id}-${fileData.id}-${header}`} />
                                                                     </div>
-                                                                </div>
+                                                                  </div>
                                                                 ))}
                                                             </RadioGroup>
                                                         </ScrollArea>
