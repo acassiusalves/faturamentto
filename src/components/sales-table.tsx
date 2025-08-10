@@ -116,16 +116,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setIsClient(true);
     async function loadData() {
         const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-        
         if (savedVisibleColumns) {
-          const parsedCols = JSON.parse(savedVisibleColumns);
-          setVisibleColumns(parsedCols);
-        } else {
-          const defaults: Record<string, boolean> = {};
-          allAvailableColumns.forEach(f => {
-              defaults[f.key] = defaultVisibleColumnsOrder.includes(f.key) || supportDataColumns.some(sc => sc.key === f.key);
-          });
-          setVisibleColumns(defaults);
+            setVisibleColumns(JSON.parse(savedVisibleColumns));
         }
 
         const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
@@ -138,11 +130,26 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
         const settings = await loadAppSettings();
         if (settings?.friendlyFieldNames) {
-          setFriendlyNames(settings.friendlyFieldNames);
+            setFriendlyNames(settings.friendlyFieldNames);
         }
     }
     loadData();
-  }, [allAvailableColumns]);
+  }, []);
+
+  useEffect(() => {
+    // This effect ensures that newly added support columns are made visible by default
+    // if no settings are saved yet.
+    const savedVisibleColumns = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
+    if (!savedVisibleColumns && allAvailableColumns.length > iderisFields.length) {
+        const newDefaults: Record<string, boolean> = {};
+        allAvailableColumns.forEach(f => {
+            const isDefaultIderis = defaultVisibleColumnsOrder.includes(f.key);
+            const isNewSupportCol = supportDataColumns.some(sc => sc.key === f.key);
+            newDefaults[f.key] = isDefaultIderis || isNewSupportCol;
+        });
+        setVisibleColumns(newDefaults);
+    }
+  }, [allAvailableColumns, supportDataColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -210,7 +217,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       });
     }
 
-    return new Set([...iderisNumeric, ...supportNumeric]);
+    const nonNumericSku = ['item_sku'];
+    const finalNumeric = new Set([...iderisNumeric, ...supportNumeric]);
+    nonNumericSku.forEach(key => finalNumeric.delete(key));
+
+    return finalNumeric;
   }, [data, supportDataColumns]);
 
 
@@ -246,7 +257,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const formatDate = (dateString: string | null) => {
       if (!dateString) return 'N/A';
       try {
-          if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+          if (/^\d{4}-\d{2}/.test(dateString)) {
             const date = new Date(dateString);
             return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
           }
@@ -354,12 +365,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
 
                           if (field.key === 'item_image' && cellContent) {
-                             cellContent = <Image src={cellContent} alt={(sale as any).item_title || 'Imagem do Produto'} width={40} height={40} className="rounded-md object-cover h-10 w-10" />;
+                             cellContent = <Image src={cellContent} alt={(sale as any).item_title || 'Imagem do Produto'} width={40} height={40} className="rounded-md object-cover h-10 w-10" data-ai-hint="product image" />;
                           } else if (field.key.toLowerCase().includes('date') || field.key.toLowerCase().includes('approved')) {
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
-                          } else if (field.key !== 'item_quantity' && numericColumns.has(field.key)) {
+                          } else if (numericColumns.has(field.key)) {
                               const isNumeric = typeof cellContent === 'number' || (typeof cellContent === 'string' && cellContent && !isNaN(parseFloat(cellContent.replace(',', '.'))));
                               const numericValue = typeof cellContent === 'string' ? parseFloat(cellContent.replace(',', '.')) : cellContent;
                               
@@ -483,3 +494,5 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     </>
   );
 }
+
+    
