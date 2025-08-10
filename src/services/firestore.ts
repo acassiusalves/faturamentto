@@ -292,14 +292,14 @@ export const loadMonthlySupportData = async (monthYearKey: string): Promise<Supp
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
     const snapshot = await getDoc(docRef);
     if (snapshot.exists()) {
-        return snapshot.data() as SupportData;
+        return fromFirestore(snapshot.data()) as SupportData;
     }
     return null;
 };
 
 export const saveMonthlySupportData = async (monthYearKey: string, data: SupportData): Promise<void> => {
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
-    await setDoc(docRef, data, { merge: true });
+    await setDoc(docRef, toFirestore(data), { merge: true });
 };
 
 

@@ -16,15 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trash2, XCircle, Upload, ArrowRight, Save, Settings, FileSpreadsheet } from "lucide-react";
+import { Loader2, Trash2, XCircle, Upload, ArrowRight, Save, Settings, FileSpreadsheet, PlusCircle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Papa from "papaparse";
 import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+
 
 const marketplaces = [
   { id: "magalu", name: "Magalu" },
@@ -60,22 +62,38 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     }
   }, [isOpen, monthYearKey]);
   
-  const handleFileStateChange = (channelId: string, updatedFileState: Partial<SupportFile>) => {
+  const handleFileArrayChange = (channelId: string, newFiles: SupportFile[]) => {
       setSupportData(prev => ({
           ...prev,
           files: {
               ...prev.files,
-              [channelId]: {
-                  ...(prev.files[channelId] || { channelId, fileName: "", fileContent: "", headers: [], friendlyNames: {}, associationKey: "" }),
-                  ...updatedFileState,
-              }
+              [channelId]: newFiles
           }
       }));
-  };
+  }
 
-  const handleFileUpload = (file: File, channelId: string) => {
+  const handleFileUpload = (file: File, channelId: string, fileId: string) => {
     const reader = new FileReader();
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+    const processHeaders = (headers: string[], content: string) => {
+        const fileList = supportData.files[channelId] || [];
+        const updatedList = fileList.map(f => {
+            if (f.id === fileId) {
+                return {
+                    ...f,
+                    fileName: file.name,
+                    fileContent: content,
+                    headers: headers,
+                    associationKey: headers.find(h => /pedido/i.test(h)) || "",
+                    uploadedAt: new Date().toISOString()
+                };
+            }
+            return f;
+        });
+        handleFileArrayChange(channelId, updatedList);
+        toast({ title: `Arquivo ${file.name} lido com sucesso!` });
+    };
 
     if (fileExtension === 'csv') {
         reader.onload = (e) => {
@@ -84,13 +102,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                 preview: 1,
                 complete: (results) => {
                     const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
-                    handleFileStateChange(channelId, { 
-                        fileName: file.name,
-                        fileContent: content,
-                        headers: headers,
-                        associationKey: headers.find(h => /pedido/i.test(h)) || ""
-                    });
-                    toast({ title: `Arquivo CSV ${file.name} lido com sucesso!` });
+                    processHeaders(headers, content);
                 },
             });
         };
@@ -103,23 +115,43 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const worksheet = workbook.Sheets[sheetName];
             const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             const headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
-            
-            handleFileStateChange(channelId, {
-                fileName: file.name,
-                fileContent: JSON.stringify(json), // Store content as JSON for XLSX
-                headers: headers,
-                associationKey: headers.find(h => /pedido/i.test(h)) || ""
-            });
-            toast({ title: `Arquivo XLSX ${file.name} lido com sucesso!` });
+            processHeaders(headers, JSON.stringify(json));
         };
         reader.readAsArrayBuffer(file);
     } else {
         toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
     }
   };
+
+  const handleAddNewFile = (channelId: string) => {
+    const newFile: SupportFile = {
+        id: `file-${channelId}-${Date.now()}`,
+        channelId: channelId,
+        fileName: "",
+        fileContent: "",
+        headers: [],
+        friendlyNames: {},
+        associationKey: "",
+        uploadedAt: ""
+    };
+    const currentFiles = supportData.files[channelId] || [];
+    handleFileArrayChange(channelId, [...currentFiles, newFile]);
+  };
   
-  const handleRemoveHeader = (channelId: string, headerToRemove: string) => {
-      const currentFile = supportData.files[channelId];
+  const handleRemoveFile = (channelId: string, fileId: string) => {
+      const currentFiles = supportData.files[channelId] || [];
+      const updatedFiles = currentFiles.filter(f => f.id !== fileId);
+      handleFileArrayChange(channelId, updatedFiles);
+  }
+  
+  const handleMappingChange = (channelId: string, fileId: string, updatedFile: Partial<SupportFile>) => {
+      const fileList = supportData.files[channelId] || [];
+      const updatedList = fileList.map(f => f.id === fileId ? { ...f, ...updatedFile } : f);
+      handleFileArrayChange(channelId, updatedList);
+  }
+  
+  const handleRemoveHeader = (channelId: string, fileId: string, headerToRemove: string) => {
+      const currentFile = (supportData.files[channelId] || []).find(f => f.id === fileId);
       if (!currentFile) return;
 
       const newHeaders = currentFile.headers.filter(h => h !== headerToRemove);
@@ -127,7 +159,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
       delete newFriendlyNames[headerToRemove];
       const newAssociationKey = currentFile.associationKey === headerToRemove ? "" : currentFile.associationKey;
 
-      handleFileStateChange(channelId, {
+      handleMappingChange(channelId, fileId, {
           headers: newHeaders,
           friendlyNames: newFriendlyNames,
           associationKey: newAssociationKey,
@@ -137,7 +169,15 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
   const handleSave = async () => {
       setIsSaving(true);
       try {
-          await saveMonthlySupportData(monthYearKey, supportData);
+          // Filter out empty/unconfigured files before saving
+          const dataToSave: SupportData = { files: {} };
+          for (const channelId in supportData.files) {
+              const validFiles = supportData.files[channelId].filter(f => f.fileName && f.associationKey);
+              if (validFiles.length > 0) {
+                  dataToSave.files[channelId] = validFiles;
+              }
+          }
+          await saveMonthlySupportData(monthYearKey, dataToSave);
           toast({ title: "Sucesso!", description: "Os dados de apoio para este mês foram salvos."});
           onClose();
       } catch (error) {
@@ -146,6 +186,11 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
       } finally {
           setIsSaving(false);
       }
+  }
+  
+  const formatDate = (dateString: string) => {
+      if (!dateString) return "Não carregado";
+      return new Date(dateString).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   }
 
   return (
@@ -174,67 +219,91 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             </TabsList>
             <div className="flex-grow overflow-y-auto pr-2 mt-4">
                 {marketplaces.map((mp) => {
-                    const fileData = supportData.files[mp.id];
+                    const filesForChannel = supportData.files[mp.id] || [];
                     return (
                         <TabsContent key={mp.id} value={mp.id} className="mt-0">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Canal: {mp.name}</CardTitle>
-                                    <div className="flex items-center gap-4 pt-4">
-                                        <Input
-                                            id={`upload-${mp.id}`}
-                                            type="file"
-                                            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                                            className="hidden"
-                                            onChange={(e) => e.target.files && handleFileUpload(e.target.files[0], mp.id)}
-                                        />
-                                        <Button asChild variant="outline">
-                                            <Label htmlFor={`upload-${mp.id}`} className="cursor-pointer">
-                                                <Upload className="mr-2" />
-                                                {fileData?.fileName ? "Trocar Arquivo" : "Selecionar Arquivo"}
-                                            </Label>
-                                        </Button>
-                                        {fileData?.fileName && <p className="text-sm text-muted-foreground">Arquivo carregado: <span className="font-semibold">{fileData.fileName}</span></p>}
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    {fileData && fileData.headers.length > 0 && (
-                                        <div className="space-y-4 p-4 border rounded-lg">
-                                            <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 px-4 pb-2 border-b sticky top-0 bg-card z-10">
-                                                <div />
-                                                <h4 className="font-semibold text-sm text-muted-foreground">Coluna do Arquivo</h4>
-                                                <div />
-                                                <h4 className="font-semibold text-sm text-muted-foreground">Nome Amigável</h4>
-                                                <h4 className="font-semibold text-sm text-muted-foreground text-center">Chave de Associação</h4>
-                                            </div>
-                                            <ScrollArea className="h-[40vh]">
-                                                <RadioGroup 
-                                                    value={fileData.associationKey} 
-                                                    onValueChange={(value) => handleFileStateChange(mp.id, { associationKey: value })}
-                                                >
-                                                    {fileData.headers.map(header => (
-                                                    <div key={header} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2 pr-4">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveHeader(mp.id, header)}>
-                                                            <XCircle className="h-4 w-4"/>
-                                                        </Button>
-                                                        <Badge variant="secondary" className="font-normal justify-start py-2 truncate">{header}</Badge>
-                                                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                                        <Input 
-                                                                placeholder={header}
-                                                                value={fileData.friendlyNames[header] || ""}
-                                                                onChange={(e) => handleFileStateChange(mp.id, { friendlyNames: {...fileData.friendlyNames, [header]: e.target.value} })}
-                                                            />
-                                                        <div className="flex justify-center">
-                                                            <RadioGroupItem value={header} id={`radio-${mp.id}-${header}`} />
-                                                        </div>
+                             <Accordion type="multiple" className="w-full space-y-4" defaultValue={filesForChannel.map(f => f.id)}>
+                                {filesForChannel.map(fileData => (
+                                    <AccordionItem key={fileData.id} value={fileData.id} className="border-b-0">
+                                        <Card>
+                                             <AccordionTrigger className="p-4 hover:no-underline">
+                                                <div className="flex justify-between items-center w-full">
+                                                    <div className="flex items-center gap-2">
+                                                        {fileData.fileName ? <CheckCircle className="text-green-500" /> : <XCircle className="text-destructive"/>}
+                                                        <span className="font-semibold">{fileData.fileName || "Novo Arquivo (não salvo)"}</span>
                                                     </div>
-                                                    ))}
-                                                </RadioGroup>
-                                            </ScrollArea>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className="text-sm text-muted-foreground">
+                                                            Inserido em: {formatDate(fileData.uploadedAt)}
+                                                        </span>
+                                                         <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveFile(mp.id, fileData.id);}}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="p-4 pt-0">
+                                                <div className="flex items-center gap-4 py-4 border-t">
+                                                    <Input
+                                                        id={`upload-${mp.id}-${fileData.id}`}
+                                                        type="file"
+                                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                                                        className="hidden"
+                                                        onChange={(e) => e.target.files && handleFileUpload(e.target.files[0], mp.id, fileData.id)}
+                                                    />
+                                                    <Button asChild variant="outline">
+                                                        <Label htmlFor={`upload-${mp.id}-${fileData.id}`} className="cursor-pointer">
+                                                            <Upload className="mr-2" />
+                                                            {fileData.fileName ? "Trocar Arquivo" : "Selecionar Arquivo"}
+                                                        </Label>
+                                                    </Button>
+                                                </div>
+                                                {fileData.headers.length > 0 && (
+                                                    <div className="space-y-4 p-4 border rounded-lg bg-background">
+                                                        <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 px-4 pb-2 border-b sticky top-0 bg-card z-10">
+                                                            <div />
+                                                            <h4 className="font-semibold text-sm text-muted-foreground">Coluna do Arquivo</h4>
+                                                            <div />
+                                                            <h4 className="font-semibold text-sm text-muted-foreground">Nome Amigável</h4>
+                                                            <h4 className="font-semibold text-sm text-muted-foreground text-center">Chave de Associação</h4>
+                                                        </div>
+                                                        <ScrollArea className="h-[30vh]">
+                                                            <RadioGroup 
+                                                                value={fileData.associationKey} 
+                                                                onValueChange={(value) => handleMappingChange(mp.id, fileData.id, { associationKey: value })}
+                                                            >
+                                                                {fileData.headers.map(header => (
+                                                                <div key={header} className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-4 py-2 pr-4">
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveHeader(mp.id, fileData.id, header)}>
+                                                                        <XCircle className="h-4 w-4"/>
+                                                                    </Button>
+                                                                    <Badge variant="secondary" className="font-normal justify-start py-2 truncate">{header}</Badge>
+                                                                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                                                    <Input 
+                                                                        placeholder={header}
+                                                                        value={fileData.friendlyNames[header] || ""}
+                                                                        onChange={(e) => handleMappingChange(mp.id, fileData.id, { friendlyNames: {...fileData.friendlyNames, [header]: e.target.value} })}
+                                                                    />
+                                                                    <div className="flex justify-center">
+                                                                        <RadioGroupItem value={header} id={`radio-${mp.id}-${fileData.id}-${header}`} />
+                                                                    </div>
+                                                                </div>
+                                                                ))}
+                                                            </RadioGroup>
+                                                        </ScrollArea>
+                                                    </div>
+                                                )}
+                                            </AccordionContent>
+                                        </Card>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
+                            <div className="mt-4">
+                                <Button variant="secondary" onClick={() => handleAddNewFile(mp.id)} className="w-full border-dashed border">
+                                    <PlusCircle className="mr-2" />
+                                    Adicionar
+                                </Button>
+                            </div>
                         </TabsContent>
                     )
                 })}
