@@ -5,11 +5,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { loadSales } from '@/services/firestore';
+import { Button } from '@/components/ui/button';
 
 // Helper to generate months
 const getMonths = () => {
@@ -103,8 +104,16 @@ export default function ConciliationPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Seleção de Período</CardTitle>
-                    <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Seleção de Período</CardTitle>
+                            <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
+                        </div>
+                        <Button variant="outline">
+                            <Settings className="mr-2 h-4 w-4" />
+                            Dados de Apoio
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Select value={selectedMonth} onValueChange={setSelectedMonth}>
