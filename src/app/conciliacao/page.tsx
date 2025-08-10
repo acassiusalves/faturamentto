@@ -9,8 +9,9 @@ import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings }
 import type { Sale } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveMonthlySupportData } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
+import { SupportDataDialog } from '@/components/support-data-dialog';
 
 // Helper to generate months
 const getMonths = () => {
@@ -25,6 +26,7 @@ export default function ConciliationPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
+    const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -83,6 +85,17 @@ export default function ConciliationPage() {
         // Placeholder
     };
 
+    const handleOpenSupportData = () => {
+        setIsSupportDataOpen(true);
+    };
+    
+    const getMonthYearKey = () => {
+        if (!dateRange?.from) return "";
+        const year = getYear(dateRange.from);
+        const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+    }
+
 
     if (isLoading) {
         return (
@@ -94,6 +107,7 @@ export default function ConciliationPage() {
     }
 
     return (
+        <>
         <div className="flex flex-col gap-8 p-4 md:p-8">
             <div>
                 <h1 className="text-3xl font-bold font-headline">Conciliação de Vendas</h1>
@@ -109,7 +123,7 @@ export default function ConciliationPage() {
                             <CardTitle>Seleção de Período</CardTitle>
                             <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
                         </div>
-                        <Button variant="outline">
+                        <Button variant="outline" onClick={handleOpenSupportData}>
                             <Settings className="mr-2 h-4 w-4" />
                             Dados de Apoio
                         </Button>
@@ -141,5 +155,12 @@ export default function ConciliationPage() {
             />
 
         </div>
+        
+        <SupportDataDialog
+            isOpen={isSupportDataOpen}
+            onClose={() => setIsSupportDataOpen(false)}
+            monthYearKey={getMonthYearKey()}
+        />
+        </>
     );
 }

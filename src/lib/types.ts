@@ -1,3 +1,4 @@
+
 export interface Cost {
   id: string;
   type: string;
@@ -173,3 +174,17 @@ export interface AppUser {
 }
 
 export type ApiKeyStatus = "unchecked" | "valid" | "invalid";
+
+// -- Support Data Types --
+export interface SupportFile {
+    channelId: string; // e.g., 'magalu'
+    fileName: string;
+    fileContent: string; // The raw CSV content
+    headers: string[];
+    friendlyNames: Record<string, string>;
+    associationKey: string;
+}
+
+export interface SupportData {
+    files: Record<string, SupportFile>; // Keyed by channelId
+}

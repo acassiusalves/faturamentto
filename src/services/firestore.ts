@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -15,7 +16,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -284,6 +285,21 @@ export const loadCompanyCosts = async (): Promise<{ fixed: CompanyCost[]; variab
 export const saveCompanyCosts = async (costs: { fixed: CompanyCost[]; variable: CompanyCost[] }): Promise<void> => {
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'companyCosts');
     await setDoc(docRef, costs);
+};
+
+// --- MONTHLY SUPPORT DATA ---
+export const loadMonthlySupportData = async (monthYearKey: string): Promise<SupportData | null> => {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+        return snapshot.data() as SupportData;
+    }
+    return null;
+};
+
+export const saveMonthlySupportData = async (monthYearKey: string, data: SupportData): Promise<void> => {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
+    await setDoc(docRef, data, { merge: true });
 };
 
 
