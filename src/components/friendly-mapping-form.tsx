@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -28,10 +29,6 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
 
   const handleSave = () => {
     onSave(friendlyNames);
-    toast({
-        title: "Nomes Amigáveis Salvos",
-        description: "Os nomes foram atualizados com sucesso.",
-    });
   };
   
   const handleReset = (fieldKey: string) => {
@@ -71,7 +68,7 @@ export function FriendlyMappingForm({ initialNames, onSave }: FriendlyMappingFor
                         </div>
                          <Button variant="ghost" size="sm" onClick={() => handleReset(field.key)}>
                             Redefinir
-                        </Button>
+                         </Button>
                     </div>
                     ))}
                 </div>
