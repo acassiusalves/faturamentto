@@ -22,7 +22,7 @@ import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
@@ -177,7 +177,6 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
   const handleSave = async () => {
       setIsSaving(true);
       try {
-          // Filter out empty/unconfigured files before saving
           const dataToSave: SupportData = { files: {} };
           for (const channelId in supportData.files) {
               const validFiles = supportData.files[channelId].filter(f => f.fileName && f.associationKey);
@@ -230,7 +229,8 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                     const filesForChannel = supportData.files[mp.id] || [];
                     return (
                         <TabsContent key={mp.id} value={mp.id} className="mt-0">
-                             <Accordion type="single" collapsible className="w-full space-y-4">
+                             {/* BÔNUS: Alterado para 'multiple' para melhor UX */}
+                             <Accordion type="multiple" className="w-full space-y-4" defaultValue={filesForChannel.map(f => f.id)}>
                                 {filesForChannel.map(fileData => (
                                     <AccordionItem key={fileData.id} value={fileData.id} className="border-b-0">
                                         <Card>
