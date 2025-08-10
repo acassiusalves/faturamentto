@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -58,7 +57,8 @@ const defaultVisibleColumnsOrder: string[] = [
 ];
 const DEFAULT_USER_ID = 'default-user';
 
-const SortableItem = ({ id, children }: { id: string; children: React.ReactNode }) => {
+// Componente SortableItem refatorado para separar o "arrastar" do conteúdo
+const SortableItem = ({ id, children }: { id: string; children: (listeners: ReturnType<typeof useSortable>['listeners']) => React.ReactNode }) => {
   const {
     attributes,
     listeners,
@@ -73,8 +73,8 @@ const SortableItem = ({ id, children }: { id: string; children: React.ReactNode 
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children(listeners)}
     </div>
   );
 };
@@ -305,17 +305,24 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                 const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
                                 return (
                                     <SortableItem key={field.key} id={field.key}>
-                                        <DropdownMenuCheckboxItem
-                                            checked={visibleColumns[field.key] === true}
-                                            onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                            className="flex items-center gap-2"
-                                            // ESTA É A CORREÇÃO: Impede o fechamento do menu no clique
-                                            onSelect={(e) => e.preventDefault()}
-                                        >
-                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                            <span>{getColumnHeader(field.key)}</span>
-                                            {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                        </DropdownMenuCheckboxItem>
+                                        {(listeners) => (
+                                            <div className="flex items-center gap-2">
+                                                {/* O GripVertical agora é o único que escuta os eventos de arrastar */}
+                                                <span {...listeners} className="cursor-grab p-1">
+                                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                                </span>
+                                                <DropdownMenuCheckboxItem
+                                                    checked={visibleColumns[field.key] === true}
+                                                    onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                                    className="flex-grow"
+                                                    // onSelect não é mais necessário aqui, mas não prejudica
+                                                    onSelect={(e) => e.preventDefault()}
+                                                >
+                                                    <span>{getColumnHeader(field.key)}</span>
+                                                    {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                                </DropdownMenuCheckboxItem>
+                                            </div>
+                                        )}
                                     </SortableItem>
                                 )
                             })}
@@ -332,7 +339,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                 checked={visibleColumns[field.key] === true}
                                 onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
                                 className="flex items-center gap-2"
-                                // ESTA É A CORREÇÃO: Impede o fechamento do menu no clique
                                 onSelect={(e) => e.preventDefault()}
                                 >
                                 <span>{getColumnHeader(field.key)}</span>
