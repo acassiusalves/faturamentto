@@ -532,8 +532,8 @@ export default function ProductsPage() {
                                                   <CommandItem
                                                     key={val}
                                                     value={val}
-                                                    onMouseDown={(e) => e.preventDefault()}
                                                     onSelect={() => handleAttributeSelect(attr.key, val)}
+                                                    onMouseDown={(e) => e.preventDefault()}
                                                   >
                                                     <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
                                                     {val}
@@ -698,7 +698,7 @@ export default function ProductsPage() {
                           </Card>
                         </div>
                     </div>
-                </form>
+                 </form>
             </TabsContent>
             <TabsContent value="settings" className="mt-6">
                 <ProductSettings />
@@ -739,3 +739,6 @@ export default function ProductsPage() {
   );
 }
 
+
+
+    
