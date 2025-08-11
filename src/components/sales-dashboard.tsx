@@ -19,6 +19,9 @@ import { useRouter } from "next/navigation";
 import { saveSales, loadSales } from "@/services/firestore";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
+import { MarketplaceSalesChart } from "./marketplace-sales-chart";
+import { TopProductsChart } from "./top-products-chart";
+import { SalesByStateChart } from "./sales-by-state-chart";
 
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
@@ -300,6 +303,12 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
             </div>
         </CardContent>
       </Card>
+
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <MarketplaceSalesChart salesData={filteredSales} />
+          <TopProductsChart salesData={filteredSales} />
+          <SalesByStateChart salesData={filteredSales} />
+      </div>
       
       <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
         <div className="flex items-center justify-between rounded-t-lg border bg-card text-card-foreground p-4">
