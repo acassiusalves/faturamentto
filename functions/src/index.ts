@@ -50,7 +50,7 @@ export const inviteUser = onCall(async (request) => {
     const userRecord = await auth.createUser({
       email,
       emailVerified: false,
-      password: Math.random().toString(36).slice(-8),
+      password: "123456", // Default temporary password
       displayName: email.split("@")[0],
     });
     logger.info(`Usuário ${userRecord.uid} criado com sucesso.`);

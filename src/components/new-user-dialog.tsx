@@ -122,7 +122,7 @@ export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUs
               <Info className="h-4 w-4" />
               <AlertTitle className="font-semibold">Como funciona?</AlertTitle>
               <AlertDescription>
-                Ao salvar, um novo usuário será criado no Firebase com uma senha temporária. Idealmente, uma automação enviaria um email de boas-vindas para o novo usuário.
+                Ao salvar, um novo usuário será criado com a senha padrão <strong>123456</strong>. O usuário deverá alterar a senha no primeiro acesso.
               </AlertDescription>
             </Alert>
             
