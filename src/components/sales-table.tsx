@@ -51,7 +51,7 @@ interface SalesTableProps {
   calculateNetRevenue: (sale: Sale) => number;
   formatCurrency: (value: number) => string;
   isLoading: boolean;
-  productCostSource: Map<string, number>;
+  productCostSource?: Map<string, number>;
 }
 
 const defaultVisibleColumnsOrder: string[] = [
@@ -82,7 +82,7 @@ const SortableItem = ({ id, children }: { id: string; children: (listeners: Retu
 };
 
 
-export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map() }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
