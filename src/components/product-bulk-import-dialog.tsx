@@ -51,6 +51,11 @@ export function ProductBulkImportDialog({ isOpen, onClose, category, settings, o
   const [textValue, setTextValue] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const { toast } = useToast();
+  
+  const handleClose = () => {
+    setTextValue("");
+    onClose();
+  };
 
   const handleImport = async () => {
     if (!textValue.trim()) {
@@ -101,7 +106,7 @@ export function ProductBulkImportDialog({ isOpen, onClose, category, settings, o
             });
         } else {
             await onSave(productsToImport);
-            onClose(); // Close dialog on successful save
+            handleClose();
         }
     } catch (error) {
         console.error("Erro na importação em massa:", error);
@@ -112,12 +117,7 @@ export function ProductBulkImportDialog({ isOpen, onClose, category, settings, o
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open) {
-            setTextValue(""); // Clear state on close
-        }
-        onClose();
-    }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Importar Produtos em Massa</DialogTitle>
@@ -150,7 +150,7 @@ export function ProductBulkImportDialog({ isOpen, onClose, category, settings, o
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isParsing}>Cancelar</Button>
+          <Button variant="outline" onClick={handleClose} disabled={isParsing}>Cancelar</Button>
           <Button onClick={handleImport} disabled={isParsing}>
             {isParsing ? <Loader2 className="animate-spin" /> : <Upload />}
             Importar e Salvar Produtos

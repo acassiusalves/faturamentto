@@ -27,6 +27,11 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
   const [textValue, setTextValue] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const { toast } = useToast();
+  
+  const handleClose = () => {
+    setTextValue("");
+    onClose();
+  };
 
   const handleImport = async () => {
     if (!textValue.trim()) {
@@ -70,7 +75,7 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
                     description: `${invalidLines} linhas foram ignoradas por não estarem no formato correto.`,
                 });
             }
-            onClose(); 
+            handleClose();
         }
     } catch (error) {
         console.error("Erro na associação em massa:", error);
@@ -81,12 +86,7 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open) {
-            setTextValue(""); 
-        }
-        onClose();
-    }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Associar SKUs em Massa</DialogTitle>
@@ -121,7 +121,7 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isParsing}>Cancelar</Button>
+          <Button variant="outline" onClick={handleClose} disabled={isParsing}>Cancelar</Button>
           <Button onClick={handleImport} disabled={isParsing}>
             {isParsing ? <Loader2 className="animate-spin" /> : <Link />}
             Processar e Salvar Associações
