@@ -38,7 +38,8 @@ export default function LoginPage() {
       await login(data.email, data.password);
       // A navegação será tratada pelo AuthProvider
     } catch (err: any) {
-      console.error(err);
+      // Log a more descriptive message for developers in the console
+      console.log(`Login attempt failed for ${data.email}:`, err.code);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError("Email ou senha inválidos. Por favor, tente novamente.");
       } else {
