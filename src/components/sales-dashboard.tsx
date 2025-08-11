@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
@@ -244,8 +245,14 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos da planilha + adicionados"/>
         <StatsCard title="Lucro Líquido (Período)" value={formatCurrency(stats.netRevenue)} icon={TrendingUp} description="Lucro da planilha - custos adicionados"/>
       </div>
+      
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <MarketplaceSalesChart salesData={filteredSales} />
+          <TopProductsChart salesData={filteredSales} />
+          <SalesByStateChart salesData={filteredSales} />
+      </div>
 
-      <Card>
+       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
              <div className="flex items-center gap-2">
@@ -303,12 +310,6 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
             </div>
         </CardContent>
       </Card>
-
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <MarketplaceSalesChart salesData={filteredSales} />
-          <TopProductsChart salesData={filteredSales} />
-          <SalesByStateChart salesData={filteredSales} />
-      </div>
       
       <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
         <div className="flex items-center justify-between rounded-t-lg border bg-card text-card-foreground p-4">
@@ -337,3 +338,4 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     </div>
   );
 }
+
