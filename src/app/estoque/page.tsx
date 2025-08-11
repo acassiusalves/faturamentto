@@ -349,7 +349,7 @@ export default function EstoquePage() {
                                     value={p.name}
                                     key={p.id}
                                     onSelect={() => handleProductSelectionChange(p.id)}
-                                    // ESTA É A CORREÇÃO: Impede o fechamento prematuro do popover
+                                    // A CORREÇÃO ESTÁ AQUI:
                                     onMouseDown={(e) => e.preventDefault()}
                                   >
                                     <Check
@@ -616,3 +616,5 @@ export default function EstoquePage() {
     </div>
   );
 }
+
+    
