@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, ChevronsUpDown } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter } from 'lucide-react';
 import type { Sale, SupportData, SupportFile, PickedItemLog } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
 import { Input } from '@/components/ui/input';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // Helper to generate months
 const getMonths = () => {
@@ -38,7 +37,6 @@ export default function ConciliationPage() {
     const [marketplaceFilter, setMarketplaceFilter] = useState("all");
     const [stateFilter, setStateFilter] = useState("all");
     const [accountFilter, setAccountFilter] = useState("all");
-    const [isTableOpen, setIsTableOpen] = useState(true);
 
 
     useEffect(() => {
@@ -315,32 +313,16 @@ export default function ConciliationPage() {
                 </CardContent>
             </Card>
 
-            <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
-                <div className="flex items-center justify-between rounded-t-lg border bg-card text-card-foreground p-4">
-                    <h3 className="text-lg font-semibold">
-                       Visualização Detalhada das Vendas ({filteredSales.length})
-                    </h3>
-                    <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-9 p-0">
-                            <ChevronsUpDown className="h-4 w-4" />
-                            <span className="sr-only">Toggle</span>
-                        </Button>
-                    </CollapsibleTrigger>
-                </div>
-                 <CollapsibleContent>
-                    <SalesTable
-                      data={filteredSales}
-                      supportData={supportData}
-                      onUpdateSaleCosts={updateSaleCosts}
-                      calculateTotalCost={calculateTotalCost}
-                      calculateNetRevenue={calculateNetRevenue}
-                      formatCurrency={formatCurrency}
-                      isLoading={isLoading}
-                      productCostSource={pickingLogsMap}
-                    />
-                 </CollapsibleContent>
-            </Collapsible>
-
+            <SalesTable
+              data={filteredSales}
+              supportData={supportData}
+              onUpdateSaleCosts={updateSaleCosts}
+              calculateTotalCost={calculateTotalCost}
+              calculateNetRevenue={calculateNetRevenue}
+              formatCurrency={formatCurrency}
+              isLoading={isLoading}
+              productCostSource={pickingLogsMap}
+            />
 
         </div>
         

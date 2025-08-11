@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { DollarSign, TrendingDown, TrendingUp, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown } from "lucide-react";
 import { startOfMonth, endOfMonth, isSameDay } from "date-fns";
 
 import type { Sale, Cost } from "@/lib/types";
@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveSales, loadSales } from "@/services/firestore";
 import { Badge } from "./ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
@@ -48,6 +49,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   const [accountFilter, setAccountFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isLoading, setIsLoading] = useState(true);
+  const [isTableOpen, setIsTableOpen] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -299,14 +301,30 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         </CardContent>
       </Card>
       
-      <SalesTable 
-        data={filteredSales}
-        onUpdateSaleCosts={updateSaleCosts} 
-        calculateTotalCost={calculateTotalCost}
-        calculateNetRevenue={calculateNetRevenue}
-        formatCurrency={formatCurrency}
-        isLoading={isLoading}
-      />
+      <Collapsible open={isTableOpen} onOpenChange={setIsTableOpen}>
+        <div className="flex items-center justify-between rounded-t-lg border bg-card text-card-foreground p-4">
+            <h3 className="text-lg font-semibold">
+                Visualização Detalhada das Vendas ({filteredSales.length})
+            </h3>
+            <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-9 p-0">
+                    <ChevronsUpDown className="h-4 w-4" />
+                    <span className="sr-only">Toggle</span>
+                </Button>
+            </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+            <SalesTable 
+                data={filteredSales}
+                onUpdateSaleCosts={updateSaleCosts} 
+                calculateTotalCost={calculateTotalCost}
+                calculateNetRevenue={calculateNetRevenue}
+                formatCurrency={formatCurrency}
+                isLoading={isLoading}
+                supportData={null}
+            />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
