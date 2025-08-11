@@ -8,7 +8,7 @@ import { loadAppSettings, saveSales, loadSales } from '@/services/firestore';
 import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Loader2 } from 'lucide-react';
 
-const SYNC_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function Home() {
   const router = useRouter();

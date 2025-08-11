@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
-const SYNC_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function PickingPage() {
   const { toast } = useToast();
@@ -725,5 +725,3 @@ useEffect(() => {
     </div>
   );
 }
-
-    
