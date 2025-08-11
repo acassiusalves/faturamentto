@@ -212,7 +212,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         .map(f => f.key);
         
     const supportNumeric: string[] = [];
-    const nonNumericKeywords = ['id', 'código', 'codigo', 'pedido', 'nota', 'documento', 'rastreio'];
+    const nonNumericKeywords = ['id', 'código', 'codigo', 'pedido', 'nota', 'documento', 'rastreio', 'data', 'date'];
 
     if (data.length > 0 && supportDataColumns.length > 0) {
       const firstSale = data[0];
@@ -315,7 +315,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                     <SortableItem key={field.key} id={field.key}>
                                         {(listeners) => (
                                             <div className="flex items-center gap-2">
-                                                {/* O GripVertical agora é o único que escuta os eventos de arrastar */}
                                                 <span {...listeners} className="cursor-grab p-1">
                                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                                 </span>
@@ -323,7 +322,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                                     checked={visibleColumns[field.key] === true}
                                                     onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
                                                     className="flex-grow"
-                                                    // onSelect não é mais necessário aqui, mas não prejudica
                                                     onSelect={(e) => e.preventDefault()}
                                                 >
                                                     <span>{getColumnHeader(field.key)}</span>
@@ -388,10 +386,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                              cellContent = sale.sheetData?.[field.key];
                           }
 
+                          const fieldKeyLower = getColumnHeader(field.key).toLowerCase();
 
                           if (field.key === 'item_image' && cellContent) {
                              cellContent = <Image src={cellContent} alt={(sale as any).item_title || 'Imagem do Produto'} width={40} height={40} className="rounded-md object-cover h-10 w-10" data-ai-hint="product image" />;
-                          } else if (field.key.toLowerCase().includes('date') || field.key.toLowerCase().includes('approved')) {
+                          } else if (fieldKeyLower.includes('date') || fieldKeyLower.includes('data') || field.key.toLowerCase().includes('approved')) {
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
@@ -402,7 +401,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                   isNumeric = true;
                                   numericValue = cellContent;
                               } else if (typeof cellContent === 'string' && cellContent) {
-                                  const cleanedValue = String(cellContent).replace(/\./g, '').replace(',', '.');
+                                  const cleanedValue = cellContent.replace(/\./g, '').replace(',', '.');
                                   const parsedValue = parseFloat(cleanedValue);
                                   if (!isNaN(parsedValue)) {
                                       isNumeric = true;
