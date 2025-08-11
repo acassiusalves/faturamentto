@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
@@ -616,5 +615,3 @@ export default function EstoquePage() {
     </div>
   );
 }
-
-    
