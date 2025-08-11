@@ -16,6 +16,19 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold">
+            {`${(percent * 100).toFixed(1)}%`}
+        </text>
+    );
+};
+
 
 export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
   const { chartData, chartConfig } = useMemo(() => {
@@ -75,7 +88,7 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
                         content={<ChartTooltipContent 
                             formatter={(value, name) => (
                                <div>
-                                   <p className="font-semibold">{name}</p>
+                                   <p className="font-semibold">{name as string}</p>
                                    <p className="text-sm font-bold">{formatCurrency(value as number)}</p>
                                 </div>
                             )}
@@ -87,8 +100,11 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
                         data={chartData}
                         dataKey="total"
                         nameKey="name"
-                        innerRadius={60}
-                        strokeWidth={5}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        labelLine={false}
+                        label={<CustomLabel />}
                     >
                          {chartData.map((entry) => (
                           <Cell key={`cell-${entry.name}`} fill={chartConfig[entry.name]?.color} />
