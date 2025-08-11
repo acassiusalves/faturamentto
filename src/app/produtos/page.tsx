@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload, Link, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -22,11 +21,8 @@ import { SkuBulkAssociationDialog } from './sku-bulk-association-dialog';
 import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-check-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
+import Link from 'next/link';
 
-
-interface ProductCreatorProps {
-  category: "Celular"; // Expandable in the future
-}
 
 // Define a ordem correta dos atributos aqui
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
@@ -116,11 +112,9 @@ export default function ProductsPage() {
 
   const handleAttributeSelect = (key: string, value: string) => {
     setFormState(prev => {
-        // Se o valor selecionado for o mesmo, desmarque. Caso contrário, selecione o novo.
         const newValue = prev[key] === value ? "" : value;
         return { ...prev, [key]: newValue };
     });
-    // Feche o popover após a seleção
     setOpenPopovers(prev => ({...prev, [key]: false}));
   };
   
@@ -137,20 +131,17 @@ export default function ProductsPage() {
   const handleSkuSave = (product: Product, newSkus: string[]) => {
     const updatedProduct: Product = { ...product, associatedSkus: newSkus };
     
-    // Optimistically update UI
     setProducts(prev => {
         const newProducts = prev.map(p => (p.id === product.id ? updatedProduct : p));
         runConflictCheck(newProducts, true);
         return newProducts;
     });
     
-    // Save to mock service
     saveProduct(updatedProduct);
   };
 
   const orderedAttributes = useMemo(() => {
     if (!settings) return [];
-    // This now correctly forces the form fields to render in the specified order
     return attributeOrder
       .map(key => settings.attributes.find(attr => attr.key === key))
       .filter((attr): attr is ProductAttribute => !!attr);
@@ -158,7 +149,6 @@ export default function ProductsPage() {
 
   const generatedName = useMemo(() => {
     if (!settings) return "";
-    // Gera o nome respeitando a ordem definida em `orderedAttributes`
     return orderedAttributes
       .map(attr => formState[attr.key])
       .filter(Boolean)
@@ -168,7 +158,6 @@ export default function ProductsPage() {
   const canSubmit = useMemo(() => {
      if (!settings) return false;
      const allRequiredFilled = settings.attributes.every(attr => {
-       // Only check required attributes if you define them, for now, all are required
        return !!formState[attr.key];
      });
      return allRequiredFilled && generatedName.length > 0;
@@ -177,14 +166,12 @@ export default function ProductsPage() {
  const generatedSku = useMemo(() => {
     if (!canSubmit || !formState['cor']) return "";
     
-    // 1. Create the base name (without color)
     const baseName = orderedAttributes
         .filter(attr => attr.key !== 'cor')
         .map(attr => formState[attr.key])
         .filter(Boolean)
         .join(" ");
 
-    // 2. Find an existing product with the same base name to get the numeric part
     const existingProductWithSameBase = products.find(p => {
         const pBaseName = attributeOrder
             .filter(key => key !== 'cor')
@@ -197,10 +184,8 @@ export default function ProductsPage() {
     let sequentialNumberPart: string;
 
     if (existingProductWithSameBase && existingProductWithSameBase.sku) {
-        // Extract number from existing SKU
         sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
     } else {
-        // Generate a new sequential number
         const maxSkuNum = products.reduce((max, p) => {
             if (!p.sku) return max;
             const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
@@ -231,7 +216,6 @@ export default function ProductsPage() {
       });
     }
 
-    // Sort the results: products with associated SKUs first
     return results.sort((a, b) => {
         const aHasSkus = (a.associatedSkus?.length || 0) > 0;
         const bHasSkus = (b.associatedSkus?.length || 0) > 0;
@@ -254,7 +238,6 @@ export default function ProductsPage() {
     e.preventDefault();
     if (!canSubmit || !generatedSku) return;
 
-     // Rule: Check if product with the same name already exists
     const isProductDuplicate = products.some(p => p.name.toLowerCase() === generatedName.toLowerCase());
     if (isProductDuplicate) {
         toast({
@@ -265,7 +248,6 @@ export default function ProductsPage() {
         return;
     }
 
-    // Rule: Check if SKU is already in use
     const existingProductWithSku = products.find(p => p.sku === generatedSku);
     if (existingProductWithSku) {
          toast({
@@ -293,7 +275,7 @@ export default function ProductsPage() {
       await saveProduct(newProduct);
       setProducts(prev => {
         const newProducts = [newProduct, ...prev];
-        runConflictCheck(newProducts, false); // check after adding
+        runConflictCheck(newProducts, false);
         return newProducts;
       });
       toast({
@@ -328,7 +310,6 @@ export default function ProductsPage() {
     const productsToSave: Product[] = [];
     let skippedCount = 0;
     
-    // Filter out duplicates before saving
     const productsWithNoDuplicates = importedProducts.filter(newProd => {
         const nameExists = products.some(p => p.name.toLowerCase() === newProd.name.toLowerCase());
         const skuExists = products.some(p => p.sku === newProd.sku);
@@ -410,7 +391,6 @@ export default function ProductsPage() {
 
   const handleOpenConflictDialog = () => {
     setIsCheckingConflicts(true);
-    // Logic to find conflicts is already done by runConflictCheck, so we just use the state
     setConflictResults(conflictResults);
     setIsCheckingConflicts(false);
     setIsConflictDialogOpen(true);
@@ -448,7 +428,6 @@ export default function ProductsPage() {
     if (productsToUpdate.length > 0) {
         try {
             await saveProducts(productsToUpdate);
-            // Re-run the check to confirm conflicts are resolved
             const updatedProductList = await loadProducts();
             setProducts(updatedProductList);
             runConflictCheck(updatedProductList, false);
@@ -533,6 +512,7 @@ export default function ProductsPage() {
                                                     key={val}
                                                     value={val}
                                                     onSelect={() => handleAttributeSelect(attr.key, val)}
+                                                    // A CORREÇÃO ESTÁ AQUI:
                                                     onMouseDown={(e) => e.preventDefault()}
                                                   >
                                                     <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
@@ -600,7 +580,7 @@ export default function ProductsPage() {
                                         Importar Modelos
                                     </Button>
                                     <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
-                                          <Link className="mr-2 h-4 w-4" />
+                                          <Link2 className="mr-2 h-4 w-4" />
                                           Importar Associações
                                     </Button>
                                       {hasConflicts && (
@@ -662,7 +642,7 @@ export default function ProductsPage() {
                                           <TableCell>{formatDate(product.createdAt)}</TableCell>
                                           <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
-                                                <Download className="h-4 w-4" />
+                                                <Download className="mr-2 h-4 w-4" />
                                             </Button>
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
