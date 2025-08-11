@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter } from 'lucide-react';
-import type { Sale, SupportData, SupportFile } from '@/lib/types';
+import type { Sale, SupportData, SupportFile, PickedItemLog } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData, saveSales } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
@@ -25,6 +25,7 @@ const getMonths = () => {
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
+    const [pickingLogs, setPickingLogs] = useState<PickedItemLog[]>([]);
     const [supportData, setSupportData] = useState<SupportData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
@@ -40,8 +41,12 @@ export default function ConciliationPage() {
     useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
-            const salesData = await loadSales();
+            const [salesData, logsData] = await Promise.all([
+                loadSales(),
+                loadAllPickingLogs()
+            ]);
             setSales(salesData);
+            setPickingLogs(logsData);
             setIsLoading(false);
         }
         fetchData();
@@ -74,6 +79,15 @@ export default function ConciliationPage() {
             });
         }
     }, [dateRange]);
+
+    const pickingLogsMap = useMemo(() => {
+        const map = new Map<string, number>();
+        pickingLogs.forEach(log => {
+            const currentCost = map.get(log.orderNumber) || 0;
+            map.set(log.orderNumber, currentCost + log.costPrice);
+        });
+        return map;
+    }, [pickingLogs]);
 
 
     const filteredSales = useMemo(() => {
@@ -154,18 +168,26 @@ export default function ConciliationPage() {
         if (isNaN(value)) return 'R$ 0,00';
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     };
+    
+    const calculateTotalCost = (sale: Sale): number => {
+        const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
+        const manualCosts = sale.costs?.reduce((acc, cost) => {
+             const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
+            return acc + costValue;
+        }, 0) || 0;
+        return productCost + manualCosts;
+    };
 
     const calculateNetRevenue = (sale: Sale): number => {
         const baseProfit = (sale as any).left_over || 0;
-        const manuallyAddedCosts = sale.costs?.reduce((acc, cost) => {
-            const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
-            return acc + costValue;
-        }, 0) || 0;
-        return baseProfit - manuallyAddedCosts;
-    };
-    
-    const calculateTotalCost = (sale: Sale): number => {
-        return 0; // Placeholder
+        const totalAddedCosts = calculateTotalCost(sale);
+        
+        // The base profit from Ideris already discounts commission and shipping.
+        // We need to discount the product cost (from picking) and manual costs.
+        const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
+        const manualCosts = totalAddedCosts - productCost;
+
+        return baseProfit - productCost - manualCosts;
     };
     
     const updateSaleCosts = (saleId: string, newCosts: Sale['costs']) => {
@@ -298,6 +320,7 @@ export default function ConciliationPage() {
               calculateNetRevenue={calculateNetRevenue}
               formatCurrency={formatCurrency}
               isLoading={isLoading}
+              productCostSource={pickingLogsMap}
             />
 
         </div>

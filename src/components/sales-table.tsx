@@ -14,7 +14,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -40,6 +40,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from './ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 
 interface SalesTableProps {
@@ -50,6 +51,7 @@ interface SalesTableProps {
   calculateNetRevenue: (sale: Sale) => number;
   formatCurrency: (value: number) => string;
   isLoading: boolean;
+  productCostSource: Map<string, number>;
 }
 
 const defaultVisibleColumnsOrder: string[] = [
@@ -80,7 +82,7 @@ const SortableItem = ({ id, children }: { id: string; children: (listeners: Retu
 };
 
 
-export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -289,7 +291,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }
 
   return (
-    <>
+    <TooltipProvider>
       <Card>
          <CardHeader className="flex flex-row items-center justify-between">
              <div className="flex items-center gap-2">
@@ -375,6 +377,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
               <TableBody>
                 {isLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                   paginatedData.map((sale) => {
+                    const productCost = productCostSource.get((sale as any).order_code);
                     return (
                       <TableRow key={sale.id}>
                         {columnsToShow.map(field => {
@@ -387,10 +390,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           }
 
                           const fieldKeyLower = getColumnHeader(field.key).toLowerCase();
+                          const isDateColumn = fieldKeyLower.includes('date') || fieldKeyLower.includes('data') || field.key.toLowerCase().includes('approved');
 
                           if (field.key === 'item_image' && cellContent) {
                              cellContent = <Image src={cellContent} alt={(sale as any).item_title || 'Imagem do Produto'} width={40} height={40} className="rounded-md object-cover h-10 w-10" data-ai-hint="product image" />;
-                          } else if (fieldKeyLower.includes('date') || fieldKeyLower.includes('data') || field.key.toLowerCase().includes('approved')) {
+                          } else if (isDateColumn) {
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
@@ -420,7 +424,20 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           )
                         })}
 
-                        <TableCell className="text-center whitespace-nowrap">
+                        <TableCell className="text-center whitespace-nowrap space-x-2">
+                           {productCost !== undefined && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="secondary">
+                                      <Package className="mr-1.5 h-3.5 w-3.5" />
+                                      {formatCurrency(productCost)}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Custo do produto (CMV) via Picking</p>
+                                </TooltipContent>
+                              </Tooltip>
+                           )}
                           <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
                             Gerenciar Custos
                           </Button>
@@ -526,6 +543,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
           formatCurrency={formatCurrency}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 }
