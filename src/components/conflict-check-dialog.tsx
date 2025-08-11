@@ -61,9 +61,9 @@ export function ConflictCheckDialog({ isOpen, onClose, conflicts }: ConflictChec
                  <div className="space-y-4">
                     {conflicts.map((conflict, index) => (
                         <div key={index} className="p-3 bg-muted/50 rounded-lg">
-                            <p className="font-semibold">
+                            <div className="font-semibold">
                                 SKU do Anúncio (Filho): <Badge>{conflict.childSku}</Badge>
-                            </p>
+                            </div>
                             <div className="mt-2 flex items-center gap-2">
                                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                 <p className="text-sm text-muted-foreground">
