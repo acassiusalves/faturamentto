@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload, Link } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -19,6 +19,7 @@ import { Input } from './ui/input';
 import { SkuAssociationDialog } from './sku-association-dialog';
 import { Badge } from './ui/badge';
 import { ProductBulkImportDialog } from './product-bulk-import-dialog';
+import { SkuBulkAssociationDialog } from './sku-bulk-association-dialog';
 
 
 interface ProductCreatorProps {
@@ -39,6 +40,7 @@ export function ProductCreator({ category }: ProductCreatorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSkuDialogOpen, setIsSkuDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isBulkAssociateOpen, setIsBulkAssociateOpen] = useState(false);
   const [selectedProductForSku, setSelectedProductForSku] = useState<Product | null>(null);
 
 
@@ -302,6 +304,49 @@ export function ProductCreator({ category }: ProductCreatorProps) {
     setIsBulkImportOpen(false);
   }
   
+  const handleBulkAssociateSave = async (associations: Map<string, string[]>) => {
+    let updatedProducts: Product[] = [];
+    const productsToSave: Product[] = [];
+    let associationsCount = 0;
+    const notFoundSkus: string[] = [];
+
+    setProducts(prevProducts => {
+        const productsMap = new Map(prevProducts.map(p => [p.sku, p]));
+        
+        associations.forEach((childSkus, parentSku) => {
+            if (productsMap.has(parentSku)) {
+                const productToUpdate = { ...productsMap.get(parentSku)! };
+                const currentSkus = new Set(productToUpdate.associatedSkus || []);
+                childSkus.forEach(childSku => {
+                    if (!currentSkus.has(childSku)) {
+                        currentSkus.add(childSku);
+                        associationsCount++;
+                    }
+                });
+                productToUpdate.associatedSkus = Array.from(currentSkus);
+                productsMap.set(parentSku, productToUpdate);
+                productsToSave.push(productToUpdate);
+            } else {
+                notFoundSkus.push(parentSku);
+            }
+        });
+
+        updatedProducts = Array.from(productsMap.values());
+        return updatedProducts;
+    });
+
+    if (productsToSave.length > 0) {
+        await saveProducts(productsToSave);
+    }
+
+    toast({
+        title: "Associação em Massa Concluída",
+        description: `${associationsCount} novas associações foram salvas. ${notFoundSkus.length} SKUs pais não foram encontrados.`,
+    });
+
+    setIsBulkAssociateOpen(false);
+};
+
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR');
 
   if (isLoading) {
@@ -435,7 +480,11 @@ export function ProductCreator({ category }: ProductCreatorProps) {
                   </div>
                    <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
                        <Upload className="mr-2 h-4 w-4" />
-                       Importar em Massa
+                       Importar Modelos
+                   </Button>
+                   <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
+                        <Link className="mr-2 h-4 w-4" />
+                        Importar Associações
                    </Button>
                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
                       <Hash className="h-4 w-4" />
@@ -543,6 +592,11 @@ export function ProductCreator({ category }: ProductCreatorProps) {
             onSave={handleBulkImportSave}
         />
     )}
+     <SkuBulkAssociationDialog
+        isOpen={isBulkAssociateOpen}
+        onClose={() => setIsBulkAssociateOpen(false)}
+        onSave={handleBulkAssociateSave}
+    />
     </>
   );
 }
