@@ -471,7 +471,7 @@ export default function ProductsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-48">
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <Loader2 className="animate-spin" />
         <p className="ml-2">Carregando dados de produtos...</p>
       </div>
@@ -586,12 +586,12 @@ export default function ProductsPage() {
                               <CardTitle>Modelos Cadastrados</CardTitle>
                               <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
                             </div>
-                            <div className="flex items-center gap-4 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <div className="relative">
                                   <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                                   <Input
                                     placeholder="Buscar por nome ou SKU..."
-                                    className="pl-9 w-full sm:w-[250px]"
+                                    className="pl-9 w-full sm:w-auto"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                   />
@@ -610,8 +610,9 @@ export default function ProductsPage() {
                                           Verificar Conflitos
                                       </Button>
                                   )}
-                                <div className="text-sm font-medium text-muted-foreground">
-                                    TOTAL {products.length} Modelos
+                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
+                                  <Hash className="h-4 w-4" />
+                                  <span>{filteredProducts.length} de {products.length} Modelos</span>
                                 </div>
                             </div>
                           </div>
@@ -737,7 +738,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
-    
-
-    
