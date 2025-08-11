@@ -212,15 +212,23 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         .map(f => f.key);
         
     const supportNumeric: string[] = [];
+    const nonNumericKeywords = ['id', 'código', 'codigo', 'pedido', 'nota', 'documento', 'rastreio'];
+
     if (data.length > 0 && supportDataColumns.length > 0) {
       const firstSale = data[0];
       supportDataColumns.forEach(col => {
-          if (firstSale.sheetData && firstSale.sheetData[col.key]) {
-              const value = firstSale.sheetData[col.key];
-              if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(String(value).replace(/\./g, '').replace(',', '.'))))) {
-                  supportNumeric.push(col.key);
-              }
-          }
+        const colKeyLower = col.key.toLowerCase();
+        // Exclude columns that contain non-numeric keywords
+        if (nonNumericKeywords.some(keyword => colKeyLower.includes(keyword))) {
+          return;
+        }
+
+        if (firstSale.sheetData && firstSale.sheetData[col.key]) {
+            const value = firstSale.sheetData[col.key];
+            if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(String(value).replace(/\./g, '').replace(',', '.'))))) {
+                supportNumeric.push(col.key);
+            }
+        }
       });
     }
 
@@ -394,7 +402,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                   isNumeric = true;
                                   numericValue = cellContent;
                               } else if (typeof cellContent === 'string' && cellContent) {
-                                  const cleanedValue = cellContent.replace(/\./g, '').replace(',', '.');
+                                  const cleanedValue = String(cellContent).replace(/\./g, '').replace(',', '.');
                                   const parsedValue = parseFloat(cleanedValue);
                                   if (!isNaN(parsedValue)) {
                                       isNumeric = true;
