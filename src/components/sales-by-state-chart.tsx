@@ -73,7 +73,7 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
   return (
     <Card className="lg:col-span-1 flex flex-col">
       <CardHeader>
-        <CardTitle>Vendas por Estado</CardTitle>
+        <CardTitle>Top 5 Vendas por Estado</CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center">
         {chartData.length > 0 ? (
