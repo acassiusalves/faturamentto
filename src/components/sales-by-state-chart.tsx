@@ -31,19 +31,30 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
       salesByState[stateName] = (salesByState[stateName] || 0) + saleValue;
     });
 
-    const chartData = Object.entries(salesByState)
+    const sortedStates = Object.entries(salesByState)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total);
 
+    const top5States = sortedStates.slice(0, 5);
+    const otherStatesTotal = sortedStates.slice(5).reduce((acc, curr) => acc + curr.total, 0);
+
+    const finalChartData = [...top5States];
+    if (otherStatesTotal > 0) {
+      finalChartData.push({ name: "Outros", total: otherStatesTotal });
+    }
+
     const chartConfig: ChartConfig = {};
-    chartData.forEach((item, index) => {
+    finalChartData.forEach((item, index) => {
         chartConfig[item.name] = {
             label: item.name,
             color: `hsl(var(--chart-${(index % 5) + 1}))`,
         };
     });
+     if (otherStatesTotal > 0) {
+        chartConfig["Outros"].color = `hsl(var(--muted))`;
+    }
 
-    return { chartData, chartConfig };
+    return { chartData: finalChartData, chartConfig };
   }, [salesData]);
 
   return (
@@ -62,12 +73,13 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
                     <Tooltip
                         cursor={{ fill: 'hsl(var(--background))' }}
                         content={<ChartTooltipContent 
-                            formatter={(value, name, props) => (
+                            formatter={(value, name) => (
                                <div>
-                                   <p className="font-semibold">{props.payload.name}</p>
+                                   <p className="font-semibold">{name}</p>
                                    <p className="text-sm font-bold">{formatCurrency(value as number)}</p>
                                 </div>
                             )}
+                            nameKey="name"
                             hideLabel 
                         />}
                     />
@@ -78,8 +90,8 @@ export function SalesByStateChart({ salesData }: SalesByStateChartProps) {
                         innerRadius={60}
                         strokeWidth={5}
                     >
-                         {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={chartConfig[entry.name]?.color} />
+                         {chartData.map((entry) => (
+                          <Cell key={`cell-${entry.name}`} fill={chartConfig[entry.name]?.color} />
                         ))}
                     </Pie>
                     <ChartLegend content={<ChartLegendContent nameKey="name" />} />
