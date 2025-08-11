@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Link, Info, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { loadProducts } from "@/services/firestore";
+import type { Product } from "@/lib/types";
 
 interface SkuBulkAssociationDialogProps {
   isOpen: boolean;
@@ -44,6 +46,16 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
         const lines = textValue.trim().split('\n');
         const associations = new Map<string, string[]>();
         let invalidLines = 0;
+        let existingChildSkus = new Set<string>();
+        const conflictingChildSkus = new Set<string>();
+
+        // Pre-load all products to check for existing associations
+        const allProducts: Product[] = await loadProducts();
+        allProducts.forEach(p => {
+            p.associatedSkus?.forEach(childSku => {
+                existingChildSkus.add(childSku);
+            });
+        });
 
         for (const line of lines) {
             if (!line.trim()) continue;
@@ -51,28 +63,50 @@ export function SkuBulkAssociationDialog({ isOpen, onClose, onSave }: SkuBulkAss
             const parts = line.trim().split(/\s+/); // Split by one or more spaces/tabs
             if (parts.length === 2) {
                 const [parentSku, childSku] = parts;
+                
+                // Check for conflict: if child SKU is already associated with another parent
+                if (existingChildSkus.has(childSku)) {
+                    const ownerProduct = allProducts.find(p => p.associatedSkus?.includes(childSku));
+                    // Allow adding to the same parent again (idempotent), but not a different one.
+                    if (ownerProduct && ownerProduct.sku !== parentSku) {
+                        conflictingChildSkus.add(childSku);
+                        continue; // Skip this conflicting association
+                    }
+                }
+
                 if (!associations.has(parentSku)) {
                     associations.set(parentSku, []);
                 }
                 associations.get(parentSku)?.push(childSku);
+                existingChildSkus.add(childSku); // Add to our set for checks within the same import list
+
             } else {
                 invalidLines++;
             }
         }
         
-        if (associations.size === 0) {
+        if (associations.size === 0 && conflictingChildSkus.size === 0) {
             toast({
                 variant: 'destructive',
                 title: 'Nenhuma Associação Válida Encontrada',
                 description: 'Verifique o formato dos dados. O padrão esperado é "SKU_PAI SKU_FILHO" por linha.',
             });
         } else {
-            await onSave(associations);
+            if (associations.size > 0) {
+                await onSave(associations);
+            }
             if (invalidLines > 0) {
                  toast({
                     variant: 'destructive',
                     title: 'Linhas Inválidas',
                     description: `${invalidLines} linhas foram ignoradas por não estarem no formato correto.`,
+                });
+            }
+            if (conflictingChildSkus.size > 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Conflitos de Associação',
+                    description: `${conflictingChildSkus.size} SKUs filhos já estão associados a outros produtos e foram ignorados.`,
                 });
             }
             handleClose();
