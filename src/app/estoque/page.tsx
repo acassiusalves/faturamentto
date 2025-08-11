@@ -349,6 +349,7 @@ export default function EstoquePage() {
                                     value={p.name}
                                     key={p.id}
                                     onSelect={() => handleProductSelectionChange(p.id)}
+                                    onMouseDown={(e) => e.preventDefault()}
                                   >
                                     <Check
                                       className={cn(
@@ -449,6 +450,7 @@ export default function EstoquePage() {
                                             value={origin}
                                             key={origin}
                                             onSelect={() => handleOriginSelectionChange(origin)}
+                                            onMouseDown={(e) => e.preventDefault()}
                                         >
                                             <Check
                                             className={cn(
