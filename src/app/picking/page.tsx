@@ -113,6 +113,13 @@ export default function PickingPage() {
     return () => clearInterval(intervalId);
   }, [autoSyncIderis]);
   
+  // CORREÇÃO: useEffect para focar no campo de SN após encontrar o pedido
+  useEffect(() => {
+    if (foundSale && serialNumberRef.current) {
+      serialNumberRef.current.focus();
+    }
+  }, [foundSale]);
+
   const handleAddSN = useCallback(async () => {
     if (!currentSN.trim() || !foundSale) return;
 
@@ -132,7 +139,6 @@ export default function PickingPage() {
             return;
         }
 
-        // Find the parent product based on the SKU from the sale order
         const parentProduct = await findProductByAssociatedSku(saleSku);
 
         if (!parentProduct) {
@@ -140,7 +146,6 @@ export default function PickingPage() {
             return;
         }
 
-        // Check if the scanned item's SKU matches the parent product's main SKU
         if (item.sku !== parentProduct.sku) {
             toast({ variant: "destructive", title: "Produto Incorreto", description: `Este item (SKU ${item.sku}) não corresponde ao produto do pedido (SKU Pai ${parentProduct.sku}).` });
             return;
@@ -161,7 +166,7 @@ export default function PickingPage() {
         setIsSearchingSN(false);
         serialNumberRef.current?.focus();
     }
-}, [currentSN, foundSale, toast]);
+  }, [currentSN, foundSale, toast]);
 
 
   const handleSNKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -239,7 +244,7 @@ export default function PickingPage() {
         if (sale) {
             setFoundSale(sale);
             toast({ title: 'Pedido Encontrado!' });
-            serialNumberRef.current?.focus(); // FOCUS HERE
+            // A chamada de foco foi removida daqui e movida para o useEffect
         } else {
             toast({
                 variant: "destructive",
@@ -283,29 +288,29 @@ export default function PickingPage() {
       return scannedItems.length === requiredQty;
   }, [foundSale, scannedItems]);
 
-useEffect(() => {
-    if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-    }
+  useEffect(() => {
+      if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+      }
 
-    if (countdown === null) return;
+      if (countdown === null) return;
 
-    if (countdown <= 0) {
-        handleConfirmPicking();
-        return;
-    }
+      if (countdown <= 0) {
+          handleConfirmPicking();
+          return;
+      }
 
-    countdownIntervalRef.current = setInterval(() => {
-        setCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
-    }, 1000);
+      countdownIntervalRef.current = setInterval(() => {
+          setCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+      }, 1000);
 
-    return () => {
-        if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-        }
-    };
-}, [countdown, handleConfirmPicking]);
+      return () => {
+          if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+          }
+      };
+  }, [countdown, handleConfirmPicking]);
 
 
   useEffect(() => {
