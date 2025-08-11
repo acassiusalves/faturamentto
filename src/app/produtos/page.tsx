@@ -698,7 +698,7 @@ export default function ProductsPage() {
                           </Card>
                         </div>
                     </div>
-                 </form>
+                </form>
             </TabsContent>
             <TabsContent value="settings" className="mt-6">
                 <ProductSettings />
@@ -738,7 +738,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
-
-
-    
