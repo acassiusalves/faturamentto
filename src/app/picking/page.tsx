@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle } from 'lucide-react';
+import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle, PackageSearch } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchOrdersFromIderis } from '@/services/ideris';
@@ -27,6 +27,7 @@ export default function PickingPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [isSearchingOrder, setIsSearchingOrder] = useState(false);
   const [foundSale, setFoundSale] = useState<Sale | null>(null);
+  const [associatedProduct, setAssociatedProduct] = useState<Product | null>(null);
   
   const [currentSN, setCurrentSN] = useState('');
   const [scannedItems, setScannedItems] = useState<InventoryItem[]>([]);
@@ -179,6 +180,7 @@ export default function PickingPage() {
   const resetState = () => {
     setOrderNumber('');
     setFoundSale(null);
+    setAssociatedProduct(null);
     setCurrentSN('');
     setScannedItems([]);
     setCountdown(null);
@@ -236,6 +238,7 @@ export default function PickingPage() {
     
     setIsSearchingOrder(true);
     setFoundSale(null);
+    setAssociatedProduct(null);
     setScannedItems([]);
     setCurrentSN('');
 
@@ -243,8 +246,12 @@ export default function PickingPage() {
         const sale = await findSaleByOrderNumber(orderNumber.trim());
         if (sale) {
             setFoundSale(sale);
+            const saleSku = (sale as any).item_sku;
+            if (saleSku) {
+                const parentProduct = await findProductByAssociatedSku(saleSku);
+                setAssociatedProduct(parentProduct);
+            }
             toast({ title: 'Pedido Encontrado!' });
-            // A chamada de foco foi removida daqui e movida para o useEffect
         } else {
             toast({
                 variant: "destructive",
@@ -358,6 +365,8 @@ export default function PickingPage() {
           </div>
         );
     }
+
+  const productNameToDisplay = associatedProduct ? associatedProduct.name : (foundSale as any)?.item_title;
 
 
   return (
@@ -491,13 +500,22 @@ export default function PickingPage() {
                      {foundSale ? (
                          <div className="space-y-3 w-full">
                             <div className="flex justify-between items-start gap-2">
-                                <span className="text-muted-foreground text-sm">Produto:</span>
-                                <span className="font-bold text-right">{(foundSale as any).item_title}</span>
+                                <span className="text-muted-foreground text-sm flex items-center gap-1.5">
+                                    {associatedProduct ? <PackageSearch className="h-4 w-4" /> : null}
+                                    Produto:
+                                </span>
+                                <span className="font-bold text-right">{productNameToDisplay}</span>
                             </div>
                              <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground text-sm">SKU (Pedido):</span>
                                 <span className="font-mono">{(foundSale as any).item_sku}</span>
                             </div>
+                            {associatedProduct && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-muted-foreground text-sm">SKU (Pai):</span>
+                                    <span className="font-mono text-primary font-semibold">{associatedProduct.sku}</span>
+                                </div>
+                            )}
                              <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground text-sm">Conta:</span>
                                 <span className="font-semibold">{(foundSale as any).auth_name}</span>
