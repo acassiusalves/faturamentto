@@ -239,7 +239,7 @@ export default function PickingPage() {
         if (sale) {
             setFoundSale(sale);
             toast({ title: 'Pedido Encontrado!' });
-            serialNumberRef.current?.focus();
+            serialNumberRef.current?.focus(); // FOCUS HERE
         } else {
             toast({
                 variant: "destructive",
