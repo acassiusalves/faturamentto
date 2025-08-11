@@ -352,33 +352,75 @@ export default function ProductsPage() {
     setIsBulkAssociateOpen(false);
   };
 
-   const handleCheckConflicts = async () => {
+  const handleCheckConflicts = async () => {
     setIsCheckingConflicts(true);
-    const skuMap = new Map<string, string[]>(); // childSku -> [parentSku1, parentSku2, ...]
+    // Use a map to track which child SKUs are associated with which parent products
+    const skuMap = new Map<string, { sku: string; name: string; productId: string }[]>();
 
-    // Populate the map
     products.forEach(p => {
         if (p.associatedSkus && p.associatedSkus.length > 0) {
             p.associatedSkus.forEach(childSku => {
                 if (!skuMap.has(childSku)) {
                     skuMap.set(childSku, []);
                 }
-                skuMap.get(childSku)?.push(p.sku);
+                skuMap.get(childSku)?.push({ sku: p.sku, name: p.name, productId: p.id });
             });
         }
     });
 
-    // Find conflicts
+    // Find conflicts where a child SKU is linked to more than one parent
     const conflicts: SkuConflict[] = [];
-    skuMap.forEach((parentSkus, childSku) => {
-        if (parentSkus.length > 1) {
-            conflicts.push({ childSku, parentSkus });
+    skuMap.forEach((parentProducts, childSku) => {
+        if (parentProducts.length > 1) {
+            conflicts.push({ childSku, parentProducts });
         }
     });
 
     setConflictResults(conflicts);
     setIsCheckingConflicts(false);
     setIsConflictDialogOpen(true);
+  };
+
+  const handleSaveCorrections = async (corrections: Map<string, string>) => {
+    setIsCheckingConflicts(true);
+    const productsToUpdate: Product[] = [];
+    const productsMap = new Map(products.map(p => [p.id, p]));
+
+    // Iterate over each conflict that was resolved
+    corrections.forEach((correctParentId, childSku) => {
+        const conflict = conflictResults.find(c => c.childSku === childSku);
+        if (!conflict) return;
+
+        // Find all products that currently have this childSku associated
+        conflict.parentProducts.forEach(parentProduct => {
+            const product = productsMap.get(parentProduct.productId);
+            if (!product || !product.associatedSkus) return;
+
+            // If this is NOT the correct parent, remove the association
+            if (parentProduct.productId !== correctParentId) {
+                const updatedSkus = product.associatedSkus.filter(s => s !== childSku);
+                const updatedProduct: Product = { ...product, associatedSkus: updatedSkus };
+                productsMap.set(product.id, updatedProduct);
+                productsToUpdate.push(updatedProduct);
+            }
+        });
+    });
+
+    if (productsToUpdate.length > 0) {
+        try {
+            await saveProducts(productsToUpdate);
+            setProducts(Array.from(productsMap.values()));
+            toast({
+                title: "Conflitos Resolvidos!",
+                description: `${productsToUpdate.length} produtos foram atualizados para remover associações incorretas.`
+            });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar as correções.' });
+        }
+    }
+
+    setIsConflictDialogOpen(false);
+    setIsCheckingConflicts(false);
   };
 
 
@@ -643,6 +685,8 @@ export default function ProductsPage() {
       isOpen={isConflictDialogOpen}
       onClose={() => setIsConflictDialogOpen(false)}
       conflicts={conflictResults}
+      onSave={handleSaveCorrections}
+      isSaving={isCheckingConflicts}
     />
     </>
   );
