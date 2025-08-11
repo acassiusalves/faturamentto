@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { Sale } from "@/lib/types";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
@@ -78,7 +78,7 @@ export function MarketplaceSalesChart({ salesData }: MarketplaceSalesChartProps)
               />
               <Bar dataKey="total" layout="vertical" radius={5}>
                  {chartData.map((entry, index) => (
-                  <recharts.Cell key={`cell-${index}`} fill={chartConfig[entry.name]?.color} />
+                  <Cell key={`cell-${index}`} fill={chartConfig[entry.name]?.color} />
                 ))}
               </Bar>
             </BarChart>
