@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter } from 'lucide-react';
 import type { Sale, SupportData, SupportFile } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +13,7 @@ import { loadSales, loadMonthlySupportData, saveSales } from '@/services/firesto
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
+import { Input } from '@/components/ui/input';
 
 // Helper to generate months
 const getMonths = () => {
@@ -29,6 +30,12 @@ export default function ConciliationPage() {
     const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
+    
+    // New filter states
+    const [searchTerm, setSearchTerm] = useState("");
+    const [marketplaceFilter, setMarketplaceFilter] = useState("all");
+    const [stateFilter, setStateFilter] = useState("all");
+    const [accountFilter, setAccountFilter] = useState("all");
 
     useEffect(() => {
         async function fetchData() {
@@ -74,10 +81,25 @@ export default function ConciliationPage() {
         let processedSales = sales.filter(sale => {
             try {
                 const saleDate = new Date((sale as any).payment_approved_date);
-                return saleDate >= dateRange.from! && saleDate <= dateRange.to!;
+                if (saleDate < dateRange.from! || saleDate > dateRange.to!) {
+                    return false;
+                }
             } catch {
                 return false;
             }
+
+            // Apply new filters
+            const matchesMarketplace = marketplaceFilter === "all" || (sale as any).marketplace_name?.toLowerCase() === marketplaceFilter.toLowerCase();
+            const matchesState = stateFilter === "all" || (sale as any).state_name === stateFilter;
+            const matchesAccount = accountFilter === "all" || (sale as any).auth_name === accountFilter;
+
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            const matchesSearch = searchTerm === "" ||
+                (sale as any).item_sku?.toLowerCase().includes(lowerSearchTerm) ||
+                (sale as any).order_code?.toLowerCase().includes(lowerSearchTerm) ||
+                (sale as any).id?.toString().toLowerCase().includes(lowerSearchTerm);
+
+            return matchesMarketplace && matchesState && matchesAccount && matchesSearch;
         });
 
         if (supportData && supportData.files) {
@@ -126,7 +148,7 @@ export default function ConciliationPage() {
         
         return processedSales;
 
-    }, [sales, dateRange, supportData]);
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter]);
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -163,6 +185,11 @@ export default function ConciliationPage() {
     const handleOpenSupportData = () => {
         setIsSupportDataOpen(true);
     };
+
+    // Options for filters
+    const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
+    const states = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean)))], [sales]);
+    const accounts = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).auth_name).filter(Boolean)))], [sales]);
     
     if (isLoading) {
         return (
@@ -206,6 +233,57 @@ export default function ConciliationPage() {
                                 <SelectItem key={month.value} value={month.value}>
                                     {month.label.charAt(0).toUpperCase() + month.label.slice(1)}
                                 </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-5 w-5" />
+                        <CardTitle className="text-lg">Filtros Adicionais</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="relative lg:col-span-1">
+                      <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Buscar por SKU, Pedido ou ID..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <Select value={marketplaceFilter} onValueChange={setMarketplaceFilter} disabled={sales.length === 0}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filtrar por Marketplace" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {marketplaces.map(mp => (
+                                <SelectItem key={mp} value={mp}>{mp === 'all' ? 'Todos os Marketplaces' : mp}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={stateFilter} onValueChange={setStateFilter} disabled={sales.length === 0}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filtrar por Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {states.map(s => (
+                                <SelectItem key={s} value={s}>{s === 'all' ? 'Todos os Estados' : s}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <Select value={accountFilter} onValueChange={setAccountFilter} disabled={sales.length === 0}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filtrar por Conta" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {accounts.map(acc => (
+                                <SelectItem key={acc} value={acc}>{acc === 'all' ? 'Todas as Contas' : acc}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
