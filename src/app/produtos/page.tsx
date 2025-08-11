@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategorySettings, ProductAttribute, InventoryItem } from '@/lib/types';
 import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/services/firestore';
@@ -45,12 +45,49 @@ export default function ProductsPage() {
 
   // State for conflict checking
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
+  const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictResults, setConflictResults] = useState<SkuConflict[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
 
 
   // Form state
   const [formState, setFormState] = useState<Record<string, string>>({});
+
+  const runConflictCheck = useCallback((productsToCheck: Product[], showToast: boolean) => {
+    const skuMap = new Map<string, { sku: string; name: string; productId: string }[]>();
+
+    productsToCheck.forEach(p => {
+        if (p.associatedSkus && p.associatedSkus.length > 0) {
+            p.associatedSkus.forEach(childSku => {
+                if (!skuMap.has(childSku)) {
+                    skuMap.set(childSku, []);
+                }
+                skuMap.get(childSku)?.push({ sku: p.sku, name: p.name, productId: p.id });
+            });
+        }
+    });
+
+    const conflicts: SkuConflict[] = [];
+    skuMap.forEach((parentProducts, childSku) => {
+        if (parentProducts.length > 1) {
+            conflicts.push({ childSku, parentProducts });
+        }
+    });
+    
+    setConflictResults(conflicts);
+    if (conflicts.length > 0) {
+      setHasConflicts(true);
+      if (showToast) {
+         toast({
+            variant: "destructive",
+            title: "Conflitos de SKU Encontrados!",
+            description: "Um ou mais SKUs de anúncio estão associados a múltiplos produtos. Use a ferramenta de verificação para corrigir.",
+        });
+      }
+    } else {
+        setHasConflicts(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     async function loadData() {
@@ -61,9 +98,9 @@ export default function ProductsPage() {
         ]);
         
         setProducts(loadedProducts.filter(p => p.category === 'Celular'));
+        runConflictCheck(loadedProducts, false); // Initial check
         setSettings(loadedSettings);
         if (loadedSettings) {
-            // Initialize form state
             const initialFormState: Record<string, string> = {};
             loadedSettings.attributes.forEach(attr => {
                 initialFormState[attr.key] = "";
@@ -73,7 +110,7 @@ export default function ProductsPage() {
         setIsLoading(false);
     }
     loadData();
-  }, [toast]);
+  }, [toast, runConflictCheck]);
 
   const handleAttributeSelect = (key: string, value: string) => {
     setFormState(prev => {
@@ -99,7 +136,11 @@ export default function ProductsPage() {
     const updatedProduct: Product = { ...product, associatedSkus: newSkus };
     
     // Optimistically update UI
-    setProducts(prev => prev.map(p => (p.id === product.id ? updatedProduct : p)));
+    setProducts(prev => {
+        const newProducts = prev.map(p => (p.id === product.id ? updatedProduct : p));
+        runConflictCheck(newProducts, true);
+        return newProducts;
+    });
     
     // Save to mock service
     saveProduct(updatedProduct);
@@ -248,7 +289,11 @@ export default function ProductsPage() {
 
     try {
       await saveProduct(newProduct);
-      setProducts(prev => [newProduct, ...prev]);
+      setProducts(prev => {
+        const newProducts = [newProduct, ...prev];
+        runConflictCheck(newProducts, false); // check after adding
+        return newProducts;
+      });
       toast({
         title: "Produto Criado!",
         description: `O modelo "${generatedName}" foi salvo com sucesso.`,
@@ -265,7 +310,11 @@ export default function ProductsPage() {
   const handleDelete = async (productId: string) => {
     try {
       await deleteProduct(productId);
-      setProducts(prev => prev.filter(p => p.id !== productId));
+      setProducts(prev => {
+        const newProducts = prev.filter(p => p.id !== productId);
+        runConflictCheck(newProducts, false);
+        return newProducts;
+      });
       toast({ title: 'Modelo Removido', description: 'O modelo de produto foi removido.' });
     } catch (error) {
       console.error(error);
@@ -299,7 +348,11 @@ export default function ProductsPage() {
 
     if (productsToSave.length > 0) {
       await saveProducts(productsToSave);
-      setProducts(prev => [...productsToSave, ...prev]);
+      setProducts(prev => {
+        const newProducts = [...productsToSave, ...prev];
+        runConflictCheck(newProducts, false);
+        return newProducts;
+      });
     }
     
     toast({
@@ -337,6 +390,7 @@ export default function ProductsPage() {
         });
 
         updatedProducts = Array.from(productsMap.values());
+        runConflictCheck(updatedProducts, true);
         return updatedProducts;
     });
 
@@ -352,31 +406,10 @@ export default function ProductsPage() {
     setIsBulkAssociateOpen(false);
   };
 
-  const handleCheckConflicts = async () => {
+  const handleOpenConflictDialog = () => {
     setIsCheckingConflicts(true);
-    // Use a map to track which child SKUs are associated with which parent products
-    const skuMap = new Map<string, { sku: string; name: string; productId: string }[]>();
-
-    products.forEach(p => {
-        if (p.associatedSkus && p.associatedSkus.length > 0) {
-            p.associatedSkus.forEach(childSku => {
-                if (!skuMap.has(childSku)) {
-                    skuMap.set(childSku, []);
-                }
-                skuMap.get(childSku)?.push({ sku: p.sku, name: p.name, productId: p.id });
-            });
-        }
-    });
-
-    // Find conflicts where a child SKU is linked to more than one parent
-    const conflicts: SkuConflict[] = [];
-    skuMap.forEach((parentProducts, childSku) => {
-        if (parentProducts.length > 1) {
-            conflicts.push({ childSku, parentProducts });
-        }
-    });
-
-    setConflictResults(conflicts);
+    // Logic to find conflicts is already done by runConflictCheck, so we just use the state
+    setConflictResults(conflictResults);
     setIsCheckingConflicts(false);
     setIsConflictDialogOpen(true);
   };
@@ -384,32 +417,40 @@ export default function ProductsPage() {
   const handleSaveCorrections = async (corrections: Map<string, string>) => {
     setIsCheckingConflicts(true);
     const productsToUpdate: Product[] = [];
-    const productsMap = new Map(products.map(p => [p.id, p]));
+    
+    setProducts(currentProducts => {
+        const productsMap = new Map(currentProducts.map(p => [p.id, p]));
 
-    // Iterate over each conflict that was resolved
-    corrections.forEach((correctParentId, childSku) => {
-        const conflict = conflictResults.find(c => c.childSku === childSku);
-        if (!conflict) return;
+        corrections.forEach((correctParentId, childSku) => {
+            const conflict = conflictResults.find(c => c.childSku === childSku);
+            if (!conflict) return;
 
-        // Find all products that currently have this childSku associated
-        conflict.parentProducts.forEach(parentProduct => {
-            const product = productsMap.get(parentProduct.productId);
-            if (!product || !product.associatedSkus) return;
+            conflict.parentProducts.forEach(parentProduct => {
+                const product = productsMap.get(parentProduct.productId);
+                if (!product || !product.associatedSkus) return;
 
-            // If this is NOT the correct parent, remove the association
-            if (parentProduct.productId !== correctParentId) {
-                const updatedSkus = product.associatedSkus.filter(s => s !== childSku);
-                const updatedProduct: Product = { ...product, associatedSkus: updatedSkus };
-                productsMap.set(product.id, updatedProduct);
-                productsToUpdate.push(updatedProduct);
-            }
+                if (parentProduct.productId !== correctParentId) {
+                    const updatedSkus = product.associatedSkus.filter(s => s !== childSku);
+                    const updatedProduct: Product = { ...product, associatedSkus: updatedSkus };
+                    productsMap.set(product.id, updatedProduct);
+                    if (!productsToUpdate.find(p => p.id === updatedProduct.id)) {
+                        productsToUpdate.push(updatedProduct);
+                    }
+                }
+            });
         });
+
+        return Array.from(productsMap.values());
     });
 
     if (productsToUpdate.length > 0) {
         try {
             await saveProducts(productsToUpdate);
-            setProducts(Array.from(productsMap.values()));
+            // Re-run the check to confirm conflicts are resolved
+            const updatedProductList = await loadProducts();
+            setProducts(updatedProductList);
+            runConflictCheck(updatedProductList, false);
+
             toast({
                 title: "Conflitos Resolvidos!",
                 description: `${productsToUpdate.length} produtos foram atualizados para remover associações incorretas.`
@@ -564,10 +605,12 @@ export default function ProductsPage() {
                           <Link className="mr-2 h-4 w-4" />
                           Importar Associações
                     </Button>
-                      <Button variant="destructive" onClick={handleCheckConflicts} disabled={isCheckingConflicts}>
-                          {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                          Verificar Conflitos
-                      </Button>
+                      {hasConflicts && (
+                          <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
+                              {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                              Verificar Conflitos
+                          </Button>
+                      )}
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
                         <Hash className="h-4 w-4" />
                         <span>{filteredProducts.length} de {products.length} Modelos</span>
