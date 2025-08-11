@@ -512,7 +512,6 @@ export default function ProductsPage() {
                                                     key={val}
                                                     value={val}
                                                     onSelect={() => handleAttributeSelect(attr.key, val)}
-                                                    // A CORREÇÃO ESTÁ AQUI:
                                                     onMouseDown={(e) => e.preventDefault()}
                                                   >
                                                     <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
