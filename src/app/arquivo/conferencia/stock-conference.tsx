@@ -208,13 +208,13 @@ export function StockConference() {
                                             <TableRow className="bg-card">
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.initialStockSystem}</Badge></TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
-                                                <TableCell></TableCell> {/* Devoluções */}
-                                                <TableCell></TableCell> {/* Retiradas */}
-                                                <TableCell></TableCell> {/* Faturados */}
-                                                <TableCell></TableCell> {/* Sobra de etiquetas */}
-                                                <TableCell></TableCell> {/* Estoque final */}
-                                                <TableCell></TableCell> {/* Sobra real */}
-                                                <TableCell></TableCell> {/* Validação */}
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
                                             </TableRow>
                                         )}
                                     </Fragment>
