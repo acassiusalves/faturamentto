@@ -377,164 +377,85 @@ export default function ProductsPage() {
                   <TabsTrigger value="settings">Configurações</TabsTrigger>
               </TabsList>
               <TabsContent value="models" className="mt-6">
-                  <div className="grid md:grid-cols-3 gap-8 items-start">
-                      <div className="md:col-span-1 space-y-4">
-                        <form onSubmit={handleSubmit}>
-                          <Card>
-                              <CardHeader>
-                                <CardTitle>Criar Novo Modelo de Celular</CardTitle>
-                                <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
-                              </CardHeader>
-                              <CardContent className="space-y-4">
-                                {settings && orderedAttributes.map(attr => (
-                                  <div key={attr.key} className="space-y-2">
-                                      <Label>{attr.label}</Label>
-                                      <Popover
-                                        modal={false}
-                                        open={openPopovers[attr.key]}
-                                        onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}
-                                      >
-                                        <PopoverTrigger asChild>
-                                          <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal">
-                                            <span className="truncate">{formState[attr.key] || `Selecione ${attr.label.toLowerCase()}...`}</span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                          className="p-0 z-[99999] pointer-events-auto"
-                                          style={{ width: 'var(--radix-popover-trigger-width)' }}
-                                          align="start"
-                                          sideOffset={4}
-                                        >
-                                          <Command shouldFilter>
-                                            <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} autoFocus />
-                                            <CommandList>
-                                              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                              <CommandGroup>
-                                                {attr.values.map((val) => (
-                                                  <CommandItem
-                                                    key={val}
-                                                    value={val}
-                                                    onSelect={(currentValue) => handleAttributeSelect(attr.key, currentValue)}
-                                                  >
-                                                    <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                    {val}
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                      </Popover>
-                                  </div>
-                                ))}
-                                <div className="space-y-2 pt-4">
-                                  <Label className="text-muted-foreground">Nome Gerado</Label>
-                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                    <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                      {generatedName || "Selecione as opções acima..."}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
-                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                    <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                      {generatedSku || "Aguardando seleção..."}
-                                    </span>
-                                  </div>
-                                </div>
-                              </CardContent>
-                              <CardFooter>
-                                <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                                  {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                  Criar Modelo de Produto
-                                </Button>
-                              </CardFooter>
-                          </Card>
-                        </form>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <Card>
-                          <CardHeader>
-                            <div className="flex justify-between items-center gap-4 flex-wrap">
-                              <div className="flex-1 min-w-[200px]">
-                                <CardTitle>Modelos Cadastrados</CardTitle>
-                                <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="relative">
-                                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input placeholder="Buscar por nome ou SKU..." className="pl-9 w-full sm:w-auto" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                  </div>
-                                  <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar</Button>
-                                  <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}><Link2 className="mr-2 h-4 w-4" />Associar</Button>
-                                  {hasConflicts && <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>{isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}Verificar Conflitos</Button>}
-                              </div>
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex justify-between items-center gap-4 flex-wrap">
+                        <div className="flex-1 min-w-[200px]">
+                          <CardTitle>Modelos Cadastrados</CardTitle>
+                          <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                              <Input placeholder="Buscar por nome ou SKU..." className="pl-9 w-full sm:w-auto" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="rounded-md border max-h-[600px] overflow-y-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Nome do Produto</TableHead>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Data de Criação</TableHead>
-                                    <TableHead className="text-right">Ações</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {filteredProducts.length > 0 ? (
-                                    filteredProducts.map(product => (
-                                      <TableRow key={product.id}>
-                                        <TableCell className="font-medium">
-                                          <div className="flex items-center gap-2">
-                                            <span>{product.name}</span>
-                                            {product.associatedSkus && product.associatedSkus.length > 0 && (
-                                              <Popover>
-                                                <PopoverTrigger asChild><div className="flex items-center text-sm text-primary font-semibold cursor-pointer"><Link2 className="h-4 w-4" /><span>{product.associatedSkus.length}</span></div></PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0">
-                                                  <div className="p-3 space-y-2">
-                                                    <p className="text-sm font-semibold text-foreground">SKUs associados</p>
-                                                    <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
-                                                      {product.associatedSkus.map(sku => (<Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>))}
-                                                    </div>
-                                                  </div>
-                                                </PopoverContent>
-                                              </Popover>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
-                                        <TableCell>{formatDate(product.createdAt)}</TableCell>
-                                        <TableCell className="text-right">
-                                          <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}><Download className="h-4 w-4" /></Button>
-                                          <AlertDialog>
-                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                  <AlertDialogHeader>
-                                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                  <AlertDialogDescription>Esta ação não pode ser desfeita. Isso removerá permanentemente o modelo do produto.</AlertDialogDescription>
-                                                  </AlertDialogHeader>
-                                                  <AlertDialogFooter>
-                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                  <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
-                                                  </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                          </AlertDialog>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))
-                                  ) : (<TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell></TableRow>)}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar</Button>
+                            <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}><Link2 className="mr-2 h-4 w-4" />Associar</Button>
+                            {hasConflicts && <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>{isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}Verificar Conflitos</Button>}
+                        </div>
                       </div>
-                  </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="rounded-md border max-h-[600px] overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nome do Produto</TableHead>
+                              <TableHead>SKU</TableHead>
+                              <TableHead>Data de Criação</TableHead>
+                              <TableHead className="text-right">Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredProducts.length > 0 ? (
+                              filteredProducts.map(product => (
+                                <TableRow key={product.id}>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <span>{product.name}</span>
+                                      {product.associatedSkus && product.associatedSkus.length > 0 && (
+                                        <Popover>
+                                          <PopoverTrigger asChild><div className="flex items-center text-sm text-primary font-semibold cursor-pointer"><Link2 className="h-4 w-4" /><span>{product.associatedSkus.length}</span></div></PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0">
+                                            <div className="p-3 space-y-2">
+                                              <p className="text-sm font-semibold text-foreground">SKUs associados</p>
+                                              <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
+                                                {product.associatedSkus.map(sku => (<Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>))}
+                                              </div>
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
+                                  <TableCell>{formatDate(product.createdAt)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}><Download className="h-4 w-4" /></Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                            <AlertDialogDescription>Esta ação não pode ser desfeita. Isso removerá permanentemente o modelo do produto.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (<TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell></TableRow>)}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
               <TabsContent value="settings" className="mt-6">
                   <ProductSettings />
