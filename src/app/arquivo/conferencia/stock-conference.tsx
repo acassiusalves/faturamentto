@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -13,6 +14,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { loadInventoryItems, loadAllPickingLogs } from "@/services/firestore";
 import type { InventoryItem, PickedItemLog } from "@/lib/types";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const labels = {
     initialStockSystem: "Estoque inicial S.",
@@ -47,6 +50,7 @@ export function StockConference() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [showSystemData, setShowSystemData] = useState(true);
 
     const fetchDataForDate = useCallback(async (date: Date) => {
         setIsLoading(true);
@@ -126,6 +130,13 @@ export function StockConference() {
         setIsSaving(false);
     };
 
+    const visibleLabels = Object.entries(labels).filter(([key, _label]) => {
+        if (!showSystemData) {
+            return !['initialStockSystem', 'receiptsSystem', 'withdrawals'].includes(key);
+        }
+        return true;
+    });
+
     return (
         <Card>
             <CardHeader className="flex flex-col md:flex-row justify-between md:items-center">
@@ -136,6 +147,10 @@ export function StockConference() {
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-4">
+                     <div className="flex items-center space-x-2">
+                      <Switch id="show-system-data" checked={showSystemData} onCheckedChange={setShowSystemData} />
+                      <Label htmlFor="show-system-data" className="text-sm">Mostrar dados do sistema</Label>
+                    </div>
                      <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -174,7 +189,7 @@ export function StockConference() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    {Object.values(labels).map((label) => (
+                                    {visibleLabels.map(([_key, label]) => (
                                         <TableHead key={label} className="whitespace-nowrap">{label}</TableHead>
                                     ))}
                                 </TableRow>
@@ -182,7 +197,7 @@ export function StockConference() {
                             <TableBody>
                                 {conferenceData.map((row) => (
                                     <TableRow key={row.date}>
-                                        <TableCell>{row.initialStockSystem}</TableCell>
+                                        {showSystemData && <TableCell>{row.initialStockSystem}</TableCell>}
                                         <TableCell>
                                             <Input
                                                 type="number"
@@ -191,7 +206,7 @@ export function StockConference() {
                                                 className="w-24"
                                             />
                                         </TableCell>
-                                        <TableCell>{row.receiptsSystem}</TableCell>
+                                        {showSystemData && <TableCell>{row.receiptsSystem}</TableCell>}
                                          <TableCell>
                                             <Input
                                                 type="number"
@@ -208,7 +223,7 @@ export function StockConference() {
                                                 className="w-24"
                                             />
                                         </TableCell>
-                                        <TableCell>{row.withdrawals}</TableCell>
+                                        {showSystemData && <TableCell>{row.withdrawals}</TableCell>}
                                         <TableCell>
                                             <Input
                                                 type="number"
