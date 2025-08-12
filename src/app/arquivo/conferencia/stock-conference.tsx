@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -186,8 +186,8 @@ export function StockConference() {
                             </TableHeader>
                             <TableBody>
                                 {conferenceData.map((row) => (
-                                    <>
-                                        <TableRow key={`${row.date}-user`} className="bg-muted/20">
+                                    <Fragment key={row.date}>
+                                        <TableRow className="bg-muted/20">
                                             <TableCell><Input type="number" value={row.initialStockUser} onChange={(e) => handleInputChange(row.date, 'initialStockUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.receiptsUser} onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.returns} onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)} className="w-24" /></TableCell>
@@ -205,7 +205,7 @@ export function StockConference() {
                                             </TableCell>
                                         </TableRow>
                                         {showSystemData && (
-                                            <TableRow key={`${row.date}-system`} className="bg-card">
+                                            <TableRow className="bg-card">
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.initialStockSystem}</Badge></TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
                                                 <TableCell></TableCell> {/* Devoluções */}
@@ -217,7 +217,7 @@ export function StockConference() {
                                                 <TableCell></TableCell> {/* Validação */}
                                             </TableRow>
                                         )}
-                                    </>
+                                    </Fragment>
                                 ))}
                             </TableBody>
                         </Table>
@@ -232,5 +232,3 @@ export function StockConference() {
         </Card>
     );
 }
-
-    
