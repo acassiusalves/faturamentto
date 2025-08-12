@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
 const labels = {
-    initialStock: "Estoque inicial",
     receipts: "Recebimentos",
     returns: "Devoluções Novos",
     withdrawals: "Retiradas",
@@ -33,7 +32,6 @@ const labels = {
 interface ConferenceData {
     date: string;
     initialStockSystem: number;
-    initialStockUser: number;
     receiptsSystem: number;
     receiptsUser: number;
     returns: number;
@@ -81,7 +79,6 @@ export function StockConference() {
         const newRow: ConferenceData = {
             date: format(date, "yyyy-MM-dd"),
             initialStockSystem: initialStock,
-            initialStockUser: 0,
             receiptsSystem: receiptsToday,
             receiptsUser: 0,
             returns: 0,
@@ -108,8 +105,8 @@ export function StockConference() {
             prev.map(row => {
                 if (row.date === date) {
                     const updatedRow = { ...row, [field]: numericValue };
-                    if (['initialStockUser', 'receiptsUser', 'returns', 'invoiced', 'labelsChange'].includes(field as string)) {
-                         updatedRow.finalStock = updatedRow.initialStockSystem + updatedRow.receiptsSystem + updatedRow.returns - updatedRow.withdrawals;
+                    if (['receiptsUser', 'returns', 'invoiced', 'labelsChange'].includes(field as string)) {
+                         updatedRow.finalStock = updatedRow.initialStockSystem + updatedRow.receiptsUser + updatedRow.returns - updatedRow.withdrawals;
                     }
                     return updatedRow;
                 }
@@ -188,7 +185,6 @@ export function StockConference() {
                                 {conferenceData.map((row) => (
                                     <Fragment key={row.date}>
                                         <TableRow className="bg-muted/20">
-                                            <TableCell><Input type="number" value={row.initialStockUser} onChange={(e) => handleInputChange(row.date, 'initialStockUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.receiptsUser} onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.returns} onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.withdrawals} readOnly className="w-24 bg-muted/50" /></TableCell>
@@ -206,7 +202,6 @@ export function StockConference() {
                                         </TableRow>
                                         {showSystemData && (
                                             <TableRow className="bg-card">
-                                                <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.initialStockSystem}</Badge></TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
                                                 <TableCell>{null}</TableCell>
                                                 <TableCell>{null}</TableCell>
