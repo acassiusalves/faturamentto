@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -67,6 +67,11 @@ export function IndividualConference() {
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setScannedSns('');
+    setResults(null);
   };
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -138,11 +143,17 @@ export function IndividualConference() {
                 Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split('\n').filter(Boolean).length : 0}</span>
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-2">
             <Button className="w-full" onClick={handleSearch} disabled={isLoading || !scannedSns.trim()}>
                 {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
                 Buscar
             </Button>
+            {results && (
+              <Button variant="outline" className="w-full" onClick={handleReset}>
+                <RotateCcw className="mr-2" />
+                Zerar e Recomeçar
+              </Button>
+            )}
           </CardFooter>
         </Card>
 
