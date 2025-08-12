@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, KeyboardEvent } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +50,7 @@ export default function EstoquePage() {
   
   const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
   const [currentSN, setCurrentSN] = useState("");
+  const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventorySchema),
@@ -97,9 +98,9 @@ export default function EstoquePage() {
     form.setValue('origin', origin, { shouldValidate: true });
   }
 
-  const handleAddSerialNumber = async () => {
-    if (!currentSN.trim()) return;
-    const snToAdd = currentSN.trim();
+  const handleAddSerialNumber = async (snValue?: string) => {
+    const snToAdd = (snValue || currentSN).trim();
+    if (!snToAdd) return;
 
     if (serialNumbers.includes(snToAdd)) {
         toast({ variant: "destructive", title: "SN Duplicado", description: "Este número de série já foi adicionado à lista."});
@@ -118,11 +119,19 @@ export default function EstoquePage() {
     setCurrentSN("");
   };
   
-  const handleSNKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAddSerialNumber();
+  const handleSNInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCurrentSN(value);
+
+    if (snInputTimeoutRef.current) {
+      clearTimeout(snInputTimeoutRef.current);
     }
+
+    snInputTimeoutRef.current = setTimeout(() => {
+        if (value.trim()) {
+            handleAddSerialNumber(value);
+        }
+    }, 500); // 500ms delay to auto-submit
   }
 
   const handleRemoveSerialNumber = (snToRemove: string) => {
@@ -352,10 +361,10 @@ export default function EstoquePage() {
                       <Label htmlFor="serial-numbers-input">SN (Código do Fabricante)</Label>
                       <Input
                           id="serial-numbers-input"
-                          placeholder="Bipe ou digite o SN e pressione Enter"
+                          placeholder="Bipe ou digite o SN"
                           value={currentSN}
-                          onChange={(e) => setCurrentSN(e.target.value)}
-                          onKeyDown={handleSNKeyDown}
+                          onChange={handleSNInputChange}
+                          autoComplete="off"
                       />
                       <div className="p-2 border rounded-md min-h-[60px] max-h-[120px] overflow-y-auto bg-muted/50">
                           {serialNumbers.length > 0 ? (
