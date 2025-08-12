@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
 const labels = {
+    initialStock: "Estoque inicial",
     receipts: "Recebimentos",
     returns: "Devoluções Novos",
     withdrawals: "Retiradas",
@@ -35,10 +36,10 @@ interface ConferenceData {
     receiptsSystem: number;
     receiptsUser: number;
     returns: number;
-    withdrawals: number;
+    withdrawalsSystem: number;
     invoiced: number;
     labelsChange: number;
-    finalStock: number;
+    finalStockUser: number;
     realBalance: number;
 }
 
@@ -82,14 +83,14 @@ export function StockConference() {
             receiptsSystem: receiptsToday,
             receiptsUser: 0,
             returns: 0,
-            withdrawals: withdrawalsToday,
+            withdrawalsSystem: withdrawalsToday,
             invoiced: 0,
             labelsChange: 0,
-            finalStock: 0, 
+            finalStockUser: 0, 
             realBalance: 0,
         };
         
-        newRow.finalStock = newRow.initialStockSystem + newRow.receiptsSystem + newRow.returns - newRow.withdrawals;
+        newRow.finalStockUser = newRow.initialStockSystem + newRow.receiptsUser + newRow.returns - newRow.withdrawalsSystem;
 
         setConferenceData([newRow]);
         setIsLoading(false);
@@ -105,8 +106,9 @@ export function StockConference() {
             prev.map(row => {
                 if (row.date === date) {
                     const updatedRow = { ...row, [field]: numericValue };
+                    // Recalcula o estoque final do usuário sempre que um campo relevante for alterado
                     if (['receiptsUser', 'returns', 'invoiced', 'labelsChange'].includes(field as string)) {
-                         updatedRow.finalStock = updatedRow.initialStockSystem + updatedRow.receiptsUser + updatedRow.returns - updatedRow.withdrawals;
+                         updatedRow.finalStockUser = updatedRow.initialStockSystem + updatedRow.receiptsUser + updatedRow.returns - updatedRow.withdrawalsSystem;
                     }
                     return updatedRow;
                 }
@@ -185,31 +187,33 @@ export function StockConference() {
                                 {conferenceData.map((row) => (
                                     <Fragment key={row.date}>
                                         <TableRow className="bg-muted/20">
+                                            <TableCell className="font-semibold">{row.initialStockSystem}</TableCell>
                                             <TableCell><Input type="number" value={row.receiptsUser} onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.returns} onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)} className="w-24" /></TableCell>
-                                            <TableCell><Input type="number" value={row.withdrawals} readOnly className="w-24 bg-muted/50" /></TableCell>
+                                            <TableCell className="font-semibold">{row.withdrawalsSystem}</TableCell>
                                             <TableCell><Input type="number" value={row.invoiced} onChange={(e) => handleInputChange(row.date, 'invoiced', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.labelsChange} onChange={(e) => handleInputChange(row.date, 'labelsChange', e.target.value)} className="w-24" /></TableCell>
-                                            <TableCell className="font-semibold">{row.finalStock}</TableCell>
+                                            <TableCell className="font-semibold">{row.finalStockUser}</TableCell>
                                             <TableCell><Input type="number" value={row.realBalance} onChange={(e) => handleInputChange(row.date, 'realBalance', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell>
-                                                {row.realBalance > 0 && row.finalStock === row.realBalance ? (
+                                                {row.realBalance > 0 && row.finalStockUser === row.realBalance ? (
                                                     <CheckCircle className="h-6 w-6 text-green-500" />
-                                                ) : row.realBalance > 0 && row.finalStock !== row.realBalance ? (
+                                                ) : row.realBalance > 0 && row.finalStockUser !== row.realBalance ? (
                                                     <XCircle className="h-6 w-6 text-destructive" />
                                                 ) : null}
                                             </TableCell>
                                         </TableRow>
                                         {showSystemData && (
                                             <TableRow className="bg-card">
+                                                <TableCell>{/* Initial Stock System already on top row */}</TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
-                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{/* No system data for Returns */}</TableCell>
+                                                <TableCell>{/* Withdrawals System already on top row */}</TableCell>
+                                                <TableCell>{/* No system data for Invoiced */}</TableCell>
+                                                <TableCell>{/* No system data for Labels Change */}</TableCell>
+                                                <TableCell>{/* Final Stock is calculated from user input */}</TableCell>
+                                                <TableCell>{/* No system data for Real Balance */}</TableCell>
+                                                <TableCell>{/* No system data for Validation */}</TableCell>
                                             </TableRow>
                                         )}
                                     </Fragment>
