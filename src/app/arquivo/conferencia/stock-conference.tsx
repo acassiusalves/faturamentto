@@ -35,7 +35,8 @@ interface ConferenceData {
     initialStockSystem: number;
     receiptsSystem: number;
     receiptsUser: number;
-    returns: number;
+    returnsSystem: number;
+    returnsUser: number;
     withdrawalsSystem: number;
     invoiced: number;
     labelsChange: number;
@@ -60,11 +61,14 @@ export function StockConference() {
         
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
-
-        const receiptsToday = inventoryItems.filter(item => {
+        
+        const itemsFromToday = inventoryItems.filter(item => {
             const createdAt = new Date(item.createdAt);
             return createdAt >= dayStart && createdAt <= dayEnd;
-        }).length;
+        });
+
+        const receiptsToday = itemsFromToday.filter(item => item.origin !== 'Devolução').length;
+        const returnsToday = itemsFromToday.filter(item => item.origin === 'Devolução').length;
 
         const withdrawalsToday = pickingLogs.filter(log => {
             const pickedAt = new Date(log.pickedAt);
@@ -82,7 +86,8 @@ export function StockConference() {
             initialStockSystem: initialStock,
             receiptsSystem: receiptsToday,
             receiptsUser: 0,
-            returns: 0,
+            returnsSystem: returnsToday,
+            returnsUser: returnsToday, // Pre-fill user input with system data
             withdrawalsSystem: withdrawalsToday,
             invoiced: 0,
             labelsChange: 0,
@@ -90,7 +95,7 @@ export function StockConference() {
             realBalance: 0,
         };
         
-        newRow.finalStockUser = newRow.initialStockSystem + newRow.receiptsUser + newRow.returns - newRow.withdrawalsSystem;
+        newRow.finalStockUser = newRow.initialStockSystem + newRow.receiptsUser + newRow.returnsUser - newRow.withdrawalsSystem - newRow.invoiced + newRow.labelsChange;
 
         setConferenceData([newRow]);
         setIsLoading(false);
@@ -106,9 +111,8 @@ export function StockConference() {
             prev.map(row => {
                 if (row.date === date) {
                     const updatedRow = { ...row, [field]: numericValue };
-                    // Recalcula o estoque final do usuário sempre que um campo relevante for alterado
-                    if (['receiptsUser', 'returns', 'invoiced', 'labelsChange'].includes(field as string)) {
-                         updatedRow.finalStockUser = updatedRow.initialStockSystem + updatedRow.receiptsUser + updatedRow.returns - updatedRow.withdrawalsSystem;
+                    if (['receiptsUser', 'returnsUser', 'invoiced', 'labelsChange'].includes(field as string)) {
+                         updatedRow.finalStockUser = updatedRow.initialStockSystem + updatedRow.receiptsUser + updatedRow.returnsUser - updatedRow.withdrawalsSystem - updatedRow.invoiced + updatedRow.labelsChange;
                     }
                     return updatedRow;
                 }
@@ -189,7 +193,7 @@ export function StockConference() {
                                         <TableRow className="bg-muted/20">
                                             <TableCell className="font-semibold">{row.initialStockSystem}</TableCell>
                                             <TableCell><Input type="number" value={row.receiptsUser} onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)} className="w-24" /></TableCell>
-                                            <TableCell><Input type="number" value={row.returns} onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell><Input type="number" value={row.returnsUser} onChange={(e) => handleInputChange(row.date, 'returnsUser', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell className="font-semibold">{row.withdrawalsSystem}</TableCell>
                                             <TableCell><Input type="number" value={row.invoiced} onChange={(e) => handleInputChange(row.date, 'invoiced', e.target.value)} className="w-24" /></TableCell>
                                             <TableCell><Input type="number" value={row.labelsChange} onChange={(e) => handleInputChange(row.date, 'labelsChange', e.target.value)} className="w-24" /></TableCell>
@@ -205,15 +209,15 @@ export function StockConference() {
                                         </TableRow>
                                         {showSystemData && (
                                             <TableRow className="bg-card">
-                                                <TableCell>{/* Initial Stock System already on top row */}</TableCell>
+                                                <TableCell>{null}</TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
-                                                <TableCell>{/* No system data for Returns */}</TableCell>
-                                                <TableCell>{/* Withdrawals System already on top row */}</TableCell>
-                                                <TableCell>{/* No system data for Invoiced */}</TableCell>
-                                                <TableCell>{/* No system data for Labels Change */}</TableCell>
-                                                <TableCell>{/* Final Stock is calculated from user input */}</TableCell>
-                                                <TableCell>{/* No system data for Real Balance */}</TableCell>
-                                                <TableCell>{/* No system data for Validation */}</TableCell>
+                                                <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.returnsSystem}</Badge></TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
+                                                <TableCell>{null}</TableCell>
                                             </TableRow>
                                         )}
                                     </Fragment>
