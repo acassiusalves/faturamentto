@@ -12,6 +12,7 @@ import { Loader2, Search, CheckCircle, XCircle, AlertTriangle } from 'lucide-rea
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { loadInventoryItems } from '@/services/firestore'; // Importar a função
 
 interface ConferenceResult {
   found: InventoryItem[];
@@ -27,26 +28,52 @@ export function IndividualConference() {
   const handleSearch = async () => {
     setIsLoading(true);
     setResults(null);
-    await new Promise((res) => setTimeout(res, 1500)); // Simulate API call
     
-    // MOCK DATA - This will be replaced with Firestore logic
-    const mockResults: ConferenceResult = {
-        found: [
-            { id: '1', name: 'Xiaomi Redmi 14C 256GB', sku: '#09P', serialNumber: '58583;655P12851', quantity: 1, costPrice: 715, createdAt: new Date().toISOString(), origin: 'Nacional', productId: 'p1' },
-            { id: '2', name: 'Xiaomi Redmi 14C 256GB', sku: '#09P', serialNumber: '58583;655N00287', quantity: 1, costPrice: 715, createdAt: new Date().toISOString(), origin: 'Nacional', productId: 'p1' },
-        ],
-        notFound: ['INVALIDSN123', 'ANOTHERSN456'],
-        notScanned: [
-             { id: '3', name: 'Xiaomi Note 14 256GB', sku: '#11V', serialNumber: '61626;W5QC03207', quantity: 1, costPrice: 940, createdAt: new Date().toISOString(), origin: 'Nacional', productId: 'p2' },
-        ]
-    };
-    
-    setResults(mockResults);
-    setIsLoading(false);
+    try {
+      const allInventoryItems = await loadInventoryItems();
+      const inventorySnMap = new Map(allInventoryItems.map(item => [item.serialNumber, item]));
+      const allInventorySns = new Set(allInventoryItems.map(item => item.serialNumber));
+      
+      const scannedSnList = scannedSns
+        .trim()
+        .split('\n')
+        .map(sn => sn.trim())
+        .filter(Boolean);
+      const scannedSnSet = new Set(scannedSnList);
+
+      const found: InventoryItem[] = [];
+      const notFound: string[] = [];
+      
+      for (const scannedSn of scannedSnSet) {
+        if (inventorySnMap.has(scannedSn)) {
+          found.push(inventorySnMap.get(scannedSn)!);
+        } else {
+          notFound.push(scannedSn);
+        }
+      }
+      
+      const notScanned: InventoryItem[] = [];
+      for (const inventorySn of allInventorySns) {
+        if (!scannedSnSet.has(inventorySn)) {
+          notScanned.push(inventorySnMap.get(inventorySn)!);
+        }
+      }
+      
+      setResults({ found, notFound, notScanned });
+
+    } catch (error) {
+        console.error("Error during stock conference:", error);
+        // Adicionar um toast de erro seria uma boa prática aqui
+    } finally {
+        setIsLoading(false);
+    }
   };
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  const formatDate = (dateString: string) => format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+  const formatDate = (dateString: string) => {
+    if(!dateString) return 'N/A';
+    return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+  }
 
   const ResultTable = ({ items }: { items: InventoryItem[] }) => (
       <div className="rounded-md border">
@@ -108,7 +135,7 @@ export function IndividualConference() {
                 />
             </div>
             <div className="text-sm text-muted-foreground">
-                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split('\n').length : 0}</span>
+                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split('\n').filter(Boolean).length : 0}</span>
             </div>
           </CardContent>
           <CardFooter>
@@ -148,9 +175,13 @@ export function IndividualConference() {
               </TabsContent>
               <TabsContent value="not_found" className="mt-4">
                   <div className="rounded-md border p-4 space-y-2">
-                    {results.notFound.length > 0 ? results.notFound.map(sn => (
-                        <Badge key={sn} variant="destructive" className="font-mono">{sn}</Badge>
-                    )) : <p className="text-sm text-muted-foreground text-center py-4">Nenhum item nesta categoria.</p>}
+                    {results.notFound.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {results.notFound.map(sn => (
+                                <Badge key={sn} variant="destructive" className="font-mono">{sn}</Badge>
+                            ))}
+                        </div>
+                    ): <p className="text-sm text-muted-foreground text-center py-4">Nenhum item nesta categoria.</p>}
                   </div>
               </TabsContent>
               <TabsContent value="not_scanned" className="mt-4">
