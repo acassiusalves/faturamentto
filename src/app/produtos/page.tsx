@@ -22,8 +22,7 @@ import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-che
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
 import { Label } from '@/components/ui/label';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
 
@@ -35,7 +34,6 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formState, setFormState] = useState<Record<string, string>>({});
-  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isSkuDialogOpen, setIsSkuDialogOpen] = useState(false);
@@ -94,11 +92,7 @@ export default function ProductsPage() {
   }, [runConflictCheck]);
 
   const handleAttributeSelect = (key: string, value: string) => {
-    setFormState(prev => {
-      const newValue = prev[key] === value ? "" : value;
-      return { ...prev, [key]: newValue };
-    });
-    setOpenPopovers(prev => ({ ...prev, [key]: false }));
+    setFormState(prev => ({ ...prev, [key]: value }));
   };
 
   const handleOpenSkuDialog = (product: Product) => {
@@ -341,6 +335,64 @@ export default function ProductsPage() {
 
           <TabsContent value="models" className="mt-6">
             <div className="grid md:grid-cols-3 gap-8 items-start">
+              <div className="md:col-span-1 space-y-4">
+                  <form onSubmit={handleSubmit}>
+                    <Card>
+                        <CardHeader>
+                          <CardTitle>Criar Novo Modelo de Celular</CardTitle>
+                          <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                           {settings ? orderedAttributes.map(attr => (
+                                <div key={attr.key} className="space-y-2">
+                                    <Label>{attr.label}</Label>
+                                    <Select
+                                        value={formState[attr.key]}
+                                        onValueChange={(value) => handleAttributeSelect(attr.key, value)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {attr.values.map((val) => (
+                                                <SelectItem key={val} value={val}>
+                                                    {val}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                           )) : <p>Carregando atributos...</p>}
+
+                          <div className="grid grid-cols-2 gap-4 pt-4">
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-muted-foreground">Nome Gerado</Label>
+                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                  <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                    {generatedName || "Selecione as opções acima..."}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-2 col-span-2">
+                                <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
+                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                  <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
+                                    {generatedSku || "Selecione as opções..."}
+                                  </span>
+                                </div>
+                              </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                            Criar Modelo de Produto
+                          </Button>
+                        </CardFooter>
+                    </Card>
+                  </form>
+              </div>
+
               <div className="md:col-span-2">
                 <Card>
                   <CardHeader>
