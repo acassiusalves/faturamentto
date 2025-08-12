@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Calendar as CalendarIcon, Save, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Save, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const labels = {
     labelsChange: "Sobra de etiquetas",
     finalStock: "Estoque final",
     realBalance: "Sobra real",
+    validation: "Validação",
 };
 
 interface ConferenceData {
@@ -232,6 +233,13 @@ export function StockConference() {
                                                 onChange={(e) => handleInputChange(row.date, 'realBalance', e.target.value)}
                                                 className="w-24"
                                             />
+                                        </TableCell>
+                                        <TableCell>
+                                            {row.realBalance > 0 && row.finalStock === row.realBalance ? (
+                                                <CheckCircle className="h-6 w-6 text-green-500" />
+                                            ) : row.realBalance > 0 && row.finalStock !== row.realBalance ? (
+                                                <XCircle className="h-6 w-6 text-destructive" />
+                                            ) : null}
                                         </TableCell>
                                     </TableRow>
                                 ))}
