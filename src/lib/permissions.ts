@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -35,7 +35,8 @@ export const pagePermissions: Record<string, string[]> = {
     '/estoque': ['admin', 'expedicao'],
     '/picking': ['admin', 'expedicao'],
     '/conciliacao': ['admin', 'financeiro'],
-    '/arquivo': ['admin', 'expedicao', 'sac'],
+    '/arquivo': ['admin', 'expedicao', 'sac', 'financeiro'],
+    '/arquivo/conferencia': ['admin', 'expedicao', 'financeiro'],
     '/dre': ['admin', 'financeiro'],
     '/custos-geral': ['admin', 'financeiro'],
     '/mapeamento': ['admin'],
