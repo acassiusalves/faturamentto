@@ -326,7 +326,6 @@ export default function ProductsPage() {
     const productsToUpdate: Product[] = [];
     const updatedProducts = products.map(p => {
         let wasModified = false;
-        const originalSkus = new Set(p.associatedSkus || []);
         const newSkus = (p.associatedSkus || []).filter(childSku => {
             const correctParentId = corrections.get(childSku);
             if (correctParentId && correctParentId !== p.id) {
@@ -390,16 +389,25 @@ export default function ProductsPage() {
                                 {settings && orderedAttributes.map(attr => (
                                   <div key={attr.key} className="space-y-2">
                                       <Label>{attr.label}</Label>
-                                      <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
+                                      <Popover
+                                        modal={false}
+                                        open={openPopovers[attr.key]}
+                                        onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}
+                                      >
                                         <PopoverTrigger asChild>
                                           <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal">
                                             <span className="truncate">{formState[attr.key] || `Selecione ${attr.label.toLowerCase()}...`}</span>
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                           </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="p-0 z-[999]" style={{ width: 'var(--radix-popover-trigger-width)' }} align="start">
-                                          <Command>
-                                            <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                        <PopoverContent
+                                          className="p-0 z-[99999] pointer-events-auto"
+                                          style={{ width: 'var(--radix-popover-trigger-width)' }}
+                                          align="start"
+                                          sideOffset={4}
+                                        >
+                                          <Command shouldFilter>
+                                            <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} autoFocus />
                                             <CommandList>
                                               <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
                                               <CommandGroup>
@@ -408,7 +416,6 @@ export default function ProductsPage() {
                                                     key={val}
                                                     value={val}
                                                     onSelect={(currentValue) => handleAttributeSelect(attr.key, currentValue)}
-                                                    onMouseDown={(e) => e.preventDefault()}
                                                   >
                                                     <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
                                                     {val}
@@ -542,4 +549,3 @@ export default function ProductsPage() {
     </>
   );
 }
-
