@@ -372,7 +372,6 @@ export default function ProductsPage() {
                                           <Command>
                                             <CommandInput
                                               placeholder={`Buscar ${attr.label.toLowerCase()}...`}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                                             />
                                             <CommandList>
                                               <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
