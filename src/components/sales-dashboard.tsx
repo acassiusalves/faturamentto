@@ -4,7 +4,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
 import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3 } from "lucide-react";
-import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate } from "date-fns";
+import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format } from "date-fns";
+import { ptBR } from 'date-fns/locale';
 
 import type { Sale, Cost } from "@/lib/types";
 import { SalesTable } from "@/components/sales-table";
@@ -196,6 +197,11 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
 
     }, [sales]);
 
+    const projectionMonthName = useMemo(() => {
+        const monthName = format(new Date(), "MMMM", { locale: ptBR });
+        return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    }, []);
+
 
   const formatCurrency = (value: number) => {
     if (isNaN(value)) return 'R$ 0,00';
@@ -270,7 +276,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
         <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos da planilha + adicionados"/>
-        <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description="Projeção para o mês corrente"/>
+        <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description={`Projeção para o mês de ${projectionMonthName}`}/>
       </div>
       
        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
