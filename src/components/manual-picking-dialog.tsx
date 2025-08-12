@@ -39,7 +39,7 @@ type ManualLogFormValues = z.infer<typeof manualLogSchema>;
 interface ManualPickingDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id' | 'createdAt' >) => Promise<void>;
+  onSave: (data: Omit<PickedItemLog, 'logId' | 'productId' | 'origin' | 'quantity' | 'id' | 'createdAt' >) => Promise<void>;
 }
 
 export function ManualPickingDialog({ isOpen, onClose, onSave }: ManualPickingDialogProps) {

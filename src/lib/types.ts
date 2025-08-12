@@ -29,7 +29,6 @@ export interface InventoryItem {
   name: string;      // The generated name from the Product, stored for convenience
   costPrice: number;
   serialNumber: string;
-  gtin?: string; // GTIN barcode
   sku: string;
   origin: string;
   quantity: number;

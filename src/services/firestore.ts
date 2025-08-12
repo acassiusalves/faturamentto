@@ -183,7 +183,7 @@ export const savePickLog = async (logs: PickedItemLog[]): Promise<void> => {
     await batch.commit();
 };
 
-export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id'>): Promise<void> => {
+export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' | 'productId' | 'origin' | 'quantity' | 'id'>): Promise<void> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
     const docRef = doc(logCol);
     const newLog: PickedItemLog = {
@@ -191,7 +191,6 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
         id: `manual-${logData.serialNumber}-${Date.now()}`,
         logId: docRef.id,
         productId: `manual-${logData.sku}`,
-        gtin: '',
         origin: 'Manual',
         quantity: 1,
         createdAt: new Date(logData.createdAt),
@@ -211,18 +210,7 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
     // 2. If it's not a manual item, add it back to inventory
     if (!pickLog.id.startsWith('manual-')) {
         const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
-        const itemToAddBack: InventoryItem = {
-            id: pickLog.id,
-            productId: pickLog.productId,
-            name: pickLog.name,
-            sku: pickLog.sku,
-            costPrice: pickLog.costPrice,
-            quantity: 1,
-            serialNumber: pickLog.serialNumber,
-            gtin: pickLog.gtin,
-            origin: pickLog.origin,
-            createdAt: pickLog.createdAt,
-        };
+        const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
         batch.set(inventoryDocRef, toFirestore(itemToAddBack));
     }
     

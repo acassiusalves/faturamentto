@@ -64,7 +64,7 @@ export default function ArchivePage() {
     });
   }, [allPicks, searchTerm, dateRange]);
   
-  const handleManualSave = async (data: Omit<PickedItemLog, 'logId' | 'productId' | 'gtin' | 'origin' | 'quantity' | 'id' | 'createdAt' >) => {
+  const handleManualSave = async (data: Omit<PickedItemLog, 'logId' | 'productId' | 'origin' | 'quantity' | 'id' | 'createdAt' >) => {
     try {
         await saveManualPickingLog(data as any);
         toast({

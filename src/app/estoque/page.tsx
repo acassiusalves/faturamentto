@@ -29,7 +29,6 @@ const inventorySchema = z.object({
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   sku: z.string().min(1, "SKU é obrigatório."),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
-  gtin: z.string().optional(),
   origin: z.string().min(1, "A origem é obrigatória"),
 });
 
@@ -58,7 +57,6 @@ export default function EstoquePage() {
       productId: '',
       sku: '',
       costPrice: 0,
-      gtin: '',
       origin: '',
     },
   });
@@ -160,7 +158,6 @@ export default function EstoquePage() {
       costPrice: data.costPrice,
       quantity: 1,
       serialNumber: sn,
-      gtin: data.gtin || '',
       origin: data.origin || '',
       createdAt: new Date().toISOString(),
     }));
@@ -172,7 +169,7 @@ export default function EstoquePage() {
         title: `${newItems.length} Itens Adicionados!`,
         description: `Os produtos "${selectedProduct.name}" foram salvos com sucesso.`,
       });
-      form.reset({ productId: '', sku: '', costPrice: 0, gtin: '', origin: '' });
+      form.reset({ productId: '', sku: '', costPrice: 0, origin: '' });
       setSerialNumbers([]);
     } catch (error) {
       console.error(error);
@@ -209,8 +206,7 @@ export default function EstoquePage() {
           itemsToDisplay = itemsToDisplay.filter(item =>
               item.name.toLowerCase().includes(lowercasedTerm) ||
               item.sku.toLowerCase().includes(lowercasedTerm) ||
-              item.serialNumber.toLowerCase().includes(lowercasedTerm) ||
-              item.gtin?.toLowerCase().includes(lowercasedTerm)
+              item.serialNumber.toLowerCase().includes(lowercasedTerm)
           );
       }
       
@@ -387,12 +383,6 @@ export default function EstoquePage() {
                       </div>
                   </div>
 
-                   <FormField control={form.control} name="gtin" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GTIN (Código de Barras)</FormLabel>
-                        <FormControl><Input placeholder="Digite o código de barras (opcional)" {...field} /></FormControl>
-                      </FormItem>
-                  )} />
                    <FormField
                       control={form.control}
                       name="origin"
@@ -468,7 +458,7 @@ export default function EstoquePage() {
                <div className="relative mt-4">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar por Nome, SKU, SN ou GTIN..." 
+                    placeholder="Buscar por Nome, SKU ou SN..." 
                     className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
