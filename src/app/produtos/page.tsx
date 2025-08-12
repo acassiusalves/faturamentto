@@ -427,7 +427,6 @@ export default function ProductsPage() {
             <TabsContent value="models" className="mt-6">
                 <div className="grid md:grid-cols-3 gap-8 items-start">
                     <div className="md:col-span-1 space-y-4">
-                      {/* A TAG FORM FOI REINTRODUZIDA AQUI */}
                       <form onSubmit={handleSubmit}>
                         <Card>
                             <CardHeader>
@@ -453,11 +452,17 @@ export default function ProductsPage() {
                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                       </PopoverTrigger>
-                                      <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                                      <PopoverContent
+                                        className="p-0 z-[9999]"
+                                        style={{ width: 'var(--radix-popover-trigger-width)' }}
+                                        align="start"
+                                        sideOffset={4}
+                                      >
                                         <Command>
                                           <CommandInput
                                             placeholder={`Buscar ${attr.label.toLowerCase()}...`}
                                             onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                                            autoFocus
                                           />
                                           <CommandList>
                                             <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
@@ -466,8 +471,7 @@ export default function ProductsPage() {
                                                 <CommandItem
                                                   key={val}
                                                   value={val}
-                                                  onSelect={() => handleAttributeSelect(attr.key, val)}
-                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onSelect={(currentValue) => handleAttributeSelect(attr.key, currentValue)}
                                                 >
                                                   <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
                                                   {val}
