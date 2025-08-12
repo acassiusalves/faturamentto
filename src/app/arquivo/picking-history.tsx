@@ -3,12 +3,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { loadAllPickingLogs, saveManualPickingLog } from '@/services/firestore';
+import { loadAllPickingLogs, saveManualPickingLog, updatePickingLogs } from '@/services/firestore';
 import type { PickedItemLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle } from 'lucide-react';
+import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle, Pencil, Save } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -28,6 +28,11 @@ export function PickingHistory() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<Map<string, number>>(new Map());
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const fetchAllPicks = useCallback(async () => {
     setIsLoading(true);
@@ -99,6 +104,42 @@ export function PickingHistory() {
     }
   }, [filteredPicks, pageIndex, pageCount]);
 
+  const handleCostChange = (logId: string, newCost: string) => {
+    const numericCost = parseFloat(newCost);
+    if (!isNaN(numericCost)) {
+      setPendingChanges(prev => new Map(prev).set(logId, numericCost));
+    }
+  };
+
+  const handleSaveChanges = async () => {
+      if (pendingChanges.size === 0) return;
+      setIsSaving(true);
+      
+      const updates = Array.from(pendingChanges.entries()).map(([logId, costPrice]) => ({ logId, costPrice }));
+
+      try {
+          await updatePickingLogs(updates);
+          setAllPicks(prevPicks =>
+              prevPicks.map(pick =>
+                  pendingChanges.has(pick.logId)
+                      ? { ...pick, costPrice: pendingChanges.get(pick.logId)! }
+                      : pick
+              )
+          );
+          toast({
+              title: "Alterações Salvas!",
+              description: `${updates.length} registro(s) de custo foram atualizados.`
+          });
+          setPendingChanges(new Map());
+          setEditingRowId(null);
+      } catch (error) {
+          console.error("Error saving cost changes:", error);
+          toast({ variant: "destructive", title: "Erro ao Salvar", description: "Não foi possível salvar as alterações de custo." });
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
     return `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR')}`;
@@ -136,6 +177,12 @@ export function PickingHistory() {
                   </div>
               </div>
               <div className="flex flex-col sm:flex-row w-full sm:w-auto items-center gap-4">
+                  {pendingChanges.size > 0 && (
+                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                          {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2" />}
+                          Salvar Alterações
+                        </Button>
+                    )}
                   <Button onClick={() => setIsManualAddOpen(true)}>
                     <PlusCircle />
                     Adicionar Registro Manual
@@ -184,7 +231,32 @@ export function PickingHistory() {
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell className="font-mono text-sm">{item.sku}</TableCell>
                                     <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
-                                    <TableCell className="font-medium">{formatCurrency(item.costPrice)}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {editingRowId === item.logId ? (
+                                                <Input
+                                                    type="number"
+                                                    defaultValue={pendingChanges.get(item.logId) ?? item.costPrice}
+                                                    onChange={(e) => handleCostChange(item.logId, e.target.value)}
+                                                    onBlur={() => setEditingRowId(null)}
+                                                    className="w-28 h-8"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <>
+                                                    <span>{formatCurrency(pendingChanges.get(item.logId) ?? item.costPrice)}</span>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6"
+                                                        onClick={() => setEditingRowId(item.logId)}
+                                                    >
+                                                        <Pencil className="h-3 w-3" />
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right font-semibold">{item.orderNumber}</TableCell>
                                 </TableRow>
                             ))

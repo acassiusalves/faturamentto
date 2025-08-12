@@ -172,6 +172,18 @@ export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
 };
 
+export const updatePickingLogs = async (updates: { logId: string; costPrice: number }[]): Promise<void> => {
+    const batch = writeBatch(db);
+    updates.forEach(update => {
+        if (update.logId && typeof update.costPrice === 'number') {
+            const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log', update.logId);
+            batch.update(docRef, { costPrice: update.costPrice });
+        }
+    });
+    await batch.commit();
+};
+
+
 export const savePickLog = async (logs: PickedItemLog[]): Promise<void> => {
     const batch = writeBatch(db);
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
