@@ -212,7 +212,7 @@ export function StockConference() {
                                                 <TableCell>{null}</TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
                                                 <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.returnsSystem}</Badge></TableCell>
-                                                <TableCell>{null}</TableCell>
+                                                <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.withdrawalsSystem}</Badge></TableCell>
                                                 <TableCell>{null}</TableCell>
                                                 <TableCell>{null}</TableCell>
                                                 <TableCell>{null}</TableCell>
