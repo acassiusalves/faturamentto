@@ -16,14 +16,13 @@ import { loadInventoryItems, loadAllPickingLogs } from "@/services/firestore";
 import type { InventoryItem, PickedItemLog } from "@/lib/types";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 const labels = {
-    initialStockSystem: "Estoque inicial S.",
-    initialStockUser: "Estoque inicial U.",
-    receiptsSystem: "Recebimentos S.",
-    receiptsUser: "Recebimentos U.",
+    initialStock: "Estoque inicial",
+    receipts: "Recebimentos",
     returns: "Devoluções Novos",
-    withdrawals: "Retiradas", // Agora vem do sistema
+    withdrawals: "Retiradas",
     invoiced: "Faturados",
     labelsChange: "Sobra de etiquetas",
     finalStock: "Estoque final",
@@ -86,7 +85,7 @@ export function StockConference() {
             receiptsSystem: receiptsToday,
             receiptsUser: 0,
             returns: 0,
-            withdrawals: withdrawalsToday, // Dado do sistema
+            withdrawals: withdrawalsToday,
             invoiced: 0,
             labelsChange: 0,
             finalStock: 0, 
@@ -109,9 +108,7 @@ export function StockConference() {
             prev.map(row => {
                 if (row.date === date) {
                     const updatedRow = { ...row, [field]: numericValue };
-
-                    // Recalcula o estoque final quando os campos manuais que o afetam mudam.
-                    if (['returns'].includes(field)) {
+                    if (['initialStockUser', 'receiptsUser', 'returns', 'invoiced', 'labelsChange'].includes(field as string)) {
                          updatedRow.finalStock = updatedRow.initialStockSystem + updatedRow.receiptsSystem + updatedRow.returns - updatedRow.withdrawals;
                     }
                     return updatedRow;
@@ -124,18 +121,11 @@ export function StockConference() {
     const handleSave = async () => {
         setIsSaving(true);
         console.log("Saving data:", conferenceData);
-        // Aqui você chamaria um serviço para salvar `conferenceData` no Firestore.
-        // A lógica de salvamento ainda precisa ser implementada.
-        await new Promise(res => setTimeout(res, 1000)); // Simula salvamento assíncrono
+        await new Promise(res => setTimeout(res, 1000));
         setIsSaving(false);
     };
-
-    const visibleLabels = Object.entries(labels).filter(([key, _label]) => {
-        if (!showSystemData) {
-            return !['initialStockSystem', 'receiptsSystem', 'withdrawals'].includes(key);
-        }
-        return true;
-    });
+    
+    const visibleLabels = Object.values(labels);
 
     return (
         <Card>
@@ -189,74 +179,45 @@ export function StockConference() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    {visibleLabels.map(([_key, label]) => (
+                                    {visibleLabels.map((label) => (
                                         <TableHead key={label} className="whitespace-nowrap">{label}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {conferenceData.map((row) => (
-                                    <TableRow key={row.date}>
-                                        {showSystemData && <TableCell>{row.initialStockSystem}</TableCell>}
-                                        <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.initialStockUser}
-                                                onChange={(e) => handleInputChange(row.date, 'initialStockUser', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                        {showSystemData && <TableCell>{row.receiptsSystem}</TableCell>}
-                                         <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.receiptsUser}
-                                                onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.returns}
-                                                onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                        {showSystemData && <TableCell>{row.withdrawals}</TableCell>}
-                                        <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.invoiced}
-                                                onChange={(e) => handleInputChange(row.date, 'invoiced', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                         <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.labelsChange}
-                                                onChange={(e) => handleInputChange(row.date, 'labelsChange', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                         <TableCell className="font-semibold">{row.finalStock}</TableCell>
-                                         <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={row.realBalance}
-                                                onChange={(e) => handleInputChange(row.date, 'realBalance', e.target.value)}
-                                                className="w-24"
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            {row.realBalance > 0 && row.finalStock === row.realBalance ? (
-                                                <CheckCircle className="h-6 w-6 text-green-500" />
-                                            ) : row.realBalance > 0 && row.finalStock !== row.realBalance ? (
-                                                <XCircle className="h-6 w-6 text-destructive" />
-                                            ) : null}
-                                        </TableCell>
-                                    </TableRow>
+                                    <>
+                                        <TableRow key={`${row.date}-user`} className="bg-muted/20">
+                                            <TableCell><Input type="number" value={row.initialStockUser} onChange={(e) => handleInputChange(row.date, 'initialStockUser', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell><Input type="number" value={row.receiptsUser} onChange={(e) => handleInputChange(row.date, 'receiptsUser', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell><Input type="number" value={row.returns} onChange={(e) => handleInputChange(row.date, 'returns', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell><Input type="number" value={row.withdrawals} readOnly className="w-24 bg-muted/50" /></TableCell>
+                                            <TableCell><Input type="number" value={row.invoiced} onChange={(e) => handleInputChange(row.date, 'invoiced', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell><Input type="number" value={row.labelsChange} onChange={(e) => handleInputChange(row.date, 'labelsChange', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell className="font-semibold">{row.finalStock}</TableCell>
+                                            <TableCell><Input type="number" value={row.realBalance} onChange={(e) => handleInputChange(row.date, 'realBalance', e.target.value)} className="w-24" /></TableCell>
+                                            <TableCell>
+                                                {row.realBalance > 0 && row.finalStock === row.realBalance ? (
+                                                    <CheckCircle className="h-6 w-6 text-green-500" />
+                                                ) : row.realBalance > 0 && row.finalStock !== row.realBalance ? (
+                                                    <XCircle className="h-6 w-6 text-destructive" />
+                                                ) : null}
+                                            </TableCell>
+                                        </TableRow>
+                                        {showSystemData && (
+                                            <TableRow key={`${row.date}-system`} className="bg-card">
+                                                <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.initialStockSystem}</Badge></TableCell>
+                                                <TableCell className="text-center font-semibold"><Badge variant="secondary">{row.receiptsSystem}</Badge></TableCell>
+                                                <TableCell></TableCell> {/* Devoluções */}
+                                                <TableCell></TableCell> {/* Retiradas */}
+                                                <TableCell></TableCell> {/* Faturados */}
+                                                <TableCell></TableCell> {/* Sobra de etiquetas */}
+                                                <TableCell></TableCell> {/* Estoque final */}
+                                                <TableCell></TableCell> {/* Sobra real */}
+                                                <TableCell></TableCell> {/* Validação */}
+                                            </TableRow>
+                                        )}
+                                    </>
                                 ))}
                             </TableBody>
                         </Table>
@@ -265,9 +226,11 @@ export function StockConference() {
             </CardContent>
             <CardFooter>
                  <p className="text-xs text-muted-foreground">
-                    Os campos com 'S.' e o campo 'Retiradas' são dados do sistema e não podem ser editados. Os campos com 'U.' são para entrada manual do usuário.
+                    Linha cinza para entrada de dados manuais (U.). Quando habilitado, a linha branca abaixo exibe dados do sistema (S.).
                 </p>
             </CardFooter>
         </Card>
     );
 }
+
+    
