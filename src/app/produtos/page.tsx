@@ -1,14 +1,15 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { Product, ProductCategorySettings, ProductAttribute, InventoryItem } from '@/lib/types';
+import type { Product, ProductCategorySettings, ProductAttribute } from '@/lib/types';
 import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Package, Search, Download, Link2, Upload, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ChevronsUpDown, Check, Hash, Search, Download, Link2, Upload, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -97,14 +98,11 @@ export default function ProductsPage() {
         setIsLoading(false);
     }
     loadData();
-  }, [toast, runConflictCheck]);
+  }, [runConflictCheck]);
 
   const handleAttributeSelect = (key: string, value: string) => {
-    setFormState(prev => {
-        const newValue = prev[key] === value ? "" : value;
-        return { ...prev, [key]: newValue };
-    });
-    setOpenPopovers(prev => ({...prev, [key]: false}));
+    setFormState(prev => ({ ...prev, [key]: value }));
+    setOpenPopovers(prev => ({ ...prev, [key]: false }));
   };
   
   const handleOpenSkuDialog = (product: Product) => {
@@ -117,14 +115,14 @@ export default function ProductsPage() {
     setIsSkuDialogOpen(false);
   };
   
-  const handleSkuSave = (product: Product, newSkus: string[]) => {
+  const handleSkuSave = async (product: Product, newSkus: string[]) => {
     const updatedProduct: Product = { ...product, associatedSkus: newSkus };
+    await saveProduct(updatedProduct);
     setProducts(prev => {
         const newProducts = prev.map(p => (p.id === product.id ? updatedProduct : p));
         runConflictCheck(newProducts, true);
         return newProducts;
     });
-    saveProduct(updatedProduct);
   };
 
   const orderedAttributes = useMemo(() => {
@@ -140,14 +138,11 @@ export default function ProductsPage() {
       .map(attr => formState[attr.key])
       .filter(Boolean)
       .join(" ");
-  }, [settings, formState, orderedAttributes]);
+  }, [formState, orderedAttributes]);
   
   const canSubmit = useMemo(() => {
      if (!settings) return false;
-     const allRequiredFilled = settings.attributes.every(attr => {
-       return !!formState[attr.key];
-     });
-     return allRequiredFilled && generatedName.length > 0;
+     return settings.attributes.every(attr => !!formState[attr.key]) && generatedName.length > 0;
   }, [settings, formState, generatedName])
 
  const generatedSku = useMemo(() => {
@@ -166,20 +161,20 @@ export default function ProductsPage() {
         return pBaseName === baseName;
     });
     let sequentialNumberPart: string;
-    if (existingProductWithSameBase && existingProductWithSameBase.sku) {
+    if (existingProductWithSameBase?.sku) {
         sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
     } else {
         const maxSkuNum = products.reduce((max, p) => {
             if (!p.sku) return max;
             const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
-            return isNaN(num) ? max : (num > max ? num : max);
+            return isNaN(num) ? max : Math.max(max, num);
         }, 0);
         sequentialNumberPart = (maxSkuNum + 1).toString();
     }
     const color = formState['cor'] || '';
     const colorCode = color.length > 2 && color.includes(' ') ? 
         color.split(' ').map(word => word.charAt(0)).join('').toUpperCase() : 
-        color.charAt(0).toUpperCase();
+        color.slice(0, 2).toUpperCase();
     return `#${sequentialNumberPart}${colorCode}`;
 }, [products, formState, canSubmit, orderedAttributes]);
 
@@ -187,20 +182,13 @@ export default function ProductsPage() {
     let results = products;
     if (searchTerm) {
       const lowercasedTerm = searchTerm.toLowerCase();
-      results = results.filter(product => {
-        const nameMatch = product.name.toLowerCase().includes(lowercasedTerm);
-        const skuMatch = product.sku.toLowerCase().includes(lowercasedTerm);
-        const associatedSkuMatch = product.associatedSkus?.some(sku => sku.toLowerCase().includes(lowercasedTerm));
-        return nameMatch || skuMatch || associatedSkuMatch;
-      });
+      results = results.filter(product =>
+        product.name.toLowerCase().includes(lowercasedTerm) ||
+        product.sku.toLowerCase().includes(lowercasedTerm) ||
+        product.associatedSkus?.some(sku => sku.toLowerCase().includes(lowercasedTerm))
+      );
     }
-    return results.sort((a, b) => {
-        const aHasSkus = (a.associatedSkus?.length || 0) > 0;
-        const bHasSkus = (b.associatedSkus?.length || 0) > 0;
-        if (aHasSkus && !bHasSkus) return -1;
-        if (!aHasSkus && bHasSkus) return 1;
-        return 0;
-    });
+    return results.sort((a, b) => (b.associatedSkus?.length || 0) - (a.associatedSkus?.length || 0));
   }, [products, searchTerm]);
 
   const resetForm = () => {
@@ -215,24 +203,15 @@ export default function ProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !generatedSku) return;
-    const isProductDuplicate = products.some(p => p.name.toLowerCase() === generatedName.toLowerCase());
-    if (isProductDuplicate) {
-        toast({
-            variant: 'destructive',
-            title: 'Produto Duplicado',
-            description: `Um produto com o nome "${generatedName}" já existe.`,
-        });
+    if (products.some(p => p.name.toLowerCase() === generatedName.toLowerCase())) {
+        toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedName}" já existe.` });
         return;
     }
-    const existingProductWithSku = products.find(p => p.sku === generatedSku);
-    if (existingProductWithSku) {
-         toast({
-            variant: 'destructive',
-            title: 'SKU Duplicado',
-            description: `O SKU "${generatedSku}" já está sendo usado pelo produto "${existingProductWithSku.name}".`,
-        });
+    if (products.some(p => p.sku === generatedSku)) {
+        toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU gerado "${generatedSku}" já está em uso.` });
         return;
     }
+
     setIsSubmitting(true);
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
@@ -250,13 +229,9 @@ export default function ProductsPage() {
         runConflictCheck(newProducts, false);
         return newProducts;
       });
-      toast({
-        title: "Produto Criado!",
-        description: `O modelo "${generatedName}" foi salvo com sucesso.`,
-      });
+      toast({ title: "Produto Criado!", description: `O modelo "${generatedName}" foi salvo.` });
       resetForm();
     } catch (error) {
-      console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o modelo do produto.' });
     } finally {
       setIsSubmitting(false);
@@ -273,7 +248,6 @@ export default function ProductsPage() {
       });
       toast({ title: 'Modelo Removido', description: 'O modelo de produto foi removido.' });
     } catch (error) {
-      console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Remover', description: 'Não foi possível remover o modelo.' });
     }
   };
@@ -291,12 +265,7 @@ export default function ProductsPage() {
         return true;
     });
     productsWithNoDuplicates.forEach(p => {
-        const newProduct: Product = {
-            ...p,
-            id: `prod-${Date.now()}-${Math.random()}`,
-            createdAt: new Date().toISOString(),
-        };
-        productsToSave.push(newProduct);
+        productsToSave.push({ ...p, id: `prod-${Date.now()}-${Math.random()}`, createdAt: new Date().toISOString() });
     });
     if (productsToSave.length > 0) {
       await saveProducts(productsToSave);
@@ -306,99 +275,83 @@ export default function ProductsPage() {
         return newProducts;
       });
     }
-    toast({
-        title: "Importação Concluída",
-        description: `${productsToSave.length} produtos foram importados. ${skippedCount} produtos já existentes foram ignorados.`
-    });
+    toast({ title: "Importação Concluída", description: `${productsToSave.length} produtos importados. ${skippedCount} duplicados ignorados.` });
     setIsBulkImportOpen(false);
   }
   
   const handleBulkAssociateSave = async (associations: Map<string, string[]>) => {
-    let updatedProducts: Product[] = [];
-    const productsToSave: Product[] = [];
+    const productsToUpdate: Product[] = [];
     let associationsCount = 0;
     const notFoundSkus: string[] = [];
-    setProducts(prevProducts => {
-        const productsMap = new Map(prevProducts.map(p => [p.sku, p]));
-        associations.forEach((childSkus, parentSku) => {
-            if (productsMap.has(parentSku)) {
-                const productToUpdate = { ...productsMap.get(parentSku)! };
-                const currentSkus = new Set(productToUpdate.associatedSkus || []);
-                childSkus.forEach(childSku => {
-                    if (!currentSkus.has(childSku)) {
-                        currentSkus.add(childSku);
-                        associationsCount++;
-                    }
-                });
-                productToUpdate.associatedSkus = Array.from(currentSkus);
-                productsMap.set(parentSku, productToUpdate);
-                productsToSave.push(productToUpdate);
-            } else {
-                notFoundSkus.push(parentSku);
-            }
+    const updatedProducts = products.map(p => {
+      if (associations.has(p.sku)) {
+        const productToUpdate = { ...p };
+        const currentSkus = new Set(productToUpdate.associatedSkus || []);
+        const skusToAdd = associations.get(p.sku) || [];
+        skusToAdd.forEach(childSku => {
+          if (!currentSkus.has(childSku)) {
+            currentSkus.add(childSku);
+            associationsCount++;
+          }
         });
-        updatedProducts = Array.from(productsMap.values());
-        runConflictCheck(updatedProducts, true);
-        return updatedProducts;
+        productToUpdate.associatedSkus = Array.from(currentSkus);
+        productsToUpdate.push(productToUpdate);
+        return productToUpdate;
+      }
+      return p;
     });
-    if (productsToSave.length > 0) {
-        await saveProducts(productsToSave);
+
+    if (productsToUpdate.length > 0) {
+      await saveProducts(productsToUpdate);
+      setProducts(updatedProducts);
+      runConflictCheck(updatedProducts, true);
     }
-    toast({
-        title: "Associação em Massa Concluída",
-        description: `${associationsCount} novas associações foram salvas. ${notFoundSkus.length} SKUs pais não foram encontrados.`,
+    
+    associations.forEach((_, parentSku) => {
+        if (!products.some(p => p.sku === parentSku)) {
+            notFoundSkus.push(parentSku);
+        }
     });
+
+    toast({ title: "Associação em Massa Concluída", description: `${associationsCount} novas associações salvas. ${notFoundSkus.length} SKUs pais não encontrados.` });
     setIsBulkAssociateOpen(false);
   };
 
   const handleOpenConflictDialog = () => {
-    setIsCheckingConflicts(true);
-    setConflictResults(conflictResults);
-    setIsCheckingConflicts(false);
     setIsConflictDialogOpen(true);
   };
 
   const handleSaveCorrections = async (corrections: Map<string, string>) => {
     setIsCheckingConflicts(true);
     const productsToUpdate: Product[] = [];
-    setProducts(currentProducts => {
-        const productsMap = new Map(currentProducts.map(p => [p.id, p]));
-        corrections.forEach((correctParentId, childSku) => {
-            const conflict = conflictResults.find(c => c.childSku === childSku);
-            if (!conflict) return;
-            conflict.parentProducts.forEach(parentProduct => {
-                const product = productsMap.get(parentProduct.productId);
-                if (!product || !product.associatedSkus) return;
-                if (parentProduct.productId !== correctParentId) {
-                    const updatedSkus = product.associatedSkus.filter(s => s !== childSku);
-                    const updatedProduct: Product = { ...product, associatedSkus: updatedSkus };
-                    productsMap.set(product.id, updatedProduct);
-                    if (!productsToUpdate.find(p => p.id === updatedProduct.id)) {
-                        productsToUpdate.push(updatedProduct);
-                    }
-                }
-            });
+    const updatedProducts = products.map(p => {
+        let wasModified = false;
+        const originalSkus = new Set(p.associatedSkus || []);
+        const newSkus = (p.associatedSkus || []).filter(childSku => {
+            const correctParentId = corrections.get(childSku);
+            if (correctParentId && correctParentId !== p.id) {
+                wasModified = true;
+                return false; 
+            }
+            return true;
         });
-        return Array.from(productsMap.values());
-    });
-    if (productsToUpdate.length > 0) {
-        try {
-            await saveProducts(productsToUpdate);
-            const updatedProductList = await loadProducts();
-            setProducts(updatedProductList);
-            runConflictCheck(updatedProductList, false);
-            toast({
-                title: "Conflitos Resolvidos!",
-                description: `${productsToUpdate.length} produtos foram atualizados para remover associações incorretas.`
-            });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar as correções.' });
+        if (wasModified) {
+            const updatedProduct = { ...p, associatedSkus: newSkus };
+            productsToUpdate.push(updatedProduct);
+            return updatedProduct;
         }
+        return p;
+    });
+
+    if (productsToUpdate.length > 0) {
+        await saveProducts(productsToUpdate);
+        setProducts(updatedProducts);
+        runConflictCheck(updatedProducts, false);
+        toast({ title: "Conflitos Resolvidos!", description: "As associações de SKU foram corrigidas." });
     }
     setIsConflictDialogOpen(false);
     setIsCheckingConflicts(false);
   };
-
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR');
 
@@ -413,266 +366,179 @@ export default function ProductsPage() {
 
   return (
     <>
-    <div className="flex flex-col gap-8 p-4 md:p-8">
-        <div>
-            <h1 className="text-3xl font-bold font-headline">Gerenciador de Produtos</h1>
-            <p className="text-muted-foreground">Crie e gerencie os modelos de produtos (produtos pai) do seu sistema.</p>
-        </div>
+      <div className="flex flex-col gap-8 p-4 md:p-8">
+          <div>
+              <h1 className="text-3xl font-bold font-headline">Gerenciador de Produtos</h1>
+              <p className="text-muted-foreground">Crie e gerencie os modelos de produtos (produtos pai) do seu sistema.</p>
+          </div>
 
-        <Tabs defaultValue="models" className="w-full">
-            <TabsList>
-                <TabsTrigger value="models">Modelos</TabsTrigger>
-                <TabsTrigger value="settings">Configurações</TabsTrigger>
-            </TabsList>
-            <TabsContent value="models" className="mt-6">
-                <div className="grid md:grid-cols-3 gap-8 items-start">
-                    <div className="md:col-span-1 space-y-4">
-                      <form onSubmit={handleSubmit}>
+          <Tabs defaultValue="models" className="w-full">
+              <TabsList>
+                  <TabsTrigger value="models">Modelos</TabsTrigger>
+                  <TabsTrigger value="settings">Configurações</TabsTrigger>
+              </TabsList>
+              <TabsContent value="models" className="mt-6">
+                  <div className="grid md:grid-cols-3 gap-8 items-start">
+                      <div className="md:col-span-1 space-y-4">
+                        <form onSubmit={handleSubmit}>
+                          <Card>
+                              <CardHeader>
+                                <CardTitle>Criar Novo Modelo de Celular</CardTitle>
+                                <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                {settings && orderedAttributes.map(attr => (
+                                  <div key={attr.key} className="space-y-2">
+                                      <Label>{attr.label}</Label>
+                                      <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
+                                        <PopoverTrigger asChild>
+                                          <Button type="button" variant="outline" role="combobox" className="w-full justify-between font-normal">
+                                            <span className="truncate">{formState[attr.key] || `Selecione ${attr.label.toLowerCase()}...`}</span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="p-0 z-[999]" style={{ width: 'var(--radix-popover-trigger-width)' }} align="start">
+                                          <Command>
+                                            <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                            <CommandList>
+                                              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+                                              <CommandGroup>
+                                                {attr.values.map((val) => (
+                                                  <CommandItem
+                                                    key={val}
+                                                    value={val}
+                                                    onSelect={(currentValue) => handleAttributeSelect(attr.key, currentValue)}
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                  >
+                                                    <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
+                                                    {val}
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                  </div>
+                                ))}
+                                <div className="space-y-2 pt-4">
+                                  <Label className="text-muted-foreground">Nome Gerado</Label>
+                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                    <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                      {generatedName || "Selecione as opções acima..."}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
+                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                    <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
+                                      {generatedSku || "Aguardando seleção..."}
+                                    </span>
+                                  </div>
+                                </div>
+                              </CardContent>
+                              <CardFooter>
+                                <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
+                                  {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                  Criar Modelo de Produto
+                                </Button>
+                              </CardFooter>
+                          </Card>
+                        </form>
+                      </div>
+
+                      <div className="md:col-span-2">
                         <Card>
-                            <CardHeader>
-                              <CardTitle>Criar Novo Modelo de Celular</CardTitle>
-                              <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              {settings && orderedAttributes.map(attr => (
-                                <div key={attr.key} className="space-y-2">
-                                    <Label>{attr.label}</Label>
-                                    <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          role="combobox"
-                                          aria-expanded={openPopovers[attr.key]}
-                                          className="w-full justify-between font-normal"
-                                        >
-                                          <span className="truncate">
-                                            {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
-                                          </span>
-                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent
-                                        className="p-0 z-[9999]"
-                                        style={{ width: 'var(--radix-popover-trigger-width)' }}
-                                        align="start"
-                                        sideOffset={4}
-                                      >
-                                        <Command>
-                                          <CommandInput
-                                            placeholder={`Buscar ${attr.label.toLowerCase()}...`}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                                            autoFocus
-                                          />
-                                          <CommandList>
-                                            <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                            <CommandGroup>
-                                              {attr.values.map((val) => (
-                                                <CommandItem
-                                                  key={val}
-                                                  value={val}
-                                                  onSelect={(currentValue) => handleAttributeSelect(attr.key, currentValue)}
-                                                >
-                                                  <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                  {val}
-                                                </CommandItem>
-                                              ))}
-                                            </CommandGroup>
-                                          </CommandList>
-                                        </Command>
-                                      </PopoverContent>
-                                    </Popover>
-                                </div>
-                              ))}
-                              
-                              <div className="grid grid-cols-2 gap-4 pt-4">
-                                  <div className="space-y-2 col-span-2">
-                                    <Label className="text-muted-foreground">Nome Gerado</Label>
-                                    <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                      <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                        {generatedName || "Selecione as opções acima..."}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-2 col-span-2">
-                                    <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
-                                    <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                      <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                        {generatedSku || "Selecione as opções..."}
-                                      </span>
-                                    </div>
-                                  </div>
+                          <CardHeader>
+                            <div className="flex justify-between items-center gap-4 flex-wrap">
+                              <div className="flex-1 min-w-[200px]">
+                                <CardTitle>Modelos Cadastrados</CardTitle>
+                                <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
                               </div>
-
-                            </CardContent>
-                            <CardFooter>
-                              <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                Criar Modelo de Produto
-                              </Button>
-                            </CardFooter>
-                        </Card>
-                      </form>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Card>
-                        <CardHeader>
-                          <div className="flex justify-between items-center gap-4 flex-wrap">
-                            <div className="flex-1 min-w-[200px]">
-                              <CardTitle>Modelos Cadastrados</CardTitle>
-                              <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input placeholder="Buscar por nome ou SKU..." className="pl-9 w-full sm:w-auto" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                  </div>
+                                  <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}><Upload className="mr-2 h-4 w-4" />Importar</Button>
+                                  <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}><Link2 className="mr-2 h-4 w-4" />Associar</Button>
+                                  {hasConflicts && <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>{isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}Verificar Conflitos</Button>}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <div className="relative">
-                                  <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                                  <Input
-                                    placeholder="Buscar por nome ou SKU..."
-                                    className="pl-9 w-full sm:w-auto"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                  />
-                                </div>
-                                <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Importar Modelos
-                                </Button>
-                                <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
-                                      <Link2 className="mr-2 h-4 w-4" />
-                                      Importar Associações
-                                </Button>
-                                  {hasConflicts && (
-                                      <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
-                                          {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                                          Verificar Conflitos
-                                      </Button>
-                                  )}
-                                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted p-2 rounded-md whitespace-nowrap">
-                                  <Hash className="h-4 w-4" />
-                                  <span>{filteredProducts.length} de {products.length} Modelos</span>
-                                </div>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="rounded-md border max-h-[600px] overflow-y-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Nome do Produto</TableHead>
-                                  <TableHead>SKU</TableHead>
-                                  <TableHead>Data de Criação</TableHead>
-                                  <TableHead className="text-right">Ações</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {isLoading ? (
-                                  <TableRow><TableCell colSpan={4} className="h-24 text-center">Carregando...</TableCell></TableRow>
-                                ) : filteredProducts.length > 0 ? (
-                                  filteredProducts.map(product => (
-                                    <TableRow key={product.id}>
-                                      <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                          <span>{product.name}</span>
-                                          {product.associatedSkus && product.associatedSkus.length > 0 && (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                  <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
-                                                      <Link2 className="h-4 w-4" />
-                                                      <span>{product.associatedSkus.length}</span>
-                                                  </div>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto p-0">
-                                                <div className="p-3 space-y-2">
-                                                  <p className="text-sm font-semibold text-foreground">SKUs associados a este produto</p>
-                                                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 max-h-48 overflow-y-auto pr-2">
-                                                    {product.associatedSkus.map(sku => (
-                                                      <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                          )}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
-                                      <TableCell>{formatDate(product.createdAt)}</TableCell>
-                                      <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
-                                            <Download className="mr-2 h-4 w-4" />
-                                        </Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta ação não pode ser desfeita. Isso removerá permanentemente o modelo do produto. Você não poderá mais adicioná-lo ao estoque.
-                                                </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))
-                                ) : (
+                          </CardHeader>
+                          <CardContent>
+                            <div className="rounded-md border max-h-[600px] overflow-y-auto">
+                              <Table>
+                                <TableHeader>
                                   <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">Nenhum modelo de produto encontrado.</TableCell>
+                                    <TableHead>Nome do Produto</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead>Data de Criação</TableHead>
+                                    <TableHead className="text-right">Ações</TableHead>
                                   </TableRow>
-                                )}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                </div>
-            </TabsContent>
-            <TabsContent value="settings" className="mt-6">
-                <ProductSettings />
-            </TabsContent>
-        </Tabs>
-    </div>
-    
-    {selectedProductForSku && (
-        <SkuAssociationDialog
-            isOpen={isSkuDialogOpen}
-            onClose={handleSkuDialogClose}
-            product={selectedProductForSku}
-            onSave={handleSkuSave}
-        />
-    )}
-    {settings && (
-        <ProductBulkImportDialog
-            isOpen={isBulkImportOpen}
-            onClose={() => setIsBulkImportOpen(false)}
-            category={'Celular'}
-            settings={settings}
-            onSave={handleBulkImportSave}
-        />
-    )}
-    <SkuBulkAssociationDialog
-      isOpen={isBulkAssociateOpen}
-      onClose={() => setIsBulkAssociateOpen(false)}
-      onSave={handleBulkAssociateSave}
-    />
-    <ConflictCheckDialog
-      isOpen={isConflictDialogOpen}
-      onClose={() => setIsConflictDialogOpen(false)}
-      conflicts={conflictResults}
-      onSave={handleSaveCorrections}
-      isSaving={isCheckingConflicts}
-    />
+                                </TableHeader>
+                                <TableBody>
+                                  {filteredProducts.length > 0 ? (
+                                    filteredProducts.map(product => (
+                                      <TableRow key={product.id}>
+                                        <TableCell className="font-medium">
+                                          <div className="flex items-center gap-2">
+                                            <span>{product.name}</span>
+                                            {product.associatedSkus && product.associatedSkus.length > 0 && (
+                                              <Popover>
+                                                <PopoverTrigger asChild><div className="flex items-center text-sm text-primary font-semibold cursor-pointer"><Link2 className="h-4 w-4" /><span>{product.associatedSkus.length}</span></div></PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0">
+                                                  <div className="p-3 space-y-2">
+                                                    <p className="text-sm font-semibold text-foreground">SKUs associados</p>
+                                                    <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
+                                                      {product.associatedSkus.map(sku => (<Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>))}
+                                                    </div>
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
+                                        <TableCell>{formatDate(product.createdAt)}</TableCell>
+                                        <TableCell className="text-right">
+                                          <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}><Download className="h-4 w-4" /></Button>
+                                          <AlertDialog>
+                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                  <AlertDialogDescription>Esta ação não pode ser desfeita. Isso removerá permanentemente o modelo do produto.</AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                          </AlertDialog>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))
+                                  ) : (<TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell></TableRow>)}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                  </div>
+              </TabsContent>
+              <TabsContent value="settings" className="mt-6">
+                  <ProductSettings />
+              </TabsContent>
+          </Tabs>
+      </div>
+      
+      {selectedProductForSku && <SkuAssociationDialog isOpen={isSkuDialogOpen} onClose={handleSkuDialogClose} product={selectedProductForSku} onSave={handleSkuSave} />}
+      {settings && <ProductBulkImportDialog isOpen={isBulkImportOpen} onClose={() => setIsBulkImportOpen(false)} category={'Celular'} settings={settings} onSave={handleBulkImportSave} />}
+      <SkuBulkAssociationDialog isOpen={isBulkAssociateOpen} onClose={() => setIsBulkAssociateOpen(false)} onSave={handleBulkAssociateSave} />
+      <ConflictCheckDialog isOpen={isConflictDialogOpen} onClose={() => setIsConflictDialogOpen(false)} conflicts={conflictResults} onSave={handleSaveCorrections} isSaving={isCheckingConflicts} />
     </>
   );
 }
