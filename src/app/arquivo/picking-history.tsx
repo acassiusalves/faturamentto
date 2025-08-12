@@ -167,42 +167,58 @@ export function PickingHistory() {
   return (
     <>
     <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-2 self-start">
-                  <History className="h-5 w-5"/>
-                  <div>
-                      <CardTitle>Histórico Completo de Picking</CardTitle>
-                       <CardDescription>Use os filtros para encontrar registros específicos de saídas de estoque.</CardDescription>
-                  </div>
-              </div>
-              <div className="flex flex-col sm:flex-row w-full sm:w-auto items-center gap-4">
-                  {pendingChanges.size > 0 && (
-                        <Button onClick={handleSaveChanges} disabled={isSaving}>
-                          {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2" />}
-                          Salvar Alterações
-                        </Button>
-                    )}
-                  <Button onClick={() => setIsManualAddOpen(true)}>
-                    <PlusCircle />
-                    Adicionar Registro Manual
-                  </Button>
-                  <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por pedido, produto, SKU..."
-                      className="pl-9"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                   <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                   <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
-                        {filteredPicks.length} registros encontrados
-                   </div>
-              </div>
+      <CardHeader className="space-y-4">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5" />
+            <div>
+              <CardTitle>Histórico Completo de Picking</CardTitle>
+              <CardDescription>
+                Use os filtros para encontrar registros específicos de saídas de
+                estoque.
+              </CardDescription>
+            </div>
           </div>
-        </CardHeader>
+          <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
+            {filteredPicks.length} registros encontrados
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2">
+            {pendingChanges.size > 0 && (
+              <Button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-2 animate-spin" />
+                ) : (
+                  <Save className="mr-2" />
+                )}
+                Salvar Alterações
+              </Button>
+            )}
+            <Button onClick={() => setIsManualAddOpen(true)}>
+              <PlusCircle />
+              Adicionar Registro Manual
+            </Button>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por pedido, produto, SKU..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+          </div>
+        </div>
+      </CardHeader>
         <CardContent>
             <div className="rounded-md border max-h-[600px] overflow-y-auto">
                 <Table>
