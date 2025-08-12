@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -466,15 +466,23 @@ export default function EstoquePage() {
             </div>
           <Card>
             <CardHeader>
-               <div className="flex justify-between items-center gap-4">
+               <div className="flex justify-between items-center gap-4 flex-wrap">
                   <div>
                     <CardTitle>Produtos em Estoque</CardTitle>
                     <CardDescription>Lista de todos os produtos cadastrados no seu inventário.</CardDescription>
                   </div>
-                   <div className="flex items-center space-x-2 pt-2">
-                      <Layers className="h-5 w-5" />
-                      <Label htmlFor="group-switch">Agrupar por SKU</Label>
-                      <Switch id="group-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
+                  <div className="flex items-center gap-4">
+                     <Button asChild variant="outline">
+                        <Link href="/estoque/conferencia">
+                            <ScanSearch />
+                            Conferir Estoque
+                        </Link>
+                     </Button>
+                     <div className="flex items-center space-x-2">
+                        <Layers className="h-5 w-5" />
+                        <Label htmlFor="group-switch">Agrupar por SKU</Label>
+                        <Switch id="group-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
+                    </div>
                   </div>
                </div>
                <div className="relative mt-4">
