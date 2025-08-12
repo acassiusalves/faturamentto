@@ -3,8 +3,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { DollarSign, TrendingDown, TrendingUp, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown } from "lucide-react";
-import { startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3 } from "lucide-react";
+import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate } from "date-fns";
 
 import type { Sale, Cost } from "@/lib/types";
 import { SalesTable } from "@/components/sales-table";
@@ -170,6 +170,33 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     return { grossRevenue };
   }, [sales]);
 
+    const projectedRevenue = useMemo(() => {
+        const now = new Date();
+        const startOfCurrentMonth = startOfMonth(now);
+        const endOfCurrentMonth = endOfMonth(now);
+
+        const currentMonthSales = sales.filter(sale => {
+            try {
+                const saleDate = new Date((sale as any).payment_approved_date);
+                return saleDate >= startOfCurrentMonth && saleDate <= endOfCurrentMonth;
+            } catch {
+                return false;
+            }
+        });
+
+        const currentMonthRevenue = currentMonthSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
+
+        const daysInMonth = getDaysInMonth(now);
+        const dayOfMonth = getDate(now);
+
+        if (dayOfMonth === 0) return 0; // Avoid division by zero
+
+        const dailyAverage = currentMonthRevenue / dayOfMonth;
+        return dailyAverage * daysInMonth;
+
+    }, [sales]);
+
+
   const formatCurrency = (value: number) => {
     if (isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -243,7 +270,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
         <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos da planilha + adicionados"/>
-        <StatsCard title="Lucro Líquido (Período)" value={formatCurrency(stats.netRevenue)} icon={TrendingUp} description="Lucro da planilha - custos adicionados"/>
+        <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description="Projeção para o mês corrente"/>
       </div>
       
        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
