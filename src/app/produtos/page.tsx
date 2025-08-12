@@ -25,6 +25,7 @@ import { ProductSettings } from '@/components/product-settings';
 import { Label } from '@/components/ui/label';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
@@ -351,45 +352,60 @@ export default function ProductsPage() {
                            {settings ? orderedAttributes.map(attr => (
                                 <div key={attr.key} className="space-y-2">
                                     <Label>{attr.label}</Label>
-                                    <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          role="combobox"
-                                          aria-expanded={openPopovers[attr.key]}
-                                          className="w-full justify-between font-normal"
-                                        >
-                                          <span className="truncate">
-                                            {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
-                                          </span>
-                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-                                        <Command>
-                                          <CommandInput
-                                            placeholder={`Buscar ${attr.label.toLowerCase()}...`}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                                          />
-                                          <CommandList>
-                                            <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                            <CommandGroup>
-                                              {attr.values.map((val) => (
-                                                <CommandItem
-                                                  key={val}
-                                                  value={val}
-                                                  onSelect={() => handleAttributeSelect(attr.key, val)}
-                                                >
-                                                  <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                  {val}
-                                                </CommandItem>
-                                              ))}
-                                            </CommandGroup>
-                                          </CommandList>
-                                        </Command>
-                                      </PopoverContent>
-                                    </Popover>
+                                    {attr.key === 'modelo' ? (
+                                      <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={openPopovers[attr.key]}
+                                            className="w-full justify-between font-normal"
+                                          >
+                                            <span className="truncate">
+                                              {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
+                                            </span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                                          <Command>
+                                            <CommandInput
+                                              placeholder={`Buscar ${attr.label.toLowerCase()}...`}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                                            />
+                                            <CommandList>
+                                              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+                                              <CommandGroup>
+                                                {attr.values.map((val) => (
+                                                  <CommandItem
+                                                    key={val}
+                                                    value={val}
+                                                    onSelect={() => handleAttributeSelect(attr.key, val)}
+                                                  >
+                                                    <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
+                                                    {val}
+                                                  </CommandItem>
+                                                ))}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
+                                    ) : (
+                                      <Select onValueChange={(value) => handleAttributeSelect(attr.key, value)} value={formState[attr.key]}>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {attr.values.map((val) => (
+                                            <SelectItem key={val} value={val}>
+                                              {val}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                 </div>
                            )) : <p>Carregando atributos...</p>}
 
