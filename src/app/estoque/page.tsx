@@ -16,14 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const inventorySchema = z.object({
   id: z.string().optional(),
@@ -45,8 +44,6 @@ export default function EstoquePage() {
   const [origins, setOrigins] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [productPopoverOpen, setProductPopoverOpen] = useState(false);
-  const [originPopoverOpen, setOriginPopoverOpen] = useState(false);
   const [isGrouped, setIsGrouped] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,19 +84,17 @@ export default function EstoquePage() {
   }, []);
 
   const handleProductSelectionChange = (productId: string) => {
+    form.setValue('productId', productId, { shouldValidate: true });
     const selectedProduct = products.find(p => p.id === productId);
     if (selectedProduct) {
         form.setValue('sku', selectedProduct.sku, { shouldValidate: true });
     } else {
         form.setValue('sku', '', { shouldValidate: true });
     }
-    form.setValue('productId', productId, { shouldValidate: true });
-    setProductPopoverOpen(false);
   };
   
   const handleOriginSelectionChange = (origin: string) => {
     form.setValue('origin', origin, { shouldValidate: true });
-    setOriginPopoverOpen(false);
   }
 
   const handleAddSerialNumber = async () => {
@@ -308,64 +303,37 @@ export default function EstoquePage() {
                   <CardTitle>Adicionar Item ao Estoque</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField control={form.control} name="productId" render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Nome do Produto</FormLabel>
-                      <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
-                        <PopoverTrigger asChild>
-                           <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  "w-full justify-between font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value
-                                  ? products.find(p => p.id === field.value)?.name
-                                  : "Selecione um produto..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                           </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" style={{width: 'var(--radix-popover-trigger-width)'}}>
-                           <Command>
-                            <CommandInput placeholder="Buscar produto..." />
-                            <CommandList>
-                              <CommandEmpty>
+                  <FormField
+                    control={form.control}
+                    name="productId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Produto</FormLabel>
+                        <Select onValueChange={handleProductSelectionChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um produto..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                             {products.length > 0 ? products.map(p => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name}
+                                </SelectItem>
+                              )) : (
                                 <div className="text-center p-4 text-sm">
                                   Nenhum produto encontrado.
                                   <Link href="/produtos" className="text-primary underline">
                                       Cadastre um novo produto.
                                   </Link>
                                 </div>
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {products.map(p => (
-                                  <CommandItem
-                                    value={p.name}
-                                    key={p.id}
-                                    onSelect={() => handleProductSelectionChange(p.id)}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        p.id === field.value ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {p.name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                              )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField control={form.control} name="sku" render={({ field }) => (
                       <FormItem>
                         <FormLabel>SKU</FormLabel>
@@ -416,59 +384,30 @@ export default function EstoquePage() {
                         <FormControl><Input placeholder="Digite o código de barras (opcional)" {...field} /></FormControl>
                       </FormItem>
                   )} />
-                   <FormField control={form.control} name="origin" render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                            <FormLabel>Origem</FormLabel>
-                            <Popover open={originPopoverOpen} onOpenChange={setOriginPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn(
-                                        "w-full justify-between font-normal",
-                                        !field.value && "text-muted-foreground"
-                                    )}
-                                    >
-                                    {field.value
-                                        ? origins.find((s) => s === field.value)
-                                        : "Selecione uma origem..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0" style={{width: 'var(--radix-popover-trigger-width)'}}>
-                                <Command>
-                                    <CommandInput placeholder="Buscar origem..." />
-                                    <CommandList>
-                                    <CommandEmpty>Nenhuma origem encontrada.</CommandEmpty>
-                                    <CommandGroup>
-                                        {origins.map((origin) => (
-                                        <CommandItem
-                                            value={origin}
-                                            key={origin}
-                                            onSelect={() => handleOriginSelectionChange(origin)}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                        >
-                                            <Check
-                                            className={cn(
-                                                "mr-2 h-4 w-4",
-                                                origin === field.value
-                                                ? "opacity-100"
-                                                : "opacity-0"
-                                            )}
-                                            />
-                                            {origin}
-                                        </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
+                   <FormField
+                      control={form.control}
+                      name="origin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Origem</FormLabel>
+                          <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma origem..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {origins.map((origin) => (
+                                <SelectItem key={origin} value={origin}>
+                                  {origin}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
                         </FormItem>
-                    )} />
+                      )}
+                    />
                 </CardContent>
                 <CardFooter className="flex flex-col gap-2">
                     <Button type="submit" className="w-full" disabled={isSubmitting}>
