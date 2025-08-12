@@ -347,7 +347,6 @@ export default function EstoquePage() {
                                     value={p.name}
                                     key={p.id}
                                     onSelect={() => handleProductSelectionChange(p.id)}
-                                    // A CORREÇÃO ESTÁ AQUI:
                                     onMouseDown={(e) => e.preventDefault()}
                                   >
                                     <Check

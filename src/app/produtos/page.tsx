@@ -25,7 +25,6 @@ import { Label } from '@/components/ui/label';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 
-
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
 
 export default function ProductsPage() {
@@ -86,9 +85,7 @@ export default function ProductsPage() {
       setSettings(loadedSettings);
       if (loadedSettings) {
         const initialFormState: Record<string, string> = {};
-        loadedSettings.attributes.forEach(attr => {
-            initialFormState[attr.key] = "";
-        });
+        loadedSettings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
         setFormState(initialFormState);
       }
       setIsLoading(false);
@@ -98,10 +95,10 @@ export default function ProductsPage() {
 
   const handleAttributeSelect = (key: string, value: string) => {
     setFormState(prev => {
-        const newValue = prev[key] === value ? "" : value;
-        return { ...prev, [key]: newValue };
+      const newValue = prev[key] === value ? "" : value;
+      return { ...prev, [key]: newValue };
     });
-    setOpenPopovers(prev => ({...prev, [key]: false}));
+    setOpenPopovers(prev => ({ ...prev, [key]: false }));
   };
 
   const handleOpenSkuDialog = (product: Product) => {
@@ -134,8 +131,8 @@ export default function ProductsPage() {
 
     return results.sort((a, b) => (b.associatedSkus?.length || 0) - (a.associatedSkus?.length || 0));
   }, [products, searchTerm]);
-  
-    const orderedAttributes = useMemo(() => {
+
+  const orderedAttributes = useMemo(() => {
     if (!settings) return [];
     return attributeOrder
       .map(key => settings.attributes.find(attr => attr.key === key))
@@ -149,67 +146,63 @@ export default function ProductsPage() {
       .filter(Boolean)
       .join(" ");
   }, [formState, orderedAttributes, settings]);
-  
+
   const canSubmit = useMemo(() => {
-     if (!settings) return false;
-     const allRequiredFilled = settings.attributes.every(attr => !!formState[attr.key]);
-     return allRequiredFilled && generatedName.length > 0;
+    if (!settings) return false;
+    const allRequiredFilled = settings.attributes.every(attr => !!formState[attr.key]);
+    return allRequiredFilled && generatedName.length > 0;
   }, [settings, formState, generatedName]);
 
   const generatedSku = useMemo(() => {
     if (!canSubmit || !formState['cor']) return "";
     const baseName = orderedAttributes
-        .filter(attr => attr.key !== 'cor')
-        .map(attr => formState[attr.key])
+      .filter(attr => attr.key !== 'cor')
+      .map(attr => formState[attr.key])
+      .filter(Boolean)
+      .join(" ");
+    const existingProductWithSameBase = products.find(p => {
+      const pBaseName = attributeOrder
+        .filter(key => key !== 'cor')
+        .map(key => p.attributes[key])
         .filter(Boolean)
         .join(" ");
-    const existingProductWithSameBase = products.find(p => {
-        const pBaseName = attributeOrder
-            .filter(key => key !== 'cor')
-            .map(key => p.attributes[key])
-            .filter(Boolean)
-            .join(" ");
-        return pBaseName === baseName;
+      return pBaseName === baseName;
     });
     let sequentialNumberPart: string;
-    if (existingProductWithSameBase && existingProductWithSameBase.sku) {
-        sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
+    if (existingProductWithSameBase?.sku) {
+      sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
     } else {
-        const maxSkuNum = products.reduce((max, p) => {
-            if (!p.sku) return max;
-            const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
-            return isNaN(num) ? max : (num > max ? num : max);
-        }, 0);
-        sequentialNumberPart = (maxSkuNum + 1).toString();
+      const maxSkuNum = products.reduce((max, p) => {
+        if (!p.sku) return max;
+        const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
+        return isNaN(num) ? max : (num > max ? num : max);
+      }, 0);
+      sequentialNumberPart = (maxSkuNum + 1).toString();
     }
     const color = formState['cor'] || '';
-    const colorCode = color.length > 2 && color.includes(' ') ? 
-        color.split(' ').map(word => word.charAt(0)).join('').toUpperCase() : 
-        color.charAt(0).toUpperCase();
+    const colorCode = color.length > 2 && color.includes(' ')
+      ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase()
+      : color.charAt(0).toUpperCase();
     return `#${sequentialNumberPart}${colorCode}`;
   }, [products, formState, canSubmit, orderedAttributes]);
 
   const resetForm = () => {
     if (!settings) return;
     const initialFormState: Record<string, string> = {};
-    settings.attributes.forEach(attr => {
-        initialFormState[attr.key] = "";
-    });
+    settings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
     setFormState(initialFormState);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !generatedSku) return;
-    const isProductDuplicate = products.some(p => p.name.toLowerCase() === generatedName.toLowerCase());
-    if (isProductDuplicate) {
-        toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedName}" já existe.` });
-        return;
+    if (products.some(p => p.name.toLowerCase() === generatedName.toLowerCase())) {
+      toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedName}" já existe.` });
+      return;
     }
-    const existingProductWithSku = products.find(p => p.sku === generatedSku);
-    if (existingProductWithSku) {
-         toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${generatedSku}" já está sendo usado pelo produto "${existingProductWithSku.name}".`});
-        return;
+    if (products.some(p => p.sku === generatedSku)) {
+      toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${generatedSku}" já está sendo usado.` });
+      return;
     }
     setIsSubmitting(true);
     const newProduct: Product = {
@@ -223,7 +216,11 @@ export default function ProductsPage() {
     };
     try {
       await saveProduct(newProduct);
-      setProducts(prev => [newProduct, ...prev]);
+      setProducts(prev => {
+        const np = [newProduct, ...prev];
+        runConflictCheck(np, false);
+        return np;
+      });
       toast({ title: "Produto Criado!", description: `O modelo "${generatedName}" foi salvo com sucesso.` });
       resetForm();
     } catch (error) {
@@ -344,93 +341,8 @@ export default function ProductsPage() {
 
           <TabsContent value="models" className="mt-6">
             <div className="grid md:grid-cols-3 gap-8 items-start">
-               <div className="md:col-span-1 space-y-4">
-                  <form onSubmit={handleSubmit}>
-                    <Card>
-                        <CardHeader>
-                          <CardTitle>Criar Novo Modelo de Celular</CardTitle>
-                          <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {settings && orderedAttributes.map(attr => (
-                            <div key={attr.key} className="space-y-2">
-                                <Label>{attr.label}</Label>
-                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
-                                  <PopoverTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      role="combobox"
-                                      aria-expanded={openPopovers[attr.key]}
-                                      className="w-full justify-between font-normal"
-                                    >
-                                      <span className="truncate">
-                                        {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
-                                      </span>
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-                                    <Command>
-                                      <CommandInput
-                                        placeholder={`Buscar ${attr.label.toLowerCase()}...`}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                                      />
-                                      <CommandList>
-                                        <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                        <CommandGroup>
-                                          {attr.values.map((val) => (
-                                            <CommandItem
-                                              key={val}
-                                              value={val}
-                                              onSelect={() => handleAttributeSelect(attr.key, val)}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                            >
-                                              <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                              {val}
-                                            </CommandItem>
-                                          ))}
-                                        </CommandGroup>
-                                      </CommandList>
-                                    </Command>
-                                  </PopoverContent>
-                                </Popover>
-                            </div>
-                          ))}
-                          
-                          <div className="grid grid-cols-2 gap-4 pt-4">
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-muted-foreground">Nome Gerado</Label>
-                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                  <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                    {generatedName || "Selecione as opções acima..."}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
-                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                  <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                    {generatedSku || "Selecione as opções..."}
-                                  </span>
-                                </div>
-                              </div>
-                          </div>
-
-                        </CardContent>
-                        <CardFooter>
-                          <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                            Criar Modelo de Produto
-                          </Button>
-                        </CardFooter>
-                    </Card>
-                  </form>
-                </div>
-
               <div className="md:col-span-2">
-                 <Card>
+                <Card>
                   <CardHeader>
                     <div className="flex justify-between items-center gap-4 flex-wrap">
                       <div className="flex-1 min-w-[200px]">
