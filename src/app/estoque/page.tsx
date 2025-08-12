@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const inventorySchema = z.object({
   id: z.string().optional(),
@@ -50,6 +52,7 @@ export default function EstoquePage() {
   const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
   const [currentSN, setCurrentSN] = useState("");
   const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
 
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventorySchema),
@@ -90,6 +93,7 @@ export default function EstoquePage() {
     } else {
         form.setValue('sku', '', { shouldValidate: true });
     }
+    setIsProductSelectorOpen(false);
   };
   
   const handleOriginSelectionChange = (origin: string) => {
@@ -314,27 +318,45 @@ export default function EstoquePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Nome do Produto</FormLabel>
-                        <Select onValueChange={handleProductSelectionChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um produto..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                             {products.length > 0 ? products.map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name}
-                                </SelectItem>
-                              )) : (
-                                <div className="text-center p-4 text-sm">
-                                  Nenhum produto encontrado.
-                                  <Link href="/produtos" className="text-primary underline">
-                                      Cadastre um novo produto.
-                                  </Link>
-                                </div>
-                              )}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn(
+                                            "w-full justify-between font-normal",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                       {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione um produto..."}
+                                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar produto..." autoFocus />
+                                    <CommandList>
+                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                        <CommandGroup>
+                                            {products.map((p) => (
+                                                <CommandItem
+                                                    value={p.name}
+                                                    key={p.id}
+                                                    onSelect={() => handleProductSelectionChange(p.id)}
+                                                >
+                                                    <Check
+                                                        className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
+                                                    />
+                                                    {p.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
