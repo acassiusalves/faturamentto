@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useState, useMemo, useEffect } from 'react';
-import type { Sale, SupportData, CustomCalculation } from '@/lib/types';
+import type { Sale, SupportData, CustomCalculation, AppSettings } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -32,6 +32,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
+import { saveAppSettings, loadAppSettings } from "@/services/firestore";
 
 
 interface SalesTableProps {
@@ -50,15 +51,20 @@ interface SalesTableProps {
 const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
 
 const fixedIderisColumns = [
+    'order_id',
     'order_code',
-    'payment_approved_date',
+    'auth_name',
+    'marketplace_name',
+    'document_value',
+    'fee_shipment',
+    'value_with_shipping',
+    'fee_order',
     'item_title',
     'item_sku',
     'item_quantity',
-    'value_with_shipping',
-    'fee_order',
-    'fee_shipment',
-    'left_over'
+    'discount',
+    'left_over',
+    'payment_approved_date'
 ];
 
 
@@ -96,18 +102,22 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [allAvailableColumns, setAllAvailableColumns] = useState<any[]>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [settingsVersion, setSettingsVersion] = useState(0);
 
    useEffect(() => {
         setIsClient(true);
         if (!isDashboard) {
             loadTableSettings();
         }
-    }, [isDashboard, supportData, customCalculations]);
+    }, [isDashboard, supportData, customCalculations, settingsVersion]);
 
-  const loadTableSettings = () => {
+  const loadTableSettings = async () => {
     setIsSettingsLoading(true);
 
+    const settings = await loadAppSettings();
+
     const iderisCols = iderisFields
+        .filter(field => fixedIderisColumns.includes(field.key))
         .map(field => ({
             ...field,
             group: 'Ideris',
@@ -139,18 +149,17 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     const availableColumns = [...iderisCols, ...systemCols, ...sheetCols];
     setAllAvailableColumns(availableColumns);
     
-    const savedVisible = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-    const savedOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
+    const savedVisible = settings?.conciliacaoVisibleColumns || {};
+    const savedOrder = settings?.conciliacaoColumnOrder;
 
-    const initialVisible: Record<string, boolean> = savedVisible ? JSON.parse(savedVisible) : {};
-    if (!savedVisible) {
-        // Set default visibility
-        fixedIderisColumns.forEach(key => initialVisible[key] = true);
-        systemCols.forEach(c => initialVisible[c.key] = true);
+    const initialVisible: Record<string, boolean> = savedVisible;
+    if (Object.keys(savedVisible).length === 0) {
+        // Set default visibility if nothing is saved
+        availableColumns.forEach(key => initialVisible[key] = true);
     }
     setVisibleColumns(initialVisible);
 
-    const initialOrder = savedOrder ? JSON.parse(savedOrder) : availableColumns.map(c => c.key);
+    const initialOrder = savedOrder || availableColumns.map(c => c.key);
     const validOrder = initialOrder.filter((key: string) => availableColumns.some(c => c.key === key));
     const allKeys = availableColumns.map(c => c.key);
     const finalOrder = [...new Set([...validOrder, ...allKeys])]; // Ensure all columns are in the order list
@@ -159,11 +168,18 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
     setIsSettingsLoading(false);
   };
+
+  const saveTableSettings = async (order?: string[], visibility?: Record<string, boolean>) => {
+    const settingsToSave: Partial<AppSettings> = {};
+    if (order) settingsToSave.conciliacaoColumnOrder = order;
+    if (visibility) settingsToSave.conciliacaoVisibleColumns = visibility;
+    await saveAppSettings(settingsToSave);
+  };
   
   const handleVisibleChange = (key: string, checked: boolean) => {
     const newVisible = { ...visibleColumns, [key]: checked };
     setVisibleColumns(newVisible);
-    localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisible));
+    saveTableSettings(undefined, newVisible);
   };
   
   const handleDragEnd = (event: DragEndEvent) => {
@@ -173,7 +189,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             const oldIndex = items.indexOf(active.id as string);
             const newIndex = items.indexOf(over!.id as string);
             const newOrder = arrayMove(items, oldIndex, newIndex);
-            localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+            saveTableSettings(newOrder, undefined);
             return newOrder;
         });
     }
@@ -287,6 +303,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   return (
     <TooltipProvider>
+      <DndContext
+            id={'dnd-context-sales-table'}
+            onDragEnd={handleDragEnd}
+            collisionDetection={closestCenter}
+      >
       <Card>
          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
              <div className="flex items-center gap-2">
@@ -328,11 +349,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
-            <DndContext
-                id={'dnd-context-sales-table'}
-                onDragEnd={handleDragEnd}
-                collisionDetection={closestCenter}
-            >
+            
                 <Table>
                 <TableHeader>
                     <TableRow>
@@ -428,7 +445,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                     )}
                 </TableBody>
                 </Table>
-            </DndContext>
+            
           </div>
         </CardContent>
         <CardFooter className="flex items-center justify-between flex-wrap gap-4">
@@ -501,6 +518,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             </div>
         </CardFooter>
       </Card>
+      </DndContext>
       
       {selectedSale && (
         <CostDialog
