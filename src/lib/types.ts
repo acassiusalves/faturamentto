@@ -108,6 +108,7 @@ export interface Sale {
   costs: Cost[];
   grossRevenue: number;
   sheetData?: Record<string, any>;
+  customData?: Record<string, number>;
 }
 
 // This mapping now covers all possible fields user might want to map
@@ -192,4 +193,13 @@ export interface SupportFile {
 export interface SupportData {
     // Files are now an array per channel
     files: Record<string, SupportFile[]>; // Keyed by channelId
+}
+
+// -- Custom Calculation Types --
+export type FormulaItem = { type: 'column' | 'operator'; value: string; label: string };
+
+export interface CustomCalculation {
+    id: string; // e.g. 'custom_162987...
+    name: string; // e.g. "Lucro Real"
+    formula: FormulaItem[];
 }

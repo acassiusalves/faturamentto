@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator } from 'lucide-react';
-import type { Sale, SupportData, SupportFile, PickedItemLog } from '@/lib/types';
+import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
@@ -40,16 +40,23 @@ export default function ConciliationPage() {
     const [stateFilter, setStateFilter] = useState("all");
     const [accountFilter, setAccountFilter] = useState("all");
 
+    // Custom Calculations
+    const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>([]);
+
 
     useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
-            const [salesData, logsData] = await Promise.all([
+            const [salesData, logsData, settings] = await Promise.all([
                 loadSales(),
-                loadAllPickingLogs()
+                loadAllPickingLogs(),
+                loadAppSettings(),
             ]);
             setSales(salesData);
             setPickingLogs(logsData);
+            if(settings?.customCalculations) {
+                setCustomCalculations(settings.customCalculations);
+            }
             setIsLoading(false);
         }
         fetchData();
@@ -91,6 +98,38 @@ export default function ConciliationPage() {
         });
         return map;
     }, [pickingLogs]);
+    
+    const applyCustomCalculations = (sale: Sale): Sale => {
+        const saleWithCost = {
+            ...sale,
+            product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
+        };
+        
+        const customData: Record<string, number> = {};
+
+        customCalculations.forEach(calc => {
+            let saleResult = 0;
+            let currentOperator = '+';
+
+            for (let i = 0; i < calc.formula.length; i++) {
+                const item = calc.formula[i];
+                if (item.type === 'column') {
+                    const value = (saleWithCost as any)[item.value] || 0;
+                    switch (currentOperator) {
+                        case '+': saleResult += value; break;
+                        case '-': saleResult -= value; break;
+                        case '*': saleResult *= value; break;
+                        case '/': if (value !== 0) saleResult /= value; break;
+                    }
+                } else {
+                    currentOperator = item.value;
+                }
+            }
+            customData[calc.id] = saleResult;
+        });
+
+        return { ...sale, customData };
+    };
 
 
     const filteredSales = useMemo(() => {
@@ -163,9 +202,9 @@ export default function ConciliationPage() {
             }
         }
         
-        return processedSales;
+        return processedSales.map(applyCustomCalculations);
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter]);
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, customCalculations, pickingLogsMap]);
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -205,6 +244,12 @@ export default function ConciliationPage() {
         if (saleToUpdate) {
             saveSales([saleToUpdate]);
         }
+    };
+
+    const handleSaveCustomCalculation = async (calculation: CustomCalculation) => {
+        const newCalculations = [...customCalculations, calculation];
+        setCustomCalculations(newCalculations);
+        await saveAppSettings({ customCalculations: newCalculations });
     };
 
     // Options for filters
@@ -326,6 +371,7 @@ export default function ConciliationPage() {
               formatCurrency={formatCurrency}
               isLoading={isLoading}
               productCostSource={pickingLogsMap}
+              customCalculations={customCalculations}
             />
 
         </div>
@@ -340,8 +386,7 @@ export default function ConciliationPage() {
         <CalculationDialog
             isOpen={isCalculationOpen}
             onClose={() => setIsCalculationOpen(false)}
-            salesData={filteredSales}
-            productCostSource={pickingLogsMap}
+            onSave={handleSaveCustomCalculation}
         />
         </>
     );

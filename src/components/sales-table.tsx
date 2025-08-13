@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Sale, SupportData } from '@/lib/types';
+import type { Sale, SupportData, CustomCalculation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { systemFields } from '@/lib/system-fields';
@@ -40,7 +40,6 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
@@ -54,6 +53,7 @@ interface SalesTableProps {
   formatCurrency: (value: number) => string;
   isLoading: boolean;
   productCostSource?: Map<string, number>;
+  customCalculations: CustomCalculation[];
 }
 
 const defaultVisibleColumnsOrder: string[] = [
@@ -84,7 +84,7 @@ const SortableItem = ({ id, children }: { id: string; children: (listeners: Retu
 };
 
 
-export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map() }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [] }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -114,16 +114,34 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     return Array.from(allFriendlyNames).map(name => ({ key: name, label: name, path: '' }));
   }, [supportData]);
   
-  const allAvailableColumns = useMemo(() => {
-      const existingIderisKeys = new Set(iderisFields.map(f => f.key));
-      const uniqueSupportCols = supportDataColumns.filter(sc => !existingIderisKeys.has(sc.key));
-      const allSystemFields = [...systemFields, ...uniqueSupportCols.map(c => ({...c, isSupport: true}))];
-      
-      const existingSystemKeys = new Set(allSystemFields.map(f => f.key));
-      const uniqueIderisFields = iderisFields.filter(i => !existingSystemKeys.has(i.key));
+  const customCalculationColumns = useMemo(() => {
+    return customCalculations.map(calc => ({
+      key: calc.id,
+      label: calc.name,
+      path: '',
+      isCustom: true
+    }));
+  }, [customCalculations]);
 
-      return [...allSystemFields, ...uniqueIderisFields];
-  }, [supportDataColumns]);
+  const allAvailableColumns = useMemo(() => {
+      const baseColumns = [
+        ...systemFields,
+        ...iderisFields.filter(i => !systemFields.some(s => s.key === i.key)),
+        ...supportDataColumns.filter(sup => !systemFields.some(s => s.key === sup.key) && !iderisFields.some(i => i.key === sup.key)).map(c => ({ ...c, isSupport: true })),
+        ...customCalculationColumns.filter(custom => !systemFields.some(s => s.key === custom.key) && !iderisFields.some(i => i.key === custom.key))
+      ];
+      
+      const uniqueColumns = [];
+      const seenKeys = new Set();
+      for (const col of baseColumns) {
+        if (!seenKeys.has(col.key)) {
+          uniqueColumns.push(col);
+          seenKeys.add(col.key);
+        }
+      }
+
+      return uniqueColumns;
+  }, [supportDataColumns, customCalculationColumns]);
 
   useEffect(() => {
     setIsClient(true);
@@ -137,7 +155,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         }
         
         const currentOrderSet = new Set(initialColumnOrder);
-        supportDataColumns.forEach(sc => {
+        [...supportDataColumns, ...customCalculationColumns].forEach(sc => {
             if (!currentOrderSet.has(sc.key)) {
                 initialColumnOrder.push(sc.key);
             }
@@ -149,7 +167,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         }
     }
     loadData();
-  }, [supportDataColumns]);
+  }, [supportDataColumns, customCalculationColumns]);
 
 
   useEffect(() => {
@@ -160,12 +178,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       if (!(col.key in initialSettings)) {
         const isDefault = defaultVisibleColumnsOrder.includes(col.key);
         const isSupport = supportDataColumns.some(sc => sc.key === col.key);
-        initialSettings[col.key] = isDefault || isSupport;
+        const isCustom = customCalculationColumns.some(cc => cc.key === col.key);
+        initialSettings[col.key] = isDefault || isSupport || isCustom;
       }
     });
 
     setVisibleColumns(initialSettings);
-}, [allAvailableColumns, supportDataColumns]);
+}, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -241,12 +260,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       });
     }
 
+    const customNumeric = customCalculationColumns.map(c => c.key);
     const nonNumericSku = ['item_sku', 'order_code', 'id', 'document_value'];
-    const finalNumeric = new Set([...iderisNumeric, ...supportNumeric, 'product_cost']);
+    const finalNumeric = new Set([...iderisNumeric, ...supportNumeric, 'product_cost', ...customNumeric]);
     nonNumericSku.forEach(key => finalNumeric.delete(key));
 
     return finalNumeric;
-  }, [data, supportDataColumns]);
+  }, [data, supportDataColumns, customCalculationColumns]);
 
 
   const getColumnAlignment = (key: string) => {
@@ -320,6 +340,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                         <SortableContext items={columnsToShow.map(c => c.key)} strategy={verticalListSortingStrategy}>
                             {availableColumnsForSelection.visible.map(field => {
                                 const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                                const isCustomCol = customCalculationColumns.some(cc => cc.key === field.key);
                                 return (
                                     <SortableItem key={field.key} id={field.key}>
                                         {(listeners) => (
@@ -335,6 +356,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                                 >
                                                     <span>{getColumnHeader(field.key)}</span>
                                                     {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                                    {isCustomCol && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
                                                 </DropdownMenuCheckboxItem>
                                             </div>
                                         )}
@@ -348,6 +370,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                     {availableColumnsForSelection.hidden.length > 0 ? (
                         availableColumnsForSelection.hidden.map(field => {
                             const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
+                            const isCustomCol = customCalculationColumns.some(cc => cc.key === field.key);
                             return (
                                 <DropdownMenuCheckboxItem
                                 key={field.key}
@@ -358,6 +381,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                 >
                                 <span>{getColumnHeader(field.key)}</span>
                                 {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                {isCustomCol && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
                                 </DropdownMenuCheckboxItem>
                             )
                         })
@@ -392,7 +416,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           let isNumeric = false;
                           let numericValue = 0;
                           
-                          if(field.key === 'product_cost') {
+                          if ((field as any).isCustom) {
+                              cellContent = sale.customData?.[field.key];
+                          } else if(field.key === 'product_cost') {
                              cellContent = productCost;
                           } else if (iderisFields.some(f => f.key === field.key)) {
                              cellContent = (sale as any)[field.key];
