@@ -1,6 +1,6 @@
-
 "use client";
 
+import * as React from "react";
 import { useState, useMemo, useEffect } from 'react';
 import type { Sale, SupportData, CustomCalculation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -151,9 +151,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [customCalculations]);
 
   const allAvailableColumns = useMemo(() => {
-      const systemColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
       const iderisKeys = new Set(iderisFields.map(f => f.key));
-      const supportKeys = new Set(supportDataColumns.map(c => c.key));
 
       const baseColumns = [
         ...iderisFields,
@@ -162,7 +160,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       ];
 
       // Add product_cost if it's not already there
-      if (!systemColumnKeys.has('product_cost') && !iderisKeys.has('product_cost') && !supportKeys.has('product_cost')) {
+      if (!iderisKeys.has('product_cost') && !supportDataColumns.some(c => c.key === 'product_cost') && !customCalculationColumns.some(c => c.key === 'product_cost')) {
           baseColumns.push({ key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true });
       }
       
@@ -195,7 +193,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       ideris: iderisGroup,
       planilha: planilhaGroup,
     };
-  }, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
+  }, [allAvailableColumns, getGroupKey]);
 
 
   useEffect(() => {
