@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
@@ -103,12 +103,20 @@ export default function ConciliationPage() {
         fetchData();
     }, []);
 
-    const getMonthYearKey = () => {
+    const getMonthYearKey = useCallback(() => {
         if (!dateRange?.from) return "";
         const year = getYear(dateRange.from);
         const month = (dateRange.from.getMonth() + 1).toString().padStart(2, '0');
         return `${year}-${month}`;
-    }
+    }, [dateRange]);
+
+    const loadSupportDataForMonth = useCallback(async () => {
+        const monthYear = getMonthYearKey();
+        if (monthYear) {
+            const data = await loadMonthlySupportData(monthYear);
+            setSupportData(data);
+        }
+    }, [getMonthYearKey]);
 
     useEffect(() => {
         const monthNumber = parseInt(selectedMonth, 10);
@@ -123,13 +131,8 @@ export default function ConciliationPage() {
     }, [selectedMonth]);
 
     useEffect(() => {
-        const monthYear = getMonthYearKey();
-        if (monthYear) {
-            loadMonthlySupportData(monthYear).then(data => {
-                setSupportData(data);
-            });
-        }
-    }, [dateRange]);
+        loadSupportDataForMonth();
+    }, [dateRange, loadSupportDataForMonth]);
 
     const pickingLogsMap = useMemo(() => {
         const map = new Map<string, number>();
@@ -449,7 +452,10 @@ export default function ConciliationPage() {
         
         <SupportDataDialog
             isOpen={isSupportDataOpen}
-            onClose={() => setIsSupportDataOpen(false)}
+            onClose={() => {
+              setIsSupportDataOpen(false);
+              loadSupportDataForMonth(); // Recarrega os dados de apoio ao fechar
+            }}
             monthYearKey={getMonthYearKey()}
             salesData={filteredSales}
         />

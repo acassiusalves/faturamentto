@@ -58,21 +58,26 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
         if (file.fileContent && file.associationKey) {
-          const parsedData = Papa.parse(file.fileContent, { header: true });
-          let associated = 0;
-          let notAssociated = 0;
-          parsedData.data.forEach((row: any) => {
-            const rawKey = row[file.associationKey];
-            if (rawKey) {
-              const normalizedKey = normalizeKey(rawKey);
-              if (normalizedKey && saleKeys.has(normalizedKey)) {
-                associated++;
-              } else {
-                notAssociated++;
+          try {
+            const parsedData = Papa.parse(file.fileContent, { header: true });
+            let associated = 0;
+            let notAssociated = 0;
+            parsedData.data.forEach((row: any) => {
+              const rawKey = row[file.associationKey];
+              if (rawKey) {
+                const normalizedKey = normalizeKey(rawKey);
+                if (normalizedKey && saleKeys.has(normalizedKey)) {
+                  associated++;
+                } else {
+                  notAssociated++;
+                }
               }
-            }
-          });
-          stats[file.id] = { associated, notAssociated };
+            });
+            stats[file.id] = { associated, notAssociated };
+          } catch(e) {
+            console.error("Error parsing file for stats", e);
+            stats[file.id] = { associated: 0, notAssociated: 0 };
+          }
         }
       }
     }
@@ -88,6 +93,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
             const sanitizedFiles: { [key: string]: SupportFile[] } = {};
             for (const channelId in data.files) {
               const fileData = data.files[channelId];
+              // Ensure we always have an array. Handles legacy object format.
               if (fileData && typeof fileData === 'object' && !Array.isArray(fileData)) {
                 sanitizedFiles[channelId] = Object.values(fileData);
               } else {
@@ -147,6 +153,10 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
             Papa.parse(content, {
                 preview: 1,
                 complete: (results) => {
+                    if(!results.data || !Array.isArray(results.data[0])) {
+                      toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
+                      return;
+                    }
                     const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
                     processFileContent(content, headers);
                 },
@@ -159,6 +169,8 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
             const headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
             const csvContent = XLSX.utils.sheet_to_csv(worksheet);
             processFileContent(csvContent, headers);
+        } else {
+            toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
         }
     };
 
@@ -167,7 +179,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
     } else if (fileExtension === 'xlsx') {
         reader.readAsArrayBuffer(file);
     } else {
-        toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
+        toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido' });
     }
   };
 
