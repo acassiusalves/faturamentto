@@ -19,7 +19,7 @@ import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, Chevr
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { systemFields } from '@/lib/system-fields';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { loadAppSettings } from '@/services/firestore';
@@ -61,28 +61,6 @@ const defaultVisibleColumnsOrder: string[] = [
     "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over", "lucro_liquido", "margem_contribuicao_percent"
 ];
 const DEFAULT_USER_ID = 'default-user';
-
-// Componente SortableItem refatorado para separar o "arrastar" do conteúdo
-const SortableItem = ({ id, children }: { id: string; children: (listeners: ReturnType<typeof useSortable>['listeners']) => React.ReactNode }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id });
-
-  const style = {
-    transform: transform ? CSS.Transform.toString(transform) : undefined,
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {children(listeners)}
-    </div>
-  );
-};
 
 
 export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [] }: SalesTableProps) {
@@ -145,6 +123,22 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       return uniqueColumns;
   }, [supportDataColumns, customCalculationColumns]);
 
+  const groupedColumns = useMemo(() => {
+    const iderisKeys = new Set(iderisFields.map(f => f.key));
+    const supportKeys = new Set(supportDataColumns.map(c => c.key));
+    const customKeys = new Set(customCalculationColumns.map(c => c.key));
+
+    const iderisGroup = allAvailableColumns.filter(c => iderisKeys.has(c.key));
+    const planilhaGroup = allAvailableColumns.filter(c => supportKeys.has(c.key));
+    const sistemaGroup = allAvailableColumns.filter(c => !iderisKeys.has(c.key) && !supportKeys.has(c.key));
+
+    return {
+      ideris: iderisGroup,
+      planilha: planilhaGroup,
+      sistema: sistemaGroup,
+    };
+  }, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
+
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
@@ -199,6 +193,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         return newVisibleColumns;
     });
 
+    // We keep the logic to add/remove from order, but remove the UI for reordering.
     setColumnOrder(prevOrder => {
         let newOrder;
         if (checked) {
@@ -210,31 +205,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         return newOrder;
     });
   }
-  
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (active.id !== over?.id) {
-      setColumnOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over!.id as string);
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
-        return newOrder;
-      });
-    }
-  };
-  
+
   const columnsToShow = useMemo(() => {
     return columnOrder
       .map(key => allAvailableColumns.find(field => field.key === key))
       .filter((field): field is { key: string; label: string, path: string, isPercentage?: boolean, isCustom?: boolean } => !!field && visibleColumns[field.key]);
   }, [columnOrder, visibleColumns, allAvailableColumns]);
-
-  const availableColumnsForSelection = useMemo(() => {
-    const visibleKeys = new Set(columnsToShow.map(c => c.key));
-    const hidden = allAvailableColumns.filter(f => !visibleKeys.has(f.key));
-    return { visible: columnsToShow, hidden };
-  }, [columnsToShow, allAvailableColumns]);
 
   const numericColumns = useMemo(() => {
     const iderisNumeric = iderisFields
@@ -334,61 +310,53 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                   Exibir Colunas
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent className="w-64">
                 <ScrollArea className="h-[400px]">
-                    <DropdownMenuLabel>Colunas Visíveis</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={columnsToShow.map(c => c.key)} strategy={verticalListSortingStrategy}>
-                            {availableColumnsForSelection.visible.map(field => {
-                                const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
-                                const isCustomCol = customCalculationColumns.some(cc => cc.key === field.key);
-                                return (
-                                    <SortableItem key={field.key} id={field.key}>
-                                        {(listeners) => (
-                                            <div className="flex items-center gap-2">
-                                                <span {...listeners} className="cursor-grab p-1">
-                                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                                </span>
-                                                <DropdownMenuCheckboxItem
-                                                    checked={visibleColumns[field.key] === true}
-                                                    onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                                    className="flex-grow"
-                                                    onSelect={(e) => e.preventDefault()}
-                                                >
-                                                    <span>{getColumnHeader(field.key)}</span>
-                                                    {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                                    {isCustomCol && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                                </DropdownMenuCheckboxItem>
-                                            </div>
-                                        )}
-                                    </SortableItem>
-                                )
-                            })}
-                        </SortableContext>
-                    </DndContext>
-                    <DropdownMenuLabel>Colunas Ocultas</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {availableColumnsForSelection.hidden.length > 0 ? (
-                        availableColumnsForSelection.hidden.map(field => {
-                            const isSupportCol = supportDataColumns.some(sc => sc.key === field.key);
-                            const isCustomCol = customCalculationColumns.some(cc => cc.key === field.key);
-                            return (
-                                <DropdownMenuCheckboxItem
+                   <DropdownMenuGroup>
+                        <DropdownMenuLabel>Sistema</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {groupedColumns.sistema.map(field => (
+                            <DropdownMenuCheckboxItem
                                 key={field.key}
                                 checked={visibleColumns[field.key] === true}
                                 onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                className="flex items-center gap-2"
                                 onSelect={(e) => e.preventDefault()}
+                            >
+                                {getColumnHeader(field.key)}
+                                {field.isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                   </DropdownMenuGroup>
+                    <DropdownMenuGroup>
+                        <DropdownMenuLabel>Ideris</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {groupedColumns.ideris.map(field => (
+                             <DropdownMenuCheckboxItem
+                                key={field.key}
+                                checked={visibleColumns[field.key] === true}
+                                onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                onSelect={(e) => e.preventDefault()}
+                            >
+                                {getColumnHeader(field.key)}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuGroup>
+                    {groupedColumns.planilha.length > 0 && (
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel>Planilha</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {groupedColumns.planilha.map(field => (
+                                <DropdownMenuCheckboxItem
+                                    key={field.key}
+                                    checked={visibleColumns[field.key] === true}
+                                    onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                                    onSelect={(e) => e.preventDefault()}
                                 >
-                                <span>{getColumnHeader(field.key)}</span>
-                                {isSupportCol && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                                {isCustomCol && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
+                                    {getColumnHeader(field.key)}
+                                    <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />
                                 </DropdownMenuCheckboxItem>
-                            )
-                        })
-                    ) : (
-                        <DropdownMenuItem disabled>Nenhuma coluna oculta</DropdownMenuItem>
+                            ))}
+                        </DropdownMenuGroup>
                     )}
                 </ScrollArea>
               </DropdownMenuContent>
