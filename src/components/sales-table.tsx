@@ -79,7 +79,7 @@ function SortableItem({ id, children, ...props }: { id: string, children: React.
   };
   
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 w-full" {...attributes}>
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 w-full" {...props}>
        <div {...listeners} className="cursor-grab p-1">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
        </div>
@@ -97,6 +97,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [friendlyNames, setFriendlyNames] = useState<Record<string, string>>({});
   const [columnOrder, setColumnOrder] = useState<string[]>(defaultVisibleColumnsOrder);
+  const [ignoredColumns, setIgnoredColumns] = useState<string[]>([]);
   const [isGrouped, setIsGrouped] = useState(true);
   
   const [pageIndex, setPageIndex] = useState(0);
@@ -117,12 +118,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             const oldIndex = items.indexOf(active.id as string);
             const newIndex = items.indexOf(over.id as string);
 
-            // If grouped, check if drag is within the same group
             if (isGrouped) {
                 const activeGroup = getGroupKey(active.id as string);
                 const overGroup = getGroupKey(over.id as string);
                 if (activeGroup !== overGroup) {
-                    return items; // Don't allow dragging between groups
+                    return items; 
                 }
             }
 
@@ -162,7 +162,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
       { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
       ...customCalculationColumns,
-    ];
+    ].filter(col => !ignoredColumns.includes(col.key)); // Filter out ignored columns
 
     const uniqueColumns: { key: string; label: string; path: string; isSupport?: boolean; isCustom?: boolean; isPercentage?: boolean; }[] = [];
     const seenKeys = new Set();
@@ -174,7 +174,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     }
     
     return uniqueColumns;
-  }, [supportDataColumns, customCalculationColumns]);
+  }, [supportDataColumns, customCalculationColumns, ignoredColumns]);
 
     const getGroupKey = (key: string): 'sistema' | 'ideris' | 'planilha' => {
         const systemColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
@@ -199,16 +199,20 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
-        const savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
         const settings = await loadAppSettings();
         
-        let initialColumnOrder = defaultVisibleColumnsOrder;
-        if (savedColumnOrder) {
-            initialColumnOrder = JSON.parse(savedColumnOrder);
-        }
+        let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
+        let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
         
         const currentOrderSet = new Set(initialColumnOrder);
-        [...supportDataColumns, ...customCalculationColumns].forEach(sc => {
+        const allPossibleColumns = [
+            ...iderisFields,
+            ...supportDataColumns.map(c => ({ key: c.key, label: c.label, path: '' })),
+            ...customCalculationColumns.map(c => ({ key: c.key, label: c.label, path: '' })),
+             { key: 'product_cost', label: 'Custo do Produto', path: '' }
+        ];
+
+        allPossibleColumns.forEach(sc => {
             if (!currentOrderSet.has(sc.key)) {
                 initialColumnOrder.push(sc.key);
             }
@@ -217,6 +221,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
         if (settings?.friendlyFieldNames) {
             setFriendlyNames(settings.friendlyFieldNames);
+        }
+        if (settings?.ignoredIderisColumns) {
+            setIgnoredColumns(settings.ignoredIderisColumns);
         }
     }
     loadData();
@@ -269,7 +276,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       const firstSale = data[0];
       supportDataColumns.forEach(col => {
         const colKeyLower = col.key.toLowerCase();
-        // Exclude columns that contain non-numeric keywords
         if (nonNumericKeywords.some(keyword => colKeyLower.includes(keyword))) {
           return;
         }
