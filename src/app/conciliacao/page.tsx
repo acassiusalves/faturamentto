@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator } from 'lucide-react';
-import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation } from '@/lib/types';
+import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings } from '@/services/firestore';
@@ -23,6 +23,36 @@ const getMonths = () => {
         label: new Date(0, i).toLocaleString('pt-BR', { month: 'long' })
     }));
 };
+
+const defaultCalculations: CustomCalculation[] = [
+    {
+        id: 'lucro_liquido',
+        name: 'Lucro Líquido',
+        formula: [
+            { type: 'column', value: 'left_over', label: 'Lucro (Ideris)' },
+            { type: 'operator', value: '-', label: '-' },
+            { type: 'column', value: 'product_cost', label: 'Custo do Produto' }
+        ]
+    },
+    {
+        id: 'margem_contribuicao_percent',
+        name: 'M.C. %',
+        formula: [
+            { type: 'operator', value: '(', label: '('},
+            { type: 'column', value: 'value_with_shipping', label: 'Venda Bruta' },
+            { type: 'operator', value: '-', label: '-' },
+            { type: 'column', value: 'fee_order', label: 'Comissão' },
+            { type: 'operator', value: '-', label: '-' },
+            { type: 'column', value: 'fee_shipment', label: 'Frete' },
+             { type: 'operator', value: '-', label: '-' },
+            { type: 'column', value: 'product_cost', label: 'Custo do Produto' },
+            { type: 'operator', value: ')', label: ')'},
+            { type: 'operator', value: '/', label: '÷' },
+            { type: 'column', value: 'value_with_shipping', label: 'Venda Bruta' },
+        ],
+        isPercentage: true,
+    }
+];
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
@@ -41,7 +71,7 @@ export default function ConciliationPage() {
     const [accountFilter, setAccountFilter] = useState("all");
 
     // Custom Calculations
-    const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>([]);
+    const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>(defaultCalculations);
 
 
     useEffect(() => {
@@ -55,7 +85,18 @@ export default function ConciliationPage() {
             setSales(salesData);
             setPickingLogs(logsData);
             if(settings?.customCalculations) {
-                setCustomCalculations(settings.customCalculations);
+                 // Merge default and saved calculations, giving precedence to saved ones.
+                const savedCalcs = settings.customCalculations;
+                const finalCalcs = [...defaultCalculations];
+                savedCalcs.forEach((saved: CustomCalculation) => {
+                    const existingIndex = finalCalcs.findIndex(dc => dc.id === saved.id);
+                    if (existingIndex !== -1) {
+                        finalCalcs[existingIndex] = saved;
+                    } else {
+                        finalCalcs.push(saved);
+                    }
+                });
+                setCustomCalculations(finalCalcs);
             }
             setIsLoading(false);
         }
@@ -108,24 +149,54 @@ export default function ConciliationPage() {
         const customData: Record<string, number> = {};
 
         customCalculations.forEach(calc => {
-            let saleResult = 0;
-            let currentOperator = '+';
-
-            for (let i = 0; i < calc.formula.length; i++) {
-                const item = calc.formula[i];
-                if (item.type === 'column') {
-                    const value = (saleWithCost as any)[item.value] || 0;
-                    switch (currentOperator) {
-                        case '+': saleResult += value; break;
-                        case '-': saleResult -= value; break;
-                        case '*': saleResult *= value; break;
-                        case '/': if (value !== 0) saleResult /= value; break;
+             try {
+                // Basic shunting-yard logic for formula evaluation
+                const values: number[] = [];
+                const ops: string[] = [];
+                const applyOp = () => {
+                    const op = ops.pop()!;
+                    const right = values.pop()!;
+                    const left = values.pop()!;
+                    switch (op) {
+                        case '+': values.push(left + right); break;
+                        case '-': values.push(left - right); break;
+                        case '*': values.push(left * right); break;
+                        case '/': values.push(right !== 0 ? left / right : 0); break;
                     }
-                } else {
-                    currentOperator = item.value;
+                };
+
+                for (const item of calc.formula) {
+                    if (item.type === 'column') {
+                        values.push((saleWithCost as any)[item.value] || 0);
+                    } else if (item.value === '(') {
+                        ops.push(item.value);
+                    } else if (item.value === ')') {
+                        while (ops.length && ops[ops.length - 1] !== '(') {
+                            applyOp();
+                        }
+                        ops.pop(); // Pop '('
+                    } else { // Operator
+                        while (ops.length && ops[ops.length - 1] !== '(') {
+                           applyOp();
+                        }
+                        ops.push(item.value);
+                    }
                 }
+                 while (ops.length > 0) {
+                    applyOp();
+                }
+                
+                let result = values[0];
+                if (calc.isPercentage) {
+                    result = result * 100;
+                }
+
+                customData[calc.id] = result;
+
+            } catch (e) {
+                console.error(`Error calculating formula for ${calc.name}:`, e);
+                customData[calc.id] = NaN; // Indicate an error
             }
-            customData[calc.id] = saleResult;
         });
 
         return { ...sale, customData };
@@ -247,7 +318,7 @@ export default function ConciliationPage() {
     };
 
     const handleSaveCustomCalculation = async (calculation: CustomCalculation) => {
-        const newCalculations = [...customCalculations, calculation];
+        const newCalculations = [...customCalculations.filter(c => c.id !== calculation.id), calculation];
         setCustomCalculations(newCalculations);
         await saveAppSettings({ customCalculations: newCalculations });
     };

@@ -11,7 +11,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calculator, Sparkles, Plus, Minus, X, Divide, Sigma, Trash2 } from 'lucide-react';
 import type { FormulaItem, CustomCalculation } from '@/lib/types';
 import { Badge } from './ui/badge';
@@ -19,6 +18,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from './ui/switch';
 
 interface CalculationDialogProps {
   isOpen: boolean;
@@ -37,11 +37,14 @@ const availableColumns: { key: string; label: string }[] = [
 export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialogProps) {
   const [formula, setFormula] = useState<FormulaItem[]>([]);
   const [columnName, setColumnName] = useState("");
+  const [isPercentage, setIsPercentage] = useState(false);
   const { toast } = useToast();
 
   const handleItemClick = (item: FormulaItem) => {
     const lastItem = formula[formula.length - 1];
-    if (lastItem && lastItem.type === item.type) {
+    if(item.type === 'operator' && (item.value === '(' || item.value === ')')) {
+      // Allow parenthesis
+    } else if (lastItem && lastItem.type === item.type) {
       return;
     }
     setFormula(prev => [...prev, item]);
@@ -50,6 +53,7 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
   const handleClear = () => {
     setFormula([]);
     setColumnName("");
+    setIsPercentage(false);
   };
 
   const handleBackspace = () => {
@@ -61,15 +65,16 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
           toast({ variant: 'destructive', title: 'Nome da Coluna Obrigatório', description: 'Por favor, dê um nome para sua nova coluna.' });
           return;
       }
-      if (formula.length === 0 || formula[formula.length - 1].type === 'operator') {
+      if (formula.length === 0 || (formula[formula.length - 1].type === 'operator' && formula[formula.length - 1].value !== ')')) {
           toast({ variant: 'destructive', title: 'Fórmula Inválida', description: 'A fórmula não pode estar vazia ou terminar com um operador.' });
           return;
       }
       
       const newCalculation: CustomCalculation = {
-          id: `custom_${Date.now()}`,
+          id: `custom_${columnName.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`,
           name: columnName,
-          formula: formula
+          formula: formula,
+          isPercentage: isPercentage,
       };
 
       await onSave(newCalculation);
@@ -92,14 +97,28 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
         </DialogHeader>
 
         <div className="py-4 space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="column-name">1. Nome da Nova Coluna</Label>
-              <Input 
-                id="column-name"
-                value={columnName}
-                onChange={(e) => setColumnName(e.target.value)}
-                placeholder="Ex: Lucro Líquido Real"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="column-name">1. Nome da Nova Coluna</Label>
+                <Input 
+                  id="column-name"
+                  value={columnName}
+                  onChange={(e) => setColumnName(e.target.value)}
+                  placeholder="Ex: Lucro Líquido Real"
+                />
+              </div>
+               <div className="flex flex-row items-center justify-between rounded-lg border p-3 mt-auto">
+                    <div className="space-y-0.5">
+                        <Label>É porcentagem?</Label>
+                        <p className="text-xs text-muted-foreground">
+                            O resultado final será multiplicado por 100.
+                        </p>
+                    </div>
+                    <Switch
+                        checked={isPercentage}
+                        onCheckedChange={setIsPercentage}
+                    />
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -142,6 +161,8 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
                       <Button variant="outline" size="icon" onClick={() => handleItemClick({ type: 'operator', value: '-', label: '-' })}><Minus/></Button>
                       <Button variant="outline" size="icon" onClick={() => handleItemClick({ type: 'operator', value: '*', label: '×' })}><X/></Button>
                       <Button variant="outline" size="icon" onClick={() => handleItemClick({ type: 'operator', value: '/', label: '÷' })}><Divide/></Button>
+                      <Button variant="outline" size="sm" onClick={() => handleItemClick({ type: 'operator', value: '(', label: '(' })}>(</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleItemClick({ type: 'operator', value: ')', label: ')' })}>)</Button>
                   </div>
               </div>
             </div>

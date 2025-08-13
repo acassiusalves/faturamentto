@@ -57,7 +57,7 @@ interface SalesTableProps {
 }
 
 const defaultVisibleColumnsOrder: string[] = [
-    "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over"
+    "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over", "lucro_liquido", "margem_contribuicao_percent"
 ];
 const DEFAULT_USER_ID = 'default-user';
 
@@ -119,7 +119,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       key: calc.id,
       label: calc.name,
       path: '',
-      isCustom: true
+      isCustom: true,
+      isPercentage: calc.isPercentage
     }));
   }, [customCalculations]);
 
@@ -225,7 +226,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const columnsToShow = useMemo(() => {
     return columnOrder
       .map(key => allAvailableColumns.find(field => field.key === key))
-      .filter((field): field is { key: string; label: string, path: string } => !!field && visibleColumns[field.key]);
+      .filter((field): field is { key: string; label: string, path: string, isPercentage?: boolean } => !!field && visibleColumns[field.key]);
   }, [columnOrder, visibleColumns, allAvailableColumns]);
 
   const availableColumnsForSelection = useMemo(() => {
@@ -447,8 +448,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             cellContent = formatDate(cellContent);
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
+                          } else if (field.isPercentage) {
+                              cellContent = isNumeric ? `${numericValue.toFixed(2)}%` : 'N/A';
                           } else if (numericColumns.has(field.key)) {
-                              const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
+                              const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over' || field.key === 'lucro_liquido') ? 'font-semibold text-green-600' : '';
                               if(field.key === 'product_cost' && isNumeric && numericValue > 0) {
                                   cellContent = (
                                     <div className="flex items-center justify-end gap-1.5">

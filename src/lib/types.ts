@@ -202,4 +202,5 @@ export interface CustomCalculation {
     id: string; // e.g. 'custom_162987...
     name: string; // e.g. "Lucro Real"
     formula: FormulaItem[];
+    isPercentage?: boolean;
 }
