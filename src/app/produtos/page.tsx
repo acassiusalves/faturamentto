@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategorySettings, ProductAttribute } from '@/lib/types';
 import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/services/firestore';
@@ -26,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
@@ -36,9 +38,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<ProductCategorySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formState, setFormState] = useState<Record<string, string>>({});
-
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isSkuDialogOpen, setIsSkuDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
@@ -50,6 +50,12 @@ export default function ProductsPage() {
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictResults, setConflictResults] = useState<SkuConflict[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+
+  const form = useForm<Record<string, string>>({
+    defaultValues: {},
+  });
+  const { control, watch, handleSubmit, reset, formState: { isSubmitting, isValid } } = form;
+  const formValues = watch();
 
   const runConflictCheck = useCallback((productsToCheck: Product[], showToast: boolean) => {
     const skuMap = new Map<string, { sku: string; name: string; productId: string }[]>();
@@ -89,17 +95,13 @@ export default function ProductsPage() {
       if (loadedSettings) {
         const initialFormState: Record<string, string> = {};
         loadedSettings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
-        setFormState(initialFormState);
+        reset(initialFormState);
       }
       setIsLoading(false);
     }
     loadData();
-  }, [runConflictCheck]);
+  }, [runConflictCheck, reset]);
 
-  const handleAttributeSelect = (key: string, value: string) => {
-    setFormState(prev => ({ ...prev, [key]: value }));
-    setOpenPopovers(prev => ({...prev, [key]: false}));
-  };
 
   const handleOpenSkuDialog = (product: Product) => {
     setSelectedProductForSku(product);
@@ -142,23 +144,23 @@ export default function ProductsPage() {
   const generatedName = useMemo(() => {
     if (!settings) return "";
     return orderedAttributes
-      .map(attr => formState[attr.key])
+      .map(attr => formValues[attr.key])
       .filter(Boolean)
       .join(" ");
-  }, [formState, orderedAttributes, settings]);
-
+  }, [formValues, orderedAttributes, settings]);
+  
   const canSubmit = useMemo(() => {
     if (!settings) return false;
-    const allRequiredFilled = settings.attributes.every(attr => !!formState[attr.key]);
+    const allRequiredFilled = settings.attributes.every(attr => !!formValues[attr.key]);
     return allRequiredFilled && generatedName.length > 0;
-  }, [settings, formState, generatedName]);
+  }, [settings, formValues, generatedName]);
 
   const generatedSku = useMemo(() => {
     if (!canSubmit) return "";
     
     const baseName = orderedAttributes
       .filter(attr => attr.key !== 'cor')
-      .map(attr => formState[attr.key])
+      .map(attr => formValues[attr.key])
       .filter(Boolean)
       .join(" ");
 
@@ -184,23 +186,15 @@ export default function ProductsPage() {
         sequentialNumberPart = (maxSkuNum + 1).toString();
     }
     
-    const color = formState['cor'] || '';
+    const color = formValues['cor'] || '';
     const colorCode = color.length > 2 && color.includes(' ') 
       ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase() 
       : color.charAt(0).toUpperCase();
 
     return `#${sequentialNumberPart}${colorCode}`;
-  }, [products, formState, canSubmit, orderedAttributes]);
+  }, [products, formValues, canSubmit, orderedAttributes]);
 
-  const resetForm = () => {
-    if (!settings) return;
-    const initialFormState: Record<string, string> = {};
-    settings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
-    setFormState(initialFormState);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: Record<string, string>) => {
     if (!canSubmit || !generatedSku) return;
     if (products.some(p => p.name.toLowerCase() === generatedName.toLowerCase())) {
       toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedName}" já existe.` });
@@ -210,13 +204,13 @@ export default function ProductsPage() {
       toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${generatedSku}" já está sendo usado.` });
       return;
     }
-    setIsSubmitting(true);
+
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
       category: 'Celular',
       name: generatedName,
       sku: generatedSku,
-      attributes: formState,
+      attributes: data,
       createdAt: new Date().toISOString(),
       associatedSkus: [],
     };
@@ -228,12 +222,14 @@ export default function ProductsPage() {
         return np;
       });
       toast({ title: "Produto Criado!", description: `O modelo "${generatedName}" foi salvo com sucesso.` });
-      resetForm();
+      if (settings) {
+        const initialFormState: Record<string, string> = {};
+        settings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
+        reset(initialFormState);
+      }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o modelo do produto.' });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -348,93 +344,109 @@ export default function ProductsPage() {
           <TabsContent value="models" className="mt-6">
             <div className="grid md:grid-cols-3 gap-8 items-start">
               <div className="md:col-span-1 space-y-4">
-                  <form onSubmit={handleSubmit}>
-                    <Card>
-                        <CardHeader>
-                          <CardTitle>Criar Novo Modelo de Celular</CardTitle>
-                          <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                           {settings ? orderedAttributes.map(attr => (
-                                <div key={attr.key} className="space-y-2">
-                                    <Label>{attr.label}</Label>
-                                    {attr.key === 'modelo' ? (
+                  <Form {...form}>
+                    <form onSubmit={handleSubmit(onSubmit)}>
+                      <Card>
+                          <CardHeader>
+                            <CardTitle>Criar Novo Modelo de Celular</CardTitle>
+                            <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {settings ? orderedAttributes.map(attr => (
+                                <FormField
+                                  key={attr.key}
+                                  control={control}
+                                  name={attr.key}
+                                  rules={{ required: true }}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>{attr.label}</FormLabel>
+                                      {attr.key === 'modelo' ? (
                                         <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
-                                            <PopoverTrigger asChild>
-                                                <Button
+                                          <PopoverTrigger asChild>
+                                            <FormControl>
+                                              <Button
                                                 variant="outline"
                                                 role="combobox"
-                                                className={cn("w-full justify-between font-normal", !formState[attr.key] && "text-muted-foreground")}
-                                                >
-                                                {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
+                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                              >
+                                                {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                <Command>
-                                                <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                                <CommandList>
-                                                    <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
-                                                    <CommandGroup>
-                                                    {attr.values.map(val => (
-                                                        <CommandItem
-                                                        key={val}
-                                                        value={val}
-                                                        onSelect={() => {
-                                                            handleAttributeSelect(attr.key, val);
-                                                        }}
-                                                        >
-                                                        <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                        {val}
-                                                        </CommandItem>
-                                                    ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                                </Command>
-                                            </PopoverContent>
+                                              </Button>
+                                            </FormControl>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                              <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                              <CommandList>
+                                                <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                                <CommandGroup>
+                                                  {attr.values.map(val => (
+                                                    <CommandItem
+                                                      key={val}
+                                                      value={val}
+                                                      onSelect={() => {
+                                                        field.onChange(val);
+                                                        setOpenPopovers(prev => ({...prev, [attr.key]: false}));
+                                                      }}
+                                                    >
+                                                      <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
+                                                      {val}
+                                                    </CommandItem>
+                                                  ))}
+                                                </CommandGroup>
+                                              </CommandList>
+                                            </Command>
+                                          </PopoverContent>
                                         </Popover>
-                                    ) : (
-                                        <Select onValueChange={(value) => handleAttributeSelect(attr.key, value)} value={formState[attr.key]}>
+                                      ) : (
+                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                          <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
+                                              <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
                                             </SelectTrigger>
-                                            <SelectContent>
-                                                {attr.values.map(val => (
-                                                    <SelectItem key={val} value={val}>{val}</SelectItem>
-                                                ))}
-                                            </SelectContent>
+                                          </FormControl>
+                                          <SelectContent>
+                                            {attr.values.map(val => (
+                                              <SelectItem key={val} value={val}>{val}</SelectItem>
+                                            ))}
+                                          </SelectContent>
                                         </Select>
-                                    )}
-                                </div>
-                           )) : <p>Carregando atributos...</p>}
+                                      )}
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                            )) : <p>Carregando atributos...</p>}
 
-                          <div className="grid grid-cols-2 gap-4 pt-4">
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-muted-foreground">Nome Gerado</Label>
-                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                  <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                    {generatedName || "Selecione as opções acima..."}
-                                  </span>
+                            <div className="grid grid-cols-2 gap-4 pt-4">
+                                <div className="space-y-2 col-span-2">
+                                  <Label className="text-muted-foreground">Nome Gerado</Label>
+                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                    <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                      {generatedName || "Selecione as opções acima..."}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="space-y-2 col-span-2">
-                                <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
-                                <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                  <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                    {generatedSku || "Selecione as opções..."}
-                                  </span>
+                                <div className="space-y-2 col-span-2">
+                                  <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
+                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                    <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
+                                      {generatedSku || "Selecione as opções..."}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter>
-                          <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                            Criar Modelo de Produto
-                          </Button>
-                        </CardFooter>
-                    </Card>
-                  </form>
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
+                              {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                              Criar Modelo de Produto
+                            </Button>
+                          </CardFooter>
+                      </Card>
+                    </form>
+                  </Form>
               </div>
 
               <div className="md:col-span-2">
