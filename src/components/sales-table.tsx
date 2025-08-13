@@ -102,7 +102,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         if (!isDashboard) {
             loadTableSettings();
         }
-    }, [isDashboard, supportData]);
+    }, [isDashboard, supportData, customCalculations]);
 
   const loadTableSettings = () => {
     setIsSettingsLoading(true);
@@ -327,27 +327,27 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         <CardContent>
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
             <Table>
-               <DndContext
+              <TableHeader>
+                <DndContext
                     id={'dnd-context-sales-table'}
                     onDragEnd={handleDragEnd}
                     collisionDetection={closestCenter}
                 >
-              <TableHeader>
-                <TableRow>
-                   <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-                      {orderedAndVisibleColumns.map((field) => (
-                        <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
-                            <div className="flex items-center gap-2">
-                              {field.label}
-                              {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
-                            </div>
-                        </DraggableHeader>
-                      ))}
-                  </SortableContext>
-                  {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
-                </TableRow>
+                    <TableRow>
+                       <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                          {orderedAndVisibleColumns.map((field) => (
+                            <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
+                                <div className="flex items-center gap-2">
+                                  {field.label}
+                                  {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
+                                </div>
+                            </DraggableHeader>
+                          ))}
+                      </SortableContext>
+                      {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
+                    </TableRow>
+                </DndContext>
               </TableHeader>
-              </DndContext>
               <TableBody>
                 {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                   paginatedData.map((sale) => {
