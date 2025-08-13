@@ -62,6 +62,30 @@ const defaultVisibleColumnsOrder: string[] = [
 ];
 const DEFAULT_USER_ID = 'default-user';
 
+function SortableItem({ id, children }: { id: string, children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({id});
+  
+  const style = {
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
+    transition,
+  };
+  
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="flex items-center gap-2 w-full">
+       <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+       <div className="flex-grow">
+        {children}
+       </div>
+    </div>
+  );
+}
+
 
 export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [] }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -79,6 +103,20 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    
+    if (active.id !== over?.id && over) {
+      setColumnOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+        return newOrder;
+      });
+    }
+  }
   
   const supportDataColumns = useMemo(() => {
     if (!supportData?.files) return [];
@@ -292,6 +330,39 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       }
   };
 
+  const renderColumnGroup = (groupTitle: string, columns: any[]) => {
+      const visibleColsInGroup = columnOrder.filter(key => columns.some(c => c.key === key));
+
+      return (
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{groupTitle}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={visibleColsInGroup} strategy={verticalListSortingStrategy}>
+              {visibleColsInGroup.map(key => {
+                  const field = allAvailableColumns.find(f => f.key === key);
+                  if (!field) return null;
+                  return (
+                    <SortableItem key={field.key} id={field.key}>
+                      <DropdownMenuCheckboxItem
+                        checked={visibleColumns[field.key] === true}
+                        onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                        onSelect={(e) => e.preventDefault()}
+                        className="w-full"
+                      >
+                        {getColumnHeader(field.key)}
+                        {(field as any).isSupport && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                        {(field as any).isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
+                      </DropdownMenuCheckboxItem>
+                    </SortableItem>
+                  )
+              })}
+            </SortableContext>
+          </DndContext>
+        </DropdownMenuGroup>
+      );
+  };
+
   if (!isClient) {
     return null;
   }
@@ -313,52 +384,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64">
                 <ScrollArea className="h-[400px]">
-                   <DropdownMenuGroup>
-                        <DropdownMenuLabel>Sistema</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {groupedColumns.sistema.map(field => (
-                            <DropdownMenuCheckboxItem
-                                key={field.key}
-                                checked={visibleColumns[field.key] === true}
-                                onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                onSelect={(e) => e.preventDefault()}
-                            >
-                                {getColumnHeader(field.key)}
-                                {field.isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                   </DropdownMenuGroup>
-                    <DropdownMenuGroup>
-                        <DropdownMenuLabel>Ideris</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {groupedColumns.ideris.map(field => (
-                             <DropdownMenuCheckboxItem
-                                key={field.key}
-                                checked={visibleColumns[field.key] === true}
-                                onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                onSelect={(e) => e.preventDefault()}
-                            >
-                                {getColumnHeader(field.key)}
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                    </DropdownMenuGroup>
-                    {groupedColumns.planilha.length > 0 && (
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel>Planilha</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {groupedColumns.planilha.map(field => (
-                                <DropdownMenuCheckboxItem
-                                    key={field.key}
-                                    checked={visibleColumns[field.key] === true}
-                                    onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                                    onSelect={(e) => e.preventDefault()}
-                                >
-                                    {getColumnHeader(field.key)}
-                                    <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />
-                                </DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuGroup>
-                    )}
+                    {renderColumnGroup("Sistema", groupedColumns.sistema)}
+                    {renderColumnGroup("Ideris", groupedColumns.ideris)}
+                    {groupedColumns.planilha.length > 0 && renderColumnGroup("Planilha", groupedColumns.planilha)}
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
