@@ -18,7 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
-import { systemFields } from '@/lib/system-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -58,11 +57,11 @@ interface SalesTableProps {
 }
 
 const defaultVisibleColumnsOrder: string[] = [
-    "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over", "lucro_liquido", "margem_contribuicao_percent"
+    "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over"
 ];
 const DEFAULT_USER_ID = 'default-user';
 
-function SortableItem({ id, children }: { id: string, children: React.ReactNode }) {
+function SortableItem({ id, children, ...props }: { id: string, children: React.ReactNode, [key: string]: any }) {
   const {
     attributes,
     listeners,
@@ -77,10 +76,12 @@ function SortableItem({ id, children }: { id: string, children: React.ReactNode 
   };
   
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="flex items-center gap-2 w-full">
-       <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 w-full" {...attributes}>
+       <div {...listeners} className="cursor-grab p-1">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+       </div>
        <div className="flex-grow">
-        {children}
+        {React.cloneElement(children as React.ReactElement, { onSelect: (e: Event) => e.preventDefault()})}
        </div>
     </div>
   );
@@ -104,17 +105,25 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     })
   );
 
-  function handleDragEnd(event: DragEndEvent) {
+  function handleDragEnd(event: DragEndEvent, groupKey: string) {
     const {active, over} = event;
     
     if (active.id !== over?.id && over) {
-      setColumnOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
-        return newOrder;
-      });
+        setColumnOrder((items) => {
+            const oldIndex = items.indexOf(active.id as string);
+            const newIndex = items.indexOf(over.id as string);
+
+            // Check if both items are in the same group
+            const activeGroup = getGroupKey(active.id as string);
+            const overGroup = getGroupKey(over.id as string);
+
+            if (activeGroup === overGroup) {
+                const newOrder = arrayMove(items, oldIndex, newIndex);
+                localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+                return newOrder;
+            }
+            return items;
+        });
     }
   }
   
@@ -142,12 +151,20 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [customCalculations]);
 
   const allAvailableColumns = useMemo(() => {
+      const systemColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
+      const iderisKeys = new Set(iderisFields.map(f => f.key));
+      const supportKeys = new Set(supportDataColumns.map(c => c.key));
+
       const baseColumns = [
-        ...systemFields,
-        ...iderisFields.filter(i => !systemFields.some(s => s.key === i.key)),
-        ...supportDataColumns.filter(sup => !systemFields.some(s => s.key === sup.key) && !iderisFields.some(i => i.key === sup.key)).map(c => ({ ...c, isSupport: true })),
-        ...customCalculationColumns.filter(custom => !systemFields.some(s => s.key === custom.key) && !iderisFields.some(i => i.key === custom.key))
+        ...iderisFields,
+        ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
+        ...customCalculationColumns
       ];
+
+      // Add product_cost if it's not already there
+      if (!systemColumnKeys.has('product_cost') && !iderisKeys.has('product_cost') && !supportKeys.has('product_cost')) {
+          baseColumns.push({ key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true });
+      }
       
       const uniqueColumns = [];
       const seenKeys = new Set();
@@ -161,22 +178,22 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       return uniqueColumns;
   }, [supportDataColumns, customCalculationColumns]);
 
+    const getGroupKey = (key: string): 'sistema' | 'ideris' | 'planilha' => {
+        const systemColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
+        if (systemColumnKeys.has(key)) return 'sistema';
+        if (supportDataColumns.some(c => c.key === key)) return 'planilha';
+        return 'ideris';
+    };
+
   const groupedColumns = useMemo(() => {
-    const iderisKeys = new Set(iderisFields.map(f => f.key));
-    const supportKeys = new Set(supportDataColumns.map(c => c.key));
-    
-    // Explicitly define which keys belong to the 'Sistema' group
-    const systemColumnKeys = new Set(['product_cost', ...customCalculationColumns.map(c => c.key)]);
-
-
-    const iderisGroup = allAvailableColumns.filter(c => iderisKeys.has(c.key) && !systemColumnKeys.has(c.key));
-    const planilhaGroup = allAvailableColumns.filter(c => supportKeys.has(c.key));
-    const sistemaGroup = allAvailableColumns.filter(c => systemColumnKeys.has(c.key));
+    const iderisGroup = allAvailableColumns.filter(c => getGroupKey(c.key) === 'ideris');
+    const planilhaGroup = allAvailableColumns.filter(c => getGroupKey(c.key) === 'planilha');
+    const sistemaGroup = allAvailableColumns.filter(c => getGroupKey(c.key) === 'sistema');
 
     return {
+      sistema: sistemaGroup,
       ideris: iderisGroup,
       planilha: planilhaGroup,
-      sistema: sistemaGroup,
     };
   }, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
 
@@ -233,18 +250,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         const newVisibleColumns = { ...prev, [key]: checked };
         localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
         return newVisibleColumns;
-    });
-
-    // We keep the logic to add/remove from order, but remove the UI for reordering.
-    setColumnOrder(prevOrder => {
-        let newOrder;
-        if (checked) {
-            newOrder = prevOrder.includes(key) ? prevOrder : [...prevOrder, key];
-        } else {
-            newOrder = prevOrder.filter(k => k !== key);
-        }
-        localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
-        return newOrder;
     });
   }
 
@@ -333,7 +338,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       }
   };
 
-  const renderColumnGroup = (groupTitle: string, columns: any[]) => {
+  const renderColumnGroup = (groupTitle: string, columns: any[], groupKey: 'sistema' | 'ideris' | 'planilha') => {
       if(columns.length === 0) return null;
       
       const visibleColsInGroup = columnOrder.filter(key => columns.some(c => c.key === key));
@@ -342,7 +347,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         <DropdownMenuGroup>
           <DropdownMenuLabel>{groupTitle}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, groupKey)}>
             <SortableContext items={visibleColsInGroup} strategy={verticalListSortingStrategy}>
               {visibleColsInGroup.map(key => {
                   const field = allAvailableColumns.find(f => f.key === key);
@@ -352,8 +357,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                       <DropdownMenuCheckboxItem
                         checked={visibleColumns[field.key] === true}
                         onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                        onSelect={(e) => e.preventDefault()}
-                        className="w-full"
                       >
                         {getColumnHeader(field.key)}
                         {(field as any).isSupport && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
@@ -389,9 +392,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64">
                 <ScrollArea className="h-[400px]">
-                    {renderColumnGroup("Sistema", groupedColumns.sistema)}
-                    {renderColumnGroup("Ideris", groupedColumns.ideris)}
-                    {renderColumnGroup("Planilha", groupedColumns.planilha)}
+                    {renderColumnGroup("Sistema", groupedColumns.sistema, "sistema")}
+                    {renderColumnGroup("Ideris", groupedColumns.ideris, "ideris")}
+                    {renderColumnGroup("Planilha", groupedColumns.planilha, "planilha")}
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
