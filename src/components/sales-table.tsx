@@ -58,7 +58,7 @@ interface SalesTableProps {
 }
 
 const defaultVisibleColumnsOrder: string[] = [
-    "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over", "lucro_liquido", "margem_contribuicao_percent"
+    "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over", "lucro_liquido", "margem_contribuicao_percent"
 ];
 const DEFAULT_USER_ID = 'default-user';
 
@@ -164,10 +164,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const groupedColumns = useMemo(() => {
     const iderisKeys = new Set(iderisFields.map(f => f.key));
     const supportKeys = new Set(supportDataColumns.map(c => c.key));
+    
+    // Explicitly define which keys belong to the 'Sistema' group
     const systemColumnKeys = new Set(['product_cost', ...customCalculationColumns.map(c => c.key)]);
 
 
-    const iderisGroup = allAvailableColumns.filter(c => iderisKeys.has(c.key));
+    const iderisGroup = allAvailableColumns.filter(c => iderisKeys.has(c.key) && !systemColumnKeys.has(c.key));
     const planilhaGroup = allAvailableColumns.filter(c => supportKeys.has(c.key));
     const sistemaGroup = allAvailableColumns.filter(c => systemColumnKeys.has(c.key));
 
@@ -177,6 +179,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       sistema: sistemaGroup,
     };
   }, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -331,6 +334,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   };
 
   const renderColumnGroup = (groupTitle: string, columns: any[]) => {
+      if(columns.length === 0) return null;
+      
       const visibleColsInGroup = columnOrder.filter(key => columns.some(c => c.key === key));
 
       return (
@@ -386,7 +391,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 <ScrollArea className="h-[400px]">
                     {renderColumnGroup("Sistema", groupedColumns.sistema)}
                     {renderColumnGroup("Ideris", groupedColumns.ideris)}
-                    {groupedColumns.planilha.length > 0 && renderColumnGroup("Planilha", groupedColumns.planilha)}
+                    {renderColumnGroup("Planilha", groupedColumns.planilha)}
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
