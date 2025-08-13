@@ -157,29 +157,23 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [customCalculations]);
 
   const allAvailableColumns = useMemo(() => {
-      const iderisKeys = new Set(iderisFields.map(f => f.key));
+    const baseColumns = [
+      ...iderisFields,
+      ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
+      { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
+      ...customCalculationColumns,
+    ];
 
-      const baseColumns = [
-        ...iderisFields,
-        ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
-        ...customCalculationColumns
-      ];
-
-      // Add product_cost if it's not already there
-      if (!iderisKeys.has('product_cost') && !supportDataColumns.some(c => c.key === 'product_cost') && !customCalculationColumns.some(c => c.key === 'product_cost')) {
-          baseColumns.push({ key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true });
+    const uniqueColumns: { key: string; label: string; path: string; isSupport?: boolean; isCustom?: boolean; isPercentage?: boolean; }[] = [];
+    const seenKeys = new Set();
+    for (const col of baseColumns) {
+      if (!seenKeys.has(col.key)) {
+        uniqueColumns.push(col);
+        seenKeys.add(col.key);
       }
-      
-      const uniqueColumns = [];
-      const seenKeys = new Set();
-      for (const col of baseColumns) {
-        if (!seenKeys.has(col.key)) {
-          uniqueColumns.push(col);
-          seenKeys.add(col.key);
-        }
-      }
-
-      return uniqueColumns;
+    }
+    
+    return uniqueColumns;
   }, [supportDataColumns, customCalculationColumns]);
 
     const getGroupKey = (key: string): 'sistema' | 'ideris' | 'planilha' => {
