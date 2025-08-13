@@ -309,15 +309,30 @@ export const saveMonthlySupportData = async (monthYearKey: string, data: Support
 // --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
 
-export const loadAppSettings = async (): Promise<any | null> => {
+interface AppSettings {
+    iderisPrivateKey?: string;
+    googleSheetsApiKey?: string;
+    allMappings?: AllMappingsState;
+    friendlyFieldNames?: Record<string, string>;
+    fileNames?: { [key: string]: string };
+    fileData?: { [key: string]: string };
+    iderisApiStatus?: ApiKeyStatus;
+    googleSheetsApiStatus?: ApiKeyStatus;
+    permissions?: Record<string, string[]>;
+    customCalculations?: any[];
+    ignoredIderisColumns?: string[];
+}
+
+
+export const loadAppSettings = async (): Promise<AppSettings | null> => {
     const snapshot = await getDoc(settingsDocRef);
     if (snapshot.exists()) {
-        return snapshot.data();
+        return snapshot.data() as AppSettings;
     }
     return null;
 }
 
-export const saveAppSettings = async (settings: Partial<any>): Promise<void> => {
+export const saveAppSettings = async (settings: Partial<AppSettings>): Promise<void> => {
     await setDoc(settingsDocRef, settings, { merge: true });
 }
 
