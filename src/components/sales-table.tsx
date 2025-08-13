@@ -22,7 +22,6 @@ import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { loadAppSettings, saveAppSettings } from '@/services/firestore';
 import Image from 'next/image';
 
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
@@ -33,7 +32,6 @@ import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { ColumnManagerDialog } from "./column-manager-dialog";
 
 
 interface SalesTableProps {
@@ -47,10 +45,22 @@ interface SalesTableProps {
   productCostSource?: Map<string, number>;
   customCalculations?: CustomCalculation[];
   isDashboard?: boolean;
-  key?: number; // Used to force re-render
 }
 
 const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
+
+const fixedIderisColumns = [
+    'order_code',
+    'payment_approved_date',
+    'item_title',
+    'item_sku',
+    'item_quantity',
+    'value_with_shipping',
+    'fee_order',
+    'fee_shipment',
+    'left_over'
+];
+
 
 const DraggableHeader = ({ header, children }: { header: any, children: React.ReactNode }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: header.key });
@@ -76,12 +86,10 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
-export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false, key }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
-  const [settingsVersion, setSettingsVersion] = useState(0);
-
+  
   const [isSettingsLoading, setIsSettingsLoading] = useState(!isDashboard);
   
   // Columns state
@@ -91,21 +99,16 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
    useEffect(() => {
         setIsClient(true);
-        // Load settings only for the Conciliacao page
         if (!isDashboard) {
             loadTableSettings();
         }
-    }, [isDashboard, settingsVersion]); // Rerun when settingsVersion changes
+    }, [isDashboard, supportData]);
 
-  const loadTableSettings = async () => {
+  const loadTableSettings = () => {
     setIsSettingsLoading(true);
 
-    const settings = await loadAppSettings();
-    const ignoredIderisColumns = settings?.ignoredIderisColumns || [];
-
-    // --- Build allAvailableColumns ---
     const iderisCols = iderisFields
-        .filter(field => !ignoredIderisColumns.includes(field.key))
+        .filter(field => fixedIderisColumns.includes(field.key))
         .map(field => ({
             ...field,
             group: 'Ideris',
@@ -124,7 +127,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     ];
     
     const sheetCols: any[] = [];
-    if (supportData?.files) {
+    if (supportData && supportData.files) {
         const allFriendlyNames = new Set<string>();
         Object.values(supportData.files).flat().forEach(file => {
             Object.values(file.friendlyNames).forEach(name => allFriendlyNames.add(name));
@@ -137,26 +140,18 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     const availableColumns = [...iderisCols, ...systemCols, ...sheetCols];
     setAllAvailableColumns(availableColumns);
     
-    // --- Load visibility and order settings ---
     const savedVisible = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
     const savedOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
 
     const initialVisible: Record<string, boolean> = savedVisible ? JSON.parse(savedVisible) : {};
-    // Ensure default columns are visible if no settings are saved
     if (!savedVisible) {
-        initialVisible['order_code'] = true;
-        initialVisible['payment_approved_date'] = true;
-        initialVisible['item_title'] = true;
-        initialVisible['item_sku'] = true;
-        initialVisible['value_with_shipping'] = true;
-        initialVisible['product_cost'] = true;
-        initialVisible['fee_order'] = true;
-        initialVisible['left_over'] = true;
+        // Set default visibility
+        fixedIderisColumns.forEach(key => initialVisible[key] = true);
+        systemCols.forEach(c => initialVisible[c.key] = true);
     }
     setVisibleColumns(initialVisible);
 
     const initialOrder = savedOrder ? JSON.parse(savedOrder) : availableColumns.map(c => c.key);
-    // Filter out any columns in the saved order that are no longer available
     const validOrder = initialOrder.filter((key: string) => availableColumns.some(c => c.key === key));
     setColumnOrder(validOrder);
 
@@ -298,9 +293,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             </div>
             {!isDashboard && (
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setIsColumnManagerOpen(true)}>
-                        Colunas
-                    </Button>
                     <DropdownMenu>
                          <DropdownMenuTrigger asChild>
                             <Button variant="outline" disabled={isSettingsLoading}>
@@ -520,13 +512,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
           formatCurrency={formatCurrency}
         />
       )}
-       <ColumnManagerDialog
-          isOpen={isColumnManagerOpen}
-          onClose={() => {
-              setIsColumnManagerOpen(false);
-              setSettingsVersion(v => v + 1); // Force reload of settings
-          }}
-      />
     </TooltipProvider>
   );
 }
