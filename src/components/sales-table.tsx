@@ -162,6 +162,24 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       isPercentage: calc.isPercentage
     }));
   }, [customCalculations]);
+  
+  useEffect(() => {
+    async function loadData() {
+      if (isDashboard) {
+        setColumnOrder(dashboardVisibleColumnsOrder);
+        setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+        return;
+      }
+      
+      const settings = await loadAppSettings();
+      const savedIgnored = settings?.ignoredIderisColumns || [];
+      setIgnoredColumns(savedIgnored);
+      if (settings?.friendlyFieldNames) {
+        setFriendlyNames(settings.friendlyFieldNames);
+      }
+    }
+    loadData();
+  }, [isDashboard]);
 
   const allAvailableColumns = useMemo(() => {
     const baseColumns = [
@@ -205,47 +223,21 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   useEffect(() => {
     setIsClient(true);
-    async function loadData() {
-        if (isDashboard) {
-            setColumnOrder(dashboardVisibleColumnsOrder);
-            setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({...acc, [key]: true }), {}));
-            return;
-        }
-
-        const settings = await loadAppSettings();
-        
-        let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
-        let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
-        
-        const currentOrderSet = new Set(initialColumnOrder);
-        const allPossibleColumns = [
-            ...iderisFields,
-            ...supportDataColumns.map(c => ({ key: c.key, label: c.label, path: '' })),
-            ...customCalculationColumns.map(c => ({ key: c.key, label: c.label, path: '' })),
-             { key: 'product_cost', label: 'Custo do Produto', path: '' }
-        ];
-
-        allPossibleColumns.forEach(sc => {
-            if (!currentOrderSet.has(sc.key)) {
-                initialColumnOrder.push(sc.key);
-            }
-        });
-        setColumnOrder(initialColumnOrder);
-
-        if (settings?.friendlyFieldNames) {
-            setFriendlyNames(settings.friendlyFieldNames);
-        }
-        if (settings?.ignoredIderisColumns) {
-            setIgnoredColumns(settings.ignoredIderisColumns);
-        }
-    }
-    loadData();
-  }, [supportDataColumns, customCalculationColumns, isDashboard]);
-
-
-  useEffect(() => {
     if (isDashboard) return;
 
+    // Load column order
+    let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
+    let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
+    
+    const currentOrderSet = new Set(initialColumnOrder);
+    allAvailableColumns.forEach(sc => {
+      if (!currentOrderSet.has(sc.key)) {
+        initialColumnOrder.push(sc.key);
+      }
+    });
+    setColumnOrder(initialColumnOrder);
+
+    // Load visible columns
     const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
     let initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
     
@@ -257,9 +249,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         initialSettings[col.key] = isDefault || isSupport || isCustom;
       }
     });
-
     setVisibleColumns(initialSettings);
-}, [allAvailableColumns, supportDataColumns, customCalculationColumns, isDashboard]);
+  }, [allAvailableColumns, isDashboard, supportDataColumns, customCalculationColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
