@@ -154,38 +154,43 @@ export default function ProductsPage() {
   }, [settings, formState, generatedName]);
 
   const generatedSku = useMemo(() => {
-    if (!canSubmit || !formState['cor']) return "";
+    if (!canSubmit) return "";
+    
+    // 1. Create the base name (without color)
     const baseName = orderedAttributes
       .filter(attr => attr.key !== 'cor')
       .map(attr => formState[attr.key])
       .filter(Boolean)
       .join(" ");
 
+    // 2. Find an existing product with the same base name to get the numeric part
     const existingProductWithSameBase = products.find(p => {
-      const pBaseName = attributeOrder
-        .filter(key => key !== 'cor')
-        .map(key => p.attributes[key])
-        .filter(Boolean)
-        .join(" ");
-      return pBaseName === baseName;
+        const pBaseName = attributeOrder
+            .filter(key => key !== 'cor')
+            .map(key => p.attributes[key])
+            .filter(Boolean)
+            .join(" ");
+        return pBaseName === baseName;
     });
 
     let sequentialNumberPart: string;
-    if (existingProductWithSameBase?.sku) {
-      sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
-    } else {
-      // This is a new product model, find the highest SKU number in the entire list and increment
-      const maxSkuNum = products.reduce((max, p) => {
-        if (!p.sku) return max;
-        const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
-        return isNaN(num) ? max : Math.max(max, num);
-      }, 0);
-      sequentialNumberPart = (maxSkuNum + 1).toString();
-    }
 
+    if (existingProductWithSameBase?.sku) {
+        // Extract number from existing SKU
+        sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
+    } else {
+        // Generate a new sequential number by finding the max in the whole list
+        const maxSkuNum = products.reduce((max, p) => {
+            if (!p.sku) return max;
+            const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
+            return isNaN(num) ? max : Math.max(max, num);
+        }, 0);
+        sequentialNumberPart = (maxSkuNum + 1).toString();
+    }
+    
     const color = formState['cor'] || '';
-    const colorCode = color.length > 2 && color.includes(' ')
-      ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase()
+    const colorCode = color.length > 2 && color.includes(' ') 
+      ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase() 
       : color.charAt(0).toUpperCase();
 
     return `#${sequentialNumberPart}${colorCode}`;
@@ -357,47 +362,7 @@ export default function ProductsPage() {
                            {settings ? orderedAttributes.map(attr => (
                                 <div key={attr.key} className="space-y-2">
                                     <Label>{attr.label}</Label>
-                                    {attr.key === 'modelo' ? (
-                                      <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [attr.key]: isOpen }))}>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={openPopovers[attr.key]}
-                                            className="w-full justify-between font-normal"
-                                          >
-                                            <span className="truncate">
-                                              {formState[attr.key] ? formState[attr.key] : `Selecione ${attr.label.toLowerCase()}...`}
-                                            </span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
-                                          <Command>
-                                            <CommandInput
-                                              placeholder={`Buscar ${attr.label.toLowerCase()}...`}
-                                            />
-                                            <CommandList>
-                                              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-                                              <CommandGroup>
-                                                {attr.values.map((val) => (
-                                                  <CommandItem
-                                                    key={val}
-                                                    value={val}
-                                                    onSelect={() => handleAttributeSelect(attr.key, val)}
-                                                  >
-                                                    <Check className={cn("mr-2 h-4 w-4", formState[attr.key] === val ? "opacity-100" : "opacity-0")} />
-                                                    {val}
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                      </Popover>
-                                    ) : (
-                                      <Select onValueChange={(value) => handleAttributeSelect(attr.key, value)} value={formState[attr.key]}>
+                                    <Select onValueChange={(value) => handleAttributeSelect(attr.key, value)} value={formState[attr.key] || ''}>
                                         <SelectTrigger>
                                           <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
                                         </SelectTrigger>
@@ -408,8 +373,7 @@ export default function ProductsPage() {
                                             </SelectItem>
                                           ))}
                                         </SelectContent>
-                                      </Select>
-                                    )}
+                                    </Select>
                                 </div>
                            )) : <p>Carregando atributos...</p>}
 
