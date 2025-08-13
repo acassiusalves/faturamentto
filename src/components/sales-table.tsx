@@ -226,7 +226,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const columnsToShow = useMemo(() => {
     return columnOrder
       .map(key => allAvailableColumns.find(field => field.key === key))
-      .filter((field): field is { key: string; label: string, path: string, isPercentage?: boolean } => !!field && visibleColumns[field.key]);
+      .filter((field): field is { key: string; label: string, path: string, isPercentage?: boolean, isCustom?: boolean } => !!field && visibleColumns[field.key]);
   }, [columnOrder, visibleColumns, allAvailableColumns]);
 
   const availableColumnsForSelection = useMemo(() => {
@@ -400,7 +400,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 <TableRow>
                   {columnsToShow.map((field) => (
                     <TableHead key={field.key} className={cn("whitespace-nowrap", getColumnAlignment(field.key))}>
-                      {getColumnHeader(field.key)}
+                        <div className="flex items-center gap-2">
+                          {getColumnHeader(field.key)}
+                          {field.isCustom && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </div>
                     </TableHead>
                   ))}
                   <TableHead className="text-center whitespace-nowrap">Ações</TableHead>
