@@ -99,13 +99,18 @@ function SortableItem({ id, children, ...props }: { id: string, children: React.
 export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+
+  // Column states
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [friendlyNames, setFriendlyNames] = useState<Record<string, string>>({});
-  const [columnOrder, setColumnOrder] = useState<string[]>(defaultVisibleColumnsOrder);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [ignoredColumns, setIgnoredColumns] = useState<string[]>([]);
-  const [isGrouped, setIsGrouped] = useState(true);
-  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+  const [allAvailableColumns, setAllAvailableColumns] = useState<{ key: string; label: string; path: string; isSupport?: boolean; isCustom?: boolean; isPercentage?: boolean; }[]>([]);
   
+  const [isGrouped, setIsGrouped] = useState(true);
+  
+  // Pagination states
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   
@@ -115,6 +120,66 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isDashboard) {
+        setAllAvailableColumns(iderisFields);
+        setColumnOrder(dashboardVisibleColumnsOrder);
+        setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+        setIsSettingsLoading(false);
+        return;
+    }
+
+    async function loadDataAndSettings() {
+        setIsSettingsLoading(true);
+        
+        const settings = await loadAppSettings();
+        const savedIgnored = settings?.ignoredIderisColumns || [];
+        const savedFriendlyNames = settings?.friendlyFieldNames || {};
+        
+        const supportCols = supportData?.files ? Array.from(new Set(Object.values(supportData.files).flat().flatMap(file => file.headers?.map(h => file.friendlyNames[h] || h) || []))).map(name => ({ key: name, label: name, path: '', isSupport: true })) : [];
+        const customCols = customCalculations.map(calc => ({ key: calc.id, label: calc.name, path: '', isCustom: true, isPercentage: calc.isPercentage }));
+
+        const baseColumns = [
+            ...iderisFields,
+            ...supportCols,
+            { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
+            ...customCols,
+        ];
+        
+        const uniqueColumns: typeof baseColumns = [];
+        const seenKeys = new Set();
+        baseColumns.forEach(col => { if (!seenKeys.has(col.key)) { uniqueColumns.push(col); seenKeys.add(col.key); } });
+
+        const available = uniqueColumns.filter(col => !savedIgnored.includes(col.key));
+        setAllAvailableColumns(available);
+        setFriendlyNames(savedFriendlyNames);
+        
+        let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
+        let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
+        
+        const currentOrderSet = new Set(initialColumnOrder);
+        available.forEach(col => { if (!currentOrderSet.has(col.key)) initialColumnOrder.push(col.key); });
+        setColumnOrder(initialColumnOrder);
+        
+        const savedVisible = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
+        let initialVisible = savedVisible ? JSON.parse(savedVisible) : {};
+        
+        available.forEach(col => {
+            if (!(col.key in initialVisible)) {
+                initialVisible[col.key] = defaultVisibleColumnsOrder.includes(col.key) || col.isSupport || col.isCustom;
+            }
+        });
+        setVisibleColumns(initialVisible);
+        
+        setIsSettingsLoading(false);
+    }
+    loadDataAndSettings();
+}, [isDashboard, supportData, customCalculations]);
 
   function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -140,111 +205,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         });
     }
   }
-  
-  const supportDataColumns = useMemo(() => {
-    if (!supportData?.files) return [];
-    const allFriendlyNames = new Set<string>();
-    Object.values(supportData.files).flat().forEach(file => {
-        if (!file.headers) return;
-        file.headers.forEach(header => {
-            const friendlyName = file.friendlyNames[header] || header;
-            if(friendlyName) allFriendlyNames.add(friendlyName);
-        });
-    });
-    return Array.from(allFriendlyNames).map(name => ({ key: name, label: name, path: '' }));
-  }, [supportData]);
-  
-  const customCalculationColumns = useMemo(() => {
-    return customCalculations.map(calc => ({
-      key: calc.id,
-      label: calc.name,
-      path: '',
-      isCustom: true,
-      isPercentage: calc.isPercentage
-    }));
-  }, [customCalculations]);
-  
-  useEffect(() => {
-    setIsClient(true);
-    if (isDashboard) {
-        setColumnOrder(dashboardVisibleColumnsOrder);
-        setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-        setIsSettingsLoading(false);
-        return;
-    }
 
-    async function loadData() {
-        setIsSettingsLoading(true);
-        const settings = await loadAppSettings();
-        
-        const savedIgnored = settings?.ignoredIderisColumns || [];
-        setIgnoredColumns(savedIgnored);
-        
-        if (settings?.friendlyFieldNames) {
-            setFriendlyNames(settings.friendlyFieldNames);
-        }
-        
-        // Define all available columns after fetching ignored ones
-        const allCols = [
-            ...iderisFields.filter(col => !savedIgnored.includes(col.key)), // Pre-filter based on Firestore settings
-            ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
-            { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
-            ...customCalculationColumns,
-        ];
-        
-        let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
-        let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
-        
-        const currentOrderSet = new Set(initialColumnOrder);
-        allCols.forEach(sc => {
-            if (!currentOrderSet.has(sc.key)) {
-                initialColumnOrder.push(sc.key);
-            }
-        });
-        setColumnOrder(initialColumnOrder);
-        
-        const savedVisible = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-        let initialVisible = savedVisible ? JSON.parse(savedVisible) : {};
-        
-        allCols.forEach(col => {
-            if (!(col.key in initialVisible)) {
-                const isDefault = defaultVisibleColumnsOrder.includes(col.key);
-                const isSupport = supportDataColumns.some(sc => sc.key === col.key);
-                const isCustom = customCalculationColumns.some(cc => cc.key === col.key);
-                initialVisible[col.key] = isDefault || isSupport || isCustom;
-            }
-        });
-        setVisibleColumns(initialVisible);
-        
-        setIsSettingsLoading(false);
-    }
-    loadData();
-}, [isDashboard, customCalculationColumns, supportDataColumns]);
-
-  const allAvailableColumns = useMemo(() => {
-    const baseColumns = [
-      ...iderisFields,
-      ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
-      { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
-      ...customCalculationColumns,
-    ].filter(col => !ignoredColumns.includes(col.key));
-
-    const uniqueColumns: { key: string; label: string; path: string; isSupport?: boolean; isCustom?: boolean; isPercentage?: boolean; }[] = [];
-    const seenKeys = new Set();
-    for (const col of baseColumns) {
-      if (!seenKeys.has(col.key)) {
-        uniqueColumns.push(col);
-        seenKeys.add(col.key);
-      }
-    }
-    
-    return uniqueColumns;
-  }, [supportDataColumns, customCalculationColumns, ignoredColumns]);
-
-    const getGroupKey = (key: string): 'sistema' | 'ideris' | 'planilha' => {
-        const systemColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
-        if (systemColumnKeys.has(key)) return 'sistema';
-        if (supportDataColumns.some(c => c.key === key)) return 'planilha';
+  const getGroupKey = (key: string): 'sistema' | 'ideris' | 'planilha' => {
+        const customColumnKeys = new Set(['product_cost', ...customCalculations.map(c => c.key)]);
+        if (customColumnKeys.has(key)) return 'sistema';
+        if (allAvailableColumns.find(c => c.key === key)?.isSupport) return 'planilha';
         return 'ideris';
     };
 
@@ -267,7 +232,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const handleVisibilityChange = (key: string, checked: boolean) => {
     setVisibleColumns(prev => {
         const newVisibleColumns = { ...prev, [key]: checked };
-        localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
+        if (!isDashboard) {
+            localStorage.setItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newVisibleColumns));
+        }
         return newVisibleColumns;
     });
   }
@@ -286,9 +253,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     const supportNumeric: string[] = [];
     const nonNumericKeywords = ['id', 'código', 'codigo', 'pedido', 'nota', 'documento', 'rastreio', 'data', 'date'];
 
-    if (data.length > 0 && supportDataColumns.length > 0) {
+    if (data.length > 0 && allAvailableColumns.some(c => c.isSupport)) {
       const firstSale = data[0];
-      supportDataColumns.forEach(col => {
+      allAvailableColumns.filter(c => c.isSupport).forEach(col => {
         const colKeyLower = col.key.toLowerCase();
         if (nonNumericKeywords.some(keyword => colKeyLower.includes(keyword))) {
           return;
@@ -303,13 +270,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       });
     }
 
-    const customNumeric = customCalculationColumns.map(c => c.key);
+    const customNumeric = customCalculations.map(c => c.key);
     const nonNumericSku = ['item_sku', 'order_code', 'id', 'document_value'];
     const finalNumeric = new Set([...iderisNumeric, ...supportNumeric, 'product_cost', ...customNumeric]);
     nonNumericSku.forEach(key => finalNumeric.delete(key));
 
     return finalNumeric;
-  }, [data, supportDataColumns, customCalculationColumns]);
+  }, [data, allAvailableColumns, customCalculations]);
 
 
   const getColumnAlignment = (key: string) => {
@@ -333,7 +300,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const renderSkeleton = () => (
     Array.from({ length: 5 }).map((_, index) => (
        <TableRow key={`skeleton-${index}`}>
-         {iderisFields.filter(f => defaultVisibleColumnsOrder.includes(f.key)).map(col => <TableCell key={`${col.key}-skel-${index}`}><Skeleton className="h-5 w-full" /></TableCell>)}
+         {defaultVisibleColumnsOrder.map(key => <TableCell key={`${key}-skel-${index}`}><Skeleton className="h-5 w-full" /></TableCell>)}
           <TableCell className="text-center"><Skeleton className="h-8 w-[140px] mx-auto" /></TableCell>
       </TableRow>
     ))
