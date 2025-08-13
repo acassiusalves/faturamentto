@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 
-const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
+const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'tipo', 'rede'];
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -54,7 +54,7 @@ export default function ProductsPage() {
   const form = useForm<Record<string, string>>({
     defaultValues: {},
   });
-  const { control, watch, handleSubmit, reset, formState: { isSubmitting, isValid } } = form;
+  const { control, watch, handleSubmit, reset, formState: { isSubmitting } } = form;
   const formValues = watch();
 
   const runConflictCheck = useCallback((productsToCheck: Product[], showToast: boolean) => {
@@ -150,10 +150,10 @@ export default function ProductsPage() {
   }, [formValues, orderedAttributes, settings]);
   
   const canSubmit = useMemo(() => {
-    if (!settings) return false;
-    const allRequiredFilled = settings.attributes.every(attr => !!formValues[attr.key]);
+    if (!settings || !orderedAttributes.length) return false;
+    const allRequiredFilled = orderedAttributes.every(attr => !!formValues[attr.key]);
     return allRequiredFilled && generatedName.length > 0;
-  }, [settings, formValues, generatedName]);
+  }, [settings, formValues, generatedName, orderedAttributes]);
 
   const generatedSku = useMemo(() => {
     if (!canSubmit) return "";
