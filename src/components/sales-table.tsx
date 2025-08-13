@@ -126,11 +126,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const groupedColumns = useMemo(() => {
     const iderisKeys = new Set(iderisFields.map(f => f.key));
     const supportKeys = new Set(supportDataColumns.map(c => c.key));
-    const customKeys = new Set(customCalculationColumns.map(c => c.key));
+    const systemColumnKeys = new Set(['product_cost', ...customCalculationColumns.map(c => c.key)]);
+
 
     const iderisGroup = allAvailableColumns.filter(c => iderisKeys.has(c.key));
     const planilhaGroup = allAvailableColumns.filter(c => supportKeys.has(c.key));
-    const sistemaGroup = allAvailableColumns.filter(c => !iderisKeys.has(c.key) && !supportKeys.has(c.key));
+    const sistemaGroup = allAvailableColumns.filter(c => systemColumnKeys.has(c.key));
 
     return {
       ideris: iderisGroup,
