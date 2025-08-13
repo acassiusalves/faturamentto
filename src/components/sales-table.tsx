@@ -57,11 +57,16 @@ interface SalesTableProps {
   isLoading: boolean;
   productCostSource?: Map<string, number>;
   customCalculations?: CustomCalculation[];
+  isDashboard?: boolean;
 }
 
 const defaultVisibleColumnsOrder: string[] = [
     "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over"
 ];
+const dashboardVisibleColumnsOrder: string[] = [
+    "order_code", "payment_approved_date", "item_title", "item_sku", "marketplace_name", "value_with_shipping", "fee_order", "fee_shipment"
+];
+
 const DEFAULT_USER_ID = 'default-user';
 
 function SortableItem({ id, children, ...props }: { id: string, children: React.ReactNode, [key: string]: any }) {
@@ -91,7 +96,7 @@ function SortableItem({ id, children, ...props }: { id: string, children: React.
 }
 
 
-export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [] }: SalesTableProps) {
+export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -127,7 +132,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             }
 
             const newOrder = arrayMove(items, oldIndex, newIndex);
-            localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+            if (!isDashboard) {
+                localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+            }
             return newOrder;
         });
     }
@@ -199,6 +206,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   useEffect(() => {
     setIsClient(true);
     async function loadData() {
+        if (isDashboard) {
+            setColumnOrder(dashboardVisibleColumnsOrder);
+            setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({...acc, [key]: true }), {}));
+            return;
+        }
+
         const settings = await loadAppSettings();
         
         let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
@@ -227,10 +240,12 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         }
     }
     loadData();
-  }, [supportDataColumns, customCalculationColumns]);
+  }, [supportDataColumns, customCalculationColumns, isDashboard]);
 
 
   useEffect(() => {
+    if (isDashboard) return;
+
     const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
     let initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
     
@@ -244,7 +259,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     });
 
     setVisibleColumns(initialSettings);
-}, [allAvailableColumns, supportDataColumns, customCalculationColumns]);
+}, [allAvailableColumns, supportDataColumns, customCalculationColumns, isDashboard]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -402,36 +417,38 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 <TrendingUp className="h-5 w-5" />
                 <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <View className="mr-2" />
-                  Exibir Colunas
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64">
-                <div className="p-2 flex items-center justify-between">
-                    <Label htmlFor="group-columns-switch" className="text-sm font-normal">Agrupar por Origem</Label>
-                    <Switch id="group-columns-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
-                </div>
-                <DropdownMenuSeparator />
-                <ScrollArea className="h-[400px]">
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={columnOrder} strategy={verticalListSortingStrategy}>
-                            {isGrouped ? (
-                                <>
-                                {renderColumnGroup("Sistema", groupedColumns.sistema)}
-                                {renderColumnGroup("Ideris", groupedColumns.ideris)}
-                                {renderColumnGroup("Planilha", groupedColumns.planilha)}
-                                </>
-                            ) : (
-                                renderAllColumns()
-                            )}
-                        </SortableContext>
-                    </DndContext>
-                </ScrollArea>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!isDashboard && (
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <View className="mr-2" />
+                      Exibir Colunas
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-64">
+                    <div className="p-2 flex items-center justify-between">
+                        <Label htmlFor="group-columns-switch" className="text-sm font-normal">Agrupar por Origem</Label>
+                        <Switch id="group-columns-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
+                    </div>
+                    <DropdownMenuSeparator />
+                    <ScrollArea className="h-[400px]">
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                            <SortableContext items={columnOrder} strategy={verticalListSortingStrategy}>
+                                {isGrouped ? (
+                                    <>
+                                    {renderColumnGroup("Sistema", groupedColumns.sistema)}
+                                    {renderColumnGroup("Ideris", groupedColumns.ideris)}
+                                    {renderColumnGroup("Planilha", groupedColumns.planilha)}
+                                    </>
+                                ) : (
+                                    renderAllColumns()
+                                )}
+                            </SortableContext>
+                        </DndContext>
+                    </ScrollArea>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+            )}
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
@@ -446,7 +463,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                         </div>
                     </TableHead>
                   ))}
-                  <TableHead className="text-center whitespace-nowrap">Ações</TableHead>
+                  {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -521,11 +538,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           )
                         })}
 
-                        <TableCell className="text-center whitespace-nowrap space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
-                            Gerenciar Custos
-                          </Button>
-                        </TableCell>
+                        {!isDashboard && (
+                          <TableCell className="text-center whitespace-nowrap space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
+                              Gerenciar Custos
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })

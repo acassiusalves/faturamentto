@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
 import { ColumnManagerDialog } from '@/components/column-manager-dialog';
 
+
 // Helper to generate months
 const getMonths = () => {
     return Array.from({ length: 12 }, (_, i) => ({

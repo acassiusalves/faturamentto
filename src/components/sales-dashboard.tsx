@@ -75,32 +75,20 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     }
     loadInitialData();
   }, []);
-
-  const calculateTotalCost = useCallback((sale: Sale): number => {
-    let total = 0;
-    if (sale.totalCost) { // Custo vindo da planilha
-        total += sale.totalCost;
-    }
-    // Custos adicionados manualmente
-    sale.costs?.forEach(cost => {
-      const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
-      total += costValue;
-    });
-    return total;
+  
+  // Dashboard calculations are now independent and simpler. They do not consider detailed costs.
+  const calculateDashboardTotalCost = useCallback((sale: Sale): number => {
+    // Only considers costs directly available from Ideris API data
+    const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
+    return iderisCosts;
   }, []);
   
-  const calculateNetRevenue = useCallback((sale: Sale): number => {
-      const totalAddedCost = sale.costs?.reduce((acc, cost) => {
-        const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
-        return acc + costValue;
-      }, 0) || 0;
-      
-      // Ideris provides 'leftOver' which is essentially the profit from their side.
-      const baseProfit = (sale as any).left_over || 0;
-
-      return baseProfit - totalAddedCost;
-
+  const calculateDashboardNetRevenue = useCallback((sale: Sale): number => {
+      // This is a simplified net revenue, not the true net profit.
+      // It's gross revenue minus marketplace fees from Ideris.
+      return ((sale as any).left_over || 0);
   }, []);
+
 
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -143,17 +131,13 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   const stats = useMemo(() => {
     const grossRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
     const totalCosts = filteredSales.reduce((acc, sale) => {
-        // From Ideris, 'fee_order' is the commission, and 'fee_shipment' is the shipping cost.
+        // Dashboard only shows high-level costs from the marketplace
         const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
-        const manuallyAddedCosts = sale.costs?.reduce((costAcc, cost) => {
-            const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
-            return costAcc + costValue;
-        }, 0) || 0;
-        return acc + iderisCosts + manuallyAddedCosts;
+        return acc + iderisCosts;
     }, 0);
-    const netRevenue = filteredSales.reduce((acc, sale) => acc + calculateNetRevenue(sale), 0);
+    const netRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).left_over || 0), 0);
     return { grossRevenue, totalCosts, netRevenue };
-  }, [filteredSales, calculateNetRevenue]);
+  }, [filteredSales]);
   
   const todayStats = useMemo(() => {
     const today = new Date();
@@ -208,19 +192,9 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const updateSaleCosts = async (saleId: string, newCosts: Cost[]) => {
-    let updatedSales: Sale[] = [];
-    setSales(prevSales => {
-      updatedSales = prevSales.map(sale =>
-        sale.id === saleId ? { ...sale, costs: newCosts } : sale
-      );
-      return updatedSales;
-    });
-    // We only need to save the specific sale that was updated.
-    const saleToUpdate = updatedSales.find(s => s.id === saleId);
-    if (saleToUpdate) {
-        await saveSales([saleToUpdate]);
-    }
+  // This function is now a no-op for the dashboard as cost management is isolated.
+  const handleUpdateDashboardSaleCosts = async (saleId: string, newCosts: Cost[]) => {
+    // Intentionally empty. The dashboard table is read-only in terms of costs.
   };
   
   const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
@@ -275,7 +249,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
-        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos da planilha + adicionados"/>
+        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos de comissão e frete da Ideris"/>
         <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description={`Projeção para o mês de ${projectionMonthName}`}/>
       </div>
       
@@ -359,13 +333,14 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <CollapsibleContent>
             <SalesTable 
                 data={filteredSales}
-                onUpdateSaleCosts={updateSaleCosts} 
-                calculateTotalCost={calculateTotalCost}
-                calculateNetRevenue={calculateNetRevenue}
+                onUpdateSaleCosts={handleUpdateDashboardSaleCosts} 
+                calculateTotalCost={calculateDashboardTotalCost}
+                calculateNetRevenue={calculateDashboardNetRevenue}
                 formatCurrency={formatCurrency}
                 isLoading={isLoading}
                 supportData={null}
                 customCalculations={[]}
+                isDashboard={true}
             />
         </CollapsibleContent>
       </Collapsible>
