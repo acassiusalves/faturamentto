@@ -65,7 +65,6 @@ export default function ConciliationPage() {
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
     const [isCalculationOpen, setIsCalculationOpen] = useState(false);
-    const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
     
     // New filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -75,14 +74,6 @@ export default function ConciliationPage() {
 
     // Custom Calculations
     const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>(defaultCalculations);
-    
-    // State to trigger re-fetch of settings
-    const [settingsVersion, setSettingsVersion] = useState(0);
-
-    const refreshSettings = () => {
-        setSettingsVersion(v => v + 1);
-    };
-
 
     useEffect(() => {
         async function fetchData() {
@@ -368,10 +359,6 @@ export default function ConciliationPage() {
                             <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                             <Button variant="outline" onClick={() => setIsColumnManagerOpen(true)}>
-                                <Columns3 className="mr-2 h-4 w-4" />
-                                Colunas
-                            </Button>
                             <Button variant="outline" onClick={() => setIsSupportDataOpen(true)}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Dados de Apoio
@@ -451,7 +438,6 @@ export default function ConciliationPage() {
             </Card>
 
             <SalesTable
-              key={settingsVersion} // Force re-render when settings change
               data={filteredSales}
               supportData={supportData}
               onUpdateSaleCosts={updateSaleCosts}
@@ -479,14 +465,6 @@ export default function ConciliationPage() {
             isOpen={isCalculationOpen}
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
-        />
-
-        <ColumnManagerDialog
-            isOpen={isColumnManagerOpen}
-            onClose={() => {
-                setIsColumnManagerOpen(false);
-                refreshSettings();
-            }}
         />
         </>
     );
