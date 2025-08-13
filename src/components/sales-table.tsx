@@ -40,6 +40,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
@@ -53,7 +54,7 @@ interface SalesTableProps {
   formatCurrency: (value: number) => string;
   isLoading: boolean;
   productCostSource?: Map<string, number>;
-  customCalculations: CustomCalculation[];
+  customCalculations?: CustomCalculation[];
 }
 
 const defaultVisibleColumnsOrder: string[] = [
@@ -72,7 +73,7 @@ const SortableItem = ({ id, children }: { id: string; children: (listeners: Retu
   } = useSortable({ id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform ? CSS.Transform.toString(transform) : undefined,
     transition,
   };
 

@@ -82,7 +82,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         total += sale.totalCost;
     }
     // Custos adicionados manualmente
-    sale.costs.forEach(cost => {
+    sale.costs?.forEach(cost => {
       const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
       total += costValue;
     });
@@ -90,10 +90,10 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   }, []);
   
   const calculateNetRevenue = useCallback((sale: Sale): number => {
-      const totalAddedCost = sale.costs.reduce((acc, cost) => {
+      const totalAddedCost = sale.costs?.reduce((acc, cost) => {
         const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
         return acc + costValue;
-      }, 0);
+      }, 0) || 0;
       
       // Ideris provides 'leftOver' which is essentially the profit from their side.
       const baseProfit = (sale as any).left_over || 0;
@@ -145,10 +145,10 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     const totalCosts = filteredSales.reduce((acc, sale) => {
         // From Ideris, 'fee_order' is the commission, and 'fee_shipment' is the shipping cost.
         const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
-        const manuallyAddedCosts = sale.costs.reduce((costAcc, cost) => {
+        const manuallyAddedCosts = sale.costs?.reduce((costAcc, cost) => {
             const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
             return costAcc + costValue;
-        }, 0);
+        }, 0) || 0;
         return acc + iderisCosts + manuallyAddedCosts;
     }, 0);
     const netRevenue = filteredSales.reduce((acc, sale) => acc + calculateNetRevenue(sale), 0);
@@ -365,10 +365,10 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
                 formatCurrency={formatCurrency}
                 isLoading={isLoading}
                 supportData={null}
+                customCalculations={[]}
             />
         </CollapsibleContent>
       </Collapsible>
     </div>
   );
 }
-
