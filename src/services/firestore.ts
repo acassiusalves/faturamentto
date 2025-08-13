@@ -321,6 +321,8 @@ interface AppSettings {
     permissions?: Record<string, string[]>;
     customCalculations?: any[];
     ignoredIderisColumns?: string[];
+    conciliacaoColumnOrder?: string[];
+    conciliacaoVisibleColumns?: Record<string, boolean>;
 }
 
 

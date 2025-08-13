@@ -204,3 +204,20 @@ export interface CustomCalculation {
     formula: FormulaItem[];
     isPercentage?: boolean;
 }
+
+// -- App Settings --
+export interface AppSettings {
+    iderisPrivateKey?: string;
+    googleSheetsApiKey?: string;
+    allMappings?: AllMappingsState;
+    friendlyFieldNames?: Record<string, string>;
+    fileNames?: { [key: string]: string };
+    fileData?: { [key: string]: string };
+    iderisApiStatus?: ApiKeyStatus;
+    googleSheetsApiStatus?: ApiKeyStatus;
+    permissions?: Record<string, string[]>;
+    customCalculations?: any[];
+    ignoredIderisColumns?: string[];
+    conciliacaoColumnOrder?: string[];
+    conciliacaoVisibleColumns?: Record<string, boolean>;
+}
