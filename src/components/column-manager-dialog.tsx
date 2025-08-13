@@ -36,8 +36,8 @@ export function ColumnManagerDialog({ isOpen, onClose }: ColumnManagerDialogProp
       loadAppSettings().then(settings => {
         const ignored = settings?.ignoredIderisColumns || [];
         const initialState: Record<string, boolean> = {};
-        ignored.forEach(key => {
-          initialState[key] = true;
+        iderisFields.forEach(field => {
+          initialState[field.key] = ignored.includes(field.key);
         });
         setIgnoredColumns(initialState);
         setIsLoading(false);
@@ -56,9 +56,9 @@ export function ColumnManagerDialog({ isOpen, onClose }: ColumnManagerDialogProp
       await saveAppSettings({ ignoredIderisColumns: ignoredKeys });
       toast({
         title: "Configurações Salvas!",
-        description: "Suas preferências de coluna foram atualizadas. As colunas ignoradas não aparecerão mais no seletor 'Exibir Colunas'."
+        description: "Suas preferências de coluna foram atualizadas."
       });
-      onClose();
+      onClose(); // This will now trigger the refresh on the parent page
     } catch (error) {
       console.error("Failed to save ignored columns:", error);
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar as configurações." });

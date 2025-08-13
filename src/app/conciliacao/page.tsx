@@ -75,6 +75,13 @@ export default function ConciliationPage() {
 
     // Custom Calculations
     const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>(defaultCalculations);
+    
+    // State to trigger re-fetch of settings
+    const [settingsVersion, setSettingsVersion] = useState(0);
+
+    const refreshSettings = () => {
+        setSettingsVersion(v => v + 1);
+    };
 
 
     useEffect(() => {
@@ -444,6 +451,7 @@ export default function ConciliationPage() {
             </Card>
 
             <SalesTable
+              key={settingsVersion} // Force re-render when settings change
               data={filteredSales}
               supportData={supportData}
               onUpdateSaleCosts={updateSaleCosts}
@@ -475,7 +483,10 @@ export default function ConciliationPage() {
 
         <ColumnManagerDialog
             isOpen={isColumnManagerOpen}
-            onClose={() => setIsColumnManagerOpen(false)}
+            onClose={() => {
+                setIsColumnManagerOpen(false);
+                refreshSettings();
+            }}
         />
         </>
     );
