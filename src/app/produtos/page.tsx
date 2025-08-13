@@ -160,6 +160,7 @@ export default function ProductsPage() {
       .map(attr => formState[attr.key])
       .filter(Boolean)
       .join(" ");
+
     const existingProductWithSameBase = products.find(p => {
       const pBaseName = attributeOrder
         .filter(key => key !== 'cor')
@@ -168,21 +169,25 @@ export default function ProductsPage() {
         .join(" ");
       return pBaseName === baseName;
     });
+
     let sequentialNumberPart: string;
     if (existingProductWithSameBase?.sku) {
       sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
     } else {
+      // This is a new product model, find the highest SKU number in the entire list and increment
       const maxSkuNum = products.reduce((max, p) => {
         if (!p.sku) return max;
         const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
-        return isNaN(num) ? max : (num > max ? num : max);
+        return isNaN(num) ? max : Math.max(max, num);
       }, 0);
       sequentialNumberPart = (maxSkuNum + 1).toString();
     }
+
     const color = formState['cor'] || '';
     const colorCode = color.length > 2 && color.includes(' ')
       ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase()
       : color.charAt(0).toUpperCase();
+
     return `#${sequentialNumberPart}${colorCode}`;
   }, [products, formState, canSubmit, orderedAttributes]);
 
