@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2 } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
@@ -104,6 +104,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const [columnOrder, setColumnOrder] = useState<string[]>(defaultVisibleColumnsOrder);
   const [ignoredColumns, setIgnoredColumns] = useState<string[]>([]);
   const [isGrouped, setIsGrouped] = useState(true);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
   
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -164,22 +165,61 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [customCalculations]);
   
   useEffect(() => {
-    async function loadData() {
-      if (isDashboard) {
+    setIsClient(true);
+    if (isDashboard) {
         setColumnOrder(dashboardVisibleColumnsOrder);
         setVisibleColumns(dashboardVisibleColumnsOrder.reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+        setIsSettingsLoading(false);
         return;
-      }
-      
-      const settings = await loadAppSettings();
-      const savedIgnored = settings?.ignoredIderisColumns || [];
-      setIgnoredColumns(savedIgnored);
-      if (settings?.friendlyFieldNames) {
-        setFriendlyNames(settings.friendlyFieldNames);
-      }
+    }
+
+    async function loadData() {
+        setIsSettingsLoading(true);
+        const settings = await loadAppSettings();
+        
+        const savedIgnored = settings?.ignoredIderisColumns || [];
+        setIgnoredColumns(savedIgnored);
+        
+        if (settings?.friendlyFieldNames) {
+            setFriendlyNames(settings.friendlyFieldNames);
+        }
+        
+        // Define all available columns after fetching ignored ones
+        const allCols = [
+            ...iderisFields.filter(col => !savedIgnored.includes(col.key)), // Pre-filter based on Firestore settings
+            ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
+            { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
+            ...customCalculationColumns,
+        ];
+        
+        let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
+        let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
+        
+        const currentOrderSet = new Set(initialColumnOrder);
+        allCols.forEach(sc => {
+            if (!currentOrderSet.has(sc.key)) {
+                initialColumnOrder.push(sc.key);
+            }
+        });
+        setColumnOrder(initialColumnOrder);
+        
+        const savedVisible = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
+        let initialVisible = savedVisible ? JSON.parse(savedVisible) : {};
+        
+        allCols.forEach(col => {
+            if (!(col.key in initialVisible)) {
+                const isDefault = defaultVisibleColumnsOrder.includes(col.key);
+                const isSupport = supportDataColumns.some(sc => sc.key === col.key);
+                const isCustom = customCalculationColumns.some(cc => cc.key === col.key);
+                initialVisible[col.key] = isDefault || isSupport || isCustom;
+            }
+        });
+        setVisibleColumns(initialVisible);
+        
+        setIsSettingsLoading(false);
     }
     loadData();
-  }, [isDashboard]);
+}, [isDashboard, customCalculationColumns, supportDataColumns]);
 
   const allAvailableColumns = useMemo(() => {
     const baseColumns = [
@@ -187,7 +227,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       ...supportDataColumns.map(c => ({ ...c, isSupport: true })),
       { key: 'product_cost', label: 'Custo do Produto', path: '', isCustom: true },
       ...customCalculationColumns,
-    ].filter(col => !ignoredColumns.includes(col.key)); // Filter out ignored columns
+    ].filter(col => !ignoredColumns.includes(col.key));
 
     const uniqueColumns: { key: string; label: string; path: string; isSupport?: boolean; isCustom?: boolean; isPercentage?: boolean; }[] = [];
     const seenKeys = new Set();
@@ -219,38 +259,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       planilha: planilhaGroup,
     };
   }, [allAvailableColumns, getGroupKey]);
-
-
-  useEffect(() => {
-    setIsClient(true);
-    if (isDashboard) return;
-
-    // Load column order
-    let savedColumnOrder = localStorage.getItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`);
-    let initialColumnOrder = savedColumnOrder ? JSON.parse(savedColumnOrder) : defaultVisibleColumnsOrder;
-    
-    const currentOrderSet = new Set(initialColumnOrder);
-    allAvailableColumns.forEach(sc => {
-      if (!currentOrderSet.has(sc.key)) {
-        initialColumnOrder.push(sc.key);
-      }
-    });
-    setColumnOrder(initialColumnOrder);
-
-    // Load visible columns
-    const savedSettings = localStorage.getItem(`visibleColumns-conciliacao-${DEFAULT_USER_ID}`);
-    let initialSettings = savedSettings ? JSON.parse(savedSettings) : {};
-    
-    allAvailableColumns.forEach(col => {
-      if (!(col.key in initialSettings)) {
-        const isDefault = defaultVisibleColumnsOrder.includes(col.key);
-        const isSupport = supportDataColumns.some(sc => sc.key === col.key);
-        const isCustom = customCalculationColumns.some(cc => cc.key === col.key);
-        initialSettings[col.key] = isDefault || isSupport || isCustom;
-      }
-    });
-    setVisibleColumns(initialSettings);
-  }, [allAvailableColumns, isDashboard, supportDataColumns, customCalculationColumns]);
   
   const getColumnHeader = (fieldKey: string) => {
     return friendlyNames[fieldKey] || allAvailableColumns.find(f => f.key === fieldKey)?.label || fieldKey;
@@ -397,7 +405,21 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }
 
   if (!isClient) {
-    return null;
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-center h-48">
+                    <Loader2 className="animate-spin" />
+                </div>
+            </CardContent>
+        </Card>
+    );
   }
 
   return (
@@ -411,8 +433,8 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             {!isDashboard && (
                  <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <View className="mr-2" />
+                    <Button variant="outline" size="sm" disabled={isSettingsLoading}>
+                      {isSettingsLoading ? <Loader2 className="mr-2 animate-spin"/> : <View className="mr-2" />}
                       Exibir Colunas
                     </Button>
                   </DropdownMenuTrigger>
@@ -458,7 +480,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? renderSkeleton() : paginatedData.length > 0 ? (
+                {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                   paginatedData.map((sale) => {
                     const productCost = productCostSource.get((sale as any).order_code);
                     return (
