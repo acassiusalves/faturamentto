@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -42,6 +43,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
 
 
 interface SalesTableProps {
@@ -94,6 +97,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [friendlyNames, setFriendlyNames] = useState<Record<string, string>>({});
   const [columnOrder, setColumnOrder] = useState<string[]>(defaultVisibleColumnsOrder);
+  const [isGrouped, setIsGrouped] = useState(true);
   
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -105,7 +109,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     })
   );
 
-  function handleDragEnd(event: DragEndEvent, groupKey: string) {
+  function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
     
     if (active.id !== over?.id && over) {
@@ -113,16 +117,18 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             const oldIndex = items.indexOf(active.id as string);
             const newIndex = items.indexOf(over.id as string);
 
-            // Check if both items are in the same group
-            const activeGroup = getGroupKey(active.id as string);
-            const overGroup = getGroupKey(over.id as string);
-
-            if (activeGroup === overGroup) {
-                const newOrder = arrayMove(items, oldIndex, newIndex);
-                localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
-                return newOrder;
+            // If grouped, check if drag is within the same group
+            if (isGrouped) {
+                const activeGroup = getGroupKey(active.id as string);
+                const overGroup = getGroupKey(over.id as string);
+                if (activeGroup !== overGroup) {
+                    return items; // Don't allow dragging between groups
+                }
             }
-            return items;
+
+            const newOrder = arrayMove(items, oldIndex, newIndex);
+            localStorage.setItem(`columnOrder-conciliacao-${DEFAULT_USER_ID}`, JSON.stringify(newOrder));
+            return newOrder;
         });
     }
   }
@@ -336,7 +342,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
       }
   };
 
-  const renderColumnGroup = (groupTitle: string, columns: any[], groupKey: 'sistema' | 'ideris' | 'planilha') => {
+  const renderColumnGroup = (groupTitle: string, columns: any[]) => {
       if(columns.length === 0) return null;
       
       const visibleColsInGroup = columnOrder.filter(key => columns.some(c => c.key === key));
@@ -345,29 +351,44 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         <DropdownMenuGroup>
           <DropdownMenuLabel>{groupTitle}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleDragEnd(e, groupKey)}>
-            <SortableContext items={visibleColsInGroup} strategy={verticalListSortingStrategy}>
-              {visibleColsInGroup.map(key => {
-                  const field = allAvailableColumns.find(f => f.key === key);
-                  if (!field) return null;
-                  return (
-                    <SortableItem key={field.key} id={field.key}>
-                      <DropdownMenuCheckboxItem
-                        checked={visibleColumns[field.key] === true}
-                        onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
-                      >
-                        {getColumnHeader(field.key)}
-                        {(field as any).isSupport && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
-                        {(field as any).isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
-                      </DropdownMenuCheckboxItem>
-                    </SortableItem>
-                  )
-              })}
-            </SortableContext>
-          </DndContext>
+          {visibleColsInGroup.map(key => {
+              const field = allAvailableColumns.find(f => f.key === key);
+              if (!field) return null;
+              return (
+                <SortableItem key={field.key} id={field.key}>
+                  <DropdownMenuCheckboxItem
+                    checked={visibleColumns[field.key] === true}
+                    onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                  >
+                    {getColumnHeader(field.key)}
+                    {(field as any).isSupport && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                    {(field as any).isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
+                  </DropdownMenuCheckboxItem>
+                </SortableItem>
+              )
+          })}
         </DropdownMenuGroup>
       );
   };
+  
+  const renderAllColumns = () => {
+    return columnOrder.map(key => {
+        const field = allAvailableColumns.find(f => f.key === key);
+        if (!field) return null;
+        return (
+            <SortableItem key={field.key} id={field.key}>
+                <DropdownMenuCheckboxItem
+                checked={visibleColumns[field.key] === true}
+                onCheckedChange={(checked) => handleVisibilityChange(field.key, checked)}
+                >
+                {getColumnHeader(field.key)}
+                {(field as any).isSupport && <FileSpreadsheet className="h-3 w-3 text-muted-foreground ml-auto" />}
+                {(field as any).isCustom && <Calculator className="h-3 w-3 text-muted-foreground ml-auto" />}
+                </DropdownMenuCheckboxItem>
+            </SortableItem>
+        )
+    });
+  }
 
   if (!isClient) {
     return null;
@@ -389,10 +410,25 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64">
+                <div className="p-2 flex items-center justify-between">
+                    <Label htmlFor="group-columns-switch" className="text-sm font-normal">Agrupar por Origem</Label>
+                    <Switch id="group-columns-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
+                </div>
+                <DropdownMenuSeparator />
                 <ScrollArea className="h-[400px]">
-                    {renderColumnGroup("Sistema", groupedColumns.sistema, "sistema")}
-                    {renderColumnGroup("Ideris", groupedColumns.ideris, "ideris")}
-                    {renderColumnGroup("Planilha", groupedColumns.planilha, "planilha")}
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={columnOrder} strategy={verticalListSortingStrategy}>
+                            {isGrouped ? (
+                                <>
+                                {renderColumnGroup("Sistema", groupedColumns.sistema)}
+                                {renderColumnGroup("Ideris", groupedColumns.ideris)}
+                                {renderColumnGroup("Planilha", groupedColumns.planilha)}
+                                </>
+                            ) : (
+                                renderAllColumns()
+                            )}
+                        </SortableContext>
+                    </DndContext>
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
