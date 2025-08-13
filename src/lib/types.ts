@@ -58,7 +58,7 @@ export type AllMappingsState = { [key: string]: Partial<ColumnMapping> };
 export interface Sale {
   // Core fields from user request
   id: string;
-  productName: string;
+  productDescription: string;
   sku: string;
   orderNumber: string;
   cpf: string;
@@ -79,6 +79,7 @@ export interface Sale {
   packaging: number;
   unitCost: number;
   totalCost: number;
+  product_cost: number;
   profit: number;
   profitPercentage: number;
   netValue: number;
@@ -133,6 +134,7 @@ export interface ColumnMapping {
     packaging?: string;
     unitCost?: string;
     totalCost?: string;
+    product_cost?: string;
     profit?: string;
     profitPercentage?: string;
     netValue?: string;

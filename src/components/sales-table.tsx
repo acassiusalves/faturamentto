@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
+import { systemFields } from '@/lib/system-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -55,7 +56,7 @@ interface SalesTableProps {
 }
 
 const defaultVisibleColumnsOrder: string[] = [
-    "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "fee_order", "left_over"
+    "item_image", "order_code", "payment_approved_date", "item_title", "item_sku", "item_quantity", "value_with_shipping", "product_cost", "fee_order", "left_over"
 ];
 const DEFAULT_USER_ID = 'default-user';
 
@@ -113,9 +114,14 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   }, [supportData]);
   
   const allAvailableColumns = useMemo(() => {
-      const existingKeys = new Set(iderisFields.map(f => f.key));
-      const uniqueSupportCols = supportDataColumns.filter(sc => !existingKeys.has(sc.key));
-      return [...iderisFields, ...uniqueSupportCols];
+      const existingIderisKeys = new Set(iderisFields.map(f => f.key));
+      const uniqueSupportCols = supportDataColumns.filter(sc => !existingIderisKeys.has(sc.key));
+      const allSystemFields = [...systemFields, ...uniqueSupportCols.map(c => ({...c, isSupport: true}))];
+      
+      const existingSystemKeys = new Set(allSystemFields.map(f => f.key));
+      const uniqueIderisFields = iderisFields.filter(i => !existingSystemKeys.has(i.key));
+
+      return [...allSystemFields, ...uniqueIderisFields];
   }, [supportDataColumns]);
 
   useEffect(() => {
@@ -235,7 +241,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     }
 
     const nonNumericSku = ['item_sku', 'order_code', 'id', 'document_value'];
-    const finalNumeric = new Set([...iderisNumeric, ...supportNumeric]);
+    const finalNumeric = new Set([...iderisNumeric, ...supportNumeric, 'product_cost']);
     nonNumericSku.forEach(key => finalNumeric.delete(key));
 
     return finalNumeric;
@@ -383,7 +389,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                         {columnsToShow.map(field => {
                           let cellContent: any;
                           
-                          if(iderisFields.some(f => f.key === field.key)) {
+                          if(field.key === 'product_cost') {
+                              cellContent = productCost;
+                          } else if (iderisFields.some(f => f.key === field.key)) {
                              cellContent = (sale as any)[field.key];
                           } else {
                              cellContent = sale.sheetData?.[field.key];
@@ -425,19 +433,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                         })}
 
                         <TableCell className="text-center whitespace-nowrap space-x-2">
-                           {productCost !== undefined && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="secondary">
-                                      <Package className="mr-1.5 h-3.5 w-3.5" />
-                                      {formatCurrency(productCost)}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Custo do produto (CMV) via Picking</p>
-                                </TooltipContent>
-                              </Tooltip>
-                           )}
                           <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
                             Gerenciar Custos
                           </Button>

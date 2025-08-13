@@ -25,6 +25,7 @@ export const systemFields: { key: keyof Sale; label: string }[] = [
     { key: "packaging", label: "Embalagem" },
     { key: "unitCost", label: "Custo Unitário" },
     { key: "totalCost", label: "Custo Total" },
+    { key: "product_cost", label: "Custo do Produto" },
     { key: "left_over", label: "Lucro" },
     { key: "profitPercentage", label: "Lucro %" },
     { key: "netValue", label: "Valor Líquido" },
