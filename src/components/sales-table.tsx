@@ -108,7 +108,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setIsSettingsLoading(true);
 
     const iderisCols = iderisFields
-        .filter(field => fixedIderisColumns.includes(field.key))
         .map(field => ({
             ...field,
             group: 'Ideris',
@@ -153,7 +152,10 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
     const initialOrder = savedOrder ? JSON.parse(savedOrder) : availableColumns.map(c => c.key);
     const validOrder = initialOrder.filter((key: string) => availableColumns.some(c => c.key === key));
-    setColumnOrder(validOrder);
+    const allKeys = availableColumns.map(c => c.key);
+    const finalOrder = [...new Set([...validOrder, ...allKeys])]; // Ensure all columns are in the order list
+
+    setColumnOrder(finalOrder);
 
     setIsSettingsLoading(false);
   };
@@ -326,13 +328,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
-            <Table>
-              <TableHeader>
-                <DndContext
-                    id={'dnd-context-sales-table'}
-                    onDragEnd={handleDragEnd}
-                    collisionDetection={closestCenter}
-                >
+            <DndContext
+                id={'dnd-context-sales-table'}
+                onDragEnd={handleDragEnd}
+                collisionDetection={closestCenter}
+            >
+                <Table>
+                <TableHeader>
                     <TableRow>
                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
                           {orderedAndVisibleColumns.map((field) => (
@@ -346,87 +348,87 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                       </SortableContext>
                       {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
                     </TableRow>
-                </DndContext>
-              </TableHeader>
-              <TableBody>
-                {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
-                  paginatedData.map((sale) => {
-                    return (
-                      <TableRow key={sale.id}>
-                        {orderedAndVisibleColumns.map(field => {
-                          let cellContent: any;
-                          let isPercentage = field.isPercentage || false;
-                          
-                          if (field.group === 'Sistema') {
-                              if(field.key === 'product_cost') {
-                                 cellContent = productCostSource.get((sale as any).order_code);
-                              } else {
-                                  cellContent = sale.customData?.[field.key];
-                              }
-                          } else if (field.group === 'Planilha') {
-                              cellContent = sale.sheetData?.[field.key];
-                          } else {
-                             cellContent = (sale as any)[field.key];
-                          }
+                </TableHeader>
+                <TableBody>
+                    {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
+                    paginatedData.map((sale) => {
+                        return (
+                        <TableRow key={sale.id}>
+                            {orderedAndVisibleColumns.map(field => {
+                            let cellContent: any;
+                            let isPercentage = field.isPercentage || false;
+                            
+                            if (field.group === 'Sistema') {
+                                if(field.key === 'product_cost') {
+                                    cellContent = productCostSource.get((sale as any).order_code);
+                                } else {
+                                    cellContent = sale.customData?.[field.key];
+                                }
+                            } else if (field.group === 'Planilha') {
+                                cellContent = sale.sheetData?.[field.key];
+                            } else {
+                                cellContent = (sale as any)[field.key];
+                            }
 
-                          const fieldKeyLower = field.label.toLowerCase();
-                          const isDateColumn = fieldKeyLower.includes('date') || fieldKeyLower.includes('data');
+                            const fieldKeyLower = field.label.toLowerCase();
+                            const isDateColumn = fieldKeyLower.includes('date') || fieldKeyLower.includes('data');
 
-                          if (isDateColumn) {
-                            cellContent = formatDate(cellContent);
-                          } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
-                              const className = field.key === 'fee_order' || field.key === 'fee_shipment' ? 'text-destructive' : (field.key === 'left_over' || (field.key.includes('lucro') && cellContent > 0)) ? 'font-semibold text-green-600' : '';
-                              if(field.key === 'product_cost' && cellContent > 0) {
-                                  cellContent = (
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>Custo do picking</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                      <span className="text-destructive">{formatCurrency(cellContent)}</span>
-                                    </div>
-                                  );
-                              } else if (isPercentage) {
-                                  cellContent = <span className={className}>{cellContent.toFixed(2)}%</span>;
-                              } else {
-                                 cellContent = <span className={className}>{formatCurrency(cellContent)}</span>;
-                              }
-                          }
+                            if (isDateColumn) {
+                                cellContent = formatDate(cellContent);
+                            } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
+                                const className = field.key === 'fee_order' || field.key === 'fee_shipment' ? 'text-destructive' : (field.key === 'left_over' || (field.key.includes('lucro') && cellContent > 0)) ? 'font-semibold text-green-600' : '';
+                                if(field.key === 'product_cost' && cellContent > 0) {
+                                    cellContent = (
+                                        <div className="flex items-center justify-end gap-1.5">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                            <p>Custo do picking</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <span className="text-destructive">{formatCurrency(cellContent)}</span>
+                                        </div>
+                                    );
+                                } else if (isPercentage) {
+                                    cellContent = <span className={className}>{cellContent.toFixed(2)}%</span>;
+                                } else {
+                                    cellContent = <span className={className}>{formatCurrency(cellContent)}</span>;
+                                }
+                            }
 
-                          return (
-                            <TableCell key={`${sale.id}-${field.key}`} className={cn("whitespace-nowrap", getColumnAlignment(field.key))}>
-                              {cellContent ?? 'N/A'}
+                            return (
+                                <TableCell key={`${sale.id}-${field.key}`} className={cn("whitespace-nowrap", getColumnAlignment(field.key))}>
+                                {cellContent ?? 'N/A'}
+                                </TableCell>
+                            )
+                            })}
+
+                            {!isDashboard && (
+                            <TableCell className="text-center whitespace-nowrap space-x-2">
+                                <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
+                                Gerenciar Custos
+                                </Button>
                             </TableCell>
-                          )
-                        })}
-
-                        {!isDashboard && (
-                          <TableCell className="text-center whitespace-nowrap space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
-                              Gerenciar Custos
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={orderedAndVisibleColumns.length + 1} className="h-24 text-center">
-                       <div className="flex flex-col items-center justify-center gap-2">
-                            <Sheet className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-muted-foreground">Nenhuma venda encontrada.</p>
-                            <p className="text-sm text-muted-foreground">Use os filtros ou importe as vendas para começar.</p>
-                       </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                            )}
+                        </TableRow>
+                        );
+                    })
+                    ) : (
+                    <TableRow>
+                        <TableCell colSpan={orderedAndVisibleColumns.length + 1} className="h-24 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                                <Sheet className="h-8 w-8 text-muted-foreground" />
+                                <p className="text-muted-foreground">Nenhuma venda encontrada.</p>
+                                <p className="text-sm text-muted-foreground">Use os filtros ou importe as vendas para começar.</p>
+                        </div>
+                        </TableCell>
+                    </TableRow>
+                    )}
+                </TableBody>
+                </Table>
+            </DndContext>
           </div>
         </CardContent>
         <CardFooter className="flex items-center justify-between flex-wrap gap-4">
