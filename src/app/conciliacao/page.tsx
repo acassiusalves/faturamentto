@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator } from 'lucide-react';
 import type { Sale, SupportData, SupportFile, PickedItemLog } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
 import { Input } from '@/components/ui/input';
+import { CalculationDialog } from '@/components/calculation-dialog';
 
 // Helper to generate months
 const getMonths = () => {
@@ -31,6 +32,7 @@ export default function ConciliationPage() {
     const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
+    const [isCalculationOpen, setIsCalculationOpen] = useState(false);
     
     // New filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -205,10 +207,6 @@ export default function ConciliationPage() {
         }
     };
 
-    const handleOpenSupportData = () => {
-        setIsSupportDataOpen(true);
-    };
-
     // Options for filters
     const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
     const states = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean)))], [sales]);
@@ -240,10 +238,16 @@ export default function ConciliationPage() {
                             <CardTitle>Seleção de Período</CardTitle>
                             <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
                         </div>
-                        <Button variant="outline" onClick={handleOpenSupportData}>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Dados de Apoio
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" onClick={() => setIsSupportDataOpen(true)}>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Dados de Apoio
+                            </Button>
+                            <Button variant="outline" onClick={() => setIsCalculationOpen(true)}>
+                                <Calculator className="mr-2 h-4 w-4" />
+                                Calcular
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -331,6 +335,13 @@ export default function ConciliationPage() {
             onClose={() => setIsSupportDataOpen(false)}
             monthYearKey={getMonthYearKey()}
             salesData={filteredSales}
+        />
+
+        <CalculationDialog
+            isOpen={isCalculationOpen}
+            onClose={() => setIsCalculationOpen(false)}
+            salesData={filteredSales}
+            productCostSource={pickingLogsMap}
         />
         </>
     );
