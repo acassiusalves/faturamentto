@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -388,13 +389,27 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                       <TableRow key={sale.id}>
                         {columnsToShow.map(field => {
                           let cellContent: any;
+                          let isNumeric = false;
+                          let numericValue = 0;
                           
                           if(field.key === 'product_cost') {
-                              cellContent = productCost;
+                             cellContent = productCost;
                           } else if (iderisFields.some(f => f.key === field.key)) {
                              cellContent = (sale as any)[field.key];
                           } else {
                              cellContent = sale.sheetData?.[field.key];
+                          }
+
+                          if (typeof cellContent === 'number') {
+                              isNumeric = true;
+                              numericValue = cellContent;
+                          } else if (typeof cellContent === 'string' && cellContent && numericColumns.has(field.key)) {
+                              const cleanedValue = cellContent.replace(/\./g, '').replace(',', '.');
+                              const parsedValue = parseFloat(cleanedValue);
+                              if (!isNaN(parsedValue)) {
+                                  isNumeric = true;
+                                  numericValue = parsedValue;
+                              }
                           }
 
                           const fieldKeyLower = getColumnHeader(field.key).toLowerCase();
@@ -407,22 +422,24 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                           } else if (field.key === 'marketplace_name') {
                             cellContent = <Badge variant="outline">{cellContent}</Badge>;
                           } else if (numericColumns.has(field.key)) {
-                              let isNumeric = false;
-                              let numericValue = 0;
-                              if (typeof cellContent === 'number') {
-                                  isNumeric = true;
-                                  numericValue = cellContent;
-                              } else if (typeof cellContent === 'string' && cellContent) {
-                                  const cleanedValue = cellContent.replace(/\./g, '').replace(',', '.');
-                                  const parsedValue = parseFloat(cleanedValue);
-                                  if (!isNaN(parsedValue)) {
-                                      isNumeric = true;
-                                      numericValue = parsedValue;
-                                  }
-                              }
-                              
                               const className = field.key === 'fee_order' ? 'text-destructive' : (field.key === 'left_over') ? 'font-semibold text-green-600' : '';
-                              cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : (cellContent || 'N/A')}</span>;
+                              if(field.key === 'product_cost' && isNumeric && numericValue > 0) {
+                                  cellContent = (
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Custo do picking</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <span>{formatCurrency(numericValue)}</span>
+                                    </div>
+                                  );
+                              } else {
+                                 cellContent = <span className={className}>{isNumeric ? formatCurrency(numericValue) : (cellContent || 'N/A')}</span>;
+                              }
                           }
 
                           return (
