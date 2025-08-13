@@ -65,6 +65,8 @@ export default function ConciliationPage() {
     const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
     const [isCalculationOpen, setIsCalculationOpen] = useState(false);
+    const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
+    const [settingsVersion, setSettingsVersion] = useState(0); // Used to force re-render
     
     // New filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -367,6 +369,10 @@ export default function ConciliationPage() {
                                 <Calculator className="mr-2 h-4 w-4" />
                                 Calcular
                             </Button>
+                             <Button variant="outline" onClick={() => setIsColumnManagerOpen(true)}>
+                                <Columns3 className="mr-2 h-4 w-4" />
+                                Colunas
+                            </Button>
                         </div>
                     </div>
                 </CardHeader>
@@ -438,6 +444,7 @@ export default function ConciliationPage() {
             </Card>
 
             <SalesTable
+              key={settingsVersion}
               data={filteredSales}
               supportData={supportData}
               onUpdateSaleCosts={updateSaleCosts}
@@ -465,6 +472,13 @@ export default function ConciliationPage() {
             isOpen={isCalculationOpen}
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
+        />
+        <ColumnManagerDialog
+            isOpen={isColumnManagerOpen}
+            onClose={() => {
+                setIsColumnManagerOpen(false);
+                setSettingsVersion(v => v + 1); // Force table re-render
+            }}
         />
         </>
     );
