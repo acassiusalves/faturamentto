@@ -328,7 +328,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
             <Table>
                <DndContext
-                    id={`dnd-context-${key}`}
+                    id={'dnd-context-sales-table'}
                     onDragEnd={handleDragEnd}
                     collisionDetection={closestCenter}
                 >
