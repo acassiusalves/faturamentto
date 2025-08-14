@@ -92,7 +92,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         let notAssociated = 0;
         if (file.fileContent && file.associationKey) {
           try {
-            const parsedData = Papa.parse(file.fileContent, { header: true });
+            const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
             parsedData.data.forEach((row: any) => {
               const rawKey = row[file.associationKey];
                const keyToCompare = String(rawKey || '').trim();
@@ -132,7 +132,6 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
 
     const processFileContent = (content: string, headers: string[]) => {
         const fileList = supportData.files[channelId] || [];
-        // CORREÇÃO: Iniciar nomes amigáveis como vazios para que o usuário preencha.
         const initialFriendlyNames: Record<string, string> = {};
         headers.forEach(h => { initialFriendlyNames[h] = ""; });
 
@@ -160,6 +159,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const content = result as string;
             Papa.parse(content, {
                 preview: 1,
+                skipEmptyLines: true,
                 complete: (results) => {
                     if(!results.data || !Array.isArray(results.data[0])) {
                       toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
