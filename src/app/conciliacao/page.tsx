@@ -246,7 +246,7 @@ export default function ConciliationPage() {
                     if (!file.fileContent || !file.associationKey) return;
                     const parsedData = Papa.parse(file.fileContent, { header: true });
                     parsedData.data.forEach((row: any) => {
-                       const key = String(row[file.associationKey] || '').trim();
+                       const key = String(row[file.associationKey] || '').trim().toLowerCase();
                        if(key) {
                            if (!supportDataMap.has(key)) {
                                supportDataMap.set(key, {});
@@ -264,7 +264,7 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = String((sale as any).order_code || '').trim();
+                     const saleKey = String((sale as any).order_code || '').trim().toLowerCase();
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,

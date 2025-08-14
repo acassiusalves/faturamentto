@@ -84,7 +84,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
     if (!allSales || allSales.length === 0) return stats;
 
-    const saleKeys = new Set(allSales.map(s => String(s.order_code || '').trim()));
+    const saleKeys = new Set(allSales.map(s => String(s.order_code || '').trim().toLowerCase()));
 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
@@ -95,7 +95,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
             parsedData.data.forEach((row: any) => {
               const rawKey = row[file.associationKey];
-               const keyToCompare = String(rawKey || '').trim();
+               const keyToCompare = String(rawKey || '').trim().toLowerCase();
 
               if (keyToCompare) {
                 if (saleKeys.has(keyToCompare)) {
