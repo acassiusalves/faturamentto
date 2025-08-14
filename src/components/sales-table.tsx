@@ -48,8 +48,6 @@ interface SalesTableProps {
   isDashboard?: boolean;
 }
 
-const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
-
 const fixedIderisColumns = [
     'order_id',
     'order_code',
@@ -63,8 +61,19 @@ const fixedIderisColumns = [
     'item_sku',
     'item_quantity',
     'discount',
-    'left_over',
-    'payment_approved_date'
+];
+
+const dashboardColumns = [
+    { key: 'order_id', label: 'ID do Pedido' },
+    { key: 'order_code', label: 'Código do Pedido' },
+    { key: 'item_title', label: 'Nome do Produto (Item)' },
+    { key: 'paid_amount', label: 'Valor Pago' },
+    { key: 'item_quantity', label: 'Quantidade (Item)' },
+    { key: 'auth_name', label: 'Nome da Conta' },
+    { key: 'marketplace_name', label: 'Nome do Marketplace' },
+    { key: 'payment_approved_date', label: 'Data de Aprovação (Pagamento)' },
+    { key: 'state_name', label: 'Estado' },
+    { key: 'item_sku', label: 'SKU (Item)' },
 ];
 
 
@@ -108,6 +117,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         setIsClient(true);
         if (!isDashboard) {
             loadTableSettings();
+        } else {
+             setAllAvailableColumns(dashboardColumns);
+             setColumnOrder(dashboardColumns.map(c => c.key));
+             const initialVisible: Record<string, boolean> = {};
+             dashboardColumns.forEach(col => { initialVisible[col.key] = true });
+             setVisibleColumns(initialVisible);
+             setIsSettingsLoading(false);
         }
     }, [isDashboard, supportData, customCalculations, settingsVersion]);
 
@@ -212,7 +228,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         
     const customNumeric = customCalculations.map(c => c.id);
     const nonNumericSku = ['item_sku', 'order_code', 'id', 'document_value'];
-    const finalNumeric = new Set([...iderisNumeric, 'product_cost', ...customNumeric]);
+    const finalNumeric = new Set([...iderisNumeric, 'product_cost', ...customNumeric, 'paid_amount']);
     nonNumericSku.forEach(key => finalNumeric.delete(key));
 
     return finalNumeric;
@@ -305,7 +321,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   return (
     <TooltipProvider>
-      
       <Card>
          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
              <div className="flex items-center gap-2">
@@ -322,7 +337,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64" align="end">
-                             <ScrollArea className="h-72">
+                            <ScrollArea className="h-72">
                                <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
                                <DropdownMenuSeparator />
                                {Object.entries(columnGroups).map(([groupName, columns]) => (
@@ -356,26 +371,35 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             >
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-                            {orderedAndVisibleColumns.map((field) => (
-                                <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
-                                    <div className="flex items-center gap-2">
-                                    {field.label}
-                                    {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
-                                    </div>
-                                </DraggableHeader>
-                            ))}
-                        </SortableContext>
-                        {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
+                         <TableRow>
+                            {!isDashboard ? (
+                                 <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                                    {orderedAndVisibleColumns.map((field) => (
+                                        <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
+                                            <div className="flex items-center gap-2">
+                                            {field.label}
+                                            {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
+                                            </div>
+                                        </DraggableHeader>
+                                    ))}
+                                 </SortableContext>
+                            ) : (
+                                 dashboardColumns.map(field => (
+                                     <TableHead key={field.key} className={getColumnAlignment(field.key)}>
+                                         {field.label}
+                                     </TableHead>
+                                 ))
+                            )}
+                            {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                         paginatedData.map((sale) => {
+                             const columnsToRender = isDashboard ? dashboardColumns : orderedAndVisibleColumns;
                             return (
                             <TableRow key={sale.id}>
-                                {orderedAndVisibleColumns.map(field => {
+                                {columnsToRender.map(field => {
                                 let cellContent: any;
                                 let isPercentage = field.isPercentage || false;
                                 
