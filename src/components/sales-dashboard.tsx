@@ -7,7 +7,7 @@ import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle,
 import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
-import type { Sale, Cost } from "@/lib/types";
+import type { Sale, Cost, Product } from "@/lib/types";
 import { SalesTable } from "@/components/sales-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { saveSales, loadSales } from "@/services/firestore";
+import { saveSales, loadSales, loadProducts } from "@/services/firestore";
 import { Badge } from "./ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { MarketplaceSalesChart } from "./marketplace-sales-chart";
@@ -48,6 +48,7 @@ interface SalesDashboardProps {
 
 export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps) {
   const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [marketplace, setMarketplace] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
@@ -69,8 +70,12 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
   useEffect(() => {
     async function loadInitialData() {
         setIsLoading(true);
-        const storedSales = await loadSales();
+        const [storedSales, storedProducts] = await Promise.all([
+          loadSales(),
+          loadProducts()
+        ]);
         setSales(storedSales);
+        setProducts(storedProducts);
         setIsLoading(false);
     }
     loadInitialData();
@@ -333,6 +338,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <CollapsibleContent>
             <SalesTable 
                 data={filteredSales}
+                products={products}
                 onUpdateSaleCosts={handleUpdateDashboardSaleCosts} 
                 calculateTotalCost={calculateDashboardTotalCost}
                 calculateNetRevenue={calculateDashboardNetRevenue}

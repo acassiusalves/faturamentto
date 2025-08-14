@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator } from 'lucide-react';
-import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem } from '@/lib/types';
+import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings, loadProducts } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
@@ -57,6 +57,7 @@ const defaultCalculations: CustomCalculation[] = [
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [pickingLogs, setPickingLogs] = useState<PickedItemLog[]>([]);
     const [supportData, setSupportData] = useState<SupportData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -77,13 +78,16 @@ export default function ConciliationPage() {
     useEffect(() => {
         async function fetchData() {
             setIsLoading(true);
-            const [salesData, logsData, settings] = await Promise.all([
+            const [salesData, logsData, settings, productsData] = await Promise.all([
                 loadSales(),
                 loadAllPickingLogs(),
                 loadAppSettings(),
+                loadProducts(),
             ]);
             setSales(salesData);
             setPickingLogs(logsData);
+            setProducts(productsData);
+
             if(settings?.customCalculations) {
                  // Merge default and saved calculations, giving precedence to saved ones.
                 const savedCalcs = settings.customCalculations;
@@ -438,6 +442,7 @@ export default function ConciliationPage() {
 
             <SalesTable
               data={filteredSales}
+              products={products}
               supportData={supportData}
               onUpdateSaleCosts={updateSaleCosts}
               calculateTotalCost={calculateTotalCost}
