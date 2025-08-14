@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -25,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { useAuth } from '@/context/auth-context';
 
 const inventorySchema = z.object({
   id: z.string().optional(),
@@ -40,6 +42,7 @@ type SortDirection = 'ascending' | 'descending';
 
 export default function EstoquePage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [origins, setOrigins] = useState<string[]>([]);
@@ -537,7 +540,7 @@ export default function EstoquePage() {
                           <TableCell className="text-right">{formatCurrency(item.costPrice)}</TableCell>
                           <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice * item.quantity)}</TableCell>
                           <TableCell className="text-center space-x-1">
-                             {!isGrouped && (
+                             {!isGrouped && (user?.role === 'admin' || user?.role === 'financeiro') && (
                                 <>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
