@@ -263,6 +263,18 @@ export async function loadSales(): Promise<Sale[]> {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as Sale);
 }
 
+export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string }[]> {
+  const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+  const snapshot = await getDocs(query(salesCol));
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+          id: doc.id,
+          order_code: data.order_code,
+      };
+  });
+}
+
 export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale | null> => {
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const q = query(salesCol, where('order_code', '==', orderNumber), limit(1));

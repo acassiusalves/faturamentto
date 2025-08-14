@@ -22,7 +22,7 @@ import Papa from "papaparse";
 import * as XLSX from "sheetjs-style";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile, Sale } from "@/lib/types";
-import { loadMonthlySupportData, saveMonthlySupportData } from "@/services/firestore";
+import { loadMonthlySupportData, saveMonthlySupportData, loadSalesIdsAndOrderCodes } from "@/services/firestore";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
@@ -38,33 +38,65 @@ interface SupportDataDialogProps {
   isOpen: boolean;
   onClose: () => void;
   monthYearKey: string;
-  salesData: Sale[];
 }
 
-export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: SupportDataDialogProps) {
+export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportDataDialogProps) {
   const [supportData, setSupportData] = useState<SupportData>({ files: {} });
+  const [allSales, setAllSales] = useState<{ id: string; order_code: string; }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    async function loadInitialData() {
+        if (isOpen) {
+            setIsLoading(true);
+            const [monthlyData, salesIds] = await Promise.all([
+                loadMonthlySupportData(monthYearKey),
+                loadSalesIdsAndOrderCodes()
+            ]);
+
+            if (monthlyData && monthlyData.files) {
+                const sanitizedFiles: { [key: string]: SupportFile[] } = {};
+                for (const channelId in monthlyData.files) {
+                    const fileData = monthlyData.files[channelId];
+                    if (fileData && typeof fileData === 'object' && !Array.isArray(fileData)) {
+                        sanitizedFiles[channelId] = Object.values(fileData);
+                    } else {
+                        sanitizedFiles[channelId] = Array.isArray(fileData) ? fileData : [];
+                    }
+                }
+                setSupportData({ files: sanitizedFiles });
+            } else {
+                setSupportData({ files: {} });
+            }
+            
+            setAllSales(salesIds);
+            setIsLoading(false);
+        }
+    }
+    if (isOpen && monthYearKey) {
+      loadInitialData();
+    }
+  }, [isOpen, monthYearKey]);
+
   const associationStats = useMemo(() => {
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
-    if (!salesData || salesData.length === 0) return stats;
+    if (!allSales || allSales.length === 0) return stats;
 
     const normalizeKey = (key: any) => String(key || '').replace(/\D/g, '');
-
-    const saleKeys = new Set(salesData.map(s => normalizeKey((s as any).order_code)));
+    const saleKeys = new Set(allSales.map(s => normalizeKey(s.order_code)));
 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
+        let associated = 0;
+        let notAssociated = 0;
         if (file.fileContent && file.associationKey) {
           try {
             const parsedData = Papa.parse(file.fileContent, { header: true });
-            let associated = 0;
-            let notAssociated = 0;
             parsedData.data.forEach((row: any) => {
               const rawKey = row[file.associationKey];
-              if (rawKey) {
+              if (rawKey !== null && rawKey !== undefined && String(rawKey).trim() !== '') {
                 const normalizedKey = normalizeKey(rawKey);
                 if (normalizedKey && saleKeys.has(normalizedKey)) {
                   associated++;
@@ -73,41 +105,16 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
                 }
               }
             });
-            stats[file.id] = { associated, notAssociated };
           } catch(e) {
             console.error("Error parsing file for stats", e);
-            stats[file.id] = { associated: 0, notAssociated: 0 };
           }
         }
+        stats[file.id] = { associated, notAssociated };
       }
     }
     return stats;
-  }, [supportData, salesData]);
+  }, [supportData, allSales]);
 
-  useEffect(() => {
-    if (isOpen && monthYearKey) {
-      setIsLoading(true);
-      loadMonthlySupportData(monthYearKey)
-        .then((data) => {
-          if (data && data.files) {
-            const sanitizedFiles: { [key: string]: SupportFile[] } = {};
-            for (const channelId in data.files) {
-              const fileData = data.files[channelId];
-              // Ensure we always have an array. Handles legacy object format.
-              if (fileData && typeof fileData === 'object' && !Array.isArray(fileData)) {
-                sanitizedFiles[channelId] = Object.values(fileData);
-              } else {
-                sanitizedFiles[channelId] = Array.isArray(fileData) ? fileData : [];
-              }
-            }
-            setSupportData({ files: sanitizedFiles });
-          } else {
-            setSupportData({ files: {} });
-          }
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [isOpen, monthYearKey]);
 
   const handleFileArrayChange = (channelId: string, newFiles: SupportFile[]) => {
       setSupportData(prev => ({

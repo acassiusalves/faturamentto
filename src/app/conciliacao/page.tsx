@@ -237,7 +237,6 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-            // CORREÇÃO: Função de normalização para remover caracteres não numéricos
             const normalizeKey = (key: any) => String(key || '').replace(/\D/g, '');
             const allFiles = Object.values(supportData.files).flat();
 
@@ -266,7 +265,6 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     // CORREÇÃO: Normalizar a chave da venda também para a comparação
                      const saleKey = normalizeKey((sale as any).order_code);
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
@@ -464,7 +462,6 @@ export default function ConciliationPage() {
               loadSupportDataForMonth(); // Recarrega os dados de apoio ao fechar
             }}
             monthYearKey={getMonthYearKey()}
-            salesData={filteredSales}
         />
 
         <CalculationDialog
