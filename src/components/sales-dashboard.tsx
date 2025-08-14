@@ -24,7 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collap
 import { MarketplaceSalesChart } from "./marketplace-sales-chart";
 import { TopProductsChart } from "./top-products-chart";
 import { SalesByStateChart } from "./sales-by-state-chart";
-import { SalesByAccountChart } from "./sales-by-account-chart";
+import { SalesByAccountList } from "./sales-by-account-list";
 
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
@@ -263,7 +263,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
           <MarketplaceSalesChart salesData={filteredSales} />
           <TopProductsChart salesData={filteredSales} />
           <SalesByStateChart salesData={filteredSales} />
-          <SalesByAccountChart salesData={filteredSales} />
+          <SalesByAccountList salesData={filteredSales} />
       </div>
 
        <Card>
