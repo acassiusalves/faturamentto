@@ -155,7 +155,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     const initialVisible: Record<string, boolean> = savedVisible;
     if (Object.keys(savedVisible).length === 0) {
         // Set default visibility if nothing is saved
-        availableColumns.forEach(key => initialVisible[key] = true);
+        availableColumns.forEach(key => initialVisible[key.key] = true);
     }
     setVisibleColumns(initialVisible);
 
@@ -252,7 +252,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
   const formatDate = (dateString: string | null) => {
       if (!dateString) return 'N/A';
       try {
-          if (/^\d{4}-\d{2}/.test(dateString)) {
+          if (/^\\d{4}-\\d{2}/.test(dateString)) {
             const date = new Date(dateString);
             return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
           }
@@ -303,11 +303,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
 
   return (
     <TooltipProvider>
-      <DndContext
-            id={'dnd-context-sales-table'}
-            onDragEnd={handleDragEnd}
-            collisionDetection={closestCenter}
-      >
+      
       <Card>
          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
              <div className="flex items-center gap-2">
@@ -324,24 +320,26 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64" align="end">
-                           <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
-                           <DropdownMenuSeparator />
-                           {Object.entries(columnGroups).map(([groupName, columns]) => (
-                               columns.length > 0 && (
-                                   <DropdownMenuGroup key={groupName}>
-                                       <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
-                                        {columns.map(col => (
-                                            <DropdownMenuCheckboxItem
-                                                key={col.key}
-                                                checked={visibleColumns[col.key]}
-                                                onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
-                                            >
-                                                {col.label}
-                                            </DropdownMenuCheckboxItem>
-                                        ))}
-                                   </DropdownMenuGroup>
-                               )
-                           ))}
+                            <ScrollArea className="h-72">
+                               <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
+                               <DropdownMenuSeparator />
+                               {Object.entries(columnGroups).map(([groupName, columns]) => (
+                                   columns.length > 0 && (
+                                       <DropdownMenuGroup key={groupName}>
+                                           <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
+                                            {columns.map(col => (
+                                                <DropdownMenuCheckboxItem
+                                                    key={col.key}
+                                                    checked={visibleColumns[col.key]}
+                                                    onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
+                                                >
+                                                    {col.label}
+                                                </DropdownMenuCheckboxItem>
+                                            ))}
+                                       </DropdownMenuGroup>
+                                   )
+                               ))}
+                           </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -352,6 +350,11 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             
                 <Table>
                 <TableHeader>
+                  <DndContext
+                      id={'dnd-context-sales-table'}
+                      onDragEnd={handleDragEnd}
+                      collisionDetection={closestCenter}
+                  >
                     <TableRow>
                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
                           {orderedAndVisibleColumns.map((field) => (
@@ -365,6 +368,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                       </SortableContext>
                       {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
                     </TableRow>
+                  </DndContext>
                 </TableHeader>
                 <TableBody>
                     {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
@@ -518,7 +522,6 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             </div>
         </CardFooter>
       </Card>
-      </DndContext>
       
       {selectedSale && (
         <CostDialog
