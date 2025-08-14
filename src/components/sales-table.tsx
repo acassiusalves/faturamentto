@@ -118,12 +118,26 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         if (!isDashboard) {
             loadTableSettings();
         } else {
-             setAllAvailableColumns(dashboardColumns);
-             setColumnOrder(dashboardColumns.map(c => c.key));
-             const initialVisible: Record<string, boolean> = {};
-             dashboardColumns.forEach(col => { initialVisible[col.key] = true });
-             setVisibleColumns(initialVisible);
-             setIsSettingsLoading(false);
+             const setupDashboard = async () => {
+                 setIsSettingsLoading(true);
+                 const settings = await loadAppSettings();
+                 const friendlyNames = settings?.friendlyFieldNames || {};
+                 
+                 const initialDashboardCols = dashboardColumns.map(col => ({
+                    ...col,
+                    label: friendlyNames[col.key] || col.label,
+                    group: 'Dashboard',
+                    isCustom: false,
+                 }));
+
+                 setAllAvailableColumns(initialDashboardCols);
+                 setColumnOrder(initialDashboardCols.map(c => c.key));
+                 const initialVisible: Record<string, boolean> = {};
+                 initialDashboardCols.forEach(col => { initialVisible[col.key] = true });
+                 setVisibleColumns(initialVisible);
+                 setIsSettingsLoading(false);
+             }
+             setupDashboard();
         }
     }, [isDashboard, supportData, customCalculations, settingsVersion]);
 
@@ -337,7 +351,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64" align="end">
-                            <ScrollArea className="h-72">
+                           <ScrollArea className="h-72">
                                <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
                                <DropdownMenuSeparator />
                                {Object.entries(columnGroups).map(([groupName, columns]) => (
@@ -371,9 +385,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
             >
                 <Table>
                     <TableHeader>
-                         <TableRow>
+                        <TableRow>
                             {!isDashboard ? (
-                                 <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                                <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
                                     {orderedAndVisibleColumns.map((field) => (
                                         <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
                                             <div className="flex items-center gap-2">
@@ -382,9 +396,9 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                                             </div>
                                         </DraggableHeader>
                                     ))}
-                                 </SortableContext>
+                                </SortableContext>
                             ) : (
-                                 dashboardColumns.map(field => (
+                                orderedAndVisibleColumns.map(field => (
                                      <TableHead key={field.key} className={getColumnAlignment(field.key)}>
                                          {field.label}
                                      </TableHead>
@@ -396,7 +410,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                     <TableBody>
                         {isLoading || isSettingsLoading ? renderSkeleton() : paginatedData.length > 0 ? (
                         paginatedData.map((sale) => {
-                             const columnsToRender = isDashboard ? dashboardColumns : orderedAndVisibleColumns;
+                             const columnsToRender = isDashboard ? orderedAndVisibleColumns : orderedAndVisibleColumns;
                             return (
                             <TableRow key={sale.id}>
                                 {columnsToRender.map(field => {
