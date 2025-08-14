@@ -24,6 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collap
 import { MarketplaceSalesChart } from "./marketplace-sales-chart";
 import { TopProductsChart } from "./top-products-chart";
 import { SalesByStateChart } from "./sales-by-state-chart";
+import { SalesByAccountChart } from "./sales-by-account-chart";
 
 
 function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
@@ -258,10 +259,11 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
         <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description={`Projeção para o mês de ${projectionMonthName}`}/>
       </div>
       
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <MarketplaceSalesChart salesData={filteredSales} />
           <TopProductsChart salesData={filteredSales} />
           <SalesByStateChart salesData={filteredSales} />
+          <SalesByAccountChart salesData={filteredSales} />
       </div>
 
        <Card>
