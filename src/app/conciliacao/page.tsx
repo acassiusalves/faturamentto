@@ -237,34 +237,39 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
+             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
+            const supportDataMap = new Map<string, Record<string, any>>();
             const allFiles = Object.values(supportData.files).flat();
 
             if (allFiles.length > 0) {
-                 const supportDataMap = new Map<string, Record<string, any>>();
-                 
                  allFiles.forEach(file => {
                     if (!file.fileContent || !file.associationKey) return;
-                    const parsedData = Papa.parse(file.fileContent, { header: true });
-                    parsedData.data.forEach((row: any) => {
-                       const key = String(row[file.associationKey] || '').trim().toLowerCase();
-                       if(key) {
-                           if (!supportDataMap.has(key)) {
-                               supportDataMap.set(key, {});
-                           }
-                           const existingData = supportDataMap.get(key)!;
-                           
-                           for(const header in row) {
-                               const friendlyName = file.friendlyNames[header] || header;
-                               if (friendlyName) {
-                                   existingData[friendlyName] = row[header];
+                    
+                    try {
+                        const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
+                        parsedData.data.forEach((row: any) => {
+                           const key = normalizeKey(row[file.associationKey]);
+                           if(key) {
+                               if (!supportDataMap.has(key)) {
+                                   supportDataMap.set(key, {});
+                               }
+                               const existingData = supportDataMap.get(key)!;
+                               
+                               for(const header in row) {
+                                   const friendlyName = file.friendlyNames[header] || header;
+                                   if (friendlyName) {
+                                       existingData[friendlyName] = row[header];
+                                   }
                                }
                            }
-                       }
-                    });
+                        });
+                    } catch (e) {
+                         console.error("Error parsing support file", e);
+                    }
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = String((sale as any).order_code || '').trim().toLowerCase();
+                     const saleKey = normalizeKey((sale as any).order_code);
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
