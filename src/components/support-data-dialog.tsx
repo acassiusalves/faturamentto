@@ -125,8 +125,9 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey, salesData }: 
 
     const processFileContent = (content: string, headers: string[]) => {
         const fileList = supportData.files[channelId] || [];
+        // CORREÇÃO: Iniciar nomes amigáveis como vazios para que o usuário preencha.
         const initialFriendlyNames: Record<string, string> = {};
-        headers.forEach(h => { initialFriendlyNames[h] = h; });
+        headers.forEach(h => { initialFriendlyNames[h] = ""; });
 
         const updatedList = fileList.map(f => {
             if (f.id === fileId) {
