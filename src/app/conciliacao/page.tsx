@@ -237,7 +237,6 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-            const normalizeKey = (key: any) => String(key || '').replace(/\D/g, '');
             const allFiles = Object.values(supportData.files).flat();
 
             if (allFiles.length > 0) {
@@ -247,7 +246,7 @@ export default function ConciliationPage() {
                     if (!file.fileContent || !file.associationKey) return;
                     const parsedData = Papa.parse(file.fileContent, { header: true });
                     parsedData.data.forEach((row: any) => {
-                       const key = normalizeKey(row[file.associationKey]);
+                       const key = String(row[file.associationKey] || '').trim();
                        if(key) {
                            if (!supportDataMap.has(key)) {
                                supportDataMap.set(key, {});
@@ -265,7 +264,7 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeKey((sale as any).order_code);
+                     const saleKey = String((sale as any).order_code || '').trim();
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
