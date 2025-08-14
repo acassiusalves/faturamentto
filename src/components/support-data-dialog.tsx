@@ -84,8 +84,16 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
     if (!allSales || allSales.length === 0) return stats;
 
-    const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
-    const saleKeys = new Set(allSales.map(s => normalizeKey(s.order_code)));
+    const normalizeSystemKey = (key: string) => String(key || '').replace(/\D/g, '');
+    const normalizeSheetKey = (key: string) => {
+        const strKey = String(key || '');
+        if (strKey.toUpperCase().startsWith('LU-')) {
+            return strKey.substring(3).replace(/\D/g, '');
+        }
+        return strKey.replace(/\D/g, '');
+    };
+    
+    const saleKeys = new Set(allSales.map(s => normalizeSystemKey(s.order_code)));
 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
@@ -96,7 +104,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
             parsedData.data.forEach((row: any) => {
               const rawKey = row[file.associationKey];
-              const keyToCompare = normalizeKey(rawKey);
+              const keyToCompare = normalizeSheetKey(rawKey);
 
               if (keyToCompare) {
                 if (saleKeys.has(keyToCompare)) {
@@ -417,3 +425,5 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     </Dialog>
   );
 }
+
+    

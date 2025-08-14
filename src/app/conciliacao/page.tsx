@@ -237,7 +237,15 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
+            const normalizeSystemKey = (key: string) => String(key || '').replace(/\D/g, '');
+            const normalizeSheetKey = (key: string) => {
+                const strKey = String(key || '');
+                if (strKey.toUpperCase().startsWith('LU-')) {
+                    return strKey.substring(3).replace(/\D/g, '');
+                }
+                return strKey.replace(/\D/g, '');
+            };
+
             const supportDataMap = new Map<string, Record<string, any>>();
             const allFiles = Object.values(supportData.files).flat();
 
@@ -248,7 +256,7 @@ export default function ConciliationPage() {
                     try {
                         const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
                         parsedData.data.forEach((row: any) => {
-                           const key = normalizeKey(row[file.associationKey]);
+                           const key = normalizeSheetKey(row[file.associationKey]);
                            if(key) {
                                if (!supportDataMap.has(key)) {
                                    supportDataMap.set(key, {});
@@ -269,7 +277,7 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeKey((sale as any).order_code);
+                     const saleKey = normalizeSystemKey((sale as any).order_code);
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
@@ -476,3 +484,5 @@ export default function ConciliationPage() {
         </>
     );
 }
+
+    
