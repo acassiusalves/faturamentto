@@ -63,6 +63,8 @@ const fixedIderisColumns = [
     'item_sku',
     'item_quantity',
     'discount',
+    'left_over',
+    'payment_approved_date'
 ];
 
 
@@ -113,11 +115,13 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
     setIsSettingsLoading(true);
 
     const settings = await loadAppSettings();
+    const friendlyNames = settings?.friendlyFieldNames || {};
 
     const iderisCols = iderisFields
         .filter(field => fixedIderisColumns.includes(field.key))
         .map(field => ({
             ...field,
+            label: friendlyNames[field.key] || field.label,
             group: 'Ideris',
             isCustom: false
         }));
@@ -318,7 +322,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64" align="end">
-                            <ScrollArea className="h-72">
+                             <ScrollArea className="h-72">
                                <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
                                <DropdownMenuSeparator />
                                {Object.entries(columnGroups).map(([groupName, columns]) => (
@@ -345,7 +349,7 @@ export function SalesTable({ data, supportData, onUpdateSaleCosts, calculateTota
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
-            <DndContext
+             <DndContext
                 id={'dnd-context-sales-table'}
                 onDragEnd={handleDragEnd}
                 collisionDetection={closestCenter}
