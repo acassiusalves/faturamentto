@@ -23,6 +23,7 @@ export const navLinks = [
 ];
 
 export const settingsLinks = [
+    { href: "/aprovacoes", title: "Aprovações", icon: CheckSquare },
     { href: "/configuracoes", title: "Configurações", icon: Settings },
     { href: "/perfil", title: "Perfil", icon: User },
 ];
@@ -40,6 +41,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/dre': ['admin', 'financeiro'],
     '/custos-geral': ['admin', 'financeiro'],
     '/mapeamento': ['admin'],
+    '/aprovacoes': ['admin'],
     '/configuracoes': ['admin'],
     '/perfil': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/login': [], // Public page, no roles required
