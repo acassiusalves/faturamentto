@@ -102,7 +102,10 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 const numericKeys = ['value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace', 'item_quantity'];
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
-                } else {
+                } else if (key === 'order_status') {
+                    cleanedSale[key] = ''; // Ensure order_status is never undefined
+                }
+                else {
                     cleanedSale[key] = ''; // Default to empty string for any other undefined/null value
                 }
                 continue;
@@ -287,7 +290,7 @@ async function searchOrdersByDate(privateKey: string, days: number): Promise<Sal
             hasMorePages = false;
         }
     }
-
+    
     const orderIds = allSummaries.map(s => s.id);
     return await fetchOrderDetailsByIds(orderIds, token);
 }
