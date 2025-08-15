@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -304,6 +304,12 @@ export default function EstoquePage() {
           <h1 className="text-3xl font-bold font-headline">Gerenciador de Estoque</h1>
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
+        <Button asChild>
+            <Link href="/estoque/devolucoes">
+                <Undo2 />
+                Devoluções
+            </Link>
+        </Button>
       </div>
       
       <div className="grid md:grid-cols-3 gap-8 items-start">
