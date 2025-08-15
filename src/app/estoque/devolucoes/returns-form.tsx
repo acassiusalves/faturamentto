@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown, Check } from 'lucide-react';
 import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts } from '@/services/firestore';
+import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts, revertReturnAction } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 const returnSchema = z.object({
@@ -163,6 +164,17 @@ export function ReturnsForm() {
             toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível registrar a devolução.'});
         }
     };
+    
+    const handleRevertReturn = async (log: ReturnLog) => {
+        try {
+            await revertReturnAction(log);
+            toast({ title: "Ação Revertida!", description: "A devolução foi desfeita e o item removido do estoque." });
+            await fetchTodaysReturns(); // Refresh the list
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Erro ao Reverter', description: 'Não foi possível reverter a ação.'});
+        }
+    }
 
     const InfoCard = ({ title, icon: Icon, data, notFoundText }: { title: string, icon: React.ElementType, data: Record<string, any> | null, notFoundText: string }) => {
         return (
@@ -364,12 +376,13 @@ export function ReturnsForm() {
                                 <TableHead>Nº de Série (SN)</TableHead>
                                 <TableHead>Condição</TableHead>
                                 <TableHead>Pedido</TableHead>
+                                <TableHead className="text-center">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                            {isLoadingReturns ? (
                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
+                                <TableCell colSpan={6} className="h-24 text-center">
                                     <Loader2 className="animate-spin" />
                                 </TableCell>
                             </TableRow>
@@ -381,11 +394,32 @@ export function ReturnsForm() {
                                     <TableCell className="font-mono">{item.serialNumber}</TableCell>
                                     <TableCell><Badge variant="secondary">{item.condition}</Badge></TableCell>
                                     <TableCell>{item.orderNumber}</TableCell>
+                                    <TableCell className="text-center">
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                    <XCircle className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Reverter esta devolução?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Esta ação irá remover permanentemente o registro de devolução do item <strong>(SN: {item.serialNumber})</strong> e o item será excluído do estoque. Você tem certeza?
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleRevertReturn(item)}>Sim, Reverter</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
                                 </TableRow>
                             ))
                            ) : (
                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">Nenhuma devolução registrada hoje.</TableCell>
+                                <TableCell colSpan={6} className="h-24 text-center">Nenhuma devolução registrada hoje.</TableCell>
                             </TableRow>
                            )}
                         </TableBody>

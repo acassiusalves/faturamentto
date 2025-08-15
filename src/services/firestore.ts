@@ -300,6 +300,27 @@ export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
 };
 
+export const revertReturnAction = async (returnLog: ReturnLog): Promise<void> => {
+    const batch = writeBatch(db);
+    
+    // 1. Delete the return log entry
+    const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log', returnLog.id);
+    batch.delete(logDocRef);
+
+    // 2. Find and delete the corresponding item from inventory that was re-added
+    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+    const q = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), orderBy('createdAt', 'desc'), limit(1));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+        const inventoryItemDocRef = snapshot.docs[0].ref;
+        batch.delete(inventoryItemDocRef);
+    }
+    
+    await batch.commit();
+};
+
+
 
 // --- SALES ---
 export async function saveSales(sales: Sale[]): Promise<void> {
