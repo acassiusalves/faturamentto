@@ -47,6 +47,7 @@ const initialCategories: ProductCategorySettings[] = [
             ]},
             { key: 'rede', label: 'Rede', values: ['4G', '5G'] },
             { key: 'origem', label: 'Origem', values: ['Nacional', 'Importado'] },
+            { key: 'condicao', label: 'Condição', values: ['Novo', 'Vitrine', 'Usado', 'Defeito'] },
         ]
     }
 ];
@@ -217,5 +218,3 @@ export function ProductSettings() {
         </Card>
     );
 }
-
-    

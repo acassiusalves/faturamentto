@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle } from 'lucide-react';
-import type { PickedItemLog } from '@/lib/types';
+import type { PickedItemLog, ProductCategorySettings } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findPickLogBySN } from '@/services/firestore';
+import { findPickLogBySN, loadProductSettings } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -26,9 +26,7 @@ const returnSchema = z.object({
   serialNumber: z.string().min(1, "O SN do produto é obrigatório."),
   productName: z.string().min(1, "O nome do produto é obrigatório."),
   orderNumber: z.string().optional(),
-  condition: z.enum(["Novo", "Vitrine", "Usado", "Defeito"], {
-    required_error: "A condição do item é obrigatória.",
-  }),
+  condition: z.string().min(1, "A condição do item é obrigatória."),
   notes: z.string().optional(),
 });
 
@@ -40,6 +38,7 @@ export function ReturnsForm() {
     const [isLoadingSn, setIsLoadingSn] = useState(false);
     const [foundLog, setFoundLog] = useState<PickedItemLog | null>(null);
     const [todaysReturns, setTodaysReturns] = useState<any[]>([]); // Placeholder
+    const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
 
     const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const form = useForm<ReturnFormValues>({
@@ -48,18 +47,26 @@ export function ReturnsForm() {
             serialNumber: "",
             productName: "",
             orderNumber: "",
-            condition: undefined,
+            condition: "",
             notes: "",
         },
     });
     
     const { handleSubmit, setValue, reset } = form;
 
+    useEffect(() => {
+        async function fetchSettings() {
+            const settings = await loadProductSettings('celular');
+            setProductSettings(settings);
+        }
+        fetchSettings();
+    }, []);
+
     const handleSearchSN = useCallback(async (sn: string) => {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
-        reset({ serialNumber: sn, productName: "", orderNumber: "", notes: "", condition: undefined });
+        reset({ serialNumber: sn, productName: "", orderNumber: "", notes: "", condition: "" });
 
         try {
             const log = await findPickLogBySN(sn);
@@ -201,10 +208,9 @@ export function ReturnsForm() {
                                                 </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="Novo">Novo</SelectItem>
-                                                    <SelectItem value="Vitrine">Vitrine</SelectItem>
-                                                    <SelectItem value="Usado">Usado</SelectItem>
-                                                    <SelectItem value="Defeito">Defeito</SelectItem>
+                                                    {productSettings?.attributes.find(a => a.key === 'condicao')?.values.map(v => (
+                                                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
