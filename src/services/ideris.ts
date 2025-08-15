@@ -102,6 +102,8 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 const numericKeys = ['value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace', 'item_quantity'];
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
+                } else if (key === 'order_status') {
+                    cleanedSale[key] = ''; // Ensure order_status is never undefined
                 } else {
                     cleanedSale[key] = ''; // Default to empty string for any other undefined/null value
                 }
@@ -169,6 +171,33 @@ async function fetchWithToken<T>(url: string, accessToken: string): Promise<T> {
 
 type ProgressCallback = (progress: number, current: number, total: number) => void;
 
+async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgress?: ProgressCallback): Promise<Sale[]> {
+    const sales: Sale[] = [];
+    const totalOrders = orderIds.length;
+
+    for (let i = 0; i < totalOrders; i++) {
+        const orderId = orderIds[i];
+        if (orderId) {
+            const detailsUrl = `https://apiv3.ideris.com.br/order/${orderId}`;
+            try {
+                const detailsResult = await fetchWithToken<{ obj: any }>(detailsUrl, token);
+                if (detailsResult && detailsResult.obj) {
+                    sales.push(mapIderisOrderToSale(detailsResult.obj, i));
+                }
+            } catch (e) {
+                console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
+            }
+        }
+        if (onProgress) {
+            const currentCount = i + 1;
+            const progressPercentage = (currentCount / totalOrders) * 100;
+            onProgress(progressPercentage, currentCount, totalOrders);
+        }
+    }
+    return sales;
+}
+
+
 async function performFetchWithRetry(
     privateKey: string, 
     dateRange: DateRange, 
@@ -202,36 +231,14 @@ async function performFetchWithRetry(
     
     // Filter out orders that already exist in the database
     const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
-    const totalOrdersToFetch = newSummaries.length;
+    const newOrderIds = newSummaries.map(s => s.id);
     
-    if (totalOrdersToFetch === 0) {
+    if (newOrderIds.length === 0) {
         if (onProgress) onProgress(100, 0, 0);
         return [];
     }
 
-    const sales: Sale[] = [];
-    if (onProgress) onProgress(0, 0, totalOrdersToFetch);
-
-    for (let i = 0; i < totalOrdersToFetch; i++) {
-        const summary = newSummaries[i];
-        if (summary.id) {
-            const detailsUrl = `https://apiv3.ideris.com.br/order/${summary.id}`;
-            try {
-                const detailsResult = await fetchWithToken<{ obj: any }>(detailsUrl, token);
-                if (detailsResult && detailsResult.obj) {
-                    sales.push(mapIderisOrderToSale(detailsResult.obj, i));
-                }
-            } catch (e) {
-                console.warn(`Falha ao buscar detalhes do pedido ${summary.id}:`, e);
-            }
-        }
-        if (onProgress) {
-            const currentCount = i + 1;
-            const progressPercentage = (currentCount / totalOrdersToFetch) * 100;
-            onProgress(progressPercentage, currentCount, totalOrdersToFetch);
-        }
-    }
-    return sales;
+    return await fetchOrderDetailsByIds(newOrderIds, token, onProgress);
 }
 
 export async function fetchOrdersFromIderis(
@@ -266,7 +273,7 @@ async function searchOrdersByDate(privateKey: string, days: number): Promise<Sal
     const initialDate = formatDateForApi(startDate);
     const finalDate = formatDateForApi(endDate);
     
-    let allOrders: Sale[] = [];
+    let allSummaries: any[] = [];
     let currentOffset = 0;
     const limitPerPage = 50;
     let hasMorePages = true;
@@ -276,14 +283,15 @@ async function searchOrdersByDate(privateKey: string, days: number): Promise<Sal
         const result = await fetchWithToken<{ obj: any[] }>(url, token);
         
         if (result && Array.isArray(result.obj) && result.obj.length > 0) {
-            const orders = result.obj.map((order, index) => mapIderisOrderToSale(order, index + currentOffset));
-            allOrders = allOrders.concat(orders);
+            allSummaries = allSummaries.concat(result.obj);
             currentOffset += result.obj.length;
         } else {
             hasMorePages = false;
         }
     }
-    return allOrders;
+
+    const orderIds = allSummaries.map(s => s.id);
+    return await fetchOrderDetailsByIds(orderIds, token);
 }
 
 export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
@@ -291,7 +299,7 @@ export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
         const statusesToInclude = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
         // Search last 5 days, as searching by status is deprecated.
         const allRecentOrders = await searchOrdersByDate(privateKey, 5);
-        return allRecentOrders.filter(order => statusesToInclude.includes(order.order_status as string));
+        return allRecentOrders.filter(order => order.order_status && statusesToInclude.includes(order.order_status));
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.log("Token expirado, gerando um novo e tentando novamente...");
@@ -305,3 +313,5 @@ export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
         throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
     }
 }
+
+    
