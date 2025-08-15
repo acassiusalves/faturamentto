@@ -253,7 +253,7 @@ export const clearTodaysPickingLog = async (): Promise<void> => {
 
 
 // --- RETURNS ---
-export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'> & { originalSaleData?: PickedItemLog }): Promise<void> => {
+export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>): Promise<void> => {
     const batch = writeBatch(db);
     const returnsLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
@@ -264,6 +264,7 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'> &
         ...data,
         id: returnDocRef.id,
         returnedAt: new Date().toISOString(),
+        originalSaleData: data.originalSaleData || null, // Ensure null instead of undefined
     };
     batch.set(returnDocRef, toFirestore(newReturnLog));
 
@@ -420,5 +421,7 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     const userDocRef = doc(db, 'users', uid);
     await updateDoc(userDocRef, { role });
 }
+
+    
 
     
