@@ -1,7 +1,5 @@
-// This file defines the fields available from the Ideris API.
-// The key is a unique identifier we'll use internally.
-// The label is the user-friendly name shown in the UI.
-// The path is the dot-notation path to access the value in the Ideris order object.
+// Substitua o conteúdo de src/lib/ideris-fields.ts por este:
+
 export const iderisFields: { key: string; label: string, path: string }[] = [
     // Order Details
     { key: "order_id", label: "ID do Pedido", path: "id" },
@@ -10,7 +8,7 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "auth_name", label: "Nome da Conta", path: "authenticationName" },
     { key: "document_value", label: "CPF/CNPJ do Cliente", path: "documentValue" },
     { key: "state_name", label: "Estado", path: "stateName" },
-    { key: "status", label: "Status do Pedido", path: "status[0].name" },
+    { key: "status", label: "Status do Pedido", path: "status[0].status_name" },
 
     // Financial Values
     { key: "value_with_shipping", label: "Valor com Frete", path: "valueWithShipping" },
