@@ -74,6 +74,7 @@ const dashboardColumns = [
     { key: 'marketplace_name', label: 'Nome do Marketplace' },
     { key: 'payment_approved_date', label: 'Data de Aprovação (Pagamento)' },
     { key: 'state_name', label: 'Estado' },
+    { key: 'order_status', label: 'Status' },
     { key: 'item_sku', label: 'SKU (Item)' },
 ];
 
@@ -448,9 +449,12 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
                             const fieldKeyLower = field.label.toLowerCase();
                             const isDateColumn = fieldKeyLower.includes('date') || fieldKeyLower.includes('data');
+                            const isStatusColumn = field.key === 'order_status';
 
                             if (isDateColumn) {
                                 cellContent = formatDate(cellContent);
+                            } else if (isStatusColumn) {
+                                cellContent = cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A';
                             } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
                                 const className = field.key === 'fee_order' || field.key === 'fee_shipment' ? 'text-destructive' : (field.key === 'left_over' || (field.key.includes('lucro') && cellContent > 0)) ? 'font-semibold text-green-600' : '';
                                 if(field.key === 'product_cost' && cellContent > 0) {
