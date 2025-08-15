@@ -341,6 +341,16 @@ export async function loadSales(): Promise<Sale[]> {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as Sale);
 }
 
+export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales', `ideris-${orderId}`);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+        return fromFirestore({ ...snapshot.data(), id: snapshot.id }) as Sale;
+    }
+    return null;
+}
+
+
 export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string }[]> {
   const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
   const snapshot = await getDocs(query(salesCol));
@@ -475,5 +485,6 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     
 
     
+
 
 

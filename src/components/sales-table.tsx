@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2 } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
@@ -32,8 +32,9 @@ import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { saveAppSettings, loadAppSettings } from "@/services/firestore";
-
+import { saveAppSettings, loadAppSettings, getSaleByOrderId, saveSales } from "@/services/firestore";
+import { fetchOrderById } from "@/services/ideris";
+import { useToast } from "@/hooks/use-toast";
 
 interface SalesTableProps {
   data: Sale[];
@@ -106,6 +107,8 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
 export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const [isSettingsLoading, setIsSettingsLoading] = useState(!isDashboard);
   
@@ -329,6 +332,40 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   
   const columnGroups = getColumnGroups();
 
+  const handleRefreshStatus = async (orderId: string) => {
+    if (!orderId) return;
+    setIsRefreshingStatus(orderId);
+    try {
+        const settings = await loadAppSettings();
+        if (!settings?.iderisPrivateKey) {
+            toast({ variant: 'destructive', title: 'Chave da Ideris não configurada.' });
+            return;
+        }
+
+        const iderisOrder = await fetchOrderById(settings.iderisPrivateKey, orderId);
+        const localSale = await getSaleByOrderId(orderId);
+
+        if (!iderisOrder || !localSale) {
+            toast({ variant: 'destructive', title: 'Pedido não encontrado.' });
+            return;
+        }
+
+        if (iderisOrder.order_status !== localSale.order_status) {
+            const updatedSale: Sale = { ...localSale, order_status: iderisOrder.order_status };
+            await saveSales([updatedSale]);
+            toast({ title: 'Status Atualizado!', description: `O status do pedido ${orderId} foi atualizado para "${iderisOrder.order_status}".` });
+            // Here you should probably trigger a re-fetch of the main data on the parent component
+        } else {
+            toast({ title: 'Nenhuma Mudança', description: 'O status do pedido já está atualizado.' });
+        }
+    } catch (e) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível buscar o status do pedido.' });
+    } finally {
+        setIsRefreshingStatus(null);
+    }
+  }
+
 
   if (!isClient && isDashboard) { // Only show basic loader for dashboard on server
     return (
@@ -454,7 +491,20 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                             if (isDateColumn) {
                                 cellContent = formatDate(cellContent);
                             } else if (isStatusColumn) {
-                                cellContent = cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A';
+                                cellContent = (
+                                    <div className="flex items-center gap-2 justify-end">
+                                        {cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A'}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => handleRefreshStatus((sale as any).order_id)}
+                                            disabled={isRefreshingStatus === (sale as any).order_id}
+                                        >
+                                            {isRefreshingStatus === (sale as any).order_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
+                                );
                             } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
                                 const className = field.key === 'fee_order' || field.key === 'fee_shipment' ? 'text-destructive' : (field.key === 'left_over' || (field.key.includes('lucro') && cellContent > 0)) ? 'font-semibold text-green-600' : '';
                                 if(field.key === 'product_cost' && cellContent > 0) {

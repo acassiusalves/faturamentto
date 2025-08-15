@@ -139,12 +139,13 @@ function formatDateForApi(date: Date): string {
     return `${month}/${day}/${year}`;
 }
 
-async function fetchWithToken<T>(url: string, accessToken: string): Promise<T> {
+async function fetchWithToken<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<T> {
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      ...options.headers,
     };
-    const response = await fetch(url, { headers, cache: 'no-store' });
+    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
 
      if (!response.ok) {
         const errorText = await response.text();
@@ -312,5 +313,43 @@ export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
             throw new Error(`Não foi possível buscar os pedidos da Ideris: ${error.message}`);
         }
         throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
+    }
+}
+
+export async function fetchOrderById(privateKey: string, orderId: string): Promise<Sale | null> {
+    const token = await getValidAccessToken(privateKey);
+    const url = `https://apiv3.ideris.com.br/order/${orderId}`;
+    try {
+        const result = await fetchWithToken<{ obj: any }>(url, token);
+        if (result && result.obj) {
+            return mapIderisOrderToSale(result.obj, 0);
+        }
+        return null;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
+            inMemoryToken = null;
+            return await fetchOrderById(privateKey, orderId); // Retry
+        }
+        console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
+        throw error;
+    }
+}
+
+export async function updateOrderStatusInIderis(privateKey: string, payload: any): Promise<any> {
+    const token = await getValidAccessToken(privateKey);
+    const url = `https://apiv3.ideris.com.br/order/status`;
+    try {
+        const result = await fetchWithToken(url, token, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+        return result;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
+            inMemoryToken = null;
+            return await updateOrderStatusInIderis(privateKey, payload); // Retry
+        }
+        console.error(`Falha ao atualizar status do pedido:`, error);
+        throw error;
     }
 }
