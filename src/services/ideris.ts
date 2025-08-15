@@ -298,9 +298,9 @@ async function searchOrdersByDate(privateKey: string, days: number): Promise<Sal
 
 export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
     try {
-        const statusesToInclude = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
-        // Search last 5 days, as searching by status requires a full data scan.
+        // Look back 5 days for open orders
         const allRecentOrders = await searchOrdersByDate(privateKey, 5);
+        const statusesToInclude = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
         return allRecentOrders.filter(order => order.order_status && statusesToInclude.includes(order.order_status));
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {

@@ -342,10 +342,13 @@ export async function loadSales(): Promise<Sale[]> {
 }
 
 export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
-    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales', `ideris-${orderId}`);
-    const snapshot = await getDoc(docRef);
-    if (snapshot.exists()) {
-        return fromFirestore({ ...snapshot.data(), id: snapshot.id }) as Sale;
+    const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+    const q = query(salesCol, where('order_id', '==', orderId), limit(1));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+        const docData = snapshot.docs[0];
+        return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
     }
     return null;
 }
@@ -485,6 +488,7 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     
 
     
+
 
 
 
