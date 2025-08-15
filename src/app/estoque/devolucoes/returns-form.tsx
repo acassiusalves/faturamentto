@@ -18,6 +18,7 @@ import { findPickLogBySN } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Form, FormField } from '@/components/ui/form';
 
 
 const returnSchema = z.object({
@@ -96,137 +97,141 @@ export function ReturnsForm() {
         setFoundLog(null);
     };
 
-    const InfoCard = ({ title, icon: Icon, data, notFoundText }: { title: string, icon: React.ElementType, data: Record<string, any> | null, notFoundText: string }) => (
-        <Card className="flex-1">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-primary" />
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-                {data ? (
-                    <div className="space-y-1">
-                        {Object.entries(data).map(([key, value]) => (
-                            <div key={key} className="flex justify-between">
-                                <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
-                                <span className="font-semibold text-right">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-6">
-                        {isLoadingSn ? <Loader2 className="animate-spin" /> : (
-                             <>
-                                {foundLog === null && scannedSn ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
-                                <p>{isLoadingSn ? "Buscando..." : notFoundText}</p>
-                             </>
-                        )}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
+    const InfoCard = ({ title, icon: Icon, data, notFoundText }: { title: string, icon: React.ElementType, data: Record<string, any> | null, notFoundText: string }) => {
+        return (
+            <Card className="flex-1">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Icon className="h-5 w-5 text-primary" />
+                        {title}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm">
+                    {data ? (
+                        <div className="space-y-1">
+                            {Object.entries(data).map(([key, value]) => (
+                                <div key={key} className="flex justify-between">
+                                    <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
+                                    <span className="font-semibold text-right">{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-6">
+                            {isLoadingSn ? <Loader2 className="animate-spin" /> : (
+                                <>
+                                    {foundLog === null && scannedSn ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
+                                    <p>{isLoadingSn ? "Buscando..." : notFoundText}</p>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        );
+    };
 
   return (
     <div className="space-y-8">
-        <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                {/* Coluna do Formulário */}
-                <div className="lg:col-span-1 space-y-4">
-                    <Card>
-                        <CardContent className="p-6 space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="sn-input">Número de Série (SN) do Produto</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input 
-                                        id="sn-input" 
-                                        placeholder="Bipe ou digite o SN..." 
-                                        value={scannedSn}
-                                        onChange={handleSnInputChange}
-                                        autoFocus
-                                    />
-                                    <Button type="button" size="icon" variant="outline" onClick={() => handleSearchSN(scannedSn)} disabled={isLoadingSn}>
-                                        {isLoadingSn ? <Loader2 className="animate-spin" /> : <Search />}
-                                    </Button>
+        <Form {...form}>
+            <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                    {/* Coluna do Formulário */}
+                    <div className="lg:col-span-1 space-y-4">
+                        <Card>
+                            <CardContent className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="sn-input">Número de Série (SN) do Produto</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input 
+                                            id="sn-input" 
+                                            placeholder="Bipe ou digite o SN..." 
+                                            value={scannedSn}
+                                            onChange={handleSnInputChange}
+                                            autoFocus
+                                        />
+                                        <Button type="button" size="icon" variant="outline" onClick={() => handleSearchSN(scannedSn)} disabled={isLoadingSn}>
+                                            {isLoadingSn ? <Loader2 className="animate-spin" /> : <Search />}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
 
-                             <FormField
-                                control={form.control}
-                                name="productName"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="product-name">Nome do Produto</Label>
-                                        <Input id="product-name" placeholder="Preenchido automaticamente ou digite" {...field} />
-                                    </div>
-                                )}
-                            />
-                            
-                             <FormField
-                                control={form.control}
-                                name="orderNumber"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="order-number">Número do Pedido de Venda</Label>
-                                        <Input id="order-number" placeholder="Preenchido automaticamente ou digite" {...field} />
-                                    </div>
-                                )}
-                            />
+                                 <FormField
+                                    control={form.control}
+                                    name="productName"
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="product-name">Nome do Produto</Label>
+                                            <Input id="product-name" placeholder="Preenchido automaticamente ou digite" {...field} />
+                                        </div>
+                                    )}
+                                />
+                                
+                                 <FormField
+                                    control={form.control}
+                                    name="orderNumber"
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="order-number">Número do Pedido de Venda</Label>
+                                            <Input id="order-number" placeholder="Preenchido automaticamente ou digite" {...field} />
+                                        </div>
+                                    )}
+                                />
 
-                            <FormField
-                                control={form.control}
-                                name="condition"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label>Condição do Item</Label>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Selecione a condição..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Novo">Novo</SelectItem>
-                                                <SelectItem value="Vitrine">Vitrine</SelectItem>
-                                                <SelectItem value="Usado">Usado</SelectItem>
-                                                <SelectItem value="Defeito">Defeito</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            />
-                            
-                             <FormField
-                                control={form.control}
-                                name="notes"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="notes">Informações Adicionais</Label>
-                                        <Textarea id="notes" placeholder="Detalhes sobre a devolução, avarias, etc." {...field} />
-                                    </div>
-                                )}
-                            />
-                        </CardContent>
-                    </Card>
-                     <Button type="submit" className="w-full" size="lg">Registrar Devolução</Button>
+                                <FormField
+                                    control={form.control}
+                                    name="condition"
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label>Condição do Item</Label>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione a condição..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Novo">Novo</SelectItem>
+                                                    <SelectItem value="Vitrine">Vitrine</SelectItem>
+                                                    <SelectItem value="Usado">Usado</SelectItem>
+                                                    <SelectItem value="Defeito">Defeito</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                />
+                                
+                                 <FormField
+                                    control={form.control}
+                                    name="notes"
+                                    render={({ field }) => (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="notes">Informações Adicionais</Label>
+                                            <Textarea id="notes" placeholder="Detalhes sobre a devolução, avarias, etc." {...field} />
+                                        </div>
+                                    )}
+                                />
+                            </CardContent>
+                        </Card>
+                         <Button type="submit" className="w-full" size="lg">Registrar Devolução</Button>
+                    </div>
+
+                    {/* Coluna das Informações */}
+                    <div className="lg:col-span-2 flex flex-col md:flex-row gap-8">
+                       <InfoCard 
+                            title="Informações do Produto" 
+                            icon={PackageCheck} 
+                            data={foundLog ? { Nome: foundLog.name, SKU: foundLog.sku, Custo: `R$ ${foundLog.costPrice.toFixed(2)}` } : null}
+                            notFoundText="Aguardando a leitura do produto..."
+                        />
+                        <InfoCard 
+                            title="Informações do Pedido" 
+                            icon={FileText} 
+                            data={foundLog ? { Pedido: foundLog.orderNumber, "Data da Saída": format(parseISO(foundLog.pickedAt), 'dd/MM/yyyy HH:mm') } : null}
+                            notFoundText="Aguardando um pedido..."
+                        />
+                    </div>
                 </div>
-
-                {/* Coluna das Informações */}
-                <div className="lg:col-span-2 flex flex-col md:flex-row gap-8">
-                   <InfoCard 
-                        title="Informações do Produto" 
-                        icon={PackageCheck} 
-                        data={foundLog ? { Nome: foundLog.name, SKU: foundLog.sku, Custo: `R$ ${foundLog.costPrice.toFixed(2)}` } : null}
-                        notFoundText="Aguardando a leitura do produto..."
-                    />
-                    <InfoCard 
-                        title="Informações do Pedido" 
-                        icon={FileText} 
-                        data={foundLog ? { Pedido: foundLog.orderNumber, "Data da Saída": format(parseISO(foundLog.pickedAt), 'dd/MM/yyyy HH:mm') } : null}
-                        notFoundText="Aguardando um pedido..."
-                    />
-                </div>
-            </div>
-        </form>
+            </form>
+        </Form>
         
         {/* Tabela de Resumo */}
         <Card>
