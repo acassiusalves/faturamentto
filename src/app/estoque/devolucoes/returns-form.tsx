@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown, Check } from 'lucide-react';
 import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts } from '@/services/firestore';
