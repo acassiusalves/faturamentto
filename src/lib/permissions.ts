@@ -20,11 +20,8 @@ export const navLinks = [
     { href: "/dre", label: "DRE", icon: BarChart3 },
     { href: "/custos-geral", label: "Custos", icon: DollarSign },
     { href: "/mapeamento", label: "Mapeamento", icon: Map },
+    { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
 ];
-
-export const actionLinks = [
-    { href: "/aprovacoes", title: "Aprovações", icon: CheckSquare },
-]
 
 export const settingsLinks = [
     { href: "/configuracoes", title: "Configurações", icon: Settings },
