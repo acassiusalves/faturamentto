@@ -9,34 +9,30 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Sale } from '@/lib/types';
-import { loadAppSettings } from '@/services/firestore';
-import { fetchOpenOrders } from '@/services/ideris';
+import { loadSales } from '@/services/firestore';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+
+const STATUS_FILTERS = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
 
 export default function ComprasPage() {
     const [orders, setOrders] = useState<Sale[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isIderisConfigured, setIsIderisConfigured] = useState(false);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const settings = await loadAppSettings();
-            if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
-                setIsIderisConfigured(false);
-                setIsLoading(false);
-                return;
-            }
-            setIsIderisConfigured(true);
-            const openOrders = await fetchOpenOrders(settings.iderisPrivateKey);
-            setOrders(openOrders);
+            const allSales = await loadSales();
+            const filteredOrders = allSales.filter(sale => 
+                sale.order_status && STATUS_FILTERS.includes(sale.order_status)
+            );
+            setOrders(filteredOrders);
         } catch (e) {
-            console.error("Failed to fetch open orders:", e);
-            setError(e instanceof Error ? e.message : "Ocorreu um erro desconhecido.");
+            console.error("Failed to fetch sales from Firestore:", e);
+            setError(e instanceof Error ? e.message : "Ocorreu um erro desconhecido ao carregar os pedidos.");
         } finally {
             setIsLoading(false);
         }
@@ -68,22 +64,9 @@ export default function ComprasPage() {
             return (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando pedidos em aberto na Ideris (últimos 5 dias)...</p>
+                    <p className="ml-4">Buscando pedidos no banco de dados...</p>
                 </div>
             )
-        }
-        
-        if (!isIderisConfigured) {
-             return (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Configuração Incompleta</AlertTitle>
-                    <AlertDescription>
-                        A sua conexão com a Ideris não está configurada ou não é válida. 
-                        Por favor, acesse a <Link href="/mapeamento" className="font-semibold underline">página de Mapeamento</Link> para configurar suas credenciais.
-                    </AlertDescription>
-                </Alert>
-            );
         }
         
         if (error) {
@@ -101,6 +84,7 @@ export default function ComprasPage() {
                 <div className="text-center text-muted-foreground py-10">
                     <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
                     <p>Nenhum pedido com status de compra encontrado no momento.</p>
+                     <p className="text-xs mt-2">Certifique-se de que os pedidos foram importados na tela de <Link href="/mapeamento" className="underline">Mapeamento</Link>.</p>
                 </div>
             )
         }
@@ -120,14 +104,14 @@ export default function ComprasPage() {
                     </TableHeader>
                     <TableBody>
                         {orders.map((order) => (
-                            <TableRow key={(order as any).order_id}>
+                            <TableRow key={(order as any).order_id || order.id}>
                                 <TableCell className="whitespace-nowrap">{formatDate((order as any).payment_approved_date)}</TableCell>
                                 <TableCell>
-                                    <Badge variant={getStatusVariant((order as any).order_status)}>
-                                        {(order as any).order_status || 'N/A'}
+                                    <Badge variant={getStatusVariant(order.order_status)}>
+                                        {order.order_status || 'N/A'}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="font-mono text-xs">{(order as any).order_id}</TableCell>
+                                <TableCell className="font-mono text-xs">{(order as any).order_code}</TableCell>
                                 <TableCell className="font-medium">{(order as any).item_title}</TableCell>
                                 <TableCell className="font-mono">{(order as any).item_sku}</TableCell>
                                 <TableCell className="text-center font-bold">{(order as any).item_quantity}</TableCell>
@@ -154,7 +138,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Status: Aberto, A Faturar, Faturado e Em Separação (busca nos últimos 5 dias).
+                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação.
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
