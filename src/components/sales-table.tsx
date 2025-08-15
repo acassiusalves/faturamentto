@@ -75,7 +75,7 @@ const dashboardColumns = [
     { key: 'marketplace_name', label: 'Nome do Marketplace' },
     { key: 'payment_approved_date', label: 'Data de Aprovação (Pagamento)' },
     { key: 'state_name', label: 'Estado' },
-    { key: 'order_status', label: 'Status' },
+    { key: 'status', label: 'Status' },
     { key: 'item_sku', label: 'SKU (Item)' },
 ];
 
@@ -337,7 +337,8 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   
   const columnGroups = getColumnGroups();
 
-  const handleRefreshStatus = async (orderId: string) => {
+  const handleRefreshStatus = async (sale: Sale) => {
+    const orderId = (sale as any).order_id;
     if (!orderId) return;
 
     setIsRefreshingStatus(orderId);
@@ -355,16 +356,15 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             return;
         }
 
-        const currentSaleIndex = currentSales.findIndex(s => s.id === `ideris-${orderId}`);
+        const currentSaleIndex = currentSales.findIndex(s => s.id === sale.id);
         if (currentSaleIndex === -1) {
             toast({ variant: 'destructive', title: 'Pedido não encontrado localmente.' });
             return;
         }
 
-        const currentSale = currentSales[currentSaleIndex];
         
-        if (iderisOrder.order_status !== currentSale.order_status) {
-            const updatedSale: Sale = { ...currentSale, order_status: iderisOrder.order_status };
+        if (iderisOrder.status !== sale.status) {
+            const updatedSale: Sale = { ...sale, status: iderisOrder.status };
             await saveSales([updatedSale]);
             
             // Update local state to reflect the change instantly
@@ -372,7 +372,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             newSales[currentSaleIndex] = updatedSale;
             setCurrentSales(newSales);
             
-            toast({ title: 'Status Atualizado!', description: `O status do pedido ${orderId} foi atualizado para "${iderisOrder.order_status}".` });
+            toast({ title: 'Status Atualizado!', description: `O status do pedido ${orderId} foi atualizado para "${iderisOrder.status}".` });
         } else {
             toast({ title: 'Nenhuma Mudança', description: 'O status do pedido já está atualizado.' });
         }
@@ -504,7 +504,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
                             const fieldKeyLower = field.label.toLowerCase();
                             const isDateColumn = fieldKeyLower.includes('date') || fieldKeyLower.includes('data');
-                            const isStatusColumn = field.key === 'order_status';
+                            const isStatusColumn = field.key === 'status';
 
                             if (isDateColumn) {
                                 cellContent = formatDate(cellContent);
@@ -516,7 +516,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                             variant="ghost"
                                             size="icon"
                                             className="h-6 w-6"
-                                            onClick={() => handleRefreshStatus((sale as any).order_id)}
+                                            onClick={() => handleRefreshStatus(sale)}
                                             disabled={isRefreshingStatus === (sale as any).order_id}
                                         >
                                             {isRefreshingStatus === (sale as any).order_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
