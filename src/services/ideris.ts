@@ -102,8 +102,6 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 const numericKeys = ['value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace', 'item_quantity'];
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
-                } else if (key === 'order_status') {
-                    cleanedSale[key] = ''; // Ensure order_status is never undefined
                 } else {
                     cleanedSale[key] = ''; // Default to empty string for any other undefined/null value
                 }
@@ -297,7 +295,7 @@ async function searchOrdersByDate(privateKey: string, days: number): Promise<Sal
 export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
     try {
         const statusesToInclude = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
-        // Search last 5 days, as searching by status is deprecated.
+        // Search last 5 days, as searching by status requires a full data scan.
         const allRecentOrders = await searchOrdersByDate(privateKey, 5);
         return allRecentOrders.filter(order => order.order_status && statusesToInclude.includes(order.order_status));
     } catch (error) {
@@ -313,5 +311,3 @@ export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
         throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
     }
 }
-
-    
