@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Sale } from '@/lib/types';
@@ -252,4 +253,47 @@ export async function fetchOrdersFromIderis(
       }
       throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
   }
+}
+
+async function fetchWithStatus(privateKey: string, statuses: string[]): Promise<Sale[]> {
+    const token = await getValidAccessToken(privateKey);
+    let allOrders: Sale[] = [];
+    let currentOffset = 0;
+    const limitPerPage = 50;
+    let hasMorePages = true;
+
+    const statusParam = statuses.join(',');
+
+    while (hasMorePages) {
+        const url = `https://apiv3.ideris.com.br/order?status=${statusParam}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
+        const result = await fetchWithToken<{ obj: any[] }>(url, token);
+        
+        if (result && Array.isArray(result.obj) && result.obj.length > 0) {
+            const orders = result.obj.map((order, index) => mapIderisOrderToSale(order, index + currentOffset));
+            allOrders = allOrders.concat(orders);
+            currentOffset += result.obj.length;
+        } else {
+            hasMorePages = false;
+        }
+    }
+    return allOrders;
+}
+
+export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
+    try {
+        const statuses = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
+        return await fetchWithStatus(privateKey, statuses);
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
+            console.log("Token expirado, gerando um novo e tentando novamente...");
+            inMemoryToken = null; // Força a geração de um novo token
+            const statuses = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
+            return await fetchWithStatus(privateKey, statuses);
+        }
+        console.error('Falha ao buscar pedidos em aberto da Ideris:', error);
+        if (error instanceof Error) {
+            throw new Error(`Não foi possível buscar os pedidos da Ideris: ${error.message}`);
+        }
+        throw new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
+    }
 }
