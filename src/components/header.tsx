@@ -8,11 +8,12 @@ import { useAuth } from "@/context/auth-context";
 import { navLinks, settingsLinks } from "@/lib/permissions";
 
 export function Header() {
-    const { user, logout, pagePermissions } = useAuth();
+    const { user, logout, pagePermissions, inactivePages } = useAuth();
 
     if (!user) return null;
 
     const hasAccess = (href: string) => {
+        if (inactivePages.includes(href)) return false; // Hide if page is inactive
         const allowedRoles = pagePermissions[href];
         if (!allowedRoles) return false; // Default to deny if page not in config
         return allowedRoles.includes(user.role);

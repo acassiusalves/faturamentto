@@ -12,7 +12,7 @@ interface ProtectedLayoutProps {
 }
 
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
-  const { user, loading, pagePermissions } = useAuth();
+  const { user, loading, pagePermissions, inactivePages } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,6 +42,12 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
         return;
     }
     
+    // Check if page is inactive
+    if (inactivePages.includes(pathname)) {
+        router.push('/');
+        return;
+    }
+
     // Role-based access control
     const allowedRoles = pagePermissions[pathname];
     if (allowedRoles && !allowedRoles.includes(user.role)) {
@@ -50,7 +56,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
         return;
     }
 
-  }, [user, loading, router, pathname, pagePermissions]);
+  }, [user, loading, router, pathname, pagePermissions, inactivePages]);
 
   if (loading) {
     return (

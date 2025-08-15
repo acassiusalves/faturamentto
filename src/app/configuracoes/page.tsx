@@ -15,10 +15,12 @@ import type { AppUser } from "@/lib/types";
 import { NewUserDialog } from "@/components/new-user-dialog";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase";
+import { Switch } from "@/components/ui/switch";
 
 export default function SettingsPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
     const [permissions, setPermissions] = useState(defaultPagePermissions);
+    const [inactivePages, setInactivePages] = useState<string[]>([]);
     const [isSavingPermissions, setIsSavingPermissions] = useState(false);
     const [isSavingUsers, setIsSavingUsers] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -33,14 +35,19 @@ export default function SettingsPage() {
                 loadUsersWithRoles()
             ]);
 
-            if (settings && settings.permissions) {
-                const mergedPermissions = { ...defaultPagePermissions };
-                for (const page in mergedPermissions) {
-                    if (settings.permissions[page]) {
-                        mergedPermissions[page] = settings.permissions[page];
+            if (settings) {
+                if (settings.permissions) {
+                    const mergedPermissions = { ...defaultPagePermissions };
+                    for (const page in mergedPermissions) {
+                        if (settings.permissions[page]) {
+                            mergedPermissions[page] = settings.permissions[page];
+                        }
                     }
+                    setPermissions(mergedPermissions);
                 }
-                setPermissions(mergedPermissions);
+                if (settings.inactivePages) {
+                    setInactivePages(settings.inactivePages);
+                }
             }
             setUsers(appUsers);
             setIsLoading(false);
@@ -69,10 +76,23 @@ export default function SettingsPage() {
         });
     };
 
+    const handlePageActiveChange = (page: string, isActive: boolean) => {
+        setInactivePages(prev => {
+            const newInactive = new Set(prev);
+            if (isActive) {
+                newInactive.delete(page);
+            } else {
+                newInactive.add(page);
+            }
+            return Array.from(newInactive);
+        });
+    };
+
+
     const handleSavePermissions = async () => {
         setIsSavingPermissions(true);
         try {
-            await saveAppSettings({ permissions: permissions });
+            await saveAppSettings({ permissions: permissions, inactivePages: inactivePages });
             toast({
                 title: "Permissões Salvas!",
                 description: "As regras de acesso foram atualizadas. Pode ser necessário que os usuários recarreguem a página para ver as mudanças."
@@ -150,6 +170,7 @@ export default function SettingsPage() {
                                     {availableRoles.map(role => (
                                         <TableHead key={role.key} className="text-center">{role.name}</TableHead>
                                     ))}
+                                    <TableHead className="text-center">Ativa</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -165,6 +186,13 @@ export default function SettingsPage() {
                                                 />
                                             </TableCell>
                                         ))}
+                                        <TableCell className="text-center">
+                                            <Switch
+                                                checked={!inactivePages.includes(page)}
+                                                onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
+                                                disabled={page === '/configuracoes'} // prevent locking out
+                                            />
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

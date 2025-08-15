@@ -25,6 +25,7 @@ interface AuthContextType {
   updateUsername: (name: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
   pagePermissions: Record<string, string[]>;
+  inactivePages: string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [pagePermissions, setPagePermissions] = useState<Record<string, string[]>>(defaultPagePermissions);
+  const [inactivePages, setInactivePages] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -47,16 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         const role = userDoc.exists() ? userDoc.data().role : 'expedicao'; // Default role if not set
 
-        if (appSettings && appSettings.permissions) {
-            // Ensure admin always has all permissions
-            const dynamicPermissions = { ...appSettings.permissions };
-            for(const page in dynamicPermissions) {
-                if(!dynamicPermissions[page].includes('admin')) {
-                    dynamicPermissions[page].push('admin');
+        if (appSettings) {
+             if (appSettings.permissions) {
+                const dynamicPermissions = { ...appSettings.permissions };
+                for(const page in dynamicPermissions) {
+                    if(!dynamicPermissions[page].includes('admin')) {
+                        dynamicPermissions[page].push('admin');
+                    }
                 }
+                setPagePermissions(dynamicPermissions);
             }
-            setPagePermissions(dynamicPermissions);
+            if (appSettings.inactivePages) {
+                setInactivePages(appSettings.inactivePages);
+            }
         }
+
 
         setUser({
           uid: firebaseUser.uid,
@@ -106,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     updateUsername,
     updateUserPassword,
-    pagePermissions
+    pagePermissions,
+    inactivePages,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -229,6 +229,7 @@ export interface AppSettings {
     iderisApiStatus?: ApiKeyStatus;
     googleSheetsApiStatus?: ApiKeyStatus;
     permissions?: Record<string, string[]>;
+    inactivePages?: string[];
     customCalculations?: any[];
     ignoredIderisColumns?: string[];
     conciliacaoColumnOrder?: string[];

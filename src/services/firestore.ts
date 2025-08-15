@@ -16,7 +16,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -213,11 +213,7 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
 
 export const findPickLogBySN = async (serialNumber: string): Promise<PickedItemLog | null> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
-    const q = query(
-        logCol, 
-        where('serialNumber', '==', serialNumber),
-        limit(1)
-    );
+    const q = query(logCol, where('serialNumber', '==', serialNumber), limit(1));
     const snapshot = await getDocs(q);
     if(snapshot.empty) {
         return null;
@@ -401,23 +397,6 @@ export const saveMonthlySupportData = async (monthYearKey: string, data: Support
 
 // --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
-
-interface AppSettings {
-    iderisPrivateKey?: string;
-    googleSheetsApiKey?: string;
-    allMappings?: AllMappingsState;
-    friendlyFieldNames?: Record<string, string>;
-    fileNames?: { [key: string]: string };
-    fileData?: { [key: string]: string };
-    iderisApiStatus?: ApiKeyStatus;
-    googleSheetsApiStatus?: ApiKeyStatus;
-    permissions?: Record<string, string[]>;
-    customCalculations?: any[];
-    ignoredIderisColumns?: string[];
-    conciliacaoColumnOrder?: string[];
-    conciliacaoVisibleColumns?: Record<string, boolean>;
-}
-
 
 export const loadAppSettings = async (): Promise<AppSettings | null> => {
     const snapshot = await getDoc(settingsDocRef);
