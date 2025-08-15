@@ -4,15 +4,16 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { InventoryItem } from "@/lib/types";
 import { loadInventoryItems, loadProductSettings } from "@/services/firestore";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PackagePlus, Search } from "lucide-react";
+import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
 
 export function DetailedEntryHistory() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
@@ -21,6 +22,9 @@ export function DetailedEntryHistory() {
   const [originFilter, setOriginFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
+  
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -75,6 +79,13 @@ export function DetailedEntryHistory() {
       return true;
     });
   }, [allItems, dateRange, originFilter, searchTerm]);
+  
+  const pageCount = Math.ceil(filteredItems.length / pageSize);
+
+  const paginatedItems = useMemo(() => {
+    const startIndex = pageIndex * pageSize;
+    return filteredItems.slice(startIndex, startIndex + pageSize);
+  }, [filteredItems, pageIndex, pageSize]);
   
   const formatCurrency = (value: number) => {
     if (isNaN(value)) return 'R$ 0,00';
@@ -146,8 +157,8 @@ export function DetailedEntryHistory() {
                     <Loader2 className="mx-auto animate-spin" />
                   </TableCell>
                 </TableRow>
-              ) : filteredItems.length > 0 ? (
-                filteredItems.map((item) => (
+              ) : paginatedItems.length > 0 ? (
+                paginatedItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{formatDate(item.createdAt)}</TableCell>
                     <TableCell>{item.name}</TableCell>
@@ -172,7 +183,75 @@ export function DetailedEntryHistory() {
           </Table>
         </div>
       </CardContent>
+       <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+            <div className="text-sm text-muted-foreground">
+                Total de {filteredItems.length} registros.
+            </div>
+            <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Itens por página</p>
+                    <Select
+                        value={`${pageSize}`}
+                        onValueChange={(value) => {
+                            setPageSize(Number(value));
+                            setPageIndex(0);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize.toString()} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 20, 50, 100].map((size) => (
+                                <SelectItem key={size} value={`${size}`}>
+                                    {size}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm font-medium">
+                    Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(0)}
+                        disabled={pageIndex === 0}
+                    >
+                        <span className="sr-only">Primeira página</span>
+                        <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageIndex - 1)}
+                        disabled={pageIndex === 0}
+                    >
+                        <span className="sr-only">Página anterior</span>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageIndex + 1)}
+                        disabled={pageIndex >= pageCount - 1}
+                    >
+                        <span className="sr-only">Próxima página</span>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageCount - 1)}
+                        disabled={pageIndex >= pageCount - 1}
+                    >
+                        <span className="sr-only">Última página</span>
+                        <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </CardFooter>
     </Card>
   );
 }
-
