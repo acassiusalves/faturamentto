@@ -166,6 +166,7 @@ export default function EstoquePage() {
       quantity: 1,
       serialNumber: sn,
       origin: data.origin || '',
+      condition: 'Novo',
       createdAt: new Date().toISOString(),
     }));
 
