@@ -295,7 +295,7 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'> &
 export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
     const todayStart = startOfDay(new Date());
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
-    const q = query(logCol, where('returnedAt', '>=', todayStart), orderBy('returnedAt', 'desc'));
+    const q = query(logCol, where('returnedAt', '>=', todayStart.toISOString()), orderBy('returnedAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
 };
