@@ -14,6 +14,7 @@ import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export function DetailedEntryHistory() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
@@ -146,6 +147,7 @@ export function DetailedEntryHistory() {
                 <TableHead>Produto</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>SN</TableHead>
+                <TableHead>Condição</TableHead>
                 <TableHead>Origem</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
               </TableRow>
@@ -153,7 +155,7 @@ export function DetailedEntryHistory() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     <Loader2 className="mx-auto animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -164,13 +166,18 @@ export function DetailedEntryHistory() {
                     <TableCell>{item.name}</TableCell>
                     <TableCell className="font-mono text-sm">{item.sku}</TableCell>
                     <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
+                    <TableCell>
+                      <Badge variant={item.condition === 'Novo' ? 'default' : 'secondary'}>
+                        {item.condition || 'N/A'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{item.origin}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <PackagePlus className="h-12 w-12 mb-4" />
                         <p>Nenhuma entrada de estoque encontrada.</p>
