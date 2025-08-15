@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Form, FormField } from '@/components/ui/form';
+import { Badge } from '@/components/ui/badge';
 
 
 const returnSchema = z.object({
