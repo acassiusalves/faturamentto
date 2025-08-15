@@ -59,7 +59,7 @@ export default function ComprasPage() {
         const lowerStatus = status?.toLowerCase() || '';
         if (lowerStatus.includes('faturado')) return 'default';
         if (lowerStatus.includes('aberto')) return 'secondary';
-        if (lowerStatus.includes('separação')) return 'outline';
+        if (lowerStatus.includes('em separação')) return 'outline';
         return 'secondary';
     }
     
@@ -68,7 +68,7 @@ export default function ComprasPage() {
             return (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando pedidos em aberto na Ideris...</p>
+                    <p className="ml-4">Buscando pedidos em aberto na Ideris (últimos 90 dias)...</p>
                 </div>
             )
         }
@@ -154,7 +154,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Status: Aberto, A Faturar, Faturado e Em Separação.
+                        Status: Aberto, A Faturar, Faturado e Em Separação (busca nos últimos 90 dias).
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">

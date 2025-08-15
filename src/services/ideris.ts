@@ -4,6 +4,7 @@
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
+import { startOfDay } from 'date-fns';
 
 // This is a simplified in-memory "cache" for the token.
 // In a more complex app, this might use a proper cache like Redis with TTL.
@@ -255,17 +256,23 @@ export async function fetchOrdersFromIderis(
   }
 }
 
-async function fetchWithStatus(privateKey: string, statuses: string[]): Promise<Sale[]> {
+async function searchOrdersByDate(privateKey: string, days: number): Promise<Sale[]> {
     const token = await getValidAccessToken(privateKey);
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days);
+
+    const initialDate = formatDateForApi(startDate);
+    const finalDate = formatDateForApi(endDate);
+    
     let allOrders: Sale[] = [];
     let currentOffset = 0;
     const limitPerPage = 50;
     let hasMorePages = true;
 
-    const statusParam = statuses.join(',');
-
-    while (hasMorePages) {
-        const url = `https://apiv3.ideris.com.br/order?status=${statusParam}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
+    while(hasMorePages) {
+        const url = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
         const result = await fetchWithToken<{ obj: any[] }>(url, token);
         
         if (result && Array.isArray(result.obj) && result.obj.length > 0) {
@@ -281,14 +288,15 @@ async function fetchWithStatus(privateKey: string, statuses: string[]): Promise<
 
 export async function fetchOpenOrders(privateKey: string): Promise<Sale[]> {
     try {
-        const statuses = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
-        return await fetchWithStatus(privateKey, statuses);
+        const statusesToInclude = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
+        // Search last 90 days, as searching by status is deprecated.
+        const allRecentOrders = await searchOrdersByDate(privateKey, 90);
+        return allRecentOrders.filter(order => statusesToInclude.includes(order.order_status as string));
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.log("Token expirado, gerando um novo e tentando novamente...");
             inMemoryToken = null; // Força a geração de um novo token
-            const statuses = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
-            return await fetchWithStatus(privateKey, statuses);
+            return await fetchOpenOrders(privateKey); // Retry the call
         }
         console.error('Falha ao buscar pedidos em aberto da Ideris:', error);
         if (error instanceof Error) {
