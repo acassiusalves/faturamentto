@@ -5,7 +5,7 @@ import { LogOut } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
-import { navLinks, settingsLinks } from "@/lib/permissions";
+import { navLinks, settingsLinks, actionLinks } from "@/lib/permissions";
 
 export function Header() {
     const { user, logout, pagePermissions, inactivePages } = useAuth();
@@ -40,6 +40,13 @@ export function Header() {
                 ))}
                 
                 <div className="flex items-center gap-1 border-l ml-2 pl-2">
+                     {actionLinks.filter(link => hasAccess(link.href)).map(link => (
+                         <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
+                            <Link href={link.href}>
+                                <link.icon />
+                            </Link>
+                        </Button>
+                    ))}
                     {settingsLinks.filter(link => hasAccess(link.href)).map(link => (
                          <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
                             <Link href={link.href}>

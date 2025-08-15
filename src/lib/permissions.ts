@@ -22,8 +22,11 @@ export const navLinks = [
     { href: "/mapeamento", label: "Mapeamento", icon: Map },
 ];
 
-export const settingsLinks = [
+export const actionLinks = [
     { href: "/aprovacoes", title: "Aprovações", icon: CheckSquare },
+]
+
+export const settingsLinks = [
     { href: "/configuracoes", title: "Configurações", icon: Settings },
     { href: "/perfil", title: "Perfil", icon: User },
 ];
