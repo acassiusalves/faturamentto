@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle } from 'lucide-react';
-import type { PickedItemLog, ProductCategorySettings } from '@/lib/types';
+import type { PickedItemLog, ProductCategorySettings, ReturnLog } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findPickLogBySN, loadProductSettings } from '@/services/firestore';
+import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,7 +37,8 @@ export function ReturnsForm() {
     const [scannedSn, setScannedSn] = useState("");
     const [isLoadingSn, setIsLoadingSn] = useState(false);
     const [foundLog, setFoundLog] = useState<PickedItemLog | null>(null);
-    const [todaysReturns, setTodaysReturns] = useState<any[]>([]); // Placeholder
+    const [todaysReturns, setTodaysReturns] = useState<ReturnLog[]>([]);
+    const [isLoadingReturns, setIsLoadingReturns] = useState(true);
     const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
 
     const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,15 +53,24 @@ export function ReturnsForm() {
         },
     });
     
-    const { handleSubmit, setValue, reset } = form;
+    const { handleSubmit, setValue, reset, formState: { isSubmitting } } = form;
+
+     const fetchTodaysReturns = useCallback(async () => {
+        setIsLoadingReturns(true);
+        const logs = await loadTodaysReturnLogs();
+        setTodaysReturns(logs);
+        setIsLoadingReturns(false);
+    }, []);
 
     useEffect(() => {
-        async function fetchSettings() {
+        async function fetchInitialData() {
             const settings = await loadProductSettings('celular');
             setProductSettings(settings);
+            await fetchTodaysReturns();
         }
-        fetchSettings();
-    }, []);
+        fetchInitialData();
+    }, [fetchTodaysReturns]);
+
 
     const handleSearchSN = useCallback(async (sn: string) => {
         if (!sn) return;
@@ -102,14 +112,22 @@ export function ReturnsForm() {
         }, 800); // 800ms delay for auto-search
     };
     
-    const onSubmit = (data: ReturnFormValues) => {
-        console.log("Submitting data:", data);
-        toast({ title: "Devolução Registrada (Simulação)", description: `Produto ${data.productName} retornado ao estoque.`})
-        // TODO: Implement logic to save the return, add item back to inventory, and log the movement.
-        setTodaysReturns(prev => [{...data, returnedAt: new Date()}, ...prev]);
-        reset();
-        setScannedSn("");
-        setFoundLog(null);
+    const onSubmit = async (data: ReturnFormValues) => {
+        try {
+            await saveReturnLog({
+                ...data,
+                sku: foundLog?.sku || 'N/A', // Save SKU from found log if available
+                originalSaleData: foundLog || undefined,
+            });
+            toast({ title: "Devolução Registrada!", description: `Produto ${data.productName} retornado ao estoque.`})
+            await fetchTodaysReturns(); // Refresh the list
+            reset();
+            setScannedSn("");
+            setFoundLog(null);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível registrar a devolução.'});
+        }
     };
 
     const InfoCard = ({ title, icon: Icon, data, notFoundText }: { title: string, icon: React.ElementType, data: Record<string, any> | null, notFoundText: string }) => {
@@ -231,7 +249,9 @@ export function ReturnsForm() {
                                 />
                             </CardContent>
                         </Card>
-                         <Button type="submit" className="w-full" size="lg">Registrar Devolução</Button>
+                         <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Registrar Devolução"}
+                         </Button>
                     </div>
 
                     {/* Coluna das Informações */}
@@ -280,10 +300,16 @@ export function ReturnsForm() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {todaysReturns.length > 0 ? (
-                            todaysReturns.map((item, index) => (
-                                <TableRow key={index}>
-                                    <TableCell>{format(item.returnedAt, 'HH:mm:ss')}</TableCell>
+                           {isLoadingReturns ? (
+                             <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    <Loader2 className="animate-spin" />
+                                </TableCell>
+                            </TableRow>
+                           ) : todaysReturns.length > 0 ? (
+                            todaysReturns.map((item) => (
+                                <TableRow key={item.id}>
+                                    <TableCell>{format(parseISO(item.returnedAt), 'HH:mm:ss')}</TableCell>
                                     <TableCell>{item.productName}</TableCell>
                                     <TableCell className="font-mono">{item.serialNumber}</TableCell>
                                     <TableCell><Badge variant="secondary">{item.condition}</Badge></TableCell>

@@ -16,7 +16,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -253,6 +253,51 @@ export const clearTodaysPickingLog = async (): Promise<void> => {
     const batch = writeBatch(db);
     snapshot.docs.forEach(d => batch.delete(d.ref));
     await batch.commit();
+};
+
+
+// --- RETURNS ---
+export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'> & { originalSaleData?: PickedItemLog }): Promise<void> => {
+    const batch = writeBatch(db);
+    const returnsLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
+    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+
+    // 1. Create the return log
+    const returnDocRef = doc(returnsLogCol);
+    const newReturnLog: ReturnLog = {
+        ...data,
+        id: returnDocRef.id,
+        returnedAt: new Date().toISOString(),
+    };
+    batch.set(returnDocRef, toFirestore(newReturnLog));
+
+    // 2. Add the item back to the inventory
+    const inventoryItemDocRef = doc(inventoryCol); // Always create a new inventory item for a return
+    const product = await findProductByAssociatedSku(data.sku);
+
+    const itemToReenter: InventoryItem = {
+        id: inventoryItemDocRef.id,
+        productId: product?.id || `unknown-${data.sku}`,
+        name: data.productName,
+        sku: data.sku,
+        serialNumber: data.serialNumber,
+        costPrice: data.originalSaleData?.costPrice || 0,
+        origin: data.originalSaleData?.origin || 'Devolução',
+        quantity: 1,
+        condition: data.condition,
+        createdAt: new Date().toISOString(), // The date it re-entered inventory
+    };
+    batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
+
+    await batch.commit();
+};
+
+export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
+    const todayStart = startOfDay(new Date());
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
+    const q = query(logCol, where('returnedAt', '>=', todayStart), orderBy('returnedAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
 };
 
 

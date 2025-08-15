@@ -39,6 +39,18 @@ export interface InventoryItem {
 export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };
 export type PickedItemLog = PickedItem & { logId: string; };
 
+export interface ReturnLog {
+    id: string;
+    productName: string;
+    serialNumber: string;
+    sku: string;
+    orderNumber?: string;
+    condition: string;
+    notes?: string;
+    returnedAt: string;
+    originalSaleData?: PickedItemLog;
+}
+
 
 export interface ProductAttribute {
     key: string;
