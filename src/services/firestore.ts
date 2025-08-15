@@ -404,10 +404,46 @@ export const createApprovalRequest = async (request: Omit<ApprovalRequest, 'id'>
 
 export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rejected'): Promise<ApprovalRequest[]> => {
     const requestsCol = collection(db, 'approval-requests');
+    // Firestore queries require a composite index for filtering and ordering on different fields.
+    // As we cannot create indexes programmatically, we remove the ordering for now to avoid errors.
+    // The list will be unsorted but functional.
     const q = query(requestsCol, where('status', '==', status));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ApprovalRequest);
 }
+
+export const processApprovalRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected'): Promise<void> => {
+    const requestDocRef = doc(db, 'approval-requests', request.id);
+
+    if (decision === 'approved') {
+        const batch = writeBatch(db);
+
+        // 1. Delete the scanned item from inventory
+        const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', request.scannedItem.id);
+        batch.delete(inventoryItemRef);
+
+        // 2. Create a new picking log entry for the approved item
+        const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+        const logDocRef = doc(logCol);
+        const newLogEntry: PickedItemLog = {
+            ...request.scannedItem,
+            orderNumber: (request.orderData as any).order_code,
+            pickedAt: new Date().toISOString(),
+            logId: logDocRef.id,
+        };
+        batch.set(logDocRef, toFirestore(newLogEntry));
+        
+        // 3. Update the request status
+        batch.update(requestDocRef, { status: 'approved' });
+
+        await batch.commit();
+
+    } else { // 'rejected'
+        // Just update the status, no inventory action needed.
+        await updateDoc(requestDocRef, { status: 'rejected' });
+    }
+}
+
 
 
 // --- APP SETTINGS & USERS ---
@@ -439,4 +475,5 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     
 
     
+
 

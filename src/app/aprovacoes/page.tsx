@@ -10,11 +10,15 @@ import { Loader2, CheckCircle, XCircle, Package, ArrowRight, AlertTriangle } fro
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { ApprovalRequest } from "@/lib/types";
-import { loadApprovalRequests } from "@/services/firestore";
+import { loadApprovalRequests, processApprovalRequest } from "@/services/firestore";
+import { useToast } from "@/hooks/use-toast";
+
 
 export default function ApprovalsPage() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true);
@@ -27,15 +31,28 @@ export default function ApprovalsPage() {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleApprove = (requestId: string) => {
-    console.log("Aprovar:", requestId);
-    // Lógica de aprovação a ser implementada
-  };
+  const handleProcessRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected') => {
+    setProcessingId(request.id);
+    try {
+        await processApprovalRequest(request, decision);
+        toast({
+            title: "Sucesso!",
+            description: `A solicitação para o pedido ${request.orderData.order_code} foi ${decision === 'approved' ? 'aprovada' : 'rejeitada'}.`
+        });
+        // Refresh the list by removing the processed request
+        setRequests(prev => prev.filter(r => r.id !== request.id));
+    } catch(error) {
+        console.error("Error processing request:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro ao Processar",
+            description: "Não foi possível completar a ação. Tente novamente."
+        })
+    } finally {
+        setProcessingId(null);
+    }
+  }
 
-  const handleReject = (requestId: string) => {
-    console.log("Rejeitar:", requestId);
-    // Lógica de rejeição a ser implementada
-  };
 
   const formatDateTime = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -109,16 +126,20 @@ export default function ApprovalsPage() {
                                         {renderRequestDetails(req)}
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => handleReject(req.id)}>
-                                                <XCircle className="mr-2 h-4 w-4" />
-                                                Recusar
-                                            </Button>
-                                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleApprove(req.id)}>
-                                                <CheckCircle className="mr-2 h-4 w-4" />
-                                                Aprovar
-                                            </Button>
-                                        </div>
+                                         {processingId === req.id ? (
+                                            <Loader2 className="animate-spin mx-auto" />
+                                        ) : (
+                                            <div className="flex justify-center gap-2">
+                                                <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => handleProcessRequest(req, 'rejected')}>
+                                                    <XCircle className="mr-2 h-4 w-4" />
+                                                    Recusar
+                                                </Button>
+                                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleProcessRequest(req, 'approved')}>
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    Aprovar
+                                                </Button>
+                                            </div>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))
