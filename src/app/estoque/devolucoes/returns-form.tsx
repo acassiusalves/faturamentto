@@ -18,7 +18,7 @@ import { findPickLogBySN } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Form, FormField } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 
 
@@ -44,6 +44,13 @@ export function ReturnsForm() {
     const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const form = useForm<ReturnFormValues>({
         resolver: zodResolver(returnSchema),
+        defaultValues: {
+            serialNumber: "",
+            productName: "",
+            orderNumber: "",
+            condition: undefined,
+            notes: "",
+        },
     });
     
     const { handleSubmit, setValue, reset } = form;
@@ -52,7 +59,7 @@ export function ReturnsForm() {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
-        reset({ serialNumber: sn });
+        reset({ serialNumber: sn, productName: "", orderNumber: "", notes: "", condition: undefined });
 
         try {
             const log = await findPickLogBySN(sn);
@@ -161,10 +168,11 @@ export function ReturnsForm() {
                                     control={form.control}
                                     name="productName"
                                     render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="product-name">Nome do Produto</Label>
-                                            <Input id="product-name" placeholder="Preenchido automaticamente ou digite" {...field} />
-                                        </div>
+                                        <FormItem>
+                                            <FormLabel>Nome do Produto</FormLabel>
+                                            <FormControl><Input id="product-name" placeholder="Preenchido automaticamente ou digite" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
                                 
@@ -172,10 +180,11 @@ export function ReturnsForm() {
                                     control={form.control}
                                     name="orderNumber"
                                     render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="order-number">Número do Pedido de Venda</Label>
-                                            <Input id="order-number" placeholder="Preenchido automaticamente ou digite" {...field} />
-                                        </div>
+                                       <FormItem>
+                                            <FormLabel>Número do Pedido de Venda</FormLabel>
+                                            <FormControl><Input id="order-number" placeholder="Preenchido automaticamente ou digite" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
 
@@ -183,12 +192,14 @@ export function ReturnsForm() {
                                     control={form.control}
                                     name="condition"
                                     render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label>Condição do Item</Label>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormItem>
+                                            <FormLabel>Condição do Item</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecione a condição..." />
                                                 </SelectTrigger>
+                                                </FormControl>
                                                 <SelectContent>
                                                     <SelectItem value="Novo">Novo</SelectItem>
                                                     <SelectItem value="Vitrine">Vitrine</SelectItem>
@@ -196,7 +207,8 @@ export function ReturnsForm() {
                                                     <SelectItem value="Defeito">Defeito</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                        </div>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
                                 
@@ -204,10 +216,11 @@ export function ReturnsForm() {
                                     control={form.control}
                                     name="notes"
                                     render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="notes">Informações Adicionais</Label>
-                                            <Textarea id="notes" placeholder="Detalhes sobre a devolução, avarias, etc." {...field} />
-                                        </div>
+                                        <FormItem>
+                                            <FormLabel>Informações Adicionais</FormLabel>
+                                            <FormControl><Textarea id="notes" placeholder="Detalhes sobre a devolução, avarias, etc." {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}
                                 />
                             </CardContent>
