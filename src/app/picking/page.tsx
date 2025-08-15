@@ -4,25 +4,27 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku } from '@/services/firestore';
+import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku, createApprovalRequest } from '@/services/firestore';
 
 import type { InventoryItem, PickedItemLog, Sale, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle, PackageSearch } from 'lucide-react';
+import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle, PackageSearch, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useAuth } from '@/context/auth-context';
 
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function PickingPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [orderNumber, setOrderNumber] = useState('');
   const [isSearchingOrder, setIsSearchingOrder] = useState(false);
@@ -47,6 +49,11 @@ export default function PickingPage() {
   const [autoSubmitDelay, setAutoSubmitDelay] = useState<number>(5000); // Default 5s
   
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  // State for SKU Mismatch Dialog
+  const [mismatchItem, setMismatchItem] = useState<InventoryItem | null>(null);
+  const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false);
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
   const serialNumberRef = useRef<HTMLInputElement>(null);
   const orderNumberRef = useRef<HTMLInputElement>(null);
@@ -114,7 +121,6 @@ export default function PickingPage() {
     return () => clearInterval(intervalId);
   }, [autoSyncIderis]);
   
-  // CORREÇÃO: useEffect para focar no campo de SN após encontrar o pedido
   useEffect(() => {
     if (foundSale && serialNumberRef.current) {
       serialNumberRef.current.focus();
@@ -148,7 +154,8 @@ export default function PickingPage() {
         }
 
         if (item.sku !== parentProduct.sku) {
-            toast({ variant: "destructive", title: "Produto Incorreto", description: `Este item (SKU ${item.sku}) não corresponde ao produto do pedido (SKU Pai ${parentProduct.sku}).` });
+            setMismatchItem(item);
+            setIsMismatchDialogOpen(true);
             return;
         }
         
@@ -350,6 +357,30 @@ export default function PickingPage() {
       fetchTodaysPicks();
   }
 
+  const handleSubmitForApproval = async () => {
+    if (!mismatchItem || !foundSale || !user?.email) return;
+    
+    setIsSubmittingApproval(true);
+    try {
+        await createApprovalRequest({
+            type: 'SKU_MISMATCH_PICKING',
+            status: 'pending',
+            requestedBy: user.email,
+            createdAt: new Date().toISOString(),
+            orderData: foundSale,
+            scannedItem: mismatchItem
+        });
+        toast({ title: "Enviado para Aprovação", description: "A solicitação foi enviada para um administrador."});
+        setCurrentSN('');
+        setIsMismatchDialogOpen(false);
+        setMismatchItem(null);
+    } catch(e) {
+        toast({ variant: 'destructive', title: "Erro ao Enviar", description: "Não foi possível enviar a solicitação." });
+    } finally {
+        setIsSubmittingApproval(false);
+    }
+  }
+
   const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString('pt-BR');
 
   const formatLastSyncTime = (date: Date | null): string => {
@@ -370,6 +401,7 @@ export default function PickingPage() {
 
 
   return (
+    <>
     <div className="flex flex-col gap-8 p-4 md:p-8">
        <div className="flex justify-between items-start">
         <div>
@@ -380,7 +412,7 @@ export default function PickingPage() {
             {isSyncing ? (
               <Badge variant="secondary" className="animate-pulse">
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sincronizando...
+                Sincronizando com Ideris...
               </Badge>
             ) : (
                 <Badge variant="outline" className="text-muted-foreground font-normal">
@@ -746,5 +778,49 @@ export default function PickingPage() {
         </CardFooter>
       </Card>
     </div>
+
+    {isMismatchDialogOpen && mismatchItem && foundSale && (
+        <AlertDialog open={isMismatchDialogOpen} onOpenChange={setIsMismatchDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="text-destructive"/>
+                        Alerta de Divergência de SKU
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        O produto lido não corresponde ao produto do pedido.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="flex items-center justify-around text-center">
+                        <div>
+                            <Label>Produto do Pedido</Label>
+                            <p className="font-bold">{(foundSale as any).item_title}</p>
+                            <Badge variant="secondary">SKU: {(foundSale as any).item_sku}</Badge>
+                        </div>
+                         <ArrowRight className="h-6 w-6 text-muted-foreground flex-shrink-0 mx-4"/>
+                        <div>
+                            <Label>Produto Lido</Label>
+                            <p className="font-bold">{mismatchItem.name}</p>
+                             <Badge variant="destructive">SKU: {mismatchItem.sku}</Badge>
+                        </div>
+                    </div>
+                    <p className="text-sm text-center text-muted-foreground">
+                        Deseja prosseguir e enviar esta ação para aprovação de um administrador?
+                    </p>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setCurrentSN('')} disabled={isSubmittingApproval}>
+                        Cancelar Ação
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSubmitForApproval} disabled={isSubmittingApproval}>
+                        {isSubmittingApproval && <Loader2 className="animate-spin mr-2"/>}
+                        Enviar para Aprovação
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )}
+    </>
   );
 }

@@ -16,7 +16,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, ApprovalRequest } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -394,6 +394,20 @@ export const saveMonthlySupportData = async (monthYearKey: string, data: Support
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
     await setDoc(docRef, toFirestore(data), { merge: true });
 };
+
+// --- APPROVALS ---
+export const createApprovalRequest = async (request: Omit<ApprovalRequest, 'id'>): Promise<void> => {
+    const requestsCol = collection(db, 'approval-requests');
+    const docRef = doc(requestsCol);
+    await setDoc(docRef, toFirestore({ ...request, id: docRef.id }));
+};
+
+export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rejected'): Promise<ApprovalRequest[]> => {
+    const requestsCol = collection(db, 'approval-requests');
+    const q = query(requestsCol, where('status', '==', status), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ApprovalRequest);
+}
 
 
 // --- APP SETTINGS & USERS ---

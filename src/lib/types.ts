@@ -48,7 +48,7 @@ export interface ReturnLog {
     condition: string;
     notes?: string;
     returnedAt: string;
-    originalSaleData?: PickedItemLog;
+    originalSaleData?: PickedItemLog | null;
 }
 
 
@@ -217,6 +217,18 @@ export interface CustomCalculation {
     formula: FormulaItem[];
     isPercentage?: boolean;
 }
+
+// -- Approval Request Types --
+export interface ApprovalRequest {
+    id: string;
+    type: 'SKU_MISMATCH_PICKING';
+    status: 'pending' | 'approved' | 'rejected';
+    requestedBy: string; // User's email
+    createdAt: string; // ISO Date
+    orderData: Sale;
+    scannedItem: InventoryItem;
+}
+
 
 // -- App Settings --
 export interface AppSettings {
