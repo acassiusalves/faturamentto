@@ -216,7 +216,6 @@ export const findPickLogBySN = async (serialNumber: string): Promise<PickedItemL
     const q = query(
         logCol, 
         where('serialNumber', '==', serialNumber),
-        orderBy('pickedAt', 'desc'),
         limit(1)
     );
     const snapshot = await getDocs(q);
@@ -376,3 +375,5 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     const userDocRef = doc(db, 'users', uid);
     await updateDoc(userDocRef, { role });
 }
+
+    
