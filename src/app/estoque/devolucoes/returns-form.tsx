@@ -11,20 +11,25 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle } from 'lucide-react';
-import type { PickedItemLog, ProductCategorySettings, ReturnLog } from '@/lib/types';
+import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown } from 'lucide-react';
+import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs } from '@/services/firestore';
+import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 
 const returnSchema = z.object({
   serialNumber: z.string().min(1, "O SN do produto é obrigatório."),
+  productId: z.string().min(1, "É obrigatório selecionar um produto."),
   productName: z.string().min(1, "O nome do produto é obrigatório."),
+  sku: z.string().min(1, "O SKU do produto é obrigatório."),
   orderNumber: z.string().optional(),
   condition: z.string().min(1, "A condição do item é obrigatória."),
   notes: z.string().optional(),
@@ -40,13 +45,17 @@ export function ReturnsForm() {
     const [todaysReturns, setTodaysReturns] = useState<ReturnLog[]>([]);
     const [isLoadingReturns, setIsLoadingReturns] = useState(true);
     const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
 
     const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const form = useForm<ReturnFormValues>({
         resolver: zodResolver(returnSchema),
         defaultValues: {
             serialNumber: "",
+            productId: "",
             productName: "",
+            sku: "",
             orderNumber: "",
             condition: "",
             notes: "",
@@ -64,8 +73,12 @@ export function ReturnsForm() {
 
     useEffect(() => {
         async function fetchInitialData() {
-            const settings = await loadProductSettings('celular');
+            const [settings, loadedProducts] = await Promise.all([
+                loadProductSettings('celular'),
+                loadProducts()
+            ]);
             setProductSettings(settings);
+            setProducts(loadedProducts);
             await fetchTodaysReturns();
         }
         fetchInitialData();
@@ -76,13 +89,24 @@ export function ReturnsForm() {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
-        reset({ serialNumber: sn, productName: "", orderNumber: "", notes: "", condition: "" });
+        reset({ 
+            serialNumber: sn,
+            productId: "",
+            productName: "",
+            sku: "",
+            orderNumber: "",
+            notes: "",
+            condition: "" 
+        });
 
         try {
             const log = await findPickLogBySN(sn);
             if (log) {
                 setFoundLog(log);
+                const parentProduct = products.find(p => p.sku === log.sku);
+                setValue("productId", parentProduct?.id || "");
                 setValue("productName", log.name);
+                setValue("sku", log.sku);
                 setValue("orderNumber", log.orderNumber);
                 toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos." });
             } else {
@@ -94,7 +118,7 @@ export function ReturnsForm() {
         } finally {
             setIsLoadingSn(false);
         }
-    }, [reset, setValue, toast]);
+    }, [reset, setValue, toast, products]);
 
 
     const handleSnInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,11 +136,21 @@ export function ReturnsForm() {
         }, 800); // 800ms delay for auto-search
     };
     
+    const handleProductSelectionChange = (productId: string) => {
+        const selectedProduct = products.find(p => p.id === productId);
+        if (selectedProduct) {
+            setValue('productId', selectedProduct.id, { shouldValidate: true });
+            setValue('productName', selectedProduct.name, { shouldValidate: true });
+            setValue('sku', selectedProduct.sku, { shouldValidate: true });
+        }
+        setIsProductSelectorOpen(false);
+    };
+    
     const onSubmit = async (data: ReturnFormValues) => {
         try {
             await saveReturnLog({
                 ...data,
-                sku: foundLog?.sku || 'N/A', // Save SKU from found log if available
+                sku: data.sku,
                 originalSaleData: foundLog || undefined,
             });
             toast({ title: "Devolução Registrada!", description: `Produto ${data.productName} retornado ao estoque.`})
@@ -191,11 +225,44 @@ export function ReturnsForm() {
 
                                  <FormField
                                     control={form.control}
-                                    name="productName"
+                                    name="productId"
                                     render={({ field }) => (
-                                        <FormItem>
+                                        <FormItem className="flex flex-col">
                                             <FormLabel>Nome do Produto</FormLabel>
-                                            <FormControl><Input id="product-name" placeholder="Preenchido automaticamente ou digite" {...field} /></FormControl>
+                                            <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                            variant="outline"
+                                                            role="combobox"
+                                                            className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                        >
+                                                        {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione ou digite..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Buscar produto..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                            <CommandGroup>
+                                                                {products.map((p) => (
+                                                                    <CommandItem
+                                                                        value={p.name}
+                                                                        key={p.id}
+                                                                        onSelect={() => handleProductSelectionChange(p.id)}
+                                                                    >
+                                                                        <Check className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")} />
+                                                                        {p.name}
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
                                             <FormMessage />
                                         </FormItem>
                                     )}
