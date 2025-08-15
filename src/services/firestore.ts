@@ -60,7 +60,7 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
 
   items.forEach(item => {
     const docRef = doc(inventoryCol);
-    const newItem = { ...item, id: docRef.id, createdAt: new Date() };
+    const newItem = { ...item, id: docRef.id, createdAt: new Date(), condition: 'Novo' };
     batch.set(docRef, toFirestore(newItem));
     newItemsWithIds.push(fromFirestore(newItem) as InventoryItem);
   });
@@ -404,7 +404,7 @@ export const createApprovalRequest = async (request: Omit<ApprovalRequest, 'id'>
 
 export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rejected'): Promise<ApprovalRequest[]> => {
     const requestsCol = collection(db, 'approval-requests');
-    const q = query(requestsCol, where('status', '==', status), orderBy('createdAt', 'desc'));
+    const q = query(requestsCol, where('status', '==', status));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ApprovalRequest);
 }
@@ -439,3 +439,4 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     
 
     
+
