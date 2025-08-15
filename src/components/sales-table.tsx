@@ -32,7 +32,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { saveAppSettings, loadAppSettings, getSaleByOrderId, saveSales } from "@/services/firestore";
+import { saveAppSettings, loadAppSettings, saveSales } from "@/services/firestore";
 import { fetchOrderById } from "@/services/ideris";
 import { useToast } from "@/hooks/use-toast";
 
@@ -105,6 +105,7 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
 };
 
 export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
+  const [currentSales, setCurrentSales] = useState<Sale[]>(data);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState<string | null>(null);
@@ -117,6 +118,10 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const [allAvailableColumns, setAllAvailableColumns] = useState<any[]>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [settingsVersion, setSettingsVersion] = useState(0);
+
+   useEffect(() => {
+        setCurrentSales(data);
+   }, [data]);
 
    useEffect(() => {
         setIsClient(true);
@@ -275,18 +280,18 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   
-  const pageCount = Math.ceil(data.length / pageSize);
+  const pageCount = Math.ceil(currentSales.length / pageSize);
   
   const paginatedData = useMemo(() => {
     const startIndex = pageIndex * pageSize;
-    return data.slice(startIndex, startIndex + pageSize);
-  }, [data, pageIndex, pageSize]);
+    return currentSales.slice(startIndex, startIndex + pageSize);
+  }, [currentSales, pageIndex, pageSize]);
 
   useEffect(() => {
     if (pageIndex >= pageCount) {
         setPageIndex(Math.max(0, pageCount - 1));
     }
-  }, [data, pageIndex, pageCount]);
+  }, [currentSales, pageIndex, pageCount]);
 
 
   const renderSkeleton = () => (
@@ -334,6 +339,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
   const handleRefreshStatus = async (orderId: string) => {
     if (!orderId) return;
+
     setIsRefreshingStatus(orderId);
     try {
         const settings = await loadAppSettings();
@@ -343,24 +349,36 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
         }
 
         const iderisOrder = await fetchOrderById(settings.iderisPrivateKey, orderId);
-        const localSale = await getSaleByOrderId(orderId);
 
-        if (!iderisOrder || !localSale) {
-            toast({ variant: 'destructive', title: 'Pedido não encontrado.' });
+        if (!iderisOrder) {
+            toast({ variant: 'destructive', title: 'Pedido não encontrado na Ideris.' });
             return;
         }
 
-        if (iderisOrder.order_status !== localSale.order_status) {
-            const updatedSale: Sale = { ...localSale, order_status: iderisOrder.order_status };
+        const currentSaleIndex = currentSales.findIndex(s => s.id === `ideris-${orderId}`);
+        if (currentSaleIndex === -1) {
+            toast({ variant: 'destructive', title: 'Pedido não encontrado localmente.' });
+            return;
+        }
+
+        const currentSale = currentSales[currentSaleIndex];
+        
+        if (iderisOrder.order_status !== currentSale.order_status) {
+            const updatedSale: Sale = { ...currentSale, order_status: iderisOrder.order_status };
             await saveSales([updatedSale]);
+            
+            // Update local state to reflect the change instantly
+            const newSales = [...currentSales];
+            newSales[currentSaleIndex] = updatedSale;
+            setCurrentSales(newSales);
+            
             toast({ title: 'Status Atualizado!', description: `O status do pedido ${orderId} foi atualizado para "${iderisOrder.order_status}".` });
-            // Here you should probably trigger a re-fetch of the main data on the parent component
         } else {
             toast({ title: 'Nenhuma Mudança', description: 'O status do pedido já está atualizado.' });
         }
     } catch (e) {
         console.error(e);
-        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível buscar o status do pedido.' });
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: 'Não foi possível buscar o status do pedido na Ideris.' });
     } finally {
         setIsRefreshingStatus(null);
     }
@@ -563,7 +581,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
         </CardContent>
         <CardFooter className="flex items-center justify-between flex-wrap gap-4">
             <div className="text-sm text-muted-foreground">
-                Total de {data.length} vendas.
+                Total de {currentSales.length} vendas.
             </div>
             <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
                 <div className="flex items-center gap-2">
