@@ -101,6 +101,7 @@ export interface Sale {
   paidAmount: number;
   discount: number;
   discountMarketplace: number;
+  order_status?: string;
   
   // Other potential fields from sheets/API
   friendlyName: string;
