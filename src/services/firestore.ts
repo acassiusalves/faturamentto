@@ -309,7 +309,7 @@ export const revertReturnAction = async (returnLog: ReturnLog): Promise<void> =>
 
     // 2. Find and delete the corresponding item from inventory that was re-added
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
-    const q = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), orderBy('createdAt', 'desc'), limit(1));
+    const q = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), limit(1));
     const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {
