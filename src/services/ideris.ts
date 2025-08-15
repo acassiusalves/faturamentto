@@ -102,8 +102,8 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 const numericKeys = ['value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace', 'item_quantity'];
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
-                } else if(key !== 'order_status') { // Keep status as it might be relevant even if empty
-                    cleanedSale[key] = '';
+                } else {
+                    cleanedSale[key] = ''; // Default to empty string for any other undefined/null value
                 }
                 continue;
             }
