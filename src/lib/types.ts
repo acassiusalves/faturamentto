@@ -33,6 +33,7 @@ export interface InventoryItem {
   origin: string;
   quantity: number;
   createdAt: string; // ISO 8601 string date
+  condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito'; // Condition for returns
 }
 
 export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };

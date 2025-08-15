@@ -211,6 +211,22 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
     await setDoc(docRef, toFirestore(newLog));
 };
 
+export const findPickLogBySN = async (serialNumber: string): Promise<PickedItemLog | null> => {
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+    const q = query(
+        logCol, 
+        where('serialNumber', '==', serialNumber),
+        orderBy('pickedAt', 'desc'),
+        limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if(snapshot.empty) {
+        return null;
+    }
+    const docData = snapshot.docs[0];
+    return fromFirestore({ ...docData.data(), id: docData.id }) as PickedItemLog;
+}
+
 
 export const revertPickingAction = async (pickLog: PickedItemLog) => {
     const batch = writeBatch(db);
