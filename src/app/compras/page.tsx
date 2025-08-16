@@ -92,7 +92,7 @@ export default function ComprasPage() {
             return (
                 <div className="text-center text-muted-foreground py-10">
                     <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
-                    <p>Nenhum pedido com status de compra encontrado nos últimos 60 dias.</p>
+                    <p>Nenhum pedido com status de compra encontrado nos últimos 5 dias.</p>
                 </div>
             )
         }
@@ -146,7 +146,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação (últimos 60 dias).
+                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação (últimos 5 dias).
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">

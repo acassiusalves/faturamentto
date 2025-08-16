@@ -118,7 +118,6 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         if (orderId) {
             const detailsUrl = `https://apiv3.ideris.com.br/order/${orderId}`;
             try {
-                // CORREÇÃO: Espera o formato { result: { obj: ... } }
                 const detailsResult = await fetchWithToken<{ result: { obj: any } }>(detailsUrl, token);
                 if (detailsResult && detailsResult.result && detailsResult.result.obj) {
                     sales.push(mapIderisOrderToSale(detailsResult.result.obj, i));
@@ -149,10 +148,8 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-        // CORREÇÃO: Espera o formato { result: { obj: ... } }
         const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
 
-        // CORREÇÃO: Lê a partir de searchResult.result.obj
         if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj) && searchResult.result.obj.length > 0) {
             allSummaries = allSummaries.concat(searchResult.result.obj);
             currentOffset += searchResult.result.obj.length;
@@ -193,7 +190,6 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        // CORREÇÃO: Espera o formato { result: { obj: ... } }
         const result = await fetchWithToken<{ result: { obj: any } }>(url, token);
         if (result && result.result && result.result.obj) {
             return mapIderisOrderToSale(result.result.obj, 0);
@@ -209,23 +205,46 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
-// Adicione esta nova função ao final do arquivo src/services/ideris.ts
+async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
+    const token = await getValidAccessToken(privateKey);
+    const url = `https://apiv3.ideris.com.br/status`;
+    const response = await fetchWithToken<{ obj: { id: number; name: string }[] }>(url, token);
+    
+    if (response && Array.isArray(response.obj)) {
+        return response.obj;
+    }
+    return [];
+}
 
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sale[]> {
     const token = await getValidAccessToken(privateKey);
-    const startDate = formatDateForApi(subDays(new Date(), 60)); // Busca nos últimos 60 dias
-    const endDate = formatDateForApi(new Date());
+    
+    // 1. Busca todos os status disponíveis na Ideris
+    const allStatus = await fetchAllStatus(privateKey);
+    
+    // 2. Define os nomes dos status que nos interessam
+    const targetStatusNames = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
+    
+    // 3. Encontra os IDs correspondentes aos nomes que queremos
+    const statusIdsToFetch = allStatus
+        .filter(status => targetStatusNames.includes(status.name))
+        .map(status => status.id);
 
-    // IDs de Status para: Aberto, A faturar, Faturado, Em separação (estes são exemplos, precisaríamos confirmar os IDs corretos)
-    const statusIds = [1, 2, 1010, 4]; 
-    const statusParams = statusIds.map(id => `statusId=${id}`).join('&');
+    if (statusIdsToFetch.length === 0) {
+        console.warn("Não foram encontrados IDs para os status de compra. A lista de pedidos virá vazia.");
+        return [];
+    }
+
+    // 4. Usa os IDs encontrados para buscar os pedidos
+    const startDate = formatDateForApi(subDays(new Date(), 5));
+    const endDate = formatDateForApi(new Date());
+    const statusParams = statusIdsToFetch.map(id => `statusId=${id}`).join('&');
 
     const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&${statusParams}`;
     
     const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
 
     if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
-        // Como a busca agora pode não trazer todos os detalhes, buscamos um por um
         const orderIds = searchResult.result.obj.map(summary => summary.id);
         if (orderIds.length === 0) return [];
         return await fetchOrderDetailsByIds(orderIds, token);
