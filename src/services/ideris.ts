@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Sale } from '@/lib/types';
@@ -135,6 +134,17 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
     return sales;
 }
 
+async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
+    const token = await getValidAccessToken(privateKey);
+    const url = `https://apiv3.ideris.com.br/status/search`;
+    const response = await fetchWithToken<{ result: { obj: { id: number; name: string }[] } }>(url, token);
+    
+    if (response && response.result && Array.isArray(response.result.obj)) {
+        return response.result.obj;
+    }
+    return [];
+}
+
 async function performFetchWithRetry(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
     if (!dateRange.from || !dateRange.to) throw new Error("O período de datas é obrigatório para a busca.");
     const token = await getValidAccessToken(privateKey);
@@ -206,20 +216,7 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
-async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
-    const token = await getValidAccessToken(privateKey);
-    const url = `https://apiv3.ideris.com.br/status`;
-    const response = await fetchWithToken<{ result: { obj: { id: number; name: string }[] } }>(url, token);
-    
-    if (response && response.result && Array.isArray(response.result.obj)) {
-        return response.result.obj;
-    }
-    return [];
-}
-
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sale[]> {
-    const token = await getValidAccessToken(privateKey);
-    
     // 1. Busca todos os status disponíveis na Ideris
     const allStatus = await fetchAllStatus(privateKey);
     
@@ -237,6 +234,7 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sal
     }
 
     // 4. Usa os IDs encontrados para buscar os pedidos
+    const token = await getValidAccessToken(privateKey);
     const startDate = formatDateForApi(subDays(new Date(), 5));
     const endDate = formatDateForApi(new Date());
     const statusParams = statusIdsToFetch.map(id => `statusId=${id}`).join('&');
@@ -253,5 +251,3 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sal
     
     return [];
 }
-
-    
