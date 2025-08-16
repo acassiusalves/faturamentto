@@ -29,7 +29,7 @@ export default function ComprasPage() {
             }
             
             const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
-            const filteredOrders = openOrders.filter(order => order.statusDescription !== 'Em transito');
+            const filteredOrders = openOrders.filter(order => order.statusDescription !== 'PEDIDO_EM_TRANSITO');
             setOrders(filteredOrders);
 
         } catch (e) {
