@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -99,8 +100,8 @@ export default function ComprasPage() {
                     </TableHeader>
                     <TableBody>
                         {orders.map((order, index) => (
-                            <TableRow key={order.orderId || index}>
-                                <TableCell>{order.orderId}</TableCell>
+                            <TableRow key={order.id || index}>
+                                <TableCell>{order.id}</TableCell>
                                 <TableCell>{formatDate(order.approved)}</TableCell>
                                 <TableCell>
                                     <Badge variant={order.statusDescription?.toLowerCase().includes('aberto') ? 'default' : 'secondary'}>
