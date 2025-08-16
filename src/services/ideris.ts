@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Sale } from '@/lib/types';
@@ -146,15 +145,12 @@ async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: s
     return [];
 }
 
-
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any[]> {
-    // 1. Busca todos os status disponíveis na Ideris
+    const token = await getValidAccessToken(privateKey);
     const allStatus = await fetchAllStatus(privateKey);
     
-    // 2. Define os nomes dos status que nos interessam
     const targetStatusNames = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
     
-    // 3. Encontra os IDs correspondentes aos nomes que queremos
     const statusIdsToFetch = allStatus
         .filter(status => targetStatusNames.includes(status.name))
         .map(status => status.id);
@@ -164,9 +160,7 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
         return [];
     }
 
-    // 4. Usa os IDs encontrados para buscar os pedidos
-    const token = await getValidAccessToken(privateKey);
-    const startDate = formatDateForApi(subDays(new Date(), 5));
+    const startDate = formatDateForApi(subDays(new Date(), 60));
     const endDate = formatDateForApi(new Date());
     const statusParams = statusIdsToFetch.map(id => `statusId=${id}`).join('&');
 
@@ -175,62 +169,59 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
     const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
 
     if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
-        const orderIds = searchResult.result.obj.map(summary => summary.id);
-        if (orderIds.length === 0) return [];
-        // A função que exibe os dados brutos precisa dos detalhes completos
-        return await fetchOrderDetailsByIds(orderIds, token);
+        return searchResult.result.obj;
     }
     
     return [];
 }
 
 
+async function performFetchWithRetry(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
+    if (!dateRange.from || !dateRange.to) throw new Error("O período de datas é obrigatório para a busca.");
+    const token = await getValidAccessToken(privateKey);
+    const initialDate = formatDateForApi(dateRange.from);
+    const finalDate = formatDateForApi(dateRange.to);
+    let allSummaries: any[] = [];
+    let currentOffset = 0;
+    const limitPerPage = 50;
+    let hasMorePages = true;
+    let currentPage = 0;
+    const maxPages = 100;
+
+    while (hasMorePages && currentPage < maxPages) {
+        const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
+        const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
+
+        if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj) && searchResult.result.obj.length > 0) {
+            allSummaries = allSummaries.concat(searchResult.result.obj);
+            currentOffset += searchResult.result.obj.length;
+        } else {
+            hasMorePages = false;
+        }
+        currentPage++;
+    }
+
+    if (currentPage >= maxPages) {
+        console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+    }
+    
+    const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
+    const newOrderIds = newSummaries.map(s => s.id);
+    if (newOrderIds.length === 0) {
+        if (onProgress) onProgress(100, 0, 0);
+        return [];
+    }
+    return await fetchOrderDetailsByIds(newOrderIds, token, onProgress);
+}
+
 export async function fetchOrdersFromIderis(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
   try {
-      const token = await getValidAccessToken(privateKey);
-      if (!dateRange.from || !dateRange.to) throw new Error("O período de datas é obrigatório para a busca.");
-      
-      const initialDate = formatDateForApi(dateRange.from);
-      const finalDate = formatDateForApi(dateRange.to);
-      let allSummaries: any[] = [];
-      let currentOffset = 0;
-      const limitPerPage = 50;
-      let hasMorePages = true;
-      let currentPage = 0;
-      const maxPages = 100;
-
-      while (hasMorePages && currentPage < maxPages) {
-          const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-          const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
-
-          if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj) && searchResult.result.obj.length > 0) {
-              allSummaries = allSummaries.concat(searchResult.result.obj);
-              currentOffset += searchResult.result.obj.length;
-          } else {
-              hasMorePages = false;
-          }
-          currentPage++;
-      }
-
-      if (currentPage >= maxPages) {
-          console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
-      }
-      
-      const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
-      const newOrderIds = newSummaries.map(s => s.id);
-
-      if (newOrderIds.length === 0) {
-          if (onProgress) onProgress(100, 0, 0);
-          return [];
-      }
-      
-      return await fetchOrderDetailsByIds(newOrderIds, token, onProgress);
+      return await performFetchWithRetry(privateKey, dateRange, existingSaleIds, onProgress);
   } catch (error) {
       if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
           console.log("Token expirado, gerando um novo e tentando novamente...");
           inMemoryToken = null;
-          // Retrying the whole operation
-          return fetchOrdersFromIderis(privateKey, dateRange, existingSaleIds, onProgress);
+          return await performFetchWithRetry(privateKey, dateRange, existingSaleIds, onProgress);
       }
       console.error('Falha ao buscar pedidos da Ideris:', error);
       throw error instanceof Error ? new Error(`Não foi possível buscar os pedidos da Ideris: ${error.message}`) : new Error('Ocorreu um erro desconhecido ao se comunicar com a Ideris.');
@@ -255,5 +246,3 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         throw error;
     }
 }
-
-    
