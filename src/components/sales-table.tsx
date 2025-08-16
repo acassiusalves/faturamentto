@@ -92,6 +92,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const [isRefreshingStatus, setIsRefreshingStatus] = useState<string | null>(null);
   const [isQueueRefreshing, setIsQueueRefreshing] = useState(false);
   const [queueProgress, setQueueProgress] = useState(0);
+  const [currentStatus, setCurrentStatus] = useState({ current: 0, total: 0 });
 
   const { toast } = useToast();
   
@@ -385,6 +386,8 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
     setIsQueueRefreshing(true);
     setQueueProgress(0);
+    setCurrentStatus({ current: 0, total: salesToProcess.length });
+
     const settings = await loadAppSettings();
     if (!settings?.iderisPrivateKey) {
         toast({ variant: 'destructive', title: 'Chave da Ideris não configurada.' });
@@ -414,7 +417,9 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             console.error(`Erro ao atualizar pedido ${(currentSale as any).order_id}:`, e);
             errorCount++;
         }
-        setQueueProgress(((i + 1) / total) * 100);
+        const currentCount = i + 1;
+        setQueueProgress((currentCount / total) * 100);
+        setCurrentStatus({ current: currentCount, total: total });
     }
 
     if (salesToUpdate.length > 0) {
@@ -458,7 +463,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                 <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-                {isDashboard ? (
+                {isDashboard && (
                     <Button
                         variant="outline"
                         onClick={handleQueueRefresh}
@@ -467,7 +472,8 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                         {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                         Atualizar Todos ({currentSales.length})
                     </Button>
-                ) : (
+                )}
+                 {!isDashboard && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" disabled={isSettingsLoading}>
@@ -502,7 +508,14 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             </div>
         </CardHeader>
         <CardContent>
-          {isQueueRefreshing && <Progress value={queueProgress} className="w-full mb-4" />}
+          {isQueueRefreshing && (
+            <div className="space-y-2 mb-4">
+                 <Progress value={queueProgress} className="w-full" />
+                 <p className="text-sm text-muted-foreground text-center">
+                    Atualizando {currentStatus.current} de {currentStatus.total}...
+                </p>
+            </div>
+           )}
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
             <DndContext
                 id={'dnd-context-sales-table'}
