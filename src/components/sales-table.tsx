@@ -459,6 +459,15 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             </div>
             <div className="flex items-center gap-2">
                 {!isDashboard && (
+                    <>
+                    <Button
+                        variant="outline"
+                        onClick={handleQueueRefresh}
+                        disabled={isQueueRefreshing || isLoading || currentSales.length === 0}
+                    >
+                        {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                        Atualizar Todos ({currentSales.length})
+                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" disabled={isSettingsLoading}>
@@ -489,6 +498,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                            </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                    </>
                 )}
             </div>
         </CardHeader>
@@ -509,18 +519,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                     <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
                                         <div className="flex items-center gap-2">
                                             {field.label}
-                                            {field.key === 'status' && (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleQueueRefresh} disabled={isQueueRefreshing || isLoading || currentSales.length === 0}>
-                                                            {isQueueRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>Atualizar status de todos os pedidos visíveis</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            )}
                                             {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
                                         </div>
                                     </DraggableHeader>
