@@ -134,17 +134,6 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
     return sales;
 }
 
-async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
-    const token = await getValidAccessToken(privateKey);
-    const url = `https://apiv3.ideris.com.br/order/status/search`;
-    const response = await fetchWithToken<{ result: { obj: { id: number; name: string }[] } }>(url, token);
-    
-    if (response && response.result && Array.isArray(response.result.obj)) {
-        return response.result.obj;
-    }
-    return [];
-}
-
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any[]> {
     const token = await getValidAccessToken(privateKey);
     const startDate = formatDateForApi(subDays(new Date(), 5));
@@ -152,10 +141,11 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
 
     const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
     
-    const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
+    // Simplificando a chamada para corresponder ao teste do Postman
+    const searchResult = await fetchWithToken<{ obj: any[] }>(searchUrl, token);
 
-    if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
-        return searchResult.result.obj;
+    if (searchResult && Array.isArray(searchResult.obj)) {
+        return searchResult.obj;
     }
     
     return [];
