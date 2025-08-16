@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Sale } from '@/lib/types';
-import { loadSales } from '@/services/firestore';
-import { format, parseISO } from 'date-fns';
+import { loadAppSettings } from '@/services/firestore';
+import { fetchOrdersFromIderis } from '@/services/ideris';
+import { format, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 
@@ -24,15 +26,25 @@ export default function ComprasPage() {
         setIsLoading(true);
         setError(null);
         try {
-            const allSales = await loadSales();
-            // --- CORREÇÃO APLICADA AQUI ---
-            const filteredOrders = allSales.filter(sale => 
+            const settings = await loadAppSettings();
+            if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
+                throw new Error('A chave da API da Ideris não é válida ou não está configurada.');
+            }
+
+            const to = new Date();
+            const from = subDays(to, 60); // Fetch last 60 days
+            
+            // We pass an empty array for existing sales to fetch all within the date range
+            const allSalesFromIderis = await fetchOrdersFromIderis(settings.iderisPrivateKey, { from, to }, []);
+            
+            const filteredOrders = allSalesFromIderis.filter(sale =>
                 sale.status && STATUS_FILTERS.includes(sale.status)
             );
             setOrders(filteredOrders);
+
         } catch (e) {
-            console.error("Failed to fetch sales from Firestore:", e);
-            setError(e instanceof Error ? e.message : "Ocorreu um erro desconhecido ao carregar os pedidos.");
+            console.error("Failed to fetch sales from Ideris:", e);
+            setError(e instanceof Error ? e.message : "Ocorreu um erro desconhecido ao carregar os pedidos da Ideris.");
         } finally {
             setIsLoading(false);
         }
@@ -64,7 +76,7 @@ export default function ComprasPage() {
             return (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando pedidos no banco de dados...</p>
+                    <p className="ml-4">Buscando pedidos na Ideris...</p>
                 </div>
             )
         }
@@ -74,7 +86,11 @@ export default function ComprasPage() {
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Erro ao Carregar Pedidos</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
+                    <AlertDescription>
+                        {error}
+                        <br/>
+                        Verifique sua conexão e a chave da API na tela de <Link href="/mapeamento" className="underline font-semibold">Mapeamento</Link>.
+                    </AlertDescription>
                 </Alert>
             );
         }
@@ -83,8 +99,7 @@ export default function ComprasPage() {
             return (
                 <div className="text-center text-muted-foreground py-10">
                     <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
-                    <p>Nenhum pedido com status de compra encontrado no momento.</p>
-                     <p className="text-xs mt-2">Certifique-se de que os pedidos foram importados na tela de <Link href="/mapeamento" className="underline">Mapeamento</Link>.</p>
+                    <p>Nenhum pedido com status de compra encontrado nos últimos 60 dias.</p>
                 </div>
             )
         }
@@ -138,7 +153,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação.
+                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação (últimos 60 dias).
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
