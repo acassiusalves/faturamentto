@@ -3,7 +3,7 @@
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
-import { startOfDay } from 'date-fns';
+import { startOfDay, subDays } from 'date-fns';
 
 let inMemoryToken: { token: string; expires: number } | null = null;
 const TOKEN_LIFETIME = 3500 * 1000;
@@ -207,4 +207,29 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;
     }
+}
+
+// Adicione esta nova função ao final do arquivo src/services/ideris.ts
+
+export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sale[]> {
+    const token = await getValidAccessToken(privateKey);
+    const startDate = formatDateForApi(subDays(new Date(), 60)); // Busca nos últimos 60 dias
+    const endDate = formatDateForApi(new Date());
+
+    // IDs de Status para: Aberto, A faturar, Faturado, Em separação (estes são exemplos, precisaríamos confirmar os IDs corretos)
+    const statusIds = [1, 2, 1010, 4]; 
+    const statusParams = statusIds.map(id => `statusId=${id}`).join('&');
+
+    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&${statusParams}`;
+    
+    const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
+
+    if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
+        // Como a busca agora pode não trazer todos os detalhes, buscamos um por um
+        const orderIds = searchResult.result.obj.map(summary => summary.id);
+        if (orderIds.length === 0) return [];
+        return await fetchOrderDetailsByIds(orderIds, token);
+    }
+    
+    return [];
 }

@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Sale } from '@/lib/types';
 import { loadAppSettings } from '@/services/firestore';
-import { fetchOrdersFromIderis } from '@/services/ideris';
-import { format, parseISO, subDays } from 'date-fns';
+// Importa a nova função
+import { fetchOpenOrdersFromIderis } from '@/services/ideris';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
-
-const STATUS_FILTERS = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
 
 export default function ComprasPage() {
     const [orders, setOrders] = useState<Sale[]>([]);
@@ -29,17 +28,10 @@ export default function ComprasPage() {
             if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
                 throw new Error('A chave da API da Ideris não é válida ou não está configurada.');
             }
-
-            const to = new Date();
-            const from = subDays(to, 5); // Fetch last 5 days
             
-            // We pass an empty array for existing sales to fetch all within the date range
-            const allSalesFromIderis = await fetchOrdersFromIderis(settings.iderisPrivateKey, { from, to }, []);
-            
-            const filteredOrders = allSalesFromIderis.filter(sale =>
-                sale.status && STATUS_FILTERS.includes(sale.status)
-            );
-            setOrders(filteredOrders);
+            // Usa a nova função otimizada
+            const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
+            setOrders(openOrders);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
@@ -70,6 +62,8 @@ export default function ComprasPage() {
         return 'secondary';
     }
     
+    // O resto do componente (renderContent, return, etc.) permanece exatamente o mesmo
+    
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -98,7 +92,7 @@ export default function ComprasPage() {
             return (
                 <div className="text-center text-muted-foreground py-10">
                     <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
-                    <p>Nenhum pedido com status de compra encontrado nos últimos 5 dias.</p>
+                    <p>Nenhum pedido com status de compra encontrado nos últimos 60 dias.</p>
                 </div>
             )
         }
@@ -152,7 +146,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação (últimos 5 dias).
+                        Exibindo pedidos com status: Aberto, A Faturar, Faturado e Em Separação (últimos 60 dias).
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
