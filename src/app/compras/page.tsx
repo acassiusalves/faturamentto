@@ -103,7 +103,7 @@ export default function ComprasPage() {
                                 <TableCell>{order.orderId}</TableCell>
                                 <TableCell>{formatDate(order.approved)}</TableCell>
                                 <TableCell>
-                                    <Badge variant={order.statusDescription?.includes('ABERTO') ? 'default' : 'secondary'}>
+                                    <Badge variant={order.statusDescription?.toLowerCase().includes('aberto') ? 'default' : 'secondary'}>
                                         {order.statusDescription}
                                     </Badge>
                                 </TableCell>
