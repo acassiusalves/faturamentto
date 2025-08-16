@@ -458,8 +458,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                 <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-                {!isDashboard && (
-                    <>
+                {isDashboard ? (
                     <Button
                         variant="outline"
                         onClick={handleQueueRefresh}
@@ -468,6 +467,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                         {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                         Atualizar Todos ({currentSales.length})
                     </Button>
+                ) : (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" disabled={isSettingsLoading}>
@@ -498,7 +498,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                            </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    </>
                 )}
             </div>
         </CardHeader>
