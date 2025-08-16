@@ -10,9 +10,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings } from '@/services/firestore';
 import { fetchOpenOrdersFromIderis } from '@/services/ideris';
 import Link from 'next/link';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Badge } from '@/components/ui/badge';
 
 export default function ComprasPage() {
-    const [orders, setOrders] = useState<any[]>([]); // Changed to any[] to hold raw data
+    const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +29,7 @@ export default function ComprasPage() {
             }
             
             const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
-            setOrders(openOrders); // Set raw data directly
+            setOrders(openOrders);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
@@ -39,6 +42,15 @@ export default function ComprasPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+    
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return 'N/A';
+        try {
+            return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        } catch {
+            return 'Data inválida';
+        }
+    };
     
     const renderContent = () => {
         if (isLoading) {
@@ -78,17 +90,25 @@ export default function ComprasPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Dados Brutos do Pedido (Resposta da API)</TableHead>
+                            <TableHead>Data de Aprovação</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Marketplace</TableHead>
+                            <TableHead>Vendedor</TableHead>
+                            <TableHead>Código do Pedido</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {orders.map((order, index) => (
                             <TableRow key={order.id || index}>
+                                <TableCell>{formatDate(order.approved)}</TableCell>
                                 <TableCell>
-                                    <pre className="text-xs whitespace-pre-wrap bg-muted p-2 rounded-md font-mono">
-                                        {JSON.stringify(order, null, 2)}
-                                    </pre>
+                                    <Badge variant={order.statusDescription?.includes('ABERTO') ? 'default' : 'secondary'}>
+                                        {order.statusDescription}
+                                    </Badge>
                                 </TableCell>
+                                <TableCell>{order.marketplaceName}</TableCell>
+                                <TableCell>{order.intermediaryName}</TableCell>
+                                <TableCell className="font-mono">{order.code}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -110,9 +130,9 @@ export default function ComprasPage() {
         <CardHeader>
             <div className="flex justify-between items-center">
                 <div className="flex-1">
-                    <CardTitle>Pedidos com Demanda de Compra (Dados Brutos)</CardTitle>
+                    <CardTitle>Pedidos com Demanda de Compra</CardTitle>
                     <CardDescription>
-                        Exibindo a resposta da API sem formatação para depuração. Busca referente aos últimos 5 dias.
+                        Exibindo a resposta da API em uma tabela. Busca referente aos últimos 5 dias.
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
