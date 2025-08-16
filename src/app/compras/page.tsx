@@ -138,10 +138,15 @@ export default function ComprasPage() {
                         Exibindo a resposta da API em uma tabela. Busca referente aos últimos 5 dias.
                     </CardDescription>
                 </div>
-                <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Atualizar
-                </Button>
+                 <div className="flex items-center gap-4">
+                    <span className="text-muted-foreground font-semibold">
+                        {orders.length} pedidos
+                    </span>
+                    <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Atualizar
+                    </Button>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
