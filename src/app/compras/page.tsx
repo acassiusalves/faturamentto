@@ -29,7 +29,8 @@ export default function ComprasPage() {
             }
             
             const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
-            setOrders(openOrders);
+            const filteredOrders = openOrders.filter(order => order.statusDescription !== 'Em transito');
+            setOrders(filteredOrders);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
