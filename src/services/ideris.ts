@@ -137,34 +137,20 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
 async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/status/search`;
-    const response = await fetchWithToken<{ obj: { id: number; name: string }[] }>(url, token);
+    const response = await fetchWithToken<{ result: { obj: { id: number; name: string }[] } }>(url, token);
     
-    if (response && Array.isArray(response.obj)) {
-        return response.obj;
+    if (response && response.result && Array.isArray(response.result.obj)) {
+        return response.result.obj;
     }
     return [];
 }
 
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any[]> {
     const token = await getValidAccessToken(privateKey);
-    const allStatus = await fetchAllStatus(privateKey);
-    
-    const targetStatusNames = ['Aberto', 'A faturar', 'Faturado', 'Em separação'];
-    
-    const statusIdsToFetch = allStatus
-        .filter(status => targetStatusNames.includes(status.name))
-        .map(status => status.id);
-
-    if (statusIdsToFetch.length === 0) {
-        console.warn("Não foram encontrados IDs para os status de compra. A lista de pedidos virá vazia.");
-        return [];
-    }
-
-    const startDate = formatDateForApi(subDays(new Date(), 60));
+    const startDate = formatDateForApi(subDays(new Date(), 5));
     const endDate = formatDateForApi(new Date());
-    const statusParams = statusIdsToFetch.map(id => `statusId=${id}`).join('&');
 
-    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&${statusParams}`;
+    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
     
     const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
 
