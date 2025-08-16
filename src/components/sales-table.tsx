@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -16,25 +15,22 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuGroup } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
-
+import { Progress } from "@/components/ui/progress";
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
 import { ScrollArea } from './ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { Label } from "./ui/label";
-import { Switch } from "./ui/switch";
 import { saveAppSettings, loadAppSettings, saveSales } from "@/services/firestore";
 import { fetchOrderById } from "@/services/ideris";
 import { useToast } from "@/hooks/use-toast";
+
 
 interface SalesTableProps {
   data: Sale[];
@@ -49,21 +45,6 @@ interface SalesTableProps {
   customCalculations?: CustomCalculation[];
   isDashboard?: boolean;
 }
-
-const fixedIderisColumns = [
-    'order_id',
-    'order_code',
-    'auth_name',
-    'marketplace_name',
-    'document_value',
-    'fee_shipment',
-    'value_with_shipping',
-    'fee_order',
-    'item_title',
-    'item_sku',
-    'item_quantity',
-    'discount',
-];
 
 const dashboardColumns = [
     { key: 'order_id', label: 'ID do Pedido' },
@@ -109,6 +90,9 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState<string | null>(null);
+  const [isQueueRefreshing, setIsQueueRefreshing] = useState(false);
+  const [queueProgress, setQueueProgress] = useState(0);
+
   const { toast } = useToast();
   
   const [isSettingsLoading, setIsSettingsLoading] = useState(!isDashboard);
@@ -158,13 +142,24 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
     const friendlyNames = settings?.friendlyFieldNames || {};
 
     const iderisCols = iderisFields
-        .filter(field => fixedIderisColumns.includes(field.key))
+        .filter(field => field.key !== 'status') // Remove o status daqui para adicionarmos com o botão
         .map(field => ({
             ...field,
             label: friendlyNames[field.key] || field.label,
             group: 'Ideris',
             isCustom: false
         }));
+
+    // Adiciona o campo de status separadamente para poder ter o botão
+    const statusField = iderisFields.find(f => f.key === 'status');
+     if (statusField) {
+        iderisCols.push({
+            ...statusField,
+            label: friendlyNames[statusField.key] || statusField.label,
+            group: 'Ideris',
+            isCustom: false,
+        });
+    }
 
     const systemCols = [
         { key: 'product_cost', label: 'Custo do Produto', isCustom: true, group: 'Sistema' },
@@ -384,6 +379,57 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
     }
   }
 
+  const handleQueueRefresh = async () => {
+    const salesToProcess = [...currentSales]; // Pega todos os pedidos do filtro atual
+    if (salesToProcess.length === 0) return;
+
+    setIsQueueRefreshing(true);
+    setQueueProgress(0);
+    const settings = await loadAppSettings();
+    if (!settings?.iderisPrivateKey) {
+        toast({ variant: 'destructive', title: 'Chave da Ideris não configurada.' });
+        setIsQueueRefreshing(false);
+        return;
+    }
+
+    const salesToUpdate: Sale[] = [];
+    const updatedSalesMap = new Map<string, Sale>();
+    let successCount = 0;
+    let errorCount = 0;
+    const total = salesToProcess.length;
+
+    toast({ title: 'Iniciando atualização em fila...', description: `Verificando ${total} pedidos.` });
+
+    for (let i = 0; i < total; i++) {
+        const currentSale = salesToProcess[i];
+        try {
+            const iderisOrder = await fetchOrderById(settings.iderisPrivateKey, (currentSale as any).order_id);
+            if (iderisOrder && iderisOrder.status !== currentSale.status) {
+                const updatedSale: Sale = { ...currentSale, status: iderisOrder.status };
+                salesToUpdate.push(updatedSale);
+                updatedSalesMap.set(currentSale.id, updatedSale);
+            }
+            successCount++;
+        } catch (e) {
+            console.error(`Erro ao atualizar pedido ${(currentSale as any).order_id}:`, e);
+            errorCount++;
+        }
+        setQueueProgress(((i + 1) / total) * 100);
+    }
+
+    if (salesToUpdate.length > 0) {
+        await saveSales(salesToUpdate);
+        setCurrentSales(prevSales => 
+            prevSales.map(sale => updatedSalesMap.get(sale.id) || sale)
+        );
+    }
+
+    setIsQueueRefreshing(false);
+    toast({ 
+        title: 'Atualização em Fila Concluída!', 
+        description: `${salesToUpdate.length} status foram atualizados. ${successCount} pedidos verificados com sucesso, ${errorCount} falharam.`
+    });
+  }
 
   if (!isClient && isDashboard) { // Only show basic loader for dashboard on server
     return (
@@ -411,42 +457,53 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                 <TrendingUp className="h-5 w-5" />
                 <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
-            {!isDashboard && (
-                <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" disabled={isSettingsLoading}>
-                                {isSettingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <View className="h-4 w-4" />}
-                                Exibir Colunas
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64" align="end">
-                           <ScrollArea className="h-72 rounded-md border p-4">
-                               <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
-                               <DropdownMenuSeparator />
-                               {Object.entries(columnGroups).map(([groupName, columns]) => (
-                                   columns.length > 0 && (
-                                       <DropdownMenuGroup key={groupName}>
-                                           <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
-                                            {columns.map(col => (
-                                                <DropdownMenuCheckboxItem
-                                                    key={col.key}
-                                                    checked={visibleColumns[col.key]}
-                                                    onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
-                                                >
-                                                    {col.label}
-                                                </DropdownMenuCheckboxItem>
-                                            ))}
-                                       </DropdownMenuGroup>
-                                   )
-                               ))}
-                           </ScrollArea>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            )}
+            <div className="flex items-center gap-2">
+                {!isDashboard && (
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={handleQueueRefresh}
+                            disabled={isQueueRefreshing || isLoading || currentSales.length === 0}
+                        >
+                            {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                            Atualizar Todos ({currentSales.length})
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" disabled={isSettingsLoading}>
+                                    {isSettingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <View className="h-4 w-4" />}
+                                    Exibir Colunas
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-64" align="end">
+                               <ScrollArea className="h-72 rounded-md border p-4">
+                                   <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
+                                   <DropdownMenuSeparator />
+                                   {Object.entries(columnGroups).map(([groupName, columns]) => (
+                                       columns.length > 0 && (
+                                           <DropdownMenuGroup key={groupName}>
+                                               <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
+                                                {columns.map(col => (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={col.key}
+                                                        checked={visibleColumns[col.key]}
+                                                        onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
+                                                    >
+                                                        {col.label}
+                                                    </DropdownMenuCheckboxItem>
+                                                ))}
+                                           </DropdownMenuGroup>
+                                       )
+                                   ))}
+                               </ScrollArea>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </>
+                )}
+            </div>
         </CardHeader>
         <CardContent>
+          {isQueueRefreshing && <Progress value={queueProgress} className="w-full mb-4" />}
           <div className="rounded-md border overflow-x-auto custom-scrollbar">
             <DndContext
                 id={'dnd-context-sales-table'}
@@ -510,7 +567,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                 cellContent = formatDate(cellContent);
                             } else if (isStatusColumn) {
                                 cellContent = (
-                                    <div className="flex items-center gap-2 justify-end">
+                                    <div className="flex items-center gap-2 justify-start">
                                         {cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A'}
                                         <Button
                                             variant="ghost"
