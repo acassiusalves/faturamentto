@@ -118,10 +118,10 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         if (orderId) {
             const detailsUrl = `https://apiv3.ideris.com.br/order/${orderId}`;
             try {
-                // CORREÇÃO: Espera a resposta unificada { obj: ... }
-                const detailsResult = await fetchWithToken<{ obj: any }>(detailsUrl, token);
-                if (detailsResult && detailsResult.obj) {
-                    sales.push(mapIderisOrderToSale(detailsResult.obj, i));
+                // CORREÇÃO: Espera o formato { result: { obj: ... } }
+                const detailsResult = await fetchWithToken<{ result: { obj: any } }>(detailsUrl, token);
+                if (detailsResult && detailsResult.result && detailsResult.result.obj) {
+                    sales.push(mapIderisOrderToSale(detailsResult.result.obj, i));
                 }
             } catch (e) {
                 console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
@@ -149,12 +149,13 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-        // CORREÇÃO: Espera a resposta unificada { obj: ... }
-        const searchResult = await fetchWithToken<{ obj: any[] }>(searchUrl, token);
+        // CORREÇÃO: Espera o formato { result: { obj: ... } }
+        const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
 
-        if (searchResult && Array.isArray(searchResult.obj) && searchResult.obj.length > 0) {
-            allSummaries = allSummaries.concat(searchResult.obj);
-            currentOffset += searchResult.obj.length;
+        // CORREÇÃO: Lê a partir de searchResult.result.obj
+        if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj) && searchResult.result.obj.length > 0) {
+            allSummaries = allSummaries.concat(searchResult.result.obj);
+            currentOffset += searchResult.result.obj.length;
         } else {
             hasMorePages = false;
         }
@@ -192,10 +193,10 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        // CORREÇÃO: Espera a resposta unificada { obj: ... }
-        const result = await fetchWithToken<{ obj: any }>(url, token);
-        if (result && result.obj) {
-            return mapIderisOrderToSale(result.obj, 0);
+        // CORREÇÃO: Espera o formato { result: { obj: ... } }
+        const result = await fetchWithToken<{ result: { obj: any } }>(url, token);
+        if (result && result.result && result.result.obj) {
+            return mapIderisOrderToSale(result.result.obj, 0);
         }
         return null;
     } catch (error) {
