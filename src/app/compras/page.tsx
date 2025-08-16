@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -26,8 +25,9 @@ export default function ComprasPage() {
         setError(null);
         try {
             const allSales = await loadSales();
+            // --- CORREÇÃO APLICADA AQUI ---
             const filteredOrders = allSales.filter(sale => 
-                (sale as any).statusDescription && STATUS_FILTERS.includes((sale as any).statusDescription)
+                sale.status && STATUS_FILTERS.includes(sale.status)
             );
             setOrders(filteredOrders);
         } catch (e) {
@@ -107,8 +107,8 @@ export default function ComprasPage() {
                             <TableRow key={(order as any).order_id || order.id}>
                                 <TableCell className="whitespace-nowrap">{formatDate((order as any).payment_approved_date)}</TableCell>
                                 <TableCell>
-                                    <Badge variant={getStatusVariant((order as any).statusDescription)}>
-                                        {(order as any).statusDescription || 'N/A'}
+                                    <Badge variant={getStatusVariant(order.status)}>
+                                        {order.status || 'N/A'}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="font-mono text-xs">{(order as any).order_code}</TableCell>
