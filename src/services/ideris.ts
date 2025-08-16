@@ -16,7 +16,7 @@ async function generateAccessToken(privateKey: string): Promise<string> {
     }
     const body = JSON.stringify(privateKey);
     const headers = { 'Content-Type': 'application/json' };
-    const response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store' });
+    const response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store', mode: 'cors' });
     const responseText = await response.text();
     if (!response.ok) {
         console.error('Ideris auth error response:', responseText);
@@ -77,7 +77,7 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
                 } else {
-                    cleanedSale[key] = '';
+                    cleanedSale[key] = ''; // Default para string vazia
                 }
                 continue;
             }
@@ -213,3 +213,5 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         throw error;
     }
 }
+
+    
