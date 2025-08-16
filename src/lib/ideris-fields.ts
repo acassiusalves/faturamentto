@@ -8,7 +8,7 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "auth_name", label: "Nome da Conta", path: "authenticationName" },
     { key: "document_value", label: "CPF/CNPJ do Cliente", path: "documentValue" },
     { key: "state_name", label: "Estado", path: "stateName" },
-    { key: "status", label: "Status do Pedido", path: "status[0].status_name" },
+    { key: "status", label: "Status do Pedido", path: "statusDescription" }, // <-- CORREÇÃO APLICADA AQUI
 
     // Financial Values
     { key: "value_with_shipping", label: "Valor com Frete", path: "valueWithShipping" },

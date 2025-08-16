@@ -1,4 +1,3 @@
-// Substitua o conteúdo de src/services/ideris.ts por este:
 
 "use client";
 
@@ -78,7 +77,7 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 if (numericKeys.includes(key)) {
                     cleanedSale[key] = 0;
                 } else {
-                    cleanedSale[key] = ''; // Default para string vazia
+                    cleanedSale[key] = '';
                 }
                 continue;
             }
@@ -201,7 +200,6 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
         const result = await fetchWithToken<{ obj: any }>(url, token);
-        // Não precisamos mais do console.log de depuração
         if (result && result.obj) {
             return mapIderisOrderToSale(result.obj, 0);
         }
