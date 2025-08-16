@@ -459,46 +459,36 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             </div>
             <div className="flex items-center gap-2">
                 {!isDashboard && (
-                    <>
-                        <Button
-                            variant="outline"
-                            onClick={handleQueueRefresh}
-                            disabled={isQueueRefreshing || isLoading || currentSales.length === 0}
-                        >
-                            {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                            Atualizar Todos ({currentSales.length})
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" disabled={isSettingsLoading}>
-                                    {isSettingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <View className="h-4 w-4" />}
-                                    Exibir Colunas
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-64" align="end">
-                               <ScrollArea className="h-72 rounded-md border p-4">
-                                   <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
-                                   <DropdownMenuSeparator />
-                                   {Object.entries(columnGroups).map(([groupName, columns]) => (
-                                       columns.length > 0 && (
-                                           <DropdownMenuGroup key={groupName}>
-                                               <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
-                                                {columns.map(col => (
-                                                    <DropdownMenuCheckboxItem
-                                                        key={col.key}
-                                                        checked={visibleColumns[col.key]}
-                                                        onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
-                                                    >
-                                                        {col.label}
-                                                    </DropdownMenuCheckboxItem>
-                                                ))}
-                                           </DropdownMenuGroup>
-                                       )
-                                   ))}
-                               </ScrollArea>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" disabled={isSettingsLoading}>
+                                {isSettingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <View className="h-4 w-4" />}
+                                Exibir Colunas
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-64" align="end">
+                           <ScrollArea className="h-72 rounded-md border p-4">
+                               <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
+                               <DropdownMenuSeparator />
+                               {Object.entries(columnGroups).map(([groupName, columns]) => (
+                                   columns.length > 0 && (
+                                       <DropdownMenuGroup key={groupName}>
+                                           <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
+                                            {columns.map(col => (
+                                                <DropdownMenuCheckboxItem
+                                                    key={col.key}
+                                                    checked={visibleColumns[col.key]}
+                                                    onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
+                                                >
+                                                    {col.label}
+                                                </DropdownMenuCheckboxItem>
+                                            ))}
+                                       </DropdownMenuGroup>
+                                   )
+                               ))}
+                           </ScrollArea>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
             </div>
         </CardHeader>
@@ -518,8 +508,20 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                 {orderedAndVisibleColumns.map((field) => (
                                     <DraggableHeader key={field.key} header={{key: field.key, className: getColumnAlignment(field.key) }}>
                                         <div className="flex items-center gap-2">
-                                        {field.label}
-                                        {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
+                                            {field.label}
+                                            {field.key === 'status' && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleQueueRefresh} disabled={isQueueRefreshing || isLoading || currentSales.length === 0}>
+                                                            {isQueueRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Atualizar status de todos os pedidos visíveis</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                            {(field.isCustom || field.group === 'Planilha') && <Calculator className="h-3.5 w-3.5 text-muted-foreground" />}
                                         </div>
                                     </DraggableHeader>
                                 ))}
@@ -569,15 +571,22 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                 cellContent = (
                                     <div className="flex items-center gap-2 justify-start">
                                         {cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A'}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6"
-                                            onClick={() => handleRefreshStatus(sale)}
-                                            disabled={isRefreshingStatus === (sale as any).order_id}
-                                        >
-                                            {isRefreshingStatus === (sale as any).order_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => handleRefreshStatus(sale)}
+                                                    disabled={isRefreshingStatus === (sale as any).order_id}
+                                                >
+                                                    {isRefreshingStatus === (sale as any).order_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Atualizar status deste pedido</p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     </div>
                                 );
                             } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
