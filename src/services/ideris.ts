@@ -16,7 +16,7 @@ async function generateAccessToken(privateKey: string): Promise<string> {
     }
     const body = JSON.stringify(privateKey);
     const headers = { 'Content-Type': 'application/json' };
-    const response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store', mode: 'cors' });
+    const response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store' });
     const responseText = await response.text();
     if (!response.ok) {
         console.error('Ideris auth error response:', responseText);
@@ -39,17 +39,6 @@ async function getValidAccessToken(privateKey: string): Promise<string> {
     return await generateAccessToken(privateKey);
 }
 
-export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string; }> {
-    try {
-        const accessToken = await generateAccessToken(privateKey);
-        if (accessToken) return { success: true, message: 'Conexão bem-sucedida.' };
-        return { success: false, message: 'Falha ao obter o Access Token.' };
-    } catch (error: any) {
-        console.error('Erro ao testar conexão com Ideris:', error);
-        return { success: false, message: error.message || 'Ocorreu um erro desconhecido.' };
-    }
-}
-
 function getValueFromPath(obj: any, path: string | undefined): any {
     if (!path) return undefined;
     return path.split('.').reduce((res, key) => {
@@ -67,18 +56,13 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
     iderisFields.forEach(iderisField => {
         (mappedSale as any)[iderisField.key] = getValueFromPath(iderisOrder, iderisField.path);
     });
-
     let cleanedSale: any = { ...mappedSale };
     for (const key in cleanedSale) {
         if (Object.prototype.hasOwnProperty.call(cleanedSale, key)) {
             let value = cleanedSale[key];
              if (value === null || value === undefined) {
                 const numericKeys = ['value_with_shipping', 'paid_amount', 'fee_shipment', 'fee_order', 'net_amount', 'left_over', 'discount', 'discount_marketplace', 'item_quantity'];
-                if (numericKeys.includes(key)) {
-                    cleanedSale[key] = 0;
-                } else {
-                    cleanedSale[key] = ''; // Default para string vazia
-                }
+                if (numericKeys.includes(key)) { cleanedSale[key] = 0; } else { cleanedSale[key] = ''; }
                 continue;
             }
             const keyLower = key.toLowerCase();
@@ -90,12 +74,10 @@ function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
             }
         }
     }
-    
     const finalSale = cleanedSale as Sale;
     finalSale.id = `ideris-${(mappedSale as any).order_id || `temp-${index}`}`;
     finalSale.costs = finalSale.costs || [];
     finalSale.productName = finalSale.productName || (finalSale as any).item_title;
-
     return finalSale;
 }
 
@@ -162,16 +144,28 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
     let currentOffset = 0;
     const limitPerPage = 50;
     let hasMorePages = true;
-    while (hasMorePages) {
+
+    // --- TRAVA DE SEGURANÇA ADICIONADA ---
+    let currentPage = 0;
+    const maxPages = 100; // Limita a 100 páginas (5000 pedidos) para evitar loop infinito
+
+    while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
         const searchResult = await fetchWithToken<{ obj: any[] }>(searchUrl, token);
+
         if (searchResult && Array.isArray(searchResult.obj) && searchResult.obj.length > 0) {
             allSummaries = allSummaries.concat(searchResult.obj);
             currentOffset += searchResult.obj.length;
         } else {
             hasMorePages = false;
         }
+        currentPage++; // Incrementa o contador de páginas
     }
+
+    if (currentPage >= maxPages) {
+        console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+    }
+    
     const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
     const newOrderIds = newSummaries.map(s => s.id);
     if (newOrderIds.length === 0) {
