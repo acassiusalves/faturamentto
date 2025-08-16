@@ -209,10 +209,10 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
 async function fetchAllStatus(privateKey: string): Promise<{ id: number; name: string }[]> {
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/status`;
-    const response = await fetchWithToken<{ obj: { id: number; name: string }[] }>(url, token);
+    const response = await fetchWithToken<{ result: { obj: { id: number; name: string }[] } }>(url, token);
     
-    if (response && Array.isArray(response.obj)) {
-        return response.obj;
+    if (response && response.result && Array.isArray(response.result.obj)) {
+        return response.result.obj;
     }
     return [];
 }
@@ -253,3 +253,5 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<Sal
     
     return [];
 }
+
+    
