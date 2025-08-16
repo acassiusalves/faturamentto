@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Sale } from '@/lib/types';
@@ -119,6 +118,7 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         if (orderId) {
             const detailsUrl = `https://apiv3.ideris.com.br/order/${orderId}`;
             try {
+                // CORREÇÃO: Espera a resposta unificada { obj: ... }
                 const detailsResult = await fetchWithToken<{ obj: any }>(detailsUrl, token);
                 if (detailsResult && detailsResult.obj) {
                     sales.push(mapIderisOrderToSale(detailsResult.obj, i));
@@ -144,13 +144,12 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
     let currentOffset = 0;
     const limitPerPage = 50;
     let hasMorePages = true;
-
-    // --- TRAVA DE SEGURANÇA ADICIONADA ---
     let currentPage = 0;
-    const maxPages = 100; // Limita a 100 páginas (5000 pedidos) para evitar loop infinito
+    const maxPages = 100;
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
+        // CORREÇÃO: Espera a resposta unificada { obj: ... }
         const searchResult = await fetchWithToken<{ obj: any[] }>(searchUrl, token);
 
         if (searchResult && Array.isArray(searchResult.obj) && searchResult.obj.length > 0) {
@@ -159,7 +158,7 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
         } else {
             hasMorePages = false;
         }
-        currentPage++; // Incrementa o contador de páginas
+        currentPage++;
     }
 
     if (currentPage >= maxPages) {
@@ -193,6 +192,7 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
+        // CORREÇÃO: Espera a resposta unificada { obj: ... }
         const result = await fetchWithToken<{ obj: any }>(url, token);
         if (result && result.obj) {
             return mapIderisOrderToSale(result.obj, 0);
@@ -207,5 +207,3 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         throw error;
     }
 }
-
-    
