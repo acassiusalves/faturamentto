@@ -112,7 +112,7 @@ export default function ComprasPage() {
                 <div className="flex-1">
                     <CardTitle>Pedidos com Demanda de Compra (Dados Brutos)</CardTitle>
                     <CardDescription>
-                        Exibindo a resposta da API sem formatação para depuração.
+                        Exibindo a resposta da API sem formatação para depuração. Busca referente aos últimos 5 dias.
                     </CardDescription>
                 </div>
                 <Button onClick={() => fetchData()} disabled={isLoading} variant="outline">
