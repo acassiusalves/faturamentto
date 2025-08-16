@@ -1,10 +1,10 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings } from '@/services/firestore';
@@ -13,11 +13,17 @@ import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 export default function ComprasPage() {
     const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // Pagination state
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -43,6 +49,13 @@ export default function ComprasPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+    
+    const pageCount = Math.ceil(orders.length / pageSize);
+
+    const paginatedOrders = useMemo(() => {
+      const startIndex = pageIndex * pageSize;
+      return orders.slice(startIndex, startIndex + pageSize);
+    }, [orders, pageIndex, pageSize]);
     
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
@@ -81,7 +94,7 @@ export default function ComprasPage() {
             return (
                 <div className="text-center text-muted-foreground py-10">
                     <ShoppingCart className="mx-auto h-12 w-12 mb-4" />
-                    <p>Nenhum pedido com status de compra encontrado nos últimos 5 dias.</p>
+                    <p>Nenhum pedido com demanda de compra encontrado.</p>
                 </div>
             )
         }
@@ -100,7 +113,7 @@ export default function ComprasPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {orders.map((order, index) => (
+                        {paginatedOrders.map((order, index) => (
                             <TableRow key={order.id || index}>
                                 <TableCell>{order.id}</TableCell>
                                 <TableCell>{formatDate(order.approved)}</TableCell>
@@ -152,6 +165,75 @@ export default function ComprasPage() {
         <CardContent>
             {renderContent()}
         </CardContent>
+        <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+            <div className="text-sm text-muted-foreground">
+                Total de {orders.length} pedidos.
+            </div>
+            <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Itens por página</p>
+                    <Select
+                        value={`${pageSize}`}
+                        onValueChange={(value) => {
+                            setPageSize(Number(value));
+                            setPageIndex(0);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize.toString()} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 20, 50, 100].map((size) => (
+                                <SelectItem key={size} value={`${size}`}>
+                                    {size}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm font-medium">
+                    Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(0)}
+                        disabled={pageIndex === 0}
+                    >
+                        <span className="sr-only">Primeira página</span>
+                        <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageIndex - 1)}
+                        disabled={pageIndex === 0}
+                    >
+                        <span className="sr-only">Página anterior</span>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageIndex + 1)}
+                        disabled={pageIndex >= pageCount - 1}
+                    >
+                        <span className="sr-only">Próxima página</span>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(pageCount - 1)}
+                        disabled={pageIndex >= pageCount - 1}
+                    >
+                        <span className="sr-only">Última página</span>
+                        <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
     </div>
   );
