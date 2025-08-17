@@ -101,7 +101,10 @@ async function fetchWithToken<T>(url: string, accessToken: string, options: Requ
         }
     }
     const responseText = await response.text();
-    if (!responseText) return null as T;
+    if (!responseText) {
+        // Lançar erro se a resposta estiver vazia, pois esperamos um objeto JSON.
+        throw new Error("A API da Ideris retornou uma resposta vazia.");
+    }
     return JSON.parse(responseText);
 }
 
@@ -117,9 +120,14 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
                 const detailsResult = await fetchWithToken<{ result: { obj: any } }>(detailsUrl, token);
                 if (detailsResult && detailsResult.result && detailsResult.result.obj) {
                     sales.push(mapIderisOrderToSale(detailsResult.result.obj, i));
+                } else {
+                     // Lançar um erro se a estrutura da resposta for inesperada
+                    throw new Error(`Resposta inesperada da API para o pedido ${orderId}`);
                 }
             } catch (e) {
                 console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
+                // Relançar o erro para ser tratado na chamada principal
+                throw e;
             }
         }
         if (onProgress) {
@@ -204,7 +212,7 @@ export async function fetchOrdersFromIderis(privateKey: string, dateRange: DateR
   }
 }
 
-export async function fetchOrderById(privateKey: string, orderId: string): Promise<any | null> {
+export async function fetchOrderById(privateKey: string, orderId: string): Promise<any> {
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
@@ -212,11 +220,13 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         if (result && result.result) {
             return result.result;
         }
-        return null;
+        // Se a resposta for bem-sucedida, mas `result` não existir, lance um erro.
+        throw new Error(`Resposta inesperada da API para o pedido ${orderId}. Propriedade 'result' não encontrada.`);
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
-            inMemoryToken = null;
-            return await fetchOrderById(privateKey, orderId);
+            console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
+            inMemoryToken = null; // Forçar a regeneração do token
+            return await fetchOrderById(privateKey, orderId); // Tentar novamente
         }
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;

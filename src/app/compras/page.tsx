@@ -57,7 +57,7 @@ export default function ComprasPage() {
             const detailedOrders = await Promise.all(orderDetailsPromises);
 
             console.log("Resposta da Ideris:", detailedOrders);
-            setRawResponseForDebug(detailedOrders);
+            // setRawResponseForDebug(detailedOrders); // Removido para voltar ao fluxo normal
             
             const productMap = new Map<string, { name: string; quantity: number }>();
             
@@ -165,7 +165,7 @@ export default function ComprasPage() {
             )
         }
         
-        if (error) {
+        if (error && !isGenerating) { // Don't show this error if another process is running
              return (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
@@ -349,10 +349,16 @@ export default function ComprasPage() {
                  <div className="flex items-center justify-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32} />
                  </div>
-            ) : rawResponseForDebug ? (
-                <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto">
-                    {JSON.stringify(rawResponseForDebug, null, 2)}
-                </pre>
+            ) : error ? (
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Erro ao Gerar Lista</AlertTitle>
+                    <AlertDescription>
+                        {error}
+                        <br/>
+                        Verifique o console do navegador (F12) para mais detalhes.
+                    </AlertDescription>
+                </Alert>
             ) : purchaseList.length > 0 ? (
                  <div className="rounded-md border">
                     <Table>
