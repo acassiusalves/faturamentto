@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings, loadProducts, findProductByAssociatedSku } from '@/services/firestore';
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import type { Product } from '@/lib/types';
+import { Input } from '@/components/ui/input';
 
 
 // Interface para a nova lista de exibição
@@ -45,6 +46,10 @@ export default function ComprasPage() {
     const [displayList, setDisplayList] = useState<DisplayListItem[]>([]);
     const [isGenerating, setIsGenerating] = useState(false); 
     const [isGrouped, setIsGrouped] = useState(false);
+    
+    const [costs, setCosts] = useState<Map<string, number>>(new Map());
+    const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
+
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -172,6 +177,31 @@ export default function ComprasPage() {
         fetchData();
     }, [fetchData]);
     
+    const handleCostChange = (sku: string, value: string) => {
+        const newCost = parseFloat(value);
+        if (!isNaN(newCost)) {
+            setCosts(prev => new Map(prev).set(sku, newCost));
+        } else {
+             setCosts(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(sku);
+                return newMap;
+            });
+        }
+    };
+    
+     useEffect(() => {
+        if (isGrouped) {
+            let total = 0;
+            processedList.forEach(item => {
+                const cost = costs.get((item as GroupedListItem).sku) || 0;
+                total += cost * (item as GroupedListItem).totalQuantity;
+            });
+            setTotalPurchaseCost(total);
+        }
+    }, [costs, processedList, isGrouped]);
+
+
     const pageCount = Math.ceil(orders.length / pageSize);
 
     const paginatedOrders = useMemo(() => {
@@ -188,6 +218,11 @@ export default function ComprasPage() {
         }
     };
     
+     const formatCurrency = (value: number) => {
+        if (isNaN(value)) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
+
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -365,17 +400,40 @@ export default function ComprasPage() {
                                 <TableHead>Título do Produto</TableHead>
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-center">Quantidade</TableHead>
+                                {isGrouped && <TableHead className="text-right">Custo Unitário</TableHead>}
+                                {isGrouped && <TableHead className="text-right">Custo Total</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {processedList.map((item, index) => (
-                                <TableRow key={`${'orderId' in item ? item.orderId : ''}-${item.sku}-${index}`}>
+                            {processedList.map((item, index) => {
+                                const sku = 'sku' in item ? item.sku : '';
+                                const quantity = 'quantity' in item ? item.quantity : ('totalQuantity' in item ? item.totalQuantity : 0);
+                                const unitCost = costs.get(sku) || 0;
+                                const totalCost = unitCost * quantity;
+
+                                return (
+                                <TableRow key={`${'orderId' in item ? item.orderId : ''}-${sku}-${index}`}>
                                     {!isGrouped && 'orderId' in item && <TableCell>{item.orderId}</TableCell>}
-                                    <TableCell>{'title' in item ? item.title : item.productName}</TableCell>
-                                    <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="text-center font-bold">{'quantity' in item ? item.quantity : item.totalQuantity}</TableCell>
+                                    <TableCell>{'title' in item ? item.title : ('productName' in item ? item.productName : '')}</TableCell>
+                                    <TableCell className="font-mono">{sku}</TableCell>
+                                    <TableCell className="text-center font-bold">{quantity}</TableCell>
+                                    {isGrouped && (
+                                        <>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="R$ 0,00"
+                                                    className="w-28 ml-auto text-right"
+                                                    onChange={(e) => handleCostChange(sku, e.target.value)}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">
+                                                {formatCurrency(totalCost)}
+                                            </TableCell>
+                                        </>
+                                    )}
                                 </TableRow>
-                            ))}
+                            )})}
                         </TableBody>
                     </Table>
                 </div>
@@ -387,6 +445,17 @@ export default function ComprasPage() {
                 </div>
             )}
         </CardContent>
+         {isGrouped && processedList.length > 0 && (
+            <CardFooter className="justify-end bg-muted/50 p-4 border-t">
+                <div className="flex items-center gap-4">
+                    <span className="font-semibold text-lg">Custo Total da Compra:</span>
+                    <span className="font-bold text-2xl text-primary flex items-center gap-2">
+                        <DollarSign size={24} />
+                        {formatCurrency(totalPurchaseCost)}
+                    </span>
+                </div>
+            </CardFooter>
+        )}
       </Card>
     </div>
   );
