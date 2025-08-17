@@ -117,11 +117,11 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         if (orderId) {
             try {
                 const detailsResult = await fetchOrderById(token, orderId);
-                sales.push(mapIderisOrderToSale(detailsResult.obj, i));
+                if (detailsResult && detailsResult.obj) {
+                    sales.push(mapIderisOrderToSale(detailsResult.obj, i));
+                }
             } catch (e) {
                 console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
-                // Relançar o erro para ser tratado na chamada principal
-                throw e;
             }
         }
         if (onProgress) {
@@ -231,3 +231,5 @@ export async function testIderisConnection(privateKey: string): Promise<{ succes
         return { success: false, message: `Falha na conexão: ${errorMessage}` };
     }
 }
+
+    
