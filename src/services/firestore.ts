@@ -496,9 +496,12 @@ export const fetchOrderDetailsFromDB = async (orderId: string | number) => {
     const docSnap = await getDoc(orderRef);
 
     if (docSnap.exists()) {
+      // ADICIONE ESTE LOG PARA VER O DADO ENCONTRADO
+      console.log(`[PASSO 2] Pedido ID ${orderId} ENCONTRADO. Dados:`, docSnap.data());
       return docSnap.data();
     } else {
-      console.warn(`Pedido com ID ${orderId} não foi encontrado no banco de dados.`);
+      // ESTE LOG É MUITO IMPORTANTE. VERIFIQUE SE ELE APARECE.
+      console.warn(`[PASSO 2] Pedido ID ${orderId} NÃO FOI ENCONTRADO na coleção "sales".`);
       return null;
     }
   } catch (error) {
@@ -509,6 +512,7 @@ export const fetchOrderDetailsFromDB = async (orderId: string | number) => {
     
 
     
+
 
 
 

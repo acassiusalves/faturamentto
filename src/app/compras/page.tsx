@@ -47,7 +47,11 @@ export default function ComprasPage() {
     
         try {
             // Cria uma lista de promessas, uma para cada busca no banco de dados
-            const promises = ordersToProcess.map(order => fetchOrderDetailsFromDB(order.id));
+            const promises = ordersToProcess.map(order => {
+                // ADICIONE ESTE LOG PARA VER O ID
+                console.log(`[PASSO 1] Buscando no DB o pedido com ID: ${order.id}`);
+                return fetchOrderDetailsFromDB(order.id);
+            });
     
             // Executa todas as buscas em paralelo para máxima performance
             const resultsFromDB = await Promise.all(promises);
