@@ -41,8 +41,9 @@ export default function ComprasPage() {
         const productMap = new Map<string, { name: string; quantity: number }>();
         
         ordersToProcess.forEach(order => {
-            if (order.items && Array.isArray(order.items)) {
-                order.items.forEach((item: any) => {
+            const items = order.result?.items; // Corrected path to items
+            if (items && Array.isArray(items)) {
+                items.forEach((item: any) => {
                     const sku = item.sku;
                     if (sku) {
                         const existing = productMap.get(sku);
@@ -365,5 +366,6 @@ export default function ComprasPage() {
     </div>
   );
 }
+
 
 

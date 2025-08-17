@@ -139,9 +139,13 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
     const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
     
     // Simplificando a chamada para corresponder ao teste do Postman
-    const searchResult = await fetchWithToken<{ obj: any[] }>(searchUrl, token);
+    const searchResult = await fetchWithToken<{ obj: any[], result: any }>(searchUrl, token);
 
-    if (searchResult && Array.isArray(searchResult.obj)) {
+    // Ideris returns details in the 'result' property when successful
+    if (searchResult && searchResult.result && Array.isArray(searchResult.result)) {
+        return searchResult.result;
+    } else if (searchResult && Array.isArray(searchResult.obj)) {
+        // Fallback for older or different response structures
         return searchResult.obj;
     }
     
