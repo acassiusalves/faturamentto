@@ -37,7 +37,7 @@ export default function ComprasPage() {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
-    const generatePurchaseList = (ordersToProcess: any[]) => {
+    const generatePurchaseList = useCallback((ordersToProcess: any[]) => {
         const productMap = new Map<string, { name: string; quantity: number }>();
         
         ordersToProcess.forEach(order => {
@@ -66,7 +66,7 @@ export default function ComprasPage() {
         }));
         
         setPurchaseList(aggregatedList);
-    };
+    }, []);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -88,7 +88,7 @@ export default function ComprasPage() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [generatePurchaseList]);
 
     useEffect(() => {
         fetchData();
@@ -357,3 +357,4 @@ export default function ComprasPage() {
     </div>
   );
 }
+
