@@ -213,12 +213,18 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     try {
         const response = await fetchWithToken<any>(url, token);
         
-        // Handle cases where the data is in response.result or directly in the response
-        if (response && response.result) {
-            return response.result;
-        }
+        // Handle cases where the data is in response.result, response.obj, or directly in the response
         if (response && response.id) { // Check if the root object looks like an order
             return response;
+        }
+        if (response && response.result) {
+            // The result can be an object or an array with one object
+             if (Array.isArray(response.result) && response.result.length > 0) {
+                return response.result[0];
+            }
+            if (typeof response.result === 'object' && response.result !== null && response.result.id) {
+                 return response.result;
+            }
         }
 
         // If the response is successful but the structure is unexpected
