@@ -32,6 +32,7 @@ export default function ComprasPage() {
     const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
     const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
     const [isGenerating, setIsGenerating] = useState(false); 
+    const [rawResponseForDebug, setRawResponseForDebug] = useState<any>(null);
 
     
     // Pagination state
@@ -42,8 +43,8 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setPurchaseList([]);
+        setRawResponseForDebug(null);
         
-        const productMap = new Map<string, { name: string; quantity: number }>();
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
             setError("A chave da API da Ideris não está configurada.");
@@ -55,6 +56,12 @@ export default function ComprasPage() {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
             const detailedOrders = await Promise.all(orderDetailsPromises);
 
+            console.log("Resposta da Ideris:", detailedOrders);
+            setRawResponseForDebug(detailedOrders);
+            
+            // Lógica de processamento comentada para depuração
+            /*
+            const productMap = new Map<string, { name: string; quantity: number }>();
             detailedOrders.forEach(orderData => {
                 if (orderData && orderData.items && Array.isArray(orderData.items)) {
                     orderData.items.forEach((item: any) => {
@@ -81,6 +88,7 @@ export default function ComprasPage() {
             }));
 
             setPurchaseList(aggregatedList);
+            */
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
@@ -341,6 +349,10 @@ export default function ComprasPage() {
                  <div className="flex items-center justify-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32} />
                  </div>
+            ) : rawResponseForDebug ? (
+                <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto">
+                    {JSON.stringify(rawResponseForDebug, null, 2)}
+                </pre>
             ) : purchaseList.length > 0 ? (
                  <div className="rounded-md border">
                     <Table>
