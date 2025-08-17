@@ -14,6 +14,10 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import type { Product } from '@/lib/types';
+
 
 // Interface para a nova lista de exibição
 interface DisplayListItem {
@@ -23,14 +27,24 @@ interface DisplayListItem {
   quantity: number;
 }
 
+// Interface para a lista agrupada
+interface GroupedListItem {
+    productName: string;
+    sku: string;
+    totalQuantity: number;
+}
+
+
 export default function ComprasPage() {
     const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     
     // Novo estado para a lista de produtos a ser exibida
     const [displayList, setDisplayList] = useState<DisplayListItem[]>([]);
     const [isGenerating, setIsGenerating] = useState(false); 
+    const [isGrouped, setIsGrouped] = useState(false);
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -54,10 +68,13 @@ export default function ComprasPage() {
                 Promise.all(ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id)))
             ]);
             
-            const productSkuMap = new Map(systemProducts.map(p => {
-                const allSkus = [p.sku, ...(p.associatedSkus || [])];
-                return allSkus.map(sku => [sku, p.name]);
-            }).flat());
+            const productSkuMap = new Map<string, Product>();
+            systemProducts.forEach(p => {
+                productSkuMap.set(p.sku, p); // Map main SKU
+                p.associatedSkus?.forEach(assocSku => {
+                    productSkuMap.set(assocSku, p); // Map associated SKUs to parent product
+                });
+            });
 
 
             const flatItemList: DisplayListItem[] = [];
@@ -67,10 +84,10 @@ export default function ComprasPage() {
 
                 if (items && Array.isArray(items)) {
                     for (const item of items) {
-                        const systemName = productSkuMap.get(item.sku);
+                        const parentProduct = productSkuMap.get(item.sku);
                         flatItemList.push({
                             orderId: orderResult.obj.id,
-                            title: systemName || item.title, // Usa o nome do sistema ou o do anúncio como fallback
+                            title: parentProduct?.name || item.title,
                             sku: item.sku,
                             quantity: item.quantity
                         });
@@ -98,9 +115,14 @@ export default function ComprasPage() {
                 throw new Error('A chave da API da Ideris não é válida ou não está configurada.');
             }
             
-            const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
+            const [openOrders, products] = await Promise.all([
+                fetchOpenOrdersFromIderis(settings.iderisPrivateKey),
+                loadProducts()
+            ]);
+
             const filteredOrders = openOrders.filter(order => order.statusDescription !== 'PEDIDO_EM_TRANSITO');
             setOrders(filteredOrders);
+            setAllProducts(products);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
@@ -109,6 +131,42 @@ export default function ComprasPage() {
             setIsLoading(false);
         }
     }, []);
+    
+    const processedList = useMemo(() => {
+        if (!isGrouped) {
+            return displayList;
+        }
+
+        const groupedMap = new Map<string, GroupedListItem>();
+        const productSkuMap = new Map<string, Product>();
+        
+        allProducts.forEach(p => {
+            productSkuMap.set(p.sku, p);
+            p.associatedSkus?.forEach(assocSku => {
+                productSkuMap.set(assocSku, p);
+            });
+        });
+
+        displayList.forEach(item => {
+            const parentProduct = productSkuMap.get(item.sku);
+            const mainSku = parentProduct?.sku || item.sku;
+            const productName = parentProduct?.name || item.title;
+
+            if (groupedMap.has(mainSku)) {
+                const existing = groupedMap.get(mainSku)!;
+                existing.totalQuantity += item.quantity;
+            } else {
+                groupedMap.set(mainSku, {
+                    productName: productName,
+                    sku: mainSku,
+                    totalQuantity: item.quantity,
+                });
+            }
+        });
+
+        return Array.from(groupedMap.values());
+    }, [displayList, isGrouped, allProducts]);
+
 
     useEffect(() => {
         fetchData();
@@ -277,10 +335,16 @@ export default function ComprasPage() {
                         Lista de todos os produtos necessários com base nos pedidos acima.
                     </CardDescription>
                 </div>
-                <Button onClick={() => generateDisplayList(orders)} disabled={orders.length === 0 || isGenerating}>
-                    {isGenerating ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Search className="mr-2 h-4 w-4"/> )}
-                    {isGenerating ? 'Buscando...' : 'Buscar produtos'}
-                </Button>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                        <Label htmlFor="group-switch">Agrupar</Label>
+                        <Switch id="group-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
+                    </div>
+                    <Button onClick={() => generateDisplayList(orders)} disabled={orders.length === 0 || isGenerating}>
+                        {isGenerating ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Search className="mr-2 h-4 w-4"/> )}
+                        {isGenerating ? 'Buscando...' : 'Buscar produtos'}
+                    </Button>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
@@ -292,24 +356,24 @@ export default function ComprasPage() {
                     <AlertTitle>Erro ao Gerar Lista</AlertTitle>
                     <AlertDescription>{error}<br/>Verifique o console (F12) para detalhes.</AlertDescription>
                 </Alert>
-            ) : displayList.length > 0 ? (
+            ) : processedList.length > 0 ? (
                  <div className="rounded-md border">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>ID (id)</TableHead>
+                                {!isGrouped && <TableHead>ID (id)</TableHead>}
                                 <TableHead>Título do Produto</TableHead>
-                                <TableHead>SKU (sku)</TableHead>
-                                <TableHead>Quantidade (quantity)</TableHead>
+                                <TableHead>SKU</TableHead>
+                                <TableHead className="text-center">Quantidade</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {displayList.map((item, index) => (
-                                <TableRow key={`${item.orderId}-${item.sku}-${index}`}>
-                                    <TableCell>{item.orderId}</TableCell>
-                                    <TableCell>{item.title}</TableCell>
+                            {processedList.map((item, index) => (
+                                <TableRow key={`${'orderId' in item ? item.orderId : ''}-${item.sku}-${index}`}>
+                                    {!isGrouped && 'orderId' in item && <TableCell>{item.orderId}</TableCell>}
+                                    <TableCell>{'title' in item ? item.title : item.productName}</TableCell>
                                     <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                                    <TableCell className="text-center font-bold">{'quantity' in item ? item.quantity : item.totalQuantity}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
