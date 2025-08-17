@@ -4,17 +4,16 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { ProductCategorySettings, ProductAttribute } from '@/lib/types';
-import { loadProductSettings, saveProductSettings } from '@/services/firestore';
+import { loadProductSettings, saveProductSettings, loadAppSettings, saveAppSettings } from '@/services/firestore';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { PlusCircle, Trash2, Loader2, Tag, Save } from 'lucide-react';
-import { Textarea } from './ui/textarea'; // Import Textarea
+import { PlusCircle, Trash2, Loader2, Tag, Save, Store } from 'lucide-react';
+import { Textarea } from './ui/textarea';
 
-// For now, we only have one category, but this structure allows for more in the future.
 const initialCategories: ProductCategorySettings[] = [
     {
         id: 'celular',
@@ -55,15 +54,20 @@ const initialCategories: ProductCategorySettings[] = [
 export function ProductSettings() {
     const { toast } = useToast();
     const [settings, setSettings] = useState<ProductCategorySettings[]>([]);
+    const [stores, setStores] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [newOption, setNewOption] = useState<Record<string, string>>({}); // { [attributeKey]: "new value" }
+    const [newOption, setNewOption] = useState<Record<string, string>>({});
+    const [newStore, setNewStore] = useState("");
 
     useEffect(() => {
         async function loadData() {
             setIsLoading(true);
             const loadedSettingsPromises = initialCategories.map(cat => loadProductSettings(cat.id));
-            const loadedSettings = await Promise.all(loadedSettingsPromises);
+            const [loadedSettings, appSettings] = await Promise.all([
+                Promise.all(loadedSettingsPromises),
+                loadAppSettings()
+            ]);
             
             const finalSettings: ProductCategorySettings[] = [];
             
@@ -71,17 +75,11 @@ export function ProductSettings() {
                 const cat = initialCategories[i];
                 let saved = loadedSettings[i];
 
-                // If no settings were saved for this category, save the initial default and use it.
                 if (!saved) {
                     await saveProductSettings(cat.id, cat);
                     saved = cat; 
-                     toast({
-                        title: "Configurações Iniciais Criadas",
-                        description: `As configurações padrão para ${cat.name} foram salvas.`,
-                    });
                 }
                 
-                // Merge to ensure all attributes exist and respect order
                 const mergedAttributes = cat.attributes.map(defaultAttr => {
                    const savedAttr = saved!.attributes.find(sa => sa.key === defaultAttr.key);
                    if (savedAttr && savedAttr.values && savedAttr.values.length > 0) {
@@ -97,6 +95,7 @@ export function ProductSettings() {
             }
             
             setSettings(finalSettings);
+            setStores(appSettings?.stores || []);
             setIsLoading(false);
         }
         loadData();
@@ -108,9 +107,7 @@ export function ProductSettings() {
 
         if (!inputValues) return;
         
-        // Split by comma, newline, or semicolon
         const optionsToAdd = inputValues.split(/[,\n;]+/).map(opt => opt.trim()).filter(Boolean);
-
         if(optionsToAdd.length === 0) return;
 
         const newSettings = [...settings];
@@ -124,10 +121,7 @@ export function ProductSettings() {
             }
         });
 
-        if (addedCount > 0) {
-            setSettings(newSettings);
-        }
-        
+        if (addedCount > 0) setSettings(newSettings);
         setNewOption(prev => ({...prev, [attrKey]: ""}));
     };
     
@@ -138,14 +132,38 @@ export function ProductSettings() {
         setSettings(newSettings);
     };
 
+    const handleAddStore = () => {
+        const storesToAdd = newStore.trim().split(/[,\n;]+/).map(s => s.trim()).filter(Boolean);
+        if (storesToAdd.length === 0) return;
+
+        let addedCount = 0;
+        const updatedStores = [...stores];
+        storesToAdd.forEach(storeName => {
+            if (!updatedStores.includes(storeName)) {
+                updatedStores.push(storeName);
+                addedCount++;
+            }
+        });
+        
+        if (addedCount > 0) setStores(updatedStores);
+        setNewStore("");
+    };
+
+    const handleRemoveStore = (storeToRemove: string) => {
+        setStores(prev => prev.filter(s => s !== storeToRemove));
+    };
+
     const handleSaveSettings = async () => {
         setIsSaving(true);
         try {
-            const savePromises = settings.map(setting => saveProductSettings(setting.id, setting));
-            await Promise.all(savePromises);
+            const saveProductSettingsPromises = settings.map(setting => saveProductSettings(setting.id, setting));
+            const saveAppSettingsPromise = saveAppSettings({ stores });
+
+            await Promise.all([...saveProductSettingsPromises, saveAppSettingsPromise]);
+
             toast({
                 title: "Configurações Salvas!",
-                description: "Suas opções de atributos de produto foram salvas com sucesso."
+                description: "Suas opções de atributos e lojas foram salvas com sucesso."
             });
         } catch (error) {
             console.error("Error saving settings:", error);
@@ -165,56 +183,94 @@ export function ProductSettings() {
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Configurar Atributos de Produto</CardTitle>
-                <CardDescription>Adicione as opções que estarão disponíveis ao criar um novo produto em cada categoria. Você pode colar uma lista de itens separados por vírgula, ponto e vírgula ou quebra de linha.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <Accordion type="single" collapsible className="w-full" defaultValue="item-0">
-                    {settings.map((category, catIndex) => (
-                        <AccordionItem key={category.id} value={`item-${catIndex}`}>
-                            <AccordionTrigger className="text-lg font-semibold">{category.name}</AccordionTrigger>
-                            <AccordionContent className="space-y-4 pt-4">
-                                {category.attributes.map((attr, attrIndex) => (
-                                    <div key={attr.key} className="p-4 border rounded-md">
-                                        <h4 className="font-medium flex items-center gap-2"><Tag className="h-4 w-4 text-muted-foreground"/>{attr.label}</h4>
-                                        <div className="pl-6 pt-2">
-                                            <div className="flex gap-2 mb-2">
-                                                <Textarea 
-                                                    placeholder={`Adicionar nova ${attr.label.toLowerCase()}...\nCole múltiplos valores separados por vírgula ou quebra de linha.`}
-                                                    value={newOption[attr.key] || ""}
-                                                    onChange={(e) => setNewOption(prev => ({ ...prev, [attr.key]: e.target.value }))}
-                                                    rows={3}
-                                                />
-                                                <Button size="icon" onClick={() => handleAddOption(catIndex, attrIndex)}>
-                                                    <PlusCircle />
-                                                </Button>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {attr.values.length > 0 ? attr.values.map(option => (
-                                                    <Badge key={option} variant="secondary" className="flex items-center gap-1.5 pr-1">
-                                                        {option}
-                                                        <button onClick={() => handleRemoveOption(catIndex, attrIndex, option)} className="rounded-full hover:bg-muted-foreground/20">
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </button>
-                                                    </Badge>
-                                                )) : <p className="text-xs text-muted-foreground italic">Nenhuma opção adicionada.</p>}
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configurar Atributos de Produto</CardTitle>
+                    <CardDescription>Adicione as opções que estarão disponíveis ao criar um novo produto em cada categoria. Você pode colar uma lista de itens separados por vírgula, ponto e vírgula ou quebra de linha.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="single" collapsible className="w-full" defaultValue="item-0">
+                        {settings.map((category, catIndex) => (
+                            <AccordionItem key={category.id} value={`item-${catIndex}`}>
+                                <AccordionTrigger className="text-lg font-semibold">{category.name}</AccordionTrigger>
+                                <AccordionContent className="space-y-4 pt-4">
+                                    {category.attributes.map((attr, attrIndex) => (
+                                        <div key={attr.key} className="p-4 border rounded-md">
+                                            <h4 className="font-medium flex items-center gap-2"><Tag className="h-4 w-4 text-muted-foreground"/>{attr.label}</h4>
+                                            <div className="pl-6 pt-2">
+                                                <div className="flex gap-2 mb-2">
+                                                    <Textarea 
+                                                        placeholder={`Adicionar nova ${attr.label.toLowerCase()}...\nCole múltiplos valores separados por vírgula ou quebra de linha.`}
+                                                        value={newOption[attr.key] || ""}
+                                                        onChange={(e) => setNewOption(prev => ({ ...prev, [attr.key]: e.target.value }))}
+                                                        rows={3}
+                                                    />
+                                                    <Button size="icon" onClick={() => handleAddOption(catIndex, attrIndex)}>
+                                                        <PlusCircle />
+                                                    </Button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {attr.values.length > 0 ? attr.values.map(option => (
+                                                        <Badge key={option} variant="secondary" className="flex items-center gap-1.5 pr-1">
+                                                            {option}
+                                                            <button onClick={() => handleRemoveOption(catIndex, attrIndex, option)} className="rounded-full hover:bg-muted-foreground/20">
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </Badge>
+                                                    )) : <p className="text-xs text-muted-foreground italic">Nenhuma opção adicionada.</p>}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-                <div className="flex justify-end">
-                    <Button onClick={handleSaveSettings} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
-                        Salvar Todas as Configurações
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                                    ))}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Gerenciar Lojas</CardTitle>
+                    <CardDescription>Cadastre as lojas onde os produtos são comprados. Elas aparecerão como opções na tela de Relatório de Compras.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="p-4 border rounded-md">
+                        <h4 className="font-medium flex items-center gap-2"><Store className="h-4 w-4 text-muted-foreground"/>Lojas Cadastradas</h4>
+                        <div className="pl-6 pt-2">
+                            <div className="flex gap-2 mb-2">
+                                <Textarea 
+                                    placeholder={`Adicionar nova loja...\nCole múltiplos valores separados por vírgula ou quebra de linha.`}
+                                    value={newStore}
+                                    onChange={(e) => setNewStore(e.target.value)}
+                                    rows={3}
+                                />
+                                <Button size="icon" onClick={handleAddStore}>
+                                    <PlusCircle />
+                                </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {stores.length > 0 ? stores.map(store => (
+                                    <Badge key={store} variant="secondary" className="flex items-center gap-1.5 pr-1">
+                                        {store}
+                                        <button onClick={() => handleRemoveStore(store)} className="rounded-full hover:bg-muted-foreground/20">
+                                            <Trash2 className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                )) : <p className="text-xs text-muted-foreground italic">Nenhuma loja adicionada.</p>}
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+             <div className="flex justify-end mt-4">
+                <Button onClick={handleSaveSettings} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                    Salvar Todas as Configurações
+                </Button>
+            </div>
+        </div>
     );
 }

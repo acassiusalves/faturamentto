@@ -45,6 +45,7 @@ export default function ComprasPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [availableStores, setAvailableStores] = useState<string[]>([]);
     
     // Novo estado para a lista de produtos a ser exibida
     const [displayList, setDisplayList] = useState<DisplayListItem[]>([]);
@@ -56,7 +57,6 @@ export default function ComprasPage() {
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("generator");
-    const [editingPurchaseInfo, setEditingPurchaseInfo] = useState<{ createdAt: string } | null>(null);
 
 
     // Pagination state
@@ -126,6 +126,9 @@ export default function ComprasPage() {
             const settings = await loadAppSettings();
             if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
                 throw new Error('A chave da API da Ideris não é válida ou não está configurada.');
+            }
+            if (settings?.stores) {
+                setAvailableStores(settings.stores);
             }
             
             const [openOrders, products] = await Promise.all([
@@ -281,7 +284,6 @@ export default function ComprasPage() {
             setCosts(new Map());
             setTotalPurchaseCost(0);
             setStoreNames(new Map());
-            setEditingPurchaseInfo(null);
 
 
         } catch (err) {
@@ -310,13 +312,6 @@ export default function ComprasPage() {
         });
     };
     
-    const handleCancelEdit = () => {
-        setDisplayList([]);
-        setCosts(new Map());
-        setStoreNames(new Map());
-        setTotalPurchaseCost(0);
-        setEditingPurchaseInfo(null);
-    };
 
 
     const renderContent = () => {
@@ -528,13 +523,16 @@ export default function ComprasPage() {
                                             {isGrouped && (
                                                 <>
                                                     <TableCell>
-                                                        <Input
-                                                          type="text"
-                                                          placeholder="Nome da loja"
-                                                          className="w-32"
-                                                          onChange={(e) => handleStoreNameChange(sku, e.target.value)}
-                                                          defaultValue={storeNames.get(sku) || ''}
-                                                        />
+                                                        <Select onValueChange={(value) => handleStoreNameChange(sku, value)} value={storeNames.get(sku) || ''}>
+                                                            <SelectTrigger className="w-[180px]">
+                                                                <SelectValue placeholder="Selecione a loja" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {availableStores.map(store => (
+                                                                    <SelectItem key={store} value={store}>{store}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </TableCell>
                                                     <TableCell className="text-center font-bold">{quantity}</TableCell>
                                                     <TableCell className="text-right">
@@ -576,31 +574,18 @@ export default function ComprasPage() {
                 </CardContent>
                 {isGrouped && processedList.length > 0 && (
                      <CardFooter className="flex justify-between items-center bg-muted/50 p-4 border-t gap-4">
-                        <div>
-                             {editingPurchaseInfo && (
-                                <p className="text-sm font-semibold text-destructive">
-                                    Você está editando um pedido de compra criado em {formatDate(editingPurchaseInfo.createdAt)}.
-                                </p>
-                            )}
-                        </div>
                         <div className="flex items-center gap-4">
-                            {editingPurchaseInfo && (
-                                <Button onClick={handleCancelEdit} variant="outline">
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Cancelar Edição
-                                </Button>
-                            )}
                             <Button onClick={handleSavePurchaseList} disabled={isSaving}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Salvar Lista
                             </Button>
-                            <div className="flex items-center gap-2">
-                                <span className="font-semibold text-lg">Custo Total:</span>
-                                <span className="font-bold text-2xl text-primary flex items-center gap-2">
-                                    <DollarSign size={24} />
-                                    {formatCurrency(totalPurchaseCost)}
-                                </span>
-                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-lg">Custo Total:</span>
+                            <span className="font-bold text-2xl text-primary flex items-center gap-2">
+                                <DollarSign size={24} />
+                                {formatCurrency(totalPurchaseCost)}
+                            </span>
                         </div>
                     </CardFooter>
                 )}
@@ -609,19 +594,6 @@ export default function ComprasPage() {
         <TabsContent value="history" className="mt-6">
             <PurchaseHistory onEdit={(purchase) => {
                  setActiveTab('generator');
-                 setIsGrouped(true); // Always be grouped for editing
-                 const newCosts = new Map(purchase.items.map(i => [i.sku, i.unitCost]));
-                 const newStores = new Map(purchase.items.map(i => [i.sku, i.storeName || '']));
-                 const newDisplayList = purchase.items.map(i => ({
-                    orderId: 0, // Not relevant for editing a grouped list
-                    title: i.productName,
-                    sku: i.sku,
-                    quantity: i.quantity
-                 }));
-                 setCosts(newCosts);
-                 setStoreNames(newStores);
-                 setDisplayList(newDisplayList);
-                 setEditingPurchaseInfo({ createdAt: purchase.createdAt });
             }}/>
         </TabsContent>
       </Tabs>

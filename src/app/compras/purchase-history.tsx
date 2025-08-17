@@ -55,7 +55,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Apagar',
-                description: 'Não foi possível remover a lista de compras.',
+                description: 'Não foi possível remover la lista de compras.',
             });
         }
     };
