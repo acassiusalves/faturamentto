@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings } from '@/services/firestore';
@@ -14,6 +14,13 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+
+interface PurchaseListItem {
+  sku: string;
+  name: string;
+  quantity: number;
+}
 
 
 export default function ComprasPage() {
@@ -21,9 +28,45 @@ export default function ComprasPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
+    // State for the purchase list
+    const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
+    const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
+
+    
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+
+    const generatePurchaseList = (ordersToProcess: any[]) => {
+        const productMap = new Map<string, { name: string; quantity: number }>();
+        
+        ordersToProcess.forEach(order => {
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                    const sku = item.sku;
+                    if (sku) {
+                        const existing = productMap.get(sku);
+                        if (existing) {
+                            existing.quantity += item.quantity || 1;
+                        } else {
+                            productMap.set(sku, {
+                                name: item.title || 'Produto sem nome',
+                                quantity: item.quantity || 1
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        
+        const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
+            sku,
+            name: data.name,
+            quantity: data.quantity
+        }));
+        
+        setPurchaseList(aggregatedList);
+    };
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -37,6 +80,7 @@ export default function ComprasPage() {
             const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
             const filteredOrders = openOrders.filter(order => order.statusDescription !== 'PEDIDO_EM_TRANSITO');
             setOrders(filteredOrders);
+            generatePurchaseList(filteredOrders);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
@@ -64,6 +108,22 @@ export default function ComprasPage() {
         } catch {
             return 'Data inválida';
         }
+    };
+    
+    const formatCurrency = (value: number) => {
+        if (isNaN(value)) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
+
+    const handleCostChange = (sku: string, cost: string) => {
+        const newCosts = new Map(unitCosts);
+        const numericCost = parseFloat(cost);
+        if (!isNaN(numericCost)) {
+            newCosts.set(sku, numericCost);
+        } else {
+            newCosts.delete(sku);
+        }
+        setUnitCosts(newCosts);
     };
     
     const renderContent = () => {
@@ -234,6 +294,65 @@ export default function ComprasPage() {
                 </div>
             </div>
         </CardFooter>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Relação de Produtos para Compra</CardTitle>
+            <CardDescription>
+                Lista agregada de todos os produtos necessários com base nos pedidos acima.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            {isLoading ? (
+                 <div className="flex items-center justify-center h-48">
+                    <Loader2 className="animate-spin text-primary" size={32} />
+                 </div>
+            ) : purchaseList.length > 0 ? (
+                 <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Produto</TableHead>
+                                <TableHead className="w-[150px]">Custo Unit.</TableHead>
+                                <TableHead className="text-center">Qtd.</TableHead>
+                                <TableHead className="text-right">Custo Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {purchaseList.map((item) => {
+                                const unitCost = unitCosts.get(item.sku) || 0;
+                                const totalCost = unitCost * item.quantity;
+                                return (
+                                <TableRow key={item.sku}>
+                                    <TableCell className="font-mono">{item.sku}</TableCell>
+                                    <TableCell>{item.name}</TableCell>
+                                    <TableCell>
+                                         <div className="relative">
+                                            <DollarSign className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type="number"
+                                                placeholder="0.00"
+                                                className="pl-8"
+                                                onChange={(e) => handleCostChange(item.sku, e.target.value)}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                                    <TableCell className="text-right font-semibold">{formatCurrency(totalCost)}</TableCell>
+                                </TableRow>
+                            )})}
+                        </TableBody>
+                    </Table>
+                </div>
+            ) : (
+                <div className="text-center text-muted-foreground py-10">
+                    <Package className="mx-auto h-12 w-12 mb-4" />
+                    <p>Nenhum produto para comprar com base nos filtros atuais.</p>
+                </div>
+            )}
+        </CardContent>
       </Card>
     </div>
   );

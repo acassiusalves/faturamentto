@@ -1,4 +1,4 @@
-"use client";
+
 
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
@@ -84,7 +84,7 @@ function formatDateForApi(date: Date): string {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+    return `${day}/${month}/${year}`;
 }
 
 async function fetchWithToken<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<T> {
