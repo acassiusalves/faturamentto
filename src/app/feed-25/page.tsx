@@ -23,6 +23,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -260,7 +261,7 @@ function FullPipelineTab() {
                 <input type="hidden" name="databaseList" value={databaseList} />
                 <input type="hidden" name="apiKey" value={apiKey} />
                 <input type="hidden" name="modelName" value={modelName} />
-                <input type="hidden" name="listDate" value={date ? format(date, "PPP") : ''} />
+                <input type="hidden" name="listDate" value={date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : ''} />
                 <input type="hidden" name="storeName" value={storeName} />
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -292,7 +293,7 @@ function FullPipelineTab() {
                                 disabled={isPending || !date}
                                 >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "PPP") : <span>Escolha uma data</span>}
+                                {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Escolha uma data</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -301,6 +302,7 @@ function FullPipelineTab() {
                                 selected={date}
                                 onSelect={setDate}
                                 initialFocus
+                                locale={ptBR}
                                 />
                             </PopoverContent>
                         </Popover>
@@ -770,7 +772,7 @@ function StepByStepTab() {
                                             disabled={!date}
                                             >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "PPP") : <span>Escolha uma data</span>}
+                                            {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Escolha uma data</span>}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0">
@@ -779,6 +781,7 @@ function StepByStepTab() {
                                             selected={date}
                                             onSelect={setDate}
                                             initialFocus
+                                            locale={ptBR}
                                             />
                                         </PopoverContent>
                                     </Popover>
