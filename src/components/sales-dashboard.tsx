@@ -7,7 +7,7 @@ import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle,
 import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
-import type { Sale, Cost, Product } from "@/lib/types";
+import type { Sale, Cost, Product, PickedItemLog } from "@/lib/types";
 import { SalesTable } from "@/components/sales-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,9 +45,10 @@ function StatsCard({ title, value, icon: Icon, description }: { title: string; v
 interface SalesDashboardProps {
   isSyncing: boolean;
   lastSyncTime: Date | null;
+  pickingLogs: PickedItemLog[];
 }
 
-export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps) {
+export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDashboardProps) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -134,16 +135,25 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
     });
   }, [sales, searchTerm, marketplace, dateRange, stateFilter, accountFilter]);
 
+  const pickingLogsMap = useMemo(() => {
+    const map = new Map<string, number>();
+    pickingLogs.forEach(log => {
+        const currentCost = map.get(log.orderNumber) || 0;
+        map.set(log.orderNumber, currentCost + log.costPrice);
+    });
+    return map;
+  }, [pickingLogs]);
+
   const stats = useMemo(() => {
     const grossRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
     const totalCosts = filteredSales.reduce((acc, sale) => {
-        // Dashboard only shows high-level costs from the marketplace
         const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
-        return acc + iderisCosts;
+        const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
+        return acc + iderisCosts + productCost;
     }, 0);
     const netRevenue = filteredSales.reduce((acc, sale) => acc + ((sale as any).left_over || 0), 0);
     return { grossRevenue, totalCosts, netRevenue };
-  }, [filteredSales]);
+  }, [filteredSales, pickingLogsMap]);
   
   const todayStats = useMemo(() => {
     const today = new Date();
@@ -255,7 +265,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime }: SalesDashboardProps)
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
-        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Custos de comissão e frete da Ideris"/>
+        <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Frete + Comissão + Custo dos Produtos"/>
         <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description={`Projeção para o mês de ${projectionMonthName}`}/>
       </div>
       

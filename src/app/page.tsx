@@ -5,9 +5,10 @@ import { SalesDashboard } from '@/components/sales-dashboard';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { loadAppSettings, saveSales, loadSales } from '@/services/firestore';
+import { loadAppSettings, saveSales, loadSales, loadAllPickingLogs } from '@/services/firestore';
 import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Loader2 } from 'lucide-react';
+import type { PickedItemLog } from '@/lib/types';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -15,6 +16,7 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const [isReady, setIsReady] = useState(false);
+  const [pickingLogs, setPickingLogs] = useState<PickedItemLog[]>([]);
   
   // Sync states
   const [isSyncing, setIsSyncing] = useState(false);
@@ -39,7 +41,7 @@ export default function Home() {
     try {
         const to = new Date();
         const from = new Date();
-        from.setDate(to.getDate() - 1); // Check last 24 hours
+        from.setDate(to.getDate() - 5); // Check last 5 days
 
         const existingSales = await loadSales();
         const existingSaleIds = existingSales.map(s => s.id);
@@ -67,6 +69,11 @@ export default function Home() {
 
     async function initializeDashboard() {
         const settings = await loadAppSettings();
+        const [logs] = await Promise.all([
+          loadAllPickingLogs(),
+        ]);
+        setPickingLogs(logs);
+
         let isConfigured = false;
         
         if (settings?.iderisPrivateKey && settings.iderisApiStatus === 'valid') {
@@ -118,5 +125,5 @@ export default function Home() {
     );
   }
   
-  return <SalesDashboard isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
+  return <SalesDashboard isSyncing={isSyncing} lastSyncTime={lastSyncTime} pickingLogs={pickingLogs} />
 }
