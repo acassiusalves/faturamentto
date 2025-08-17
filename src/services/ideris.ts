@@ -211,25 +211,10 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        const response = await fetchWithToken<any>(url, token);
-        
-        // Handle cases where the data is in response.result, response.obj, or directly in the response
-        if (response && response.id) { // Check if the root object looks like an order
-            return response;
-        }
-        if (response && response.result) {
-            // The result can be an object or an array with one object
-             if (Array.isArray(response.result) && response.result.length > 0) {
-                return response.result[0];
-            }
-            if (typeof response.result === 'object' && response.result !== null && response.result.id) {
-                 return response.result;
-            }
-        }
-
-        // If the response is successful but the structure is unexpected
-        throw new Error(`Resposta inesperada da API para o pedido ${orderId}. Verifique a estrutura da resposta.`);
-
+        // A chamada a `fetchWithToken` já trata erros de rede e autenticação.
+        // Se ela retornar, a resposta foi bem-sucedida (status 2xx).
+        // A resposta direta já é o objeto do pedido que precisamos.
+        return await fetchWithToken<any>(url, token);
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
