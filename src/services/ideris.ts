@@ -170,15 +170,26 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
     const limitPerPage = 50;
     let hasMorePages = true;
     let currentPage = 0;
-    const maxPages = 100;
+    const maxPages = 100; // Prevenção de loop infinito
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-        const searchResult = await fetchWithToken<{ result: { obj: any[] } }>(searchUrl, token);
+        const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
 
-        if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj) && searchResult.result.obj.length > 0) {
-            allSummaries = allSummaries.concat(searchResult.result.obj);
-            currentOffset += searchResult.result.obj.length;
+        let pageResults: any[] = [];
+
+        // --- INÍCIO DA CORREÇÃO ---
+        // Lógica robusta para encontrar os resultados da página atual
+        if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
+            pageResults = searchResult.result.obj;
+        } else if (searchResult?.obj && Array.isArray(searchResult.obj)) {
+            pageResults = searchResult.obj;
+        }
+        // --- FIM DA CORREÇÃO ---
+
+        if (pageResults.length > 0) {
+            allSummaries = allSummaries.concat(pageResults);
+            currentOffset += pageResults.length;
         } else {
             hasMorePages = false;
         }
@@ -189,12 +200,19 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
         console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
     }
     
+    console.log('[Dashboard Fetch] Total de pedidos encontrados na Ideris:', allSummaries.length);
+    console.log('[Dashboard Fetch] IDs já existentes no seu DB:', existingSaleIds.length);
+
     const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
-    const newOrderIds = newSummaries.map(s => s.id);
+    
+    console.log('[Dashboard Fetch] Novos pedidos a serem importados:', newSummaries.length);
+
+    const newOrderIds = newSummaries.map(s => String(s.id)); // Garante que IDs sejam strings
     if (newOrderIds.length === 0) {
         if (onProgress) onProgress(100, 0, 0);
         return [];
     }
+
     const tokenForDetails = await getValidAccessToken(privateKey);
     return await fetchOrderDetailsByIds(newOrderIds, tokenForDetails, onProgress);
 }
@@ -239,5 +257,3 @@ export async function testIderisConnection(privateKey: string): Promise<{ succes
         return { success: false, message: `Falha na conexão: ${errorMessage}` };
     }
 }
-
-    
