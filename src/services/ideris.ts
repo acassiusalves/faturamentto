@@ -139,15 +139,23 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
 
     const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
     
-    const searchResult = await fetchWithToken<{ obj: any[], result: { obj: any[] } }>(searchUrl, token);
+    // A API da Ideris pode retornar a lista em 'result.obj' ou diretamente em 'obj'
+    try {
+        const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
 
-    // Ideris can return details in 'result.obj' or just 'obj'
-    if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
-        return searchResult.result.obj;
-    } else if (searchResult && Array.isArray(searchResult.obj)) {
-        return searchResult.obj;
+        if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
+            return searchResult.result.obj;
+        } 
+        if (searchResult?.obj && Array.isArray(searchResult.obj)) {
+            return searchResult.obj;
+        }
+    } catch (error) {
+        console.error("Falha ao buscar pedidos em aberto da Ideris:", error);
+        // Em caso de erro, retorna um array vazio para não quebrar a UI
+        return [];
     }
     
+    // Garante que, se a resposta vier em um formato inesperado, ainda retorne um array vazio
     return [];
 }
 
