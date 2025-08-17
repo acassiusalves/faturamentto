@@ -38,7 +38,7 @@ function StatsCard({ title, value, icon: Icon, description, comparison }: { titl
         <div className="text-2xl font-bold">{value}</div>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
         {comparison && comparison.value !== Infinity && (
-           <div className={`text-xs flex items-center gap-1 ${comparison.trend === 'up' ? 'text-green-600' : 'text-destructive'}`}>
+           <div className={`text-xs mt-1 flex items-center gap-1 ${comparison.trend === 'up' ? 'text-green-600' : 'text-destructive'}`}>
                 {comparison.trend === 'up' ? <TrendingUp className="h-4 w-4"/> : <TrendingDown className="h-4 w-4"/>}
                 <span>{comparison.value.toFixed(2)}% em relação a ontem</span>
            </div>
