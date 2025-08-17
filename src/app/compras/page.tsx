@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,22 +15,14 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
-interface PurchaseListItem {
-  sku: string;
-  name: string;
-  quantity: number;
-}
-
-
 export default function ComprasPage() {
     const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    // State for the purchase list
-    const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
+    // State for the detailed orders response
+    const [detailedOrders, setDetailedOrders] = useState<any[] | null>(null);
     const [isGenerating, setIsGenerating] = useState(false); 
-
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -40,7 +31,7 @@ export default function ComprasPage() {
     const generatePurchaseList = useCallback(async (ordersToProcess: any[]) => {
         setIsGenerating(true);
         setError(null);
-        setPurchaseList([]);
+        setDetailedOrders(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -51,33 +42,8 @@ export default function ComprasPage() {
 
         try {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
-            const detailedOrders = await Promise.all(orderDetailsPromises);
-
-            const productMap = new Map<string, { name: string; quantity: number }>();
-
-            detailedOrders.forEach(order => {
-                if (order && Array.isArray(order.items)) {
-                    order.items.forEach((item: any) => {
-                        const { sku, title, quantity } = item;
-                        if (sku) {
-                            if (productMap.has(sku)) {
-                                const existing = productMap.get(sku)!;
-                                existing.quantity += quantity;
-                            } else {
-                                productMap.set(sku, { name: title, quantity });
-                            }
-                        }
-                    });
-                }
-            });
-
-            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
-                sku,
-                name: data.name,
-                quantity: data.quantity,
-            }));
-            
-            setPurchaseList(aggregatedList);
+            const allDetailedOrders = await Promise.all(orderDetailsPromises);
+            setDetailedOrders(allDetailedOrders);
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
@@ -310,7 +276,7 @@ export default function ComprasPage() {
                  <div>
                     <CardTitle>Relação de Produtos para Compra</CardTitle>
                     <CardDescription>
-                        Lista agregada de todos os produtos necessários com base nos pedidos acima.
+                        Clique no botão para buscar os detalhes de cada pedido na Ideris.
                     </CardDescription>
                 </div>
                 <Button onClick={() => generatePurchaseList(orders)} disabled={orders.length === 0 || isGenerating}>
@@ -338,31 +304,27 @@ export default function ComprasPage() {
                         Verifique o console do navegador (F12) para mais detalhes.
                     </AlertDescription>
                 </Alert>
-            ) : purchaseList.length > 0 ? (
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Título do Produto</TableHead>
-                                <TableHead>SKU</TableHead>
-                                <TableHead className="text-right">Quantidade</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {purchaseList.map((item) => (
-                                <TableRow key={item.sku}>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
-                                    <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell className="text-right font-bold">{item.quantity}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+            ) : detailedOrders ? (
+                 <div className="space-y-4">
+                    {detailedOrders.map((response, index) => (
+                        <Card key={index}>
+                            <CardHeader>
+                                <CardTitle className="text-lg">
+                                    Resposta para o Pedido ID: {response?.id || 'ID não encontrado'}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto">
+                                    {JSON.stringify(response, null, 2)}
+                                </pre>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : (
                 <div className="text-center text-muted-foreground py-10">
                     <Package className="mx-auto h-12 w-12 mb-4" />
-                    <p>Nenhum produto para comprar com base nos filtros atuais.</p>
+                    <p>Aguardando a busca dos detalhes dos produtos.</p>
                      <p className="text-sm">Clique em "Buscar produtos" para gerar a lista.</p>
                 </div>
             )}
