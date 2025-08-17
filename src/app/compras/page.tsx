@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings, fetchOrderDetailsFromDB } from '@/services/firestore';
 import { fetchOpenOrdersFromIderis } from '@/services/ideris';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -31,42 +31,61 @@ export default function ComprasPage() {
     // State for the purchase list
     const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
     const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
+    const [isGenerating, setIsGenerating] = useState(false); 
 
     
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
-    const generatePurchaseList = useCallback((ordersToProcess: any[]) => {
+    const generatePurchaseList = useCallback(async (ordersToProcess: any[]) => {
+        setIsGenerating(true);
+        setError(null);
+        setPurchaseList([]);
+        
         const productMap = new Map<string, { name: string; quantity: number }>();
-        
-        ordersToProcess.forEach(order => {
-            const items = order.result?.items; // Corrected path to items
-            if (items && Array.isArray(items)) {
-                items.forEach((item: any) => {
-                    const sku = item.sku;
-                    if (sku) {
-                        const existing = productMap.get(sku);
-                        if (existing) {
-                            existing.quantity += item.quantity || 1;
-                        } else {
-                            productMap.set(sku, {
-                                name: item.title || 'Produto sem nome',
-                                quantity: item.quantity || 1
-                            });
+    
+        try {
+            // Cria uma lista de promessas, uma para cada busca no banco de dados
+            const promises = ordersToProcess.map(order => fetchOrderDetailsFromDB(order.id));
+    
+            // Executa todas as buscas em paralelo para máxima performance
+            const resultsFromDB = await Promise.all(promises);
+    
+            // Processa os resultados que retornaram do banco de dados
+            resultsFromDB.forEach(orderData => {
+                if (orderData && orderData.items && Array.isArray(orderData.items)) {
+                    orderData.items.forEach((item: any) => {
+                        const sku = item.sku;
+                        if (sku) {
+                            const existing = productMap.get(sku);
+                            if (existing) {
+                                existing.quantity += item.quantity || 1;
+                            } else {
+                                productMap.set(sku, {
+                                    name: item.title || 'Produto sem nome',
+                                    quantity: item.quantity || 1
+                                });
+                            }
                         }
-                    }
-                });
-            }
-        });
-        
-        const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
-            sku,
-            name: data.name,
-            quantity: data.quantity
-        }));
-        
-        setPurchaseList(aggregatedList);
+                    });
+                }
+            });
+    
+            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
+                sku,
+                name: data.name,
+                quantity: data.quantity
+            }));
+    
+            setPurchaseList(aggregatedList);
+    
+        } catch (err) {
+            console.error("Erro ao gerar lista de compras a partir do DB:", err);
+            setError("Ocorreu uma falha ao buscar os detalhes dos pedidos no banco de dados.");
+        } finally {
+            setIsGenerating(false);
+        }
     }, []);
 
     const fetchData = useCallback(async () => {
@@ -306,14 +325,18 @@ export default function ComprasPage() {
                         Lista agregada de todos os produtos necessários com base nos pedidos acima.
                     </CardDescription>
                 </div>
-                <Button onClick={() => generatePurchaseList(orders)} disabled={orders.length === 0}>
-                    <Search className="mr-2 h-4 w-4"/>
-                    Buscar produtos
+                <Button onClick={() => generatePurchaseList(orders)} disabled={orders.length === 0 || isGenerating}>
+                    {isGenerating ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Search className="mr-2 h-4 w-4"/>
+                    )}
+                    {isGenerating ? 'Buscando no DB...' : 'Buscar produtos'}
                 </Button>
             </div>
         </CardHeader>
         <CardContent>
-            {isLoading ? (
+            {isGenerating ? (
                  <div className="flex items-center justify-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32} />
                  </div>
@@ -359,6 +382,7 @@ export default function ComprasPage() {
                 <div className="text-center text-muted-foreground py-10">
                     <Package className="mx-auto h-12 w-12 mb-4" />
                     <p>Nenhum produto para comprar com base nos filtros atuais.</p>
+                     <p className="text-sm">Clique em "Buscar produtos" para gerar a lista.</p>
                 </div>
             )}
         </CardContent>
@@ -366,6 +390,3 @@ export default function ComprasPage() {
     </div>
   );
 }
-
-
-
