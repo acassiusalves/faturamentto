@@ -3,8 +3,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3 } from "lucide-react";
-import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format } from "date-fns";
+import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3, TrendingUp } from "lucide-react";
+import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format, subDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
 import type { Sale, Cost, Product, PickedItemLog } from "@/lib/types";
@@ -27,7 +27,7 @@ import { SalesByStateChart } from "./sales-by-state-chart";
 import { SalesByAccountList } from "./sales-by-account-list";
 
 
-function StatsCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: React.ElementType; description?: string }) {
+function StatsCard({ title, value, icon: Icon, description, comparison }: { title: string; value: string; icon: React.ElementType; description?: string; comparison?: { value: number; trend: 'up' | 'down' | 'neutral' } }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -37,6 +37,12 @@ function StatsCard({ title, value, icon: Icon, description }: { title: string; v
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        {comparison && comparison.value !== Infinity && (
+           <div className={`text-xs flex items-center gap-1 ${comparison.trend === 'up' ? 'text-green-600' : 'text-destructive'}`}>
+                {comparison.trend === 'up' ? <TrendingUp className="h-4 w-4"/> : <TrendingDown className="h-4 w-4"/>}
+                <span>{comparison.value.toFixed(2)}% em relação a ontem</span>
+           </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -157,18 +163,30 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
   
   const todayStats = useMemo(() => {
     const today = new Date();
-    const todaysSales = sales.filter(sale => {
-      try {
-        const saleDateStr = (sale as any).payment_approved_date;
-        if (!saleDateStr) return false;
-        return isSameDay(new Date(saleDateStr), today);
-      } catch (e) {
-        return false;
-      }
-    });
+    const yesterday = subDays(today, 1);
 
-    const grossRevenue = todaysSales.reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
-    return { grossRevenue };
+    const getRevenue = (date: Date) => sales
+        .filter(sale => {
+            try {
+                const saleDateStr = (sale as any).payment_approved_date;
+                if (!saleDateStr) return false;
+                return isSameDay(new Date(saleDateStr), date);
+            } catch { return false; }
+        })
+        .reduce((acc, sale) => acc + ((sale as any).value_with_shipping || 0), 0);
+
+    const todayRevenue = getRevenue(today);
+    const yesterdayRevenue = getRevenue(yesterday);
+
+    let comparison: { value: number; trend: 'up' | 'down' | 'neutral' } | undefined = undefined;
+    if (yesterdayRevenue > 0) {
+        const value = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+        const trend = value > 0 ? 'up' : value < 0 ? 'down' : 'neutral';
+        comparison = { value, trend };
+    }
+
+
+    return { grossRevenue: todayRevenue, comparison };
   }, [sales]);
 
     const projectedRevenue = useMemo(() => {
@@ -263,7 +281,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} />
+        <StatsCard title="Receita Bruta do Dia" value={formatCurrency(todayStats.grossRevenue)} icon={CalendarCheck} comparison={todayStats.comparison} />
         <StatsCard title="Receita Bruta (Período)" value={formatCurrency(stats.grossRevenue)} icon={DollarSign} />
         <StatsCard title="Custos Totais (Período)" value={formatCurrency(stats.totalCosts)} icon={TrendingDown} description="Frete + Comissão + Custo dos Produtos"/>
         <StatsCard title="Projeção de Faturamento" value={formatCurrency(projectedRevenue)} icon={BarChart3} description={`Projeção para o mês de ${projectionMonthName}`}/>
