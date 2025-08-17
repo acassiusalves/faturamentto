@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign, Search } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings } from '@/services/firestore';
@@ -13,25 +13,32 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+
+// Interface para a nova lista de exibição
+interface DisplayListItem {
+  orderId: number;
+  title: string;
+  sku: string;
+  quantity: number;
+}
 
 export default function ComprasPage() {
     const [orders, setOrders] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    // State for the detailed orders response
-    const [detailedOrders, setDetailedOrders] = useState<any[] | null>(null);
+    // Novo estado para a lista de produtos a ser exibida
+    const [displayList, setDisplayList] = useState<DisplayListItem[]>([]);
     const [isGenerating, setIsGenerating] = useState(false); 
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
-    const generatePurchaseList = useCallback(async (ordersToProcess: any[]) => {
+    const generateDisplayList = useCallback(async (ordersToProcess: any[]) => {
         setIsGenerating(true);
         setError(null);
-        setDetailedOrders(null);
+        setDisplayList([]);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -42,8 +49,27 @@ export default function ComprasPage() {
 
         try {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
-            const allDetailedOrders = await Promise.all(orderDetailsPromises);
-            setDetailedOrders(allDetailedOrders);
+            const detailedOrders = await Promise.all(orderDetailsPromises);
+
+            const flatItemList: DisplayListItem[] = [];
+            
+            detailedOrders.forEach(orderResult => {
+                // ESTA É A CORREÇÃO PRINCIPAL: Usando o caminho orderResult.obj.items
+                const items = orderResult?.obj?.items; 
+
+                if (items && Array.isArray(items)) {
+                    items.forEach((item: any) => {
+                        flatItemList.push({
+                            orderId: orderResult.obj.id,
+                            title: item.title,
+                            sku: item.sku,
+                            quantity: item.quantity
+                        });
+                    });
+                }
+            });
+
+            setDisplayList(flatItemList);
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
@@ -95,11 +121,6 @@ export default function ComprasPage() {
         }
     };
     
-    const formatCurrency = (value: number) => {
-        if (isNaN(value)) return 'R$ 0,00';
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    };
-    
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -110,7 +131,7 @@ export default function ComprasPage() {
             )
         }
         
-        if (error && !isGenerating) { // Don't show this error if another process is running
+        if (error && !isGenerating) {
              return (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
@@ -229,42 +250,10 @@ export default function ComprasPage() {
                     Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPageIndex(0)}
-                        disabled={pageIndex === 0}
-                    >
-                        <span className="sr-only">Primeira página</span>
-                        <ChevronsLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPageIndex(pageIndex - 1)}
-                        disabled={pageIndex === 0}
-                    >
-                        <span className="sr-only">Página anterior</span>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPageIndex(pageIndex + 1)}
-                        disabled={pageIndex >= pageCount - 1}
-                    >
-                        <span className="sr-only">Próxima página</span>
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPageIndex(pageCount - 1)}
-                        disabled={pageIndex >= pageCount - 1}
-                    >
-                        <span className="sr-only">Última página</span>
-                        <ChevronsRight className="h-4 w-4" />
-                    </Button>
+                     <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                     <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                     <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                     <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
                 </div>
             </div>
         </CardFooter>
@@ -276,56 +265,52 @@ export default function ComprasPage() {
                  <div>
                     <CardTitle>Relação de Produtos para Compra</CardTitle>
                     <CardDescription>
-                        Clique no botão para buscar os detalhes de cada pedido na Ideris.
+                        Lista de todos os produtos necessários com base nos pedidos acima.
                     </CardDescription>
                 </div>
-                <Button onClick={() => generatePurchaseList(orders)} disabled={orders.length === 0 || isGenerating}>
-                    {isGenerating ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                        <Search className="mr-2 h-4 w-4"/>
-                    )}
+                <Button onClick={() => generateDisplayList(orders)} disabled={orders.length === 0 || isGenerating}>
+                    {isGenerating ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Search className="mr-2 h-4 w-4"/> )}
                     {isGenerating ? 'Buscando...' : 'Buscar produtos'}
                 </Button>
             </div>
         </CardHeader>
         <CardContent>
             {isGenerating ? (
-                 <div className="flex items-center justify-center h-48">
-                    <Loader2 className="animate-spin text-primary" size={32} />
-                 </div>
+                 <div className="flex items-center justify-center h-48"> <Loader2 className="animate-spin text-primary" size={32} /> </div>
             ) : error ? (
                 <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>Erro ao Gerar Lista</AlertTitle>
-                    <AlertDescription>
-                        {error}
-                        <br/>
-                        Verifique o console do navegador (F12) para mais detalhes.
-                    </AlertDescription>
+                    <AlertDescription>{error}<br/>Verifique o console (F12) para detalhes.</AlertDescription>
                 </Alert>
-            ) : detailedOrders ? (
-                 <div className="space-y-4">
-                    {detailedOrders.map((response, index) => (
-                        <Card key={index}>
-                            <CardHeader>
-                                <CardTitle className="text-lg">
-                                    Resposta para o Pedido ID: {response?.id || 'ID não encontrado'}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <pre className="text-xs bg-muted p-4 rounded-md overflow-x-auto">
-                                    {JSON.stringify(response, null, 2)}
-                                </pre>
-                            </CardContent>
-                        </Card>
-                    ))}
+            ) : displayList.length > 0 ? (
+                 <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>ID (id)</TableHead>
+                                <TableHead>Título (title)</TableHead>
+                                <TableHead>SKU (sku)</TableHead>
+                                <TableHead>Quantidade (quantity)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {displayList.map((item, index) => (
+                                <TableRow key={`${item.orderId}-${item.sku}-${index}`}>
+                                    <TableCell>{item.orderId}</TableCell>
+                                    <TableCell>{item.title}</TableCell>
+                                    <TableCell className="font-mono">{item.sku}</TableCell>
+                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
             ) : (
                 <div className="text-center text-muted-foreground py-10">
                     <Package className="mx-auto h-12 w-12 mb-4" />
-                    <p>Aguardando a busca dos detalhes dos produtos.</p>
-                     <p className="text-sm">Clique em "Buscar produtos" para gerar a lista.</p>
+                    <p>Nenhum produto para comprar.</p>
+                     <p className="text-sm">Clique em "Buscar produtos" para gerar a lista a partir dos pedidos acima.</p>
                 </div>
             )}
         </CardContent>
