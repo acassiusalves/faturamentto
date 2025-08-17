@@ -17,7 +17,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -470,6 +470,11 @@ export const loadPurchaseHistory = async (): Promise<PurchaseList[]> => {
     const q = query(historyCol, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PurchaseList);
+};
+
+export const updatePurchaseList = async (id: string, data: { items: PurchaseListItem[], totalCost: number }): Promise<void> => {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history', id);
+    await updateDoc(docRef, { items: data.items, totalCost: data.totalCost });
 };
 
 export const deletePurchaseList = async (id: string): Promise<void> => {

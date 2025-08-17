@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save, XCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings, loadProducts, findProductByAssociatedSku, savePurchaseList } from '@/services/firestore';
+import { loadAppSettings, loadProducts, findProductByAssociatedSku, savePurchaseList, updatePurchaseList } from '@/services/firestore';
 import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -55,7 +55,6 @@ export default function ComprasPage() {
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("generator");
-    const [editingPurchaseInfo, setEditingPurchaseInfo] = useState<{ createdAt: string } | null>(null);
 
 
     // Pagination state
@@ -66,7 +65,6 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setDisplayList([]);
-        setEditingPurchaseInfo(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -271,7 +269,6 @@ export default function ComprasPage() {
             setDisplayList([]);
             setCosts(new Map());
             setTotalPurchaseCost(0);
-            setEditingPurchaseInfo(null);
 
         } catch (err) {
             console.error('Error saving purchase list:', err);
@@ -299,49 +296,6 @@ export default function ComprasPage() {
         });
     };
     
-    const handleCancelEdit = () => {
-        setDisplayList([]);
-        setCosts(new Map());
-        setTotalPurchaseCost(0);
-        setEditingPurchaseInfo(null);
-        toast({
-            title: "Edição Cancelada",
-            description: "A lista de compras foi limpa.",
-        });
-    };
-
-    const handleEditPurchase = (purchase: PurchaseList) => {
-        // Convert PurchaseListItems back to DisplayListItems (non-grouped view)
-        // This is a simplification; we can't reconstruct the original orders,
-        // so we'll just create a flat list for editing costs and quantities.
-        const flatList: DisplayListItem[] = purchase.items.map(item => ({
-            orderId: 0, // No specific order ID when editing
-            title: item.productName,
-            sku: item.sku,
-            quantity: item.quantity
-        }));
-        
-        // Set costs
-        const costMap = new Map<string, number>();
-        purchase.items.forEach(item => {
-            costMap.set(item.sku, item.unitCost);
-        });
-
-        setDisplayList(flatList);
-        setCosts(costMap);
-        setIsGrouped(true); // Always start in grouped mode for editing
-        setActiveTab("generator"); // Switch to the generator tab
-        setEditingPurchaseInfo({ createdAt: purchase.createdAt });
-        
-        // Scroll to the top of the page
-        window.scrollTo(0, 0);
-
-        toast({
-            title: "Modo de Edição Ativado",
-            description: "A lista de compra foi carregada. Faça suas alterações e salve novamente."
-        });
-    };
-
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -582,38 +536,24 @@ export default function ComprasPage() {
                     )}
                 </CardContent>
                 {isGrouped && processedList.length > 0 && (
-                    <CardFooter className="flex justify-between items-center bg-muted/50 p-4 border-t">
-                         <div className="flex-1">
-                            {editingPurchaseInfo && (
-                                <div className="text-sm">
-                                    <p className="font-semibold text-primary">Você esta editando um pedido de compra</p>
-                                    <p className="text-muted-foreground">criado em {formatDate(editingPurchaseInfo.createdAt)}</p>
-                                </div>
-                            )}
-                         </div>
-                         <div className="flex items-center gap-4">
-                            <Button variant="outline" onClick={handleCancelEdit}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancelar
-                            </Button>
-                            <Button onClick={handleSavePurchaseList} disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Salvar
-                            </Button>
-                            <div className="flex items-center gap-2">
-                                <span className="font-semibold text-lg">Custo Total:</span>
-                                <span className="font-bold text-2xl text-primary flex items-center gap-2">
-                                    <DollarSign size={24} />
-                                    {formatCurrency(totalPurchaseCost)}
-                                </span>
-                            </div>
+                    <CardFooter className="flex justify-end items-center bg-muted/50 p-4 border-t gap-4">
+                         <Button onClick={handleSavePurchaseList} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Salvar Lista
+                        </Button>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-lg">Custo Total:</span>
+                            <span className="font-bold text-2xl text-primary flex items-center gap-2">
+                                <DollarSign size={24} />
+                                {formatCurrency(totalPurchaseCost)}
+                            </span>
                         </div>
                     </CardFooter>
                 )}
             </Card>
         </TabsContent>
         <TabsContent value="history" className="mt-6">
-            <PurchaseHistory onEdit={handleEditPurchase} />
+            <PurchaseHistory />
         </TabsContent>
       </Tabs>
     </div>
