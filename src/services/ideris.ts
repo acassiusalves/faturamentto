@@ -102,8 +102,8 @@ async function fetchWithToken<T>(url: string, accessToken: string, options: Requ
     }
     const responseText = await response.text();
     if (!responseText) {
-        // Lançar erro se a resposta estiver vazia, pois esperamos um objeto JSON.
-        throw new Error("A API da Ideris retornou uma resposta vazia.");
+        // CORREÇÃO: Retorna um objeto vazio em vez de lançar um erro.
+        return JSON.parse('{}');
     }
     return JSON.parse(responseText);
 }
