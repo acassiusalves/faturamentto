@@ -54,6 +54,7 @@ export default function MappingPage() {
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState({ current: 0, total: 0 });
   const [iderisPrivateKey, setIderisPrivateKey] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [googleSheetsApiKey, setGoogleSheetsApiKey] = useState("");
   const [googleSheetId, setGoogleSheetId] = useState("");
   const [sheetHeaders, setSheetHeaders] = useState<string[]>([]);
@@ -62,6 +63,7 @@ export default function MappingPage() {
   const [isImportingSheet, setIsImportingSheet] = useState(false);
   const [sheetAssociationKey, setSheetAssociationKey] = useState<string>("");
   const [iderisApiStatus, setIderisApiStatus] = useState<ApiKeyStatus>('unchecked');
+  const [geminiApiStatus, setGeminiApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [googleSheetsApiStatus, setGoogleSheetsApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [allMappings, setAllMappings] = useState<AllMappingsState>({});
   const [friendlyNames, setFriendlyNames] = useState<Record<string, string>>({});
@@ -88,12 +90,16 @@ export default function MappingPage() {
         
         if (settings) {
             setIderisPrivateKey(settings.iderisPrivateKey || "");
+            setGeminiApiKey(settings.geminiApiKey || "");
             setGoogleSheetsApiKey(settings.googleSheetsApiKey || "");
             setAllMappings(settings.allMappings || {});
             setFriendlyNames(settings.friendlyFieldNames || {});
             setFileNames(settings.fileNames || {});
             if (settings.iderisApiStatus) {
                 setIderisApiStatus(settings.iderisApiStatus as ApiKeyStatus);
+            }
+             if (settings.geminiApiStatus) {
+                setGeminiApiStatus(settings.geminiApiStatus as ApiKeyStatus);
             }
              if (settings.googleSheetsApiStatus) {
                 setGoogleSheetsApiStatus(settings.googleSheetsApiStatus as ApiKeyStatus);
@@ -267,6 +273,11 @@ export default function MappingPage() {
     setIderisPrivateKey(value);
     setIderisApiStatus("unchecked");
   }
+  
+  const handleGeminiApiKeyChange = (value: string) => {
+    setGeminiApiKey(value);
+    setGeminiApiStatus("unchecked");
+  }
 
   const handleSaveIderisCredentials = async () => {
     if (!iderisPrivateKey) {
@@ -294,6 +305,25 @@ export default function MappingPage() {
         toast({ variant: "destructive", title: "Erro Inesperado", description: e.message || "Não foi possível verificar a conexão." });
     } finally {
         setIsTestingConnection(false);
+    }
+  }
+  
+  const handleSaveGeminiApiKey = async () => {
+    if (!geminiApiKey) {
+      toast({ variant: "destructive", title: "A Chave de API do Gemini é obrigatória."});
+      return;
+    }
+    setIsTestingConnection(true);
+    try {
+      await saveAppSettings({ geminiApiKey, geminiApiStatus: 'valid' });
+      setGeminiApiStatus('valid');
+      toast({ title: "Sucesso!", description: "Sua chave de API do Gemini foi salva." });
+    } catch (e: any) {
+      setGeminiApiStatus('invalid');
+      await saveAppSettings({ geminiApiStatus: 'invalid' });
+      toast({ variant: "destructive", title: "Erro ao Salvar", description: "Não foi possível salvar a chave de API." });
+    } finally {
+      setIsTestingConnection(false);
     }
   }
   
@@ -432,8 +462,9 @@ export default function MappingPage() {
         </div>
         
         <Tabs defaultValue="ideris-api" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="ideris-api"><Database />Ideris API (Base)</TabsTrigger>
+            <TabsTrigger value="gemini-ai"><Sparkles />Gemini AI</TabsTrigger>
             <TabsTrigger value="google-sheets"><FileSpreadsheet/>Google Planilhas</TabsTrigger>
             <TabsTrigger value="local-file"><HardDriveUpload/>Arquivo Local (CSV)</TabsTrigger>
           </TabsList>
@@ -527,6 +558,41 @@ export default function MappingPage() {
                         onSave={handleFriendlyNamesChange}
                     />
                 </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="gemini-ai" className="space-y-8 pt-6">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Conectar com Gemini AI</CardTitle>
+                  <CardDescription>
+                      Forneça sua chave de API do Google Gemini para habilitar as funcionalidades de Inteligência Artificial no sistema.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <div className="space-y-4 max-w-lg">
+                      <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                              <Label htmlFor="gemini-api-key">Chave de API do Gemini</Label>
+                              <ApiStatusBadge status={geminiApiStatus} />
+                          </div>
+                          <Input
+                              id="gemini-api-key"
+                              value={geminiApiKey}
+                              onChange={(e) => handleGeminiApiKeyChange(e.target.value)}
+                              placeholder="Cole aqui sua chave de API do Gemini"
+                              type="password"
+                          />
+                           <p className="text-xs text-muted-foreground">
+                              Você pode obter sua chave no <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a>.
+                          </p>
+                      </div>
+                      <Button onClick={handleSaveGeminiApiKey} disabled={isTestingConnection || !geminiApiKey}>
+                          {isTestingConnection ? <Loader2 className="animate-spin" /> : <Save />}
+                          Salvar Chave
+                      </Button>
+                  </div>
+              </CardContent>
             </Card>
           </TabsContent>
 

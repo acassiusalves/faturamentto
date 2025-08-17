@@ -4,6 +4,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -238,12 +239,14 @@ export interface ApprovalRequest {
 export interface AppSettings {
     iderisPrivateKey?: string;
     googleSheetsApiKey?: string;
+    geminiApiKey?: string;
     allMappings?: AllMappingsState;
     friendlyFieldNames?: Record<string, string>;
     fileNames?: { [key: string]: string };
     fileData?: { [key: string]: string };
     iderisApiStatus?: ApiKeyStatus;
     googleSheetsApiStatus?: ApiKeyStatus;
+    geminiApiStatus?: ApiKeyStatus;
     permissions?: Record<string, string[]>;
     inactivePages?: string[];
     customCalculations?: any[];
