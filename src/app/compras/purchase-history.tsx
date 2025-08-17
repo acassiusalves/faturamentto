@@ -7,7 +7,7 @@ import type { PurchaseList, PurchaseListItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, HandCoins } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, SackDollar } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -182,7 +182,7 @@ export function PurchaseHistory() {
                                         </AccordionTrigger>
                                         <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
-                                                 <HandCoins className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
+                                                 <SackDollar className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
                                                 {isEditingThis ? (
                                                     <>
                                                         <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isSaving}>
