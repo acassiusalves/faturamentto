@@ -24,6 +24,8 @@ export function PurchaseHistory() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [pendingItems, setPendingItems] = useState<PurchaseListItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
 
     const fetchHistory = useCallback(async () => {
         setIsLoading(true);
@@ -57,6 +59,10 @@ export function PurchaseHistory() {
     const handleEditStart = (purchase: PurchaseList) => {
         setEditingId(purchase.id);
         setPendingItems([...purchase.items]); // Create a deep copy for editing
+        // Expand the accordion item automatically
+        if (!openAccordionItems.includes(purchase.id)) {
+            setOpenAccordionItems(prev => [...prev, purchase.id]);
+        }
     };
 
     const handleEditCancel = () => {
@@ -127,7 +133,7 @@ export function PurchaseHistory() {
             </CardHeader>
             <CardContent>
                 {history.length > 0 ? (
-                    <Accordion type="multiple" className="w-full space-y-4">
+                    <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
                         {history.map(purchase => {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
