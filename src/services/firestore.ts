@@ -96,19 +96,19 @@ export const loadProducts = async (): Promise<Product[]> => {
 export const findProductByAssociatedSku = async (sku: string): Promise<Product | null> => {
     const productsCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'products');
     
-    // First, check if the SKU is in the associatedSkus array
+    // First, check if the SKU is a main SKU
+    const qMainSku = query(productsCol, where('sku', '==', sku), limit(1));
+    const snapshotMain = await getDocs(qMainSku);
+    if (!snapshotMain.empty) {
+        const docData = snapshotMain.docs[0];
+        return fromFirestore({ ...docData.data(), id: docData.id }) as Product;
+    }
+
+    // Fallback: If not a main SKU, check if it's in the associatedSkus array
     const qAssociated = query(productsCol, where('associatedSkus', 'array-contains', sku), limit(1));
     const snapshotAssociated = await getDocs(qAssociated);
     if (!snapshotAssociated.empty) {
         const docData = snapshotAssociated.docs[0];
-        return fromFirestore({ ...docData.data(), id: docData.id }) as Product;
-    }
-    
-    // Fallback: If not found, check if it's a main SKU
-    const qMainSku = query(productsCol, where('sku', '==', sku), limit(1));
-    const snapshotMain = await getDocs(qMainSku);
-    if (!snapshotMain.empty) {
-         const docData = snapshotMain.docs[0];
         return fromFirestore({ ...docData.data(), id: docData.id }) as Product;
     }
     

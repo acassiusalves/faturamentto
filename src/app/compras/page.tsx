@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings, loadProducts, findProductByAssociatedSku } from '@/services/firestore';
 import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -48,26 +49,34 @@ export default function ComprasPage() {
         }
 
         try {
-            const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
-            const detailedOrders = await Promise.all(orderDetailsPromises);
+            const [systemProducts, detailedOrders] = await Promise.all([
+                loadProducts(),
+                Promise.all(ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id)))
+            ]);
+            
+            const productSkuMap = new Map(systemProducts.map(p => {
+                const allSkus = [p.sku, ...(p.associatedSkus || [])];
+                return allSkus.map(sku => [sku, p.name]);
+            }).flat());
+
 
             const flatItemList: DisplayListItem[] = [];
             
-            detailedOrders.forEach(orderResult => {
-                // ESTA É A CORREÇÃO PRINCIPAL: Usando o caminho orderResult.obj.items
+            for (const orderResult of detailedOrders) {
                 const items = orderResult?.obj?.items; 
 
                 if (items && Array.isArray(items)) {
-                    items.forEach((item: any) => {
+                    for (const item of items) {
+                        const systemName = productSkuMap.get(item.sku);
                         flatItemList.push({
                             orderId: orderResult.obj.id,
-                            title: item.title,
+                            title: systemName || item.title, // Usa o nome do sistema ou o do anúncio como fallback
                             sku: item.sku,
                             quantity: item.quantity
                         });
-                    });
+                    }
                 }
-            });
+            }
 
             setDisplayList(flatItemList);
 
@@ -289,7 +298,7 @@ export default function ComprasPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>ID (id)</TableHead>
-                                <TableHead>Título (title)</TableHead>
+                                <TableHead>Título do Produto</TableHead>
                                 <TableHead>SKU (sku)</TableHead>
                                 <TableHead>Quantidade (quantity)</TableHead>
                             </TableRow>
