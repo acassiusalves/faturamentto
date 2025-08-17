@@ -5,6 +5,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -271,4 +272,40 @@ export interface PurchaseList {
     createdAt: string; // ISO Date
     totalCost: number;
     items: PurchaseListItem[];
+}
+
+// Feed 25 Types
+export interface ProductDetail {
+  name: string;
+  sku: string;
+  quantity: string;
+  unitPrice: string;
+  totalPrice: string;
+}
+
+export interface UnprocessedItem {
+  line: string;
+  reason: string;
+}
+
+export interface OrganizeResult {
+  organizedList: string;
+}
+
+export interface StandardizeResult {
+  standardizedList: string;
+  unprocessedItems: UnprocessedItem[];
+}
+
+export interface LookupResult {
+  details: ProductDetail[];
+  finalFormattedList: string;
+}
+
+export interface PipelineResult {
+  organizedList: string;
+  standardizedList: string;
+  details: ProductDetail[];
+  finalFormattedList: string;
+  unprocessedItems: UnprocessedItem[];
 }
