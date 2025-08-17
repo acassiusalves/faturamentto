@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -16,7 +17,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, ApprovalRequest } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -457,6 +458,19 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
     }
 }
 
+// --- PURCHASE HISTORY ---
+export const savePurchaseList = async (purchaseList: Omit<PurchaseList, 'id'>): Promise<void> => {
+    const historyCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history');
+    const docRef = doc(historyCol);
+    await setDoc(docRef, toFirestore({ ...purchaseList, id: docRef.id }));
+};
+
+export const loadPurchaseHistory = async (): Promise<PurchaseList[]> => {
+    const historyCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history');
+    const q = query(historyCol, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PurchaseList);
+};
 
 
 // --- APP SETTINGS & USERS ---

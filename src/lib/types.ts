@@ -1,5 +1,6 @@
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -246,4 +247,19 @@ export interface AppSettings {
     ignoredIderisColumns?: string[];
     conciliacaoColumnOrder?: string[];
     conciliacaoVisibleColumns?: Record<string, boolean>;
+}
+
+// -- Purchase History Types --
+export interface PurchaseListItem {
+    productName: string;
+    sku: string;
+    quantity: number;
+    unitCost: number;
+}
+
+export interface PurchaseList {
+    id: string;
+    createdAt: string; // ISO Date
+    totalCost: number;
+    items: PurchaseListItem[];
 }
