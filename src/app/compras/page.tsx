@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save, XCircle } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save, XCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings, loadProducts, findProductByAssociatedSku, savePurchaseList } from '@/services/firestore';
@@ -55,6 +55,7 @@ export default function ComprasPage() {
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("generator");
+    const [editingPurchaseInfo, setEditingPurchaseInfo] = useState<{ createdAt: string } | null>(null);
 
 
     // Pagination state
@@ -65,6 +66,7 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setDisplayList([]);
+        setEditingPurchaseInfo(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -269,6 +271,7 @@ export default function ComprasPage() {
             setDisplayList([]);
             setCosts(new Map());
             setTotalPurchaseCost(0);
+            setEditingPurchaseInfo(null);
 
         } catch (err) {
             console.error('Error saving purchase list:', err);
@@ -300,6 +303,7 @@ export default function ComprasPage() {
         setDisplayList([]);
         setCosts(new Map());
         setTotalPurchaseCost(0);
+        setEditingPurchaseInfo(null);
         toast({
             title: "Edição Cancelada",
             description: "A lista de compras foi limpa.",
@@ -327,6 +331,7 @@ export default function ComprasPage() {
         setCosts(costMap);
         setIsGrouped(true); // Always start in grouped mode for editing
         setActiveTab("generator"); // Switch to the generator tab
+        setEditingPurchaseInfo({ createdAt: purchase.createdAt });
         
         // Scroll to the top of the page
         window.scrollTo(0, 0);
@@ -578,7 +583,14 @@ export default function ComprasPage() {
                 </CardContent>
                 {isGrouped && processedList.length > 0 && (
                     <CardFooter className="flex justify-between items-center bg-muted/50 p-4 border-t">
-                         <div />
+                         <div className="flex-1">
+                            {editingPurchaseInfo && (
+                                <div className="text-sm">
+                                    <p className="font-semibold text-primary">Você esta editando um pedido de compra</p>
+                                    <p className="text-muted-foreground">criado em {formatDate(editingPurchaseInfo.createdAt)}</p>
+                                </div>
+                            )}
+                         </div>
                          <div className="flex items-center gap-4">
                             <Button variant="outline" onClick={handleCancelEdit}>
                                 <XCircle className="mr-2 h-4 w-4" />
