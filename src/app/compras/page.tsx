@@ -40,52 +40,39 @@ export default function ComprasPage() {
 
     const generatePurchaseList = useCallback(async (ordersToProcess: any[]) => {
         setIsGenerating(true);
-        setError(null);
         setPurchaseList([]);
         
         const productMap = new Map<string, { name: string; quantity: number }>();
-    
-        try {
-            // Cria uma lista de promessas, uma para cada busca no banco de dados
-            const promises = ordersToProcess.map(order => findSaleByOrderNumber(order.code));
-    
-            // Executa todas as buscas em paralelo para máxima performance
-            const resultsFromDB = await Promise.all(promises);
-    
-            // Processa os resultados que retornaram do banco de dados
-            resultsFromDB.forEach(orderData => {
-                if (orderData && orderData.items && Array.isArray(orderData.items)) {
-                    orderData.items.forEach((item: any) => {
-                        const sku = item.sku;
-                        if (sku) {
-                            const existing = productMap.get(sku);
-                            if (existing) {
-                                existing.quantity += item.quantity || 1;
-                            } else {
-                                productMap.set(sku, {
-                                    name: item.title || 'Produto sem nome',
-                                    quantity: item.quantity || 1
-                                });
-                            }
+
+        // Processa os pedidos que já foram carregados da Ideris
+        ordersToProcess.forEach(order => {
+            // Acessa a lista de itens dentro de cada pedido
+            if (order && order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                    const sku = item.sku;
+                    if (sku) {
+                        const existing = productMap.get(sku);
+                        if (existing) {
+                            existing.quantity += item.quantity || 1;
+                        } else {
+                            productMap.set(sku, {
+                                name: item.title || 'Produto sem nome',
+                                quantity: item.quantity || 1
+                            });
                         }
-                    });
-                }
-            });
-    
-            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
-                sku,
-                name: data.name,
-                quantity: data.quantity
-            }));
-    
-            setPurchaseList(aggregatedList);
-    
-        } catch (err) {
-            console.error("Erro ao gerar lista de compras a partir do DB:", err);
-            setError("Ocorreu uma falha ao buscar os detalhes dos pedidos no banco de dados.");
-        } finally {
-            setIsGenerating(false);
-        }
+                    }
+                });
+            }
+        });
+
+        const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
+            sku,
+            name: data.name,
+            quantity: data.quantity
+        }));
+
+        setPurchaseList(aggregatedList);
+        setIsGenerating(false);
     }, []);
 
     const fetchData = useCallback(async () => {
@@ -330,7 +317,7 @@ export default function ComprasPage() {
                     ) : (
                         <Search className="mr-2 h-4 w-4"/>
                     )}
-                    {isGenerating ? 'Buscando no DB...' : 'Buscar produtos'}
+                    {isGenerating ? 'Buscando...' : 'Buscar produtos'}
                 </Button>
             </div>
         </CardHeader>

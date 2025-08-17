@@ -484,38 +484,3 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     const userDocRef = doc(db, 'users', uid);
     await updateDoc(userDocRef, { role });
 }
-
-/**
- * Busca os detalhes de um único pedido no Firestore usando seu ID.
- * @param {string | number} orderId O ID do pedido a ser buscado.
- * @returns {Promise<any | null>} Os dados do pedido se encontrado, ou nulo.
- */
-export const fetchOrderDetailsFromDB = async (orderId: string | number) => {
-  try {
-    const orderRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, "sales", String(orderId));
-    const docSnap = await getDoc(orderRef);
-
-    if (docSnap.exists()) {
-      // ADICIONE ESTE LOG PARA VER O DADO ENCONTRADO
-      console.log(`[PASSO 2] Pedido ID ${orderId} ENCONTRADO. Dados:`, docSnap.data());
-      return docSnap.data();
-    } else {
-      // ESTE LOG É MUITO IMPORTANTE. VERIFIQUE SE ELE APARECE.
-      console.warn(`[PASSO 2] Pedido ID ${orderId} NÃO FOI ENCONTRADO na coleção "sales".`);
-      return null;
-    }
-  } catch (error) {
-    console.error(`Erro ao buscar o pedido ${orderId} no banco de dados:`, error);
-    throw error;
-  }
-};
-    
-
-    
-
-
-
-
-
-
-
