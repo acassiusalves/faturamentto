@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings, findSaleByOrderNumber } from '@/services/firestore';
-import { fetchOpenOrdersFromIderis } from '@/services/ideris';
+import { loadAppSettings } from '@/services/firestore';
+import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,39 +40,54 @@ export default function ComprasPage() {
 
     const generatePurchaseList = useCallback(async (ordersToProcess: any[]) => {
         setIsGenerating(true);
+        setError(null);
         setPurchaseList([]);
         
         const productMap = new Map<string, { name: string; quantity: number }>();
+        const settings = await loadAppSettings();
+        if (!settings?.iderisPrivateKey) {
+            setError("A chave da API da Ideris não está configurada.");
+            setIsGenerating(false);
+            return;
+        }
 
-        // Processa os pedidos que já foram carregados da Ideris
-        ordersToProcess.forEach(order => {
-            // Acessa a lista de itens dentro de cada pedido
-            if (order && order.items && Array.isArray(order.items)) {
-                order.items.forEach((item: any) => {
-                    const sku = item.sku;
-                    if (sku) {
-                        const existing = productMap.get(sku);
-                        if (existing) {
-                            existing.quantity += item.quantity || 1;
-                        } else {
-                            productMap.set(sku, {
-                                name: item.title || 'Produto sem nome',
-                                quantity: item.quantity || 1
-                            });
+        try {
+            const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
+            const detailedOrders = await Promise.all(orderDetailsPromises);
+
+            detailedOrders.forEach(orderData => {
+                if (orderData && orderData.items && Array.isArray(orderData.items)) {
+                    orderData.items.forEach((item: any) => {
+                        const sku = item.sku;
+                        if (sku) {
+                            const existing = productMap.get(sku);
+                            if (existing) {
+                                existing.quantity += item.quantity || 1;
+                            } else {
+                                productMap.set(sku, {
+                                    name: item.title || 'Produto sem nome',
+                                    quantity: item.quantity || 1
+                                });
+                            }
                         }
-                    }
-                });
-            }
-        });
+                    });
+                }
+            });
 
-        const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
-            sku,
-            name: data.name,
-            quantity: data.quantity
-        }));
+            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
+                sku,
+                name: data.name,
+                quantity: data.quantity
+            }));
 
-        setPurchaseList(aggregatedList);
-        setIsGenerating(false);
+            setPurchaseList(aggregatedList);
+
+        } catch (err) {
+            console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
+            setError("Ocorreu uma falha ao buscar os detalhes dos pedidos na Ideris.");
+        } finally {
+            setIsGenerating(false);
+        }
     }, []);
 
     const fetchData = useCallback(async () => {
