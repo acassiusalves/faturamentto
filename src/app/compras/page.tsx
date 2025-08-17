@@ -183,6 +183,10 @@ export default function ComprasPage() {
         return Array.from(groupedMap.values());
     }, [displayList, isGrouped, productSkuMap]);
 
+    const totalPurchaseQuantity = useMemo(() => {
+      return displayList.reduce((acc, item) => acc + item.quantity, 0);
+    }, [displayList]);
+
 
     useEffect(() => {
         fetchData();
@@ -442,14 +446,19 @@ export default function ComprasPage() {
             
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-wrap justify-between items-center gap-4">
                         <div>
                             <CardTitle>Relação de Produtos para Compra</CardTitle>
                             <CardDescription>
                                 Lista de todos os produtos necessários com base nos pedidos acima.
                             </CardDescription>
                         </div>
-                        <div className="flex items-center gap-4">
+                         <div className="flex items-center gap-4">
+                            {totalPurchaseQuantity > 0 && (
+                                <span className="text-muted-foreground font-semibold">
+                                    {totalPurchaseQuantity} produtos
+                                </span>
+                            )}
                             <div className="flex items-center space-x-2">
                                 <Label htmlFor="group-switch">Agrupar</Label>
                                 <Switch id="group-switch" checked={isGrouped} onCheckedChange={setIsGrouped} />
