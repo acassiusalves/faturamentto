@@ -59,12 +59,11 @@ export default function ComprasPage() {
             console.log("Resposta da Ideris:", detailedOrders);
             setRawResponseForDebug(detailedOrders);
             
-            // Lógica de processamento comentada para depuração
-            /*
             const productMap = new Map<string, { name: string; quantity: number }>();
-            detailedOrders.forEach(orderData => {
-                if (orderData && orderData.items && Array.isArray(orderData.items)) {
-                    orderData.items.forEach((item: any) => {
+            
+            detailedOrders.forEach(orderResult => {
+                 if (orderResult && orderResult.items && Array.isArray(orderResult.items)) {
+                    orderResult.items.forEach((item: any) => {
                         const sku = item.sku;
                         if (sku) {
                             const existing = productMap.get(sku);
@@ -88,11 +87,12 @@ export default function ComprasPage() {
             }));
 
             setPurchaseList(aggregatedList);
-            */
+            
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
-            setError("Ocorreu uma falha ao buscar os detalhes dos pedidos na Ideris.");
+            const errorMessage = err instanceof Error ? err.message : "Ocorreu uma falha desconhecida.";
+            setError(`Ocorreu uma falha ao buscar os detalhes dos pedidos na Ideris. Detalhe: ${errorMessage}`);
         } finally {
             setIsGenerating(false);
         }

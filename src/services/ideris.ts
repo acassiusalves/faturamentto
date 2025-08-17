@@ -204,13 +204,13 @@ export async function fetchOrdersFromIderis(privateKey: string, dateRange: DateR
   }
 }
 
-export async function fetchOrderById(privateKey: string, orderId: string): Promise<Sale | null> {
+export async function fetchOrderById(privateKey: string, orderId: string): Promise<any | null> {
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        const result = await fetchWithToken<{ result: { obj: any } }>(url, token);
-        if (result && result.result && result.result.obj) {
-            return mapIderisOrderToSale(result.result.obj, 0);
+        const result = await fetchWithToken<{ result: any }>(url, token);
+        if (result && result.result) {
+            return result.result;
         }
         return null;
     } catch (error) {
