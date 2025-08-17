@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings, fetchOrderDetailsFromDB } from '@/services/firestore';
+import { loadAppSettings, findSaleByOrderNumber } from '@/services/firestore';
 import { fetchOpenOrdersFromIderis } from '@/services/ideris';
 import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
@@ -47,11 +47,7 @@ export default function ComprasPage() {
     
         try {
             // Cria uma lista de promessas, uma para cada busca no banco de dados
-            const promises = ordersToProcess.map(order => {
-                // ADICIONE ESTE LOG PARA VER O ID
-                console.log(`[PASSO 1] Buscando no DB o pedido com ID: ${order.id}`);
-                return fetchOrderDetailsFromDB(order.id);
-            });
+            const promises = ordersToProcess.map(order => findSaleByOrderNumber(order.code));
     
             // Executa todas as buscas em paralelo para máxima performance
             const resultsFromDB = await Promise.all(promises);
@@ -95,7 +91,6 @@ export default function ComprasPage() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
-        setPurchaseList([]); // Clear purchase list on new fetch
         try {
             const settings = await loadAppSettings();
             if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
