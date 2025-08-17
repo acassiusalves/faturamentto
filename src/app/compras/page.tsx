@@ -32,6 +32,8 @@ export default function ComprasPage() {
     const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
     const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
     const [isGenerating, setIsGenerating] = useState(false); 
+    const [rawResponseForDebug, setRawResponseForDebug] = useState<any>(null);
+
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -41,6 +43,7 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setPurchaseList([]);
+        setRawResponseForDebug(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -52,36 +55,9 @@ export default function ComprasPage() {
         try {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
             const detailedOrders = await Promise.all(orderDetailsPromises);
-
-            const productMap = new Map<string, { name: string; quantity: number }>();
             
-            detailedOrders.forEach(orderResult => {
-                 if (orderResult && orderResult.items && Array.isArray(orderResult.items)) {
-                    orderResult.items.forEach((item: any) => {
-                        const sku = item.sku;
-                        if (sku) {
-                            const existing = productMap.get(sku);
-                            if (existing) {
-                                existing.quantity += item.quantity || 1;
-                            } else {
-                                productMap.set(sku, {
-                                    name: item.title || 'Produto sem nome',
-                                    quantity: item.quantity || 1
-                                });
-                            }
-                        }
-                    });
-                }
-            });
-
-            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
-                sku,
-                name: data.name,
-                quantity: data.quantity
-            }));
-
-            setPurchaseList(aggregatedList);
-            
+            // Set the raw response for debugging
+            setRawResponseForDebug(detailedOrders);
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
@@ -353,43 +329,12 @@ export default function ComprasPage() {
                         Verifique o console do navegador (F12) para mais detalhes.
                     </AlertDescription>
                 </Alert>
-            ) : purchaseList.length > 0 ? (
-                 <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>SKU</TableHead>
-                                <TableHead>Produto</TableHead>
-                                <TableHead className="w-[150px]">Custo Unit.</TableHead>
-                                <TableHead className="text-center">Qtd.</TableHead>
-                                <TableHead className="text-right">Custo Total</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {purchaseList.map((item) => {
-                                const unitCost = unitCosts.get(item.sku) || 0;
-                                const totalCost = unitCost * item.quantity;
-                                return (
-                                <TableRow key={item.sku}>
-                                    <TableCell className="font-mono">{item.sku}</TableCell>
-                                    <TableCell>{item.name}</TableCell>
-                                    <TableCell>
-                                         <div className="relative">
-                                            <DollarSign className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                className="pl-8"
-                                                onChange={(e) => handleCostChange(item.sku, e.target.value)}
-                                            />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
-                                    <TableCell className="text-right font-semibold">{formatCurrency(totalCost)}</TableCell>
-                                </TableRow>
-                            )})}
-                        </TableBody>
-                    </Table>
+            ) : rawResponseForDebug ? (
+                <div className="p-4 bg-muted rounded-md max-h-96 overflow-auto">
+                    <h3 className="font-semibold mb-2">Resposta Bruta da API Ideris:</h3>
+                    <pre className="text-xs whitespace-pre-wrap">
+                        {JSON.stringify(rawResponseForDebug, null, 2)}
+                    </pre>
                 </div>
             ) : (
                 <div className="text-center text-muted-foreground py-10">
