@@ -295,6 +295,16 @@ export default function ComprasPage() {
             description: `O produto com SKU ${skuToRemove} foi removido da lista de compra.`,
         });
     };
+    
+    const handleCancelEdit = () => {
+        setDisplayList([]);
+        setCosts(new Map());
+        setTotalPurchaseCost(0);
+        toast({
+            title: "Edição Cancelada",
+            description: "A lista de compras foi limpa.",
+        });
+    };
 
     const handleEditPurchase = (purchase: PurchaseList) => {
         // Convert PurchaseListItems back to DisplayListItems (non-grouped view)
@@ -567,17 +577,24 @@ export default function ComprasPage() {
                     )}
                 </CardContent>
                 {isGrouped && processedList.length > 0 && (
-                    <CardFooter className="flex justify-end items-center gap-4 bg-muted/50 p-4 border-t">
-                        <Button onClick={handleSavePurchaseList} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Salvar
-                        </Button>
-                        <div className="flex items-center gap-4">
-                            <span className="font-semibold text-lg">Custo Total da Compra:</span>
-                            <span className="font-bold text-2xl text-primary flex items-center gap-2">
-                                <DollarSign size={24} />
-                                {formatCurrency(totalPurchaseCost)}
-                            </span>
+                    <CardFooter className="flex justify-between items-center bg-muted/50 p-4 border-t">
+                         <div />
+                         <div className="flex items-center gap-4">
+                            <Button variant="outline" onClick={handleCancelEdit}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSavePurchaseList} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Salvar
+                            </Button>
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg">Custo Total:</span>
+                                <span className="font-bold text-2xl text-primary flex items-center gap-2">
+                                    <DollarSign size={24} />
+                                    {formatCurrency(totalPurchaseCost)}
+                                </span>
+                            </div>
                         </div>
                     </CardFooter>
                 )}
