@@ -139,14 +139,12 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
 
     const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
     
-    // Simplificando a chamada para corresponder ao teste do Postman
-    const searchResult = await fetchWithToken<{ obj: any[], result: any }>(searchUrl, token);
+    const searchResult = await fetchWithToken<{ obj: any[], result: { obj: any[] } }>(searchUrl, token);
 
-    // Ideris returns details in the 'result' property when successful
-    if (searchResult && searchResult.result && Array.isArray(searchResult.result)) {
-        return searchResult.result;
+    // Ideris can return details in 'result.obj' or just 'obj'
+    if (searchResult && searchResult.result && Array.isArray(searchResult.result.obj)) {
+        return searchResult.result.obj;
     } else if (searchResult && Array.isArray(searchResult.obj)) {
-        // Fallback for older or different response structures
         return searchResult.obj;
     }
     
@@ -211,15 +209,13 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        // A chamada a `fetchWithToken` já trata erros de rede e autenticação.
-        // Se ela retornar, a resposta foi bem-sucedida (status 2xx).
-        // A resposta direta já é o objeto do pedido que precisamos.
         return await fetchWithToken<any>(url, token);
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
             inMemoryToken = null; // Forçar a regeneração do token
-            return await fetchOrderById(privateKey, orderId); // Tentar novamente
+            const newToken = await getValidAccessToken(privateKey);
+            return await fetchWithToken<any>(url, newToken);
         }
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;
@@ -228,7 +224,6 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
 
 export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string }> {
     try {
-        // We try to get a token. If it fails, the connection is invalid.
         await generateAccessToken(privateKey);
         return { success: true, message: "Conexão bem-sucedida!" };
     } catch (error) {

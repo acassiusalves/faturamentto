@@ -32,9 +32,7 @@ export default function ComprasPage() {
     const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
     const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
     const [isGenerating, setIsGenerating] = useState(false); 
-    const [rawResponseForDebug, setRawResponseForDebug] = useState<any>(null);
 
-    
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
@@ -43,7 +41,6 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setPurchaseList([]);
-        setRawResponseForDebug(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -56,9 +53,6 @@ export default function ComprasPage() {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
             const detailedOrders = await Promise.all(orderDetailsPromises);
 
-            console.log("Resposta da Ideris:", detailedOrders);
-            // setRawResponseForDebug(detailedOrders); // Removido para voltar ao fluxo normal
-            
             const productMap = new Map<string, { name: string; quantity: number }>();
             
             detailedOrders.forEach(orderResult => {
