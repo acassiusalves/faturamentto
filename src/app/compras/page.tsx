@@ -30,9 +30,7 @@ export default function ComprasPage() {
     
     // State for the purchase list
     const [purchaseList, setPurchaseList] = useState<PurchaseListItem[]>([]);
-    const [unitCosts, setUnitCosts] = useState<Map<string, number>>(new Map());
     const [isGenerating, setIsGenerating] = useState(false); 
-    const [rawResponseForDebug, setRawResponseForDebug] = useState<any>(null);
 
 
     // Pagination state
@@ -43,7 +41,6 @@ export default function ComprasPage() {
         setIsGenerating(true);
         setError(null);
         setPurchaseList([]);
-        setRawResponseForDebug(null);
         
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
@@ -55,9 +52,32 @@ export default function ComprasPage() {
         try {
             const orderDetailsPromises = ordersToProcess.map(order => fetchOrderById(settings.iderisPrivateKey, order.id));
             const detailedOrders = await Promise.all(orderDetailsPromises);
+
+            const productMap = new Map<string, { name: string; quantity: number }>();
+
+            detailedOrders.forEach(order => {
+                if (order && Array.isArray(order.items)) {
+                    order.items.forEach((item: any) => {
+                        const { sku, title, quantity } = item;
+                        if (sku) {
+                            if (productMap.has(sku)) {
+                                const existing = productMap.get(sku)!;
+                                existing.quantity += quantity;
+                            } else {
+                                productMap.set(sku, { name: title, quantity });
+                            }
+                        }
+                    });
+                }
+            });
+
+            const aggregatedList: PurchaseListItem[] = Array.from(productMap.entries()).map(([sku, data]) => ({
+                sku,
+                name: data.name,
+                quantity: data.quantity,
+            }));
             
-            // Set the raw response for debugging
-            setRawResponseForDebug(detailedOrders);
+            setPurchaseList(aggregatedList);
 
         } catch (err) {
             console.error("Erro ao gerar lista de compras a partir da API da Ideris:", err);
@@ -112,17 +132,6 @@ export default function ComprasPage() {
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    };
-
-    const handleCostChange = (sku: string, cost: string) => {
-        const newCosts = new Map(unitCosts);
-        const numericCost = parseFloat(cost);
-        if (!isNaN(numericCost)) {
-            newCosts.set(sku, numericCost);
-        } else {
-            newCosts.delete(sku);
-        }
-        setUnitCosts(newCosts);
     };
     
     const renderContent = () => {
@@ -329,12 +338,26 @@ export default function ComprasPage() {
                         Verifique o console do navegador (F12) para mais detalhes.
                     </AlertDescription>
                 </Alert>
-            ) : rawResponseForDebug ? (
-                <div className="p-4 bg-muted rounded-md max-h-96 overflow-auto">
-                    <h3 className="font-semibold mb-2">Resposta Bruta da API Ideris:</h3>
-                    <pre className="text-xs whitespace-pre-wrap">
-                        {JSON.stringify(rawResponseForDebug, null, 2)}
-                    </pre>
+            ) : purchaseList.length > 0 ? (
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Título do Produto</TableHead>
+                                <TableHead>SKU</TableHead>
+                                <TableHead className="text-right">Quantidade</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {purchaseList.map((item) => (
+                                <TableRow key={item.sku}>
+                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="font-mono">{item.sku}</TableCell>
+                                    <TableCell className="text-right font-bold">{item.quantity}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </div>
             ) : (
                 <div className="text-center text-muted-foreground py-10">
