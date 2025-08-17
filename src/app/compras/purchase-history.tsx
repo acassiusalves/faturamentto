@@ -7,7 +7,7 @@ import type { PurchaseList, PurchaseListItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, HandCoins } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -15,13 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-
-interface PurchaseHistoryProps {
-    onEdit: (purchase: PurchaseList) => void;
-}
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 
-export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
+export function PurchaseHistory() {
     const { toast } = useToast();
     const [history, setHistory] = useState<PurchaseList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -73,13 +71,16 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
         setPendingItems([]);
     };
     
-    const handleItemChange = (sku: string, field: 'unitCost' | 'storeName', value: string) => {
+    const handleItemChange = (sku: string, field: 'unitCost' | 'storeName' | 'isPaid', value: string | boolean) => {
         setPendingItems(prev =>
             prev.map(item => {
                 if (item.sku === sku) {
                     if (field === 'unitCost') {
-                        const numericCost = parseFloat(value);
+                        const numericCost = parseFloat(value as string);
                         return { ...item, unitCost: isNaN(numericCost) ? item.unitCost : numericCost };
+                    }
+                     if (field === 'isPaid') {
+                        return { ...item, isPaid: value as boolean };
                     }
                     return { ...item, [field]: value };
                 }
@@ -87,6 +88,28 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
             })
         );
     };
+    
+    const handleItemPaidChange = async (purchaseId: string, sku: string, isPaid: boolean) => {
+        const purchaseToUpdate = history.find(p => p.id === purchaseId);
+        if (!purchaseToUpdate) return;
+
+        const updatedItems = purchaseToUpdate.items.map(item => 
+            item.sku === sku ? { ...item, isPaid } : item
+        );
+
+        try {
+            await updatePurchaseList(purchaseId, { items: updatedItems });
+            setHistory(prev => prev.map(p => p.id === purchaseId ? { ...p, items: updatedItems } : p));
+             toast({
+                title: `Pagamento ${isPaid ? 'Confirmado' : 'Desmarcado'}`,
+                description: `O status de pagamento para o SKU ${sku} foi atualizado.`
+            });
+        } catch (error) {
+            console.error('Error updating payment status:', error);
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o status de pagamento.' });
+        }
+    }
+
 
     const handleSaveChanges = async () => {
         if (!editingId) return;
@@ -146,6 +169,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
                             const currentTotal = itemsToDisplay.reduce((acc, item) => acc + item.unitCost * item.quantity, 0);
+                            const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
 
                             return (
                                 <AccordionItem key={purchase.id} value={purchase.id} className="border rounded-lg">
@@ -158,6 +182,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                         </AccordionTrigger>
                                         <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
+                                                 <HandCoins className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
                                                 {isEditingThis ? (
                                                     <>
                                                         <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isSaving}>
@@ -211,6 +236,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                                         <TableHead className="text-center">Quantidade</TableHead>
                                                         <TableHead className="text-right">Custo Unit.</TableHead>
                                                         <TableHead className="text-right">Custo Total</TableHead>
+                                                        <TableHead className="text-center">Pago</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -244,6 +270,13 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                                                 )}
                                                             </TableCell>
                                                             <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * item.quantity)}</TableCell>
+                                                             <TableCell className="text-center">
+                                                                <Switch
+                                                                    checked={item.isPaid}
+                                                                    onCheckedChange={(checked) => handleItemPaidChange(purchase.id, item.sku, checked)}
+                                                                    disabled={isEditingThis}
+                                                                />
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>

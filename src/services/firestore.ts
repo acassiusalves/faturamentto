@@ -1,5 +1,6 @@
 
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -472,9 +473,9 @@ export const loadPurchaseHistory = async (): Promise<PurchaseList[]> => {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PurchaseList);
 };
 
-export const updatePurchaseList = async (id: string, data: { items: PurchaseListItem[], totalCost: number }): Promise<void> => {
+export const updatePurchaseList = async (id: string, data: Partial<Omit<PurchaseList, 'id'>>): Promise<void> => {
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history', id);
-    await updateDoc(docRef, { items: data.items, totalCost: data.totalCost });
+    await updateDoc(docRef, data);
 };
 
 export const deletePurchaseList = async (id: string): Promise<void> => {

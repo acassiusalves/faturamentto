@@ -2,6 +2,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -258,6 +259,7 @@ export interface PurchaseListItem {
     quantity: number;
     unitCost: number;
     storeName?: string;
+    isPaid?: boolean;
 }
 
 export interface PurchaseList {
