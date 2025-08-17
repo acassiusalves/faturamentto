@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, DollarSign, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings } from '@/services/firestore';
@@ -71,6 +71,7 @@ export default function ComprasPage() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
+        setPurchaseList([]); // Clear purchase list on new fetch
         try {
             const settings = await loadAppSettings();
             if (!settings?.iderisPrivateKey || settings.iderisApiStatus !== 'valid') {
@@ -80,7 +81,6 @@ export default function ComprasPage() {
             const openOrders = await fetchOpenOrdersFromIderis(settings.iderisPrivateKey);
             const filteredOrders = openOrders.filter(order => order.statusDescription !== 'PEDIDO_EM_TRANSITO');
             setOrders(filteredOrders);
-            generatePurchaseList(filteredOrders);
 
         } catch (e) {
             console.error("Failed to fetch sales from Ideris:", e);
@@ -88,7 +88,7 @@ export default function ComprasPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [generatePurchaseList]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -298,10 +298,18 @@ export default function ComprasPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Relação de Produtos para Compra</CardTitle>
-            <CardDescription>
-                Lista agregada de todos os produtos necessários com base nos pedidos acima.
-            </CardDescription>
+            <div className="flex justify-between items-center">
+                 <div>
+                    <CardTitle>Relação de Produtos para Compra</CardTitle>
+                    <CardDescription>
+                        Lista agregada de todos os produtos necessários com base nos pedidos acima.
+                    </CardDescription>
+                </div>
+                <Button onClick={() => generatePurchaseList(orders)} disabled={orders.length === 0}>
+                    <Search className="mr-2 h-4 w-4"/>
+                    Buscar produtos
+                </Button>
+            </div>
         </CardHeader>
         <CardContent>
             {isLoading ? (
@@ -357,4 +365,5 @@ export default function ComprasPage() {
     </div>
   );
 }
+
 
