@@ -1,5 +1,4 @@
 
-
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
@@ -221,5 +220,16 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
         }
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;
+    }
+}
+
+export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string }> {
+    try {
+        // We try to get a token. If it fails, the connection is invalid.
+        await generateAccessToken(privateKey);
+        return { success: true, message: "Conexão bem-sucedida!" };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido";
+        return { success: false, message: `Falha na conexão: ${errorMessage}` };
     }
 }

@@ -26,15 +26,6 @@ export async function getMappingSuggestions(marketplaceId: string, headers: stri
     return suggestions;
 }
 
-export async function testIderisConnection(userId: string, privateKey: string) {
-    await new Promise(res => setTimeout(res, 1500));
-    if (privateKey === 'mock-private-key' || privateKey.length > 10) {
-        return { success: true, message: 'Conexão bem-sucedida!' };
-    }
-    return { success: false, message: 'Chave privada inválida ou incorreta.' };
-}
-
-
 export async function getSheetHeaders(sheetId: string, apiKey: string): Promise<string[]> {
     await new Promise(res => setTimeout(res, 1000));
     if (sheetId === 'valid-sheet-id' && apiKey) {
