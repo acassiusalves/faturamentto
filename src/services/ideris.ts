@@ -115,15 +115,9 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
     for (let i = 0; i < orderIds.length; i++) {
         const orderId = orderIds[i];
         if (orderId) {
-            const detailsUrl = `https://apiv3.ideris.com.br/order/${orderId}`;
             try {
-                const detailsResult = await fetchWithToken<{ result: { obj: any } }>(detailsUrl, token);
-                if (detailsResult && detailsResult.result && detailsResult.result.obj) {
-                    sales.push(mapIderisOrderToSale(detailsResult.result.obj, i));
-                } else {
-                     // Lançar um erro se a estrutura da resposta for inesperada
-                    throw new Error(`Resposta inesperada da API para o pedido ${orderId}`);
-                }
+                const detailsResult = await fetchOrderById(token, orderId);
+                sales.push(mapIderisOrderToSale(detailsResult, i));
             } catch (e) {
                 console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
                 // Relançar o erro para ser tratado na chamada principal
@@ -195,7 +189,8 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
         if (onProgress) onProgress(100, 0, 0);
         return [];
     }
-    return await fetchOrderDetailsByIds(newOrderIds, token, onProgress);
+    const tokenForDetails = await getValidAccessToken(privateKey);
+    return await fetchOrderDetailsByIds(newOrderIds, tokenForDetails, onProgress);
 }
 
 export async function fetchOrdersFromIderis(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
@@ -216,12 +211,19 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        const result = await fetchWithToken<{ result: any }>(url, token);
-        if (result && result.result) {
-            return result.result;
+        const response = await fetchWithToken<any>(url, token);
+        
+        // Handle cases where the data is in response.result or directly in the response
+        if (response && response.result) {
+            return response.result;
         }
-        // Se a resposta for bem-sucedida, mas `result` não existir, lance um erro.
-        throw new Error(`Resposta inesperada da API para o pedido ${orderId}. Propriedade 'result' não encontrada.`);
+        if (response && response.id) { // Check if the root object looks like an order
+            return response;
+        }
+
+        // If the response is successful but the structure is unexpected
+        throw new Error(`Resposta inesperada da API para o pedido ${orderId}. Verifique a estrutura da resposta.`);
+
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
