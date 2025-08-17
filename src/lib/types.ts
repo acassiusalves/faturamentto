@@ -255,6 +255,7 @@ export interface PurchaseListItem {
     sku: string;
     quantity: number;
     unitCost: number;
+    storeName?: string;
 }
 
 export interface PurchaseList {

@@ -52,9 +52,11 @@ export default function ComprasPage() {
     const [isGrouped, setIsGrouped] = useState(false);
     
     const [costs, setCosts] = useState<Map<string, number>>(new Map());
+    const [storeNames, setStoreNames] = useState<Map<string, string>>(new Map());
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("generator");
+    const [editingPurchaseInfo, setEditingPurchaseInfo] = useState<{ createdAt: string } | null>(null);
 
 
     // Pagination state
@@ -204,6 +206,10 @@ export default function ComprasPage() {
             });
         }
     };
+
+    const handleStoreNameChange = (sku: string, value: string) => {
+        setStoreNames(prev => new Map(prev).set(sku, value));
+    };
     
      useEffect(() => {
         if (isGrouped) {
@@ -255,6 +261,7 @@ export default function ComprasPage() {
                 sku: item.sku,
                 quantity: item.totalQuantity,
                 unitCost: costs.get(item.sku) || 0,
+                storeName: storeNames.get(item.sku) || '',
             }));
 
             const purchaseListToSave: Omit<PurchaseList, 'id'> = {
@@ -273,6 +280,9 @@ export default function ComprasPage() {
             setDisplayList([]);
             setCosts(new Map());
             setTotalPurchaseCost(0);
+            setStoreNames(new Map());
+            setEditingPurchaseInfo(null);
+
 
         } catch (err) {
             console.error('Error saving purchase list:', err);
@@ -300,6 +310,15 @@ export default function ComprasPage() {
         });
     };
     
+    const handleCancelEdit = () => {
+        setDisplayList([]);
+        setCosts(new Map());
+        setStoreNames(new Map());
+        setTotalPurchaseCost(0);
+        setEditingPurchaseInfo(null);
+    };
+
+
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -487,6 +506,7 @@ export default function ComprasPage() {
                                         {!isGrouped && <TableHead>ID (id)</TableHead>}
                                         <TableHead>Título do Produto</TableHead>
                                         <TableHead>SKU</TableHead>
+                                        {isGrouped && <TableHead>Loja</TableHead>}
                                         <TableHead className="text-center">Quantidade</TableHead>
                                         {isGrouped && <TableHead className="text-right">Custo Unitário</TableHead>}
                                         {isGrouped && <TableHead className="text-right">Custo Total</TableHead>}
@@ -505,9 +525,18 @@ export default function ComprasPage() {
                                             {!isGrouped && 'orderId' in item && <TableCell>{item.orderId}</TableCell>}
                                             <TableCell>{'title' in item ? item.title : ('productName' in item ? item.productName : '')}</TableCell>
                                             <TableCell className="font-mono">{sku}</TableCell>
-                                            <TableCell className="text-center font-bold">{quantity}</TableCell>
                                             {isGrouped && (
                                                 <>
+                                                    <TableCell>
+                                                        <Input
+                                                          type="text"
+                                                          placeholder="Nome da loja"
+                                                          className="w-32"
+                                                          onChange={(e) => handleStoreNameChange(sku, e.target.value)}
+                                                          defaultValue={storeNames.get(sku) || ''}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold">{quantity}</TableCell>
                                                     <TableCell className="text-right">
                                                         <Input
                                                             type="number"
@@ -531,6 +560,7 @@ export default function ComprasPage() {
                                                     </TableCell>
                                                 </>
                                             )}
+                                            {!isGrouped && <TableCell className="text-center font-bold">{quantity}</TableCell>}
                                         </TableRow>
                                     )})}
                                 </TableBody>
@@ -545,24 +575,54 @@ export default function ComprasPage() {
                     )}
                 </CardContent>
                 {isGrouped && processedList.length > 0 && (
-                    <CardFooter className="flex justify-end items-center bg-muted/50 p-4 border-t gap-4">
-                         <Button onClick={handleSavePurchaseList} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Salvar Lista
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-lg">Custo Total:</span>
-                            <span className="font-bold text-2xl text-primary flex items-center gap-2">
-                                <DollarSign size={24} />
-                                {formatCurrency(totalPurchaseCost)}
-                            </span>
+                     <CardFooter className="flex justify-between items-center bg-muted/50 p-4 border-t gap-4">
+                        <div>
+                             {editingPurchaseInfo && (
+                                <p className="text-sm font-semibold text-destructive">
+                                    Você está editando um pedido de compra criado em {formatDate(editingPurchaseInfo.createdAt)}.
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                            {editingPurchaseInfo && (
+                                <Button onClick={handleCancelEdit} variant="outline">
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Cancelar Edição
+                                </Button>
+                            )}
+                            <Button onClick={handleSavePurchaseList} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Salvar Lista
+                            </Button>
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg">Custo Total:</span>
+                                <span className="font-bold text-2xl text-primary flex items-center gap-2">
+                                    <DollarSign size={24} />
+                                    {formatCurrency(totalPurchaseCost)}
+                                </span>
+                            </div>
                         </div>
                     </CardFooter>
                 )}
             </Card>
         </TabsContent>
         <TabsContent value="history" className="mt-6">
-            <PurchaseHistory />
+            <PurchaseHistory onEdit={(purchase) => {
+                 setActiveTab('generator');
+                 setIsGrouped(true); // Always be grouped for editing
+                 const newCosts = new Map(purchase.items.map(i => [i.sku, i.unitCost]));
+                 const newStores = new Map(purchase.items.map(i => [i.sku, i.storeName || '']));
+                 const newDisplayList = purchase.items.map(i => ({
+                    orderId: 0, // Not relevant for editing a grouped list
+                    title: i.productName,
+                    sku: i.sku,
+                    quantity: i.quantity
+                 }));
+                 setCosts(newCosts);
+                 setStoreNames(newStores);
+                 setDisplayList(newDisplayList);
+                 setEditingPurchaseInfo({ createdAt: purchase.createdAt });
+            }}/>
         </TabsContent>
       </Tabs>
     </div>

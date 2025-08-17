@@ -16,8 +16,12 @@ import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 
+interface PurchaseHistoryProps {
+    onEdit: (purchase: PurchaseList) => void;
+}
 
-export function PurchaseHistory() {
+
+export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
     const { toast } = useToast();
     const [history, setHistory] = useState<PurchaseList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -58,8 +62,7 @@ export function PurchaseHistory() {
     
     const handleEditStart = (purchase: PurchaseList) => {
         setEditingId(purchase.id);
-        setPendingItems([...purchase.items]); // Create a deep copy for editing
-        // Expand the accordion item automatically
+        setPendingItems([...purchase.items.map(item => ({...item}))]);
         if (!openAccordionItems.includes(purchase.id)) {
             setOpenAccordionItems(prev => [...prev, purchase.id]);
         }
@@ -70,13 +73,19 @@ export function PurchaseHistory() {
         setPendingItems([]);
     };
     
-    const handleCostChange = (sku: string, newCost: string) => {
-        const numericCost = parseFloat(newCost);
-        if (!isNaN(numericCost)) {
-            setPendingItems(prev => 
-                prev.map(item => item.sku === sku ? { ...item, unitCost: numericCost } : item)
-            );
-        }
+    const handleItemChange = (sku: string, field: 'unitCost' | 'storeName', value: string) => {
+        setPendingItems(prev =>
+            prev.map(item => {
+                if (item.sku === sku) {
+                    if (field === 'unitCost') {
+                        const numericCost = parseFloat(value);
+                        return { ...item, unitCost: isNaN(numericCost) ? item.unitCost : numericCost };
+                    }
+                    return { ...item, [field]: value };
+                }
+                return item;
+            })
+        );
     };
 
     const handleSaveChanges = async () => {
@@ -86,7 +95,6 @@ export function PurchaseHistory() {
             const newTotalCost = pendingItems.reduce((acc, item) => acc + (item.unitCost * item.quantity), 0);
             await updatePurchaseList(editingId, { items: pendingItems, totalCost: newTotalCost });
             
-            // Update local state to reflect changes instantly
             setHistory(prev => prev.map(p => p.id === editingId ? { ...p, items: pendingItems, totalCost: newTotalCost } : p));
             
             toast({ title: 'Alterações Salvas', description: 'O custo da lista de compras foi atualizado.'});
@@ -199,6 +207,7 @@ export function PurchaseHistory() {
                                                     <TableRow>
                                                         <TableHead>Produto</TableHead>
                                                         <TableHead>SKU</TableHead>
+                                                        <TableHead>Loja</TableHead>
                                                         <TableHead className="text-center">Quantidade</TableHead>
                                                         <TableHead className="text-right">Custo Unit.</TableHead>
                                                         <TableHead className="text-right">Custo Total</TableHead>
@@ -209,13 +218,25 @@ export function PurchaseHistory() {
                                                         <TableRow key={index}>
                                                             <TableCell>{item.productName}</TableCell>
                                                             <TableCell className="font-mono">{item.sku}</TableCell>
+                                                            <TableCell>
+                                                                {isEditingThis ? (
+                                                                     <Input
+                                                                        type="text"
+                                                                        defaultValue={item.storeName}
+                                                                        onChange={(e) => handleItemChange(item.sku, 'storeName', e.target.value)}
+                                                                        className="w-32"
+                                                                    />
+                                                                ) : (
+                                                                    item.storeName || 'N/A'
+                                                                )}
+                                                            </TableCell>
                                                             <TableCell className="text-center">{item.quantity}</TableCell>
                                                             <TableCell className="text-right">
                                                                 {isEditingThis ? (
                                                                     <Input
                                                                         type="number"
                                                                         defaultValue={item.unitCost}
-                                                                        onChange={(e) => handleCostChange(item.sku, e.target.value)}
+                                                                        onChange={(e) => handleItemChange(item.sku, 'unitCost', e.target.value)}
                                                                         className="w-28 ml-auto text-right"
                                                                     />
                                                                 ) : (
