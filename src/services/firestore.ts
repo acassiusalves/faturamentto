@@ -472,6 +472,12 @@ export const loadPurchaseHistory = async (): Promise<PurchaseList[]> => {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PurchaseList);
 };
 
+export const deletePurchaseList = async (id: string): Promise<void> => {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history', id);
+    await deleteDoc(docRef);
+};
+
+
 
 // --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');

@@ -54,6 +54,7 @@ export default function ComprasPage() {
     const [costs, setCosts] = useState<Map<string, number>>(new Map());
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState("generator");
 
 
     // Pagination state
@@ -295,6 +296,37 @@ export default function ComprasPage() {
         });
     };
 
+    const handleEditPurchase = (purchase: PurchaseList) => {
+        // Convert PurchaseListItems back to DisplayListItems (non-grouped view)
+        // This is a simplification; we can't reconstruct the original orders,
+        // so we'll just create a flat list for editing costs and quantities.
+        const flatList: DisplayListItem[] = purchase.items.map(item => ({
+            orderId: 0, // No specific order ID when editing
+            title: item.productName,
+            sku: item.sku,
+            quantity: item.quantity
+        }));
+        
+        // Set costs
+        const costMap = new Map<string, number>();
+        purchase.items.forEach(item => {
+            costMap.set(item.sku, item.unitCost);
+        });
+
+        setDisplayList(flatList);
+        setCosts(costMap);
+        setIsGrouped(true); // Always start in grouped mode for editing
+        setActiveTab("generator"); // Switch to the generator tab
+        
+        // Scroll to the top of the page
+        window.scrollTo(0, 0);
+
+        toast({
+            title: "Modo de Edição Ativado",
+            description: "A lista de compra foi carregada. Faça suas alterações e salve novamente."
+        });
+    };
+
     const renderContent = () => {
         if (isLoading) {
             return (
@@ -371,7 +403,7 @@ export default function ComprasPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="generator" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="generator">Gerar Nova Lista</TabsTrigger>
             <TabsTrigger value="history">Histórico de Compras</TabsTrigger>
@@ -504,6 +536,7 @@ export default function ComprasPage() {
                                                             placeholder="R$ 0,00"
                                                             className="w-28 ml-auto text-right"
                                                             onChange={(e) => handleCostChange(sku, e.target.value)}
+                                                            defaultValue={costs.get(sku) || ''}
                                                         />
                                                     </TableCell>
                                                     <TableCell className="text-right font-semibold">
@@ -551,7 +584,7 @@ export default function ComprasPage() {
             </Card>
         </TabsContent>
         <TabsContent value="history" className="mt-6">
-            <PurchaseHistory />
+            <PurchaseHistory onEdit={handleEditPurchase} />
         </TabsContent>
       </Tabs>
     </div>

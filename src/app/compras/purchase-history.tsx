@@ -1,30 +1,58 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { loadPurchaseHistory } from '@/services/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { loadPurchaseHistory, deletePurchaseList } from '@/services/firestore';
 import type { PurchaseList } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
-export function PurchaseHistory() {
+
+interface PurchaseHistoryProps {
+    onEdit: (purchase: PurchaseList) => void;
+}
+
+export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
+    const { toast } = useToast();
     const [history, setHistory] = useState<PurchaseList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchHistory() {
-            setIsLoading(true);
-            const purchaseHistory = await loadPurchaseHistory();
-            setHistory(purchaseHistory);
-            setIsLoading(false);
-        }
-        fetchHistory();
+    const fetchHistory = useCallback(async () => {
+        setIsLoading(true);
+        const purchaseHistory = await loadPurchaseHistory();
+        setHistory(purchaseHistory);
+        setIsLoading(false);
     }, []);
+
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
+    
+    const handleDelete = async (id: string) => {
+        try {
+            await deletePurchaseList(id);
+            setHistory(prev => prev.filter(item => item.id !== id));
+            toast({
+                title: 'Lista Apagada!',
+                description: 'A lista de compras foi removida do histórico.',
+            });
+        } catch (error) {
+            console.error('Error deleting purchase list:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Apagar',
+                description: 'Não foi possível remover a lista de compras.',
+            });
+        }
+    };
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -62,15 +90,40 @@ export function PurchaseHistory() {
                     <Accordion type="multiple" className="w-full space-y-4">
                         {history.map(purchase => (
                             <AccordionItem key={purchase.id} value={purchase.id} className="border rounded-lg">
-                                <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                                    <div className="flex justify-between items-center w-full">
+                                <AccordionTrigger className="px-4 py-3 hover:no-underline" >
+                                    <div className="flex justify-between items-center w-full" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex flex-col text-left">
                                             <span className="font-semibold">Compra de {formatDate(purchase.createdAt)}</span>
                                             <span className="text-sm text-muted-foreground">{purchase.items.length} produto(s) diferente(s)</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-muted-foreground">Custo Total:</span>
-                                            <Badge variant="default" className="text-base">{formatCurrency(purchase.totalCost)}</Badge>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                 <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="destructive" size="sm"><Trash2 className="mr-2"/>Apagar</Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Esta ação não pode ser desfeita. A lista de compras será permanentemente apagada.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(purchase.id)}>Sim, Apagar</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                                 <Button variant="outline" size="sm" onClick={() => onEdit(purchase)}>
+                                                    <Pencil className="mr-2"/>
+                                                    Editar Lista
+                                                </Button>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-muted-foreground">Custo Total:</span>
+                                                <Badge variant="default" className="text-base">{formatCurrency(purchase.totalCost)}</Badge>
+                                            </div>
                                         </div>
                                     </div>
                                 </AccordionTrigger>
@@ -113,4 +166,3 @@ export function PurchaseHistory() {
         </Card>
     );
 }
-
