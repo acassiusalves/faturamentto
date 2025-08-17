@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
+import { loadAppSettings } from '@/services/firestore';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -87,26 +88,29 @@ function FullPipelineTab() {
     // Set date on client-side only to avoid hydration mismatch
     setDate(new Date());
 
-    try {
-      const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-      if (savedApiKey) setApiKey(savedApiKey);
-      
-      const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-      if (savedModel) setModelName(savedModel);
-
-      const savedProducts = localStorage.getItem(DB_STORAGE_KEY);
-      if (savedProducts) {
-        const products: {name: string, sku: string}[] = JSON.parse(savedProducts);
-        const dbList = products.map(p => `${p.name}\t${p.sku}`).join('\n');
-        setDatabaseList(dbList);
-      }
-      const savedStores = localStorage.getItem(STORES_STORAGE_KEY);
-      if (savedStores) {
-        setAvailableStores(JSON.parse(savedStores));
-      }
-    } catch (error) {
-      console.error("Failed to load data from localStorage", error);
+    async function loadData() {
+        try {
+          const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+          if (savedApiKey) setApiKey(savedApiKey);
+          
+          const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
+          if (savedModel) setModelName(savedModel);
+    
+          const savedProducts = localStorage.getItem(DB_STORAGE_KEY);
+          if (savedProducts) {
+            const products: {name: string, sku: string}[] = JSON.parse(savedProducts);
+            const dbList = products.map(p => `${p.name}\t${p.sku}`).join('\n');
+            setDatabaseList(dbList);
+          }
+          const appSettings = await loadAppSettings();
+          if (appSettings?.stores) {
+            setAvailableStores(appSettings.stores);
+          }
+        } catch (error) {
+          console.error("Failed to load data", error);
+        }
     }
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -443,26 +447,29 @@ function StepByStepTab() {
     useEffect(() => {
         // Set date on client-side only to avoid hydration mismatch
         setDate(new Date());
-        try {
-            const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-            if (savedApiKey) setApiKey(savedApiKey);
+        async function loadData() {
+            try {
+                const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+                if (savedApiKey) setApiKey(savedApiKey);
 
-            const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-            if (savedModel) setModelName(savedModel);
+                const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
+                if (savedModel) setModelName(savedModel);
 
-            const savedProducts = localStorage.getItem(DB_STORAGE_KEY);
-            if (savedProducts) {
-                const products: {name: string, sku: string}[] = JSON.parse(savedProducts);
-                const dbList = products.map(p => `${p.name}\t${p.sku}`).join('\n');
-                setDatabaseList(dbList);
+                const savedProducts = localStorage.getItem(DB_STORAGE_KEY);
+                if (savedProducts) {
+                    const products: {name: string, sku: string}[] = JSON.parse(savedProducts);
+                    const dbList = products.map(p => `${p.name}\t${p.sku}`).join('\n');
+                    setDatabaseList(dbList);
+                }
+                const appSettings = await loadAppSettings();
+                if (appSettings?.stores) {
+                    setAvailableStores(appSettings.stores);
+                }
+            } catch (error) {
+                console.error("Failed to load data", error);
             }
-            const savedStoresData = localStorage.getItem(STORES_STORAGE_KEY);
-            if (savedStoresData) {
-                setAvailableStores(JSON.parse(savedStoresData));
-            }
-        } catch (error) {
-            console.error("Failed to load data from localStorage", error);
         }
+        loadData();
     }, []);
 
     const isProcessing = isOrganizing || isStandardizing || isLookingUp;
