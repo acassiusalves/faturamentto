@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save } from 'lucide-react';
+import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { loadAppSettings, loadProducts, findProductByAssociatedSku, savePurchaseList } from '@/services/firestore';
@@ -142,21 +142,26 @@ export default function ComprasPage() {
         }
     }, []);
     
+    const productSkuMap = useMemo(() => {
+        const map = new Map<string, Product>();
+        if (allProducts) {
+            allProducts.forEach(p => {
+                map.set(p.sku, p);
+                p.associatedSkus?.forEach(assocSku => {
+                    map.set(assocSku, p);
+                });
+            });
+        }
+        return map;
+    }, [allProducts]);
+
     const processedList = useMemo(() => {
         if (!isGrouped) {
             return displayList;
         }
 
         const groupedMap = new Map<string, GroupedListItem>();
-        const productSkuMap = new Map<string, Product>();
         
-        allProducts.forEach(p => {
-            productSkuMap.set(p.sku, p);
-            p.associatedSkus?.forEach(assocSku => {
-                productSkuMap.set(assocSku, p);
-            });
-        });
-
         displayList.forEach(item => {
             const parentProduct = productSkuMap.get(item.sku);
             const mainSku = parentProduct?.sku || item.sku;
@@ -175,7 +180,7 @@ export default function ComprasPage() {
         });
 
         return Array.from(groupedMap.values());
-    }, [displayList, isGrouped, allProducts]);
+    }, [displayList, isGrouped, productSkuMap]);
 
 
     useEffect(() => {
@@ -274,6 +279,20 @@ export default function ComprasPage() {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleRemoveItem = (skuToRemove: string) => {
+        setDisplayList(prevList => {
+            return prevList.filter(item => {
+                const parentProduct = productSkuMap.get(item.sku);
+                const mainSku = parentProduct?.sku || item.sku;
+                return mainSku !== skuToRemove;
+            });
+        });
+        toast({
+            title: "Item Removido",
+            description: `O produto com SKU ${skuToRemove} foi removido da lista de compra.`,
+        });
     };
 
     const renderContent = () => {
@@ -461,6 +480,7 @@ export default function ComprasPage() {
                                         <TableHead className="text-center">Quantidade</TableHead>
                                         {isGrouped && <TableHead className="text-right">Custo Unitário</TableHead>}
                                         {isGrouped && <TableHead className="text-right">Custo Total</TableHead>}
+                                        {isGrouped && <TableHead className="text-center">Ações</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -488,6 +508,15 @@ export default function ComprasPage() {
                                                     </TableCell>
                                                     <TableCell className="text-right font-semibold">
                                                         {formatCurrency(totalCost)}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleRemoveItem(sku)}
+                                                        >
+                                                            <XCircle className="text-destructive" />
+                                                        </Button>
                                                     </TableCell>
                                                 </>
                                             )}
