@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useEffect, useTransition, useRef } from 'react';
+import { useActionState, useState, useEffect, useTransition, useRef, useMemo } from 'react';
 import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
@@ -376,6 +376,25 @@ function ProcessListTab() {
             handleSavePrompt(formData);
           });
       };
+      
+      const storesForSelectedDate = useMemo(() => {
+        if (!date) return [];
+        const formattedDate = format(date, 'yyyy-MM-dd');
+        try {
+          const existingFeedData = localStorage.getItem(FEED_STORAGE_KEY);
+          const feed: FeedEntry[] = existingFeedData ? JSON.parse(existingFeedData) : [];
+          return feed
+            .filter(entry => entry.date === formattedDate)
+            .map(entry => entry.storeName);
+        } catch (error) {
+          return [];
+        }
+      }, [date]);
+    
+      const pendingStores = useMemo(() => {
+        return availableStores.filter(store => !storesForSelectedDate.includes(store));
+      }, [availableStores, storesForSelectedDate]);
+
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
@@ -576,10 +595,10 @@ function ProcessListTab() {
                                             <SelectValue placeholder="Selecione uma loja" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {availableStores.length > 0 ? availableStores.map(store => (
+                                            {pendingStores.length > 0 ? pendingStores.map(store => (
                                                 <SelectItem key={store} value={store}>{store}</SelectItem>
                                             )) : (
-                                                <div className="p-2 text-sm text-muted-foreground">Nenhuma loja cadastrada.</div>
+                                                <div className="p-2 text-sm text-muted-foreground">Nenhuma loja pendente para hoje.</div>
                                             )}
                                         </SelectContent>
                                     </Select>
@@ -627,8 +646,6 @@ function ProcessListTab() {
 }
 
 export default function FeedPage() {
-  const [activeTab, setActiveTab] = useState("process");
-
   return (
     <div className="flex flex-col gap-8">
         <ProcessListTab />
