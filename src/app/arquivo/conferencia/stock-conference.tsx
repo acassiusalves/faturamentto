@@ -64,13 +64,15 @@ export function StockConference() {
 
     const returnedTodayFiltered = inventoryItems.filter(item => {
         const itemDate = parseISO(item.createdAt);
-        return itemDate >= todayStart && (item.condition === 'Vitrine' || item.condition === 'Usado');
+        return itemDate >= todayStart && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado');
     }).length;
 
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
+    
     const currentStock = inventoryItems.length;
 
     const allEntriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
+    
     const initialStockToday = currentStock - allEntriesToday + exitsToday;
     
     setStats({
@@ -147,7 +149,7 @@ export function StockConference() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <StatsCard title="Estoque Inicial do Dia" value={stats.initialStock} icon={Warehouse} />
                 <StatsCard title="Entradas (Novo)" value={stats.entriesToday} icon={ArrowDownToDot} />
-                <StatsCard title="Retornos (Vitrine/Usado)" value={stats.returnedToday} icon={Undo} />
+                <StatsCard title="Retornos (Lacrado/Seminovo/Usado)" value={stats.returnedToday} icon={Undo} />
                 <StatsCard title="Saídas no Dia" value={stats.exitsToday} icon={ArrowUpFromDot} />
                 <StatsCard title="Estoque Atual" value={stats.currentStock} icon={Boxes} />
             </div>
