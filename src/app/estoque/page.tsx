@@ -534,10 +534,13 @@ export default function EstoquePage() {
                       filteredAndSortedInventory.map(item => (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col gap-1">
                                 <span>{item.name}</span>
                                 {!isGrouped && (
-                                    <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
+                                    <>
+                                        <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
+                                        <Badge variant={item.condition === 'Novo' ? 'default' : 'secondary'} className="w-fit mt-1">{item.condition || 'N/A'}</Badge>
+                                    </>
                                 )}
                             </div>
                            </TableCell>
