@@ -40,33 +40,37 @@ export async function organizeList(input: OrganizeListInput): Promise<OrganizeRe
         model: selectedModel,
         input: {schema: OrganizeListInputSchema},
         output: {schema: OrganizeResultSchema},
-        prompt: `Você é um assistente de organização de dados. Sua tarefa é pegar uma lista de produtos em texto bruto e não estruturado e organizá-la de forma limpa.
-        
-        **LISTA BRUTA:**
-        \`\`\`
-        {{{productList}}}
-        \`\`\`
+        prompt: `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
-        **REGRAS DE ORGANIZAÇÃO:**
-        1.  **Um Item por Linha:** Cada produto distinto deve ocupar sua própria linha.
-        2.  **Limpeza:** Remova qualquer texto desnecessário, saudações, ou formatação que não seja parte da descrição do produto (ex: "Bom dia, segue a lista:", "Att," etc.).
-        3.  **Formato de Quantidade:** Se a quantidade for mencionada (ex: "2x", "02 ", "3un"), padronize para o formato "1x " no início da linha. Se nenhuma quantidade for mencionada, assuma 1 e adicione "1x " no início.
-        
-        **EXEMPLO DE ENTRADA:**
-        \`\`\`
-        Bom dia, segue a lista: 2x IPHONE 15 PRO MAX 256GB - AZUL, 01 POCO X6 5G 128GB/6GB RAM.
-        SAMSUNG GALAXY S24 ULTRA 512GB - 5.100,00
-        \`\`\`
+**LISTA BRUTA DO FORNECEDOR:**
+\`\`\`
+{{{productList}}}
+\`\`\`
 
-        **EXEMPLO DE SAÍDA ESPERADA:**
-        \`\`\`json
-        {
-            "organizedList": "2x IPHONE 15 PRO MAX 256GB - AZUL\n1x POCO X6 5G 128GB/6GB RAM\n1x SAMSUNG GALAXY S24 ULTRA 512GB - 5.100,00"
-        }
-        \`\`\`
+**REGRAS DE ORGANIZAÇÃO:**
+1.  **Um Produto Por Linha:** A regra principal é identificar cada produto e suas variações. Se um item como "iPhone 13" tem duas cores (Azul e Preto) listadas, ele deve ser transformado em duas linhas separadas na saída.
+2.  **Agrupamento por Variação:** Fique atento a padrões onde um item principal tem várias cores ou preços listados juntos. Crie uma linha separada para cada combinação de produto/variação.
+3.  **Extração de Detalhes:** Para cada linha, extraia os detalhes que conseguir identificar: Marca, Modelo, Armazenamento (ROM), Memória RAM, Cor e Preço.
+4.  **Limpeza Geral:** Remova qualquer informação desnecessária: saudações ("Bom dia"), emojis, formatação excessiva (ex: "---"), ou palavras de marketing que não são essenciais ("Qualidade Premium", "Oportunidade").
+5.  **Formato de Quantidade:** Padronize a quantidade para o formato "1x " no início de cada linha. Se nenhuma quantidade for mencionada, assuma 1.
 
-        Apenas retorne o JSON com a chave 'organizedList' contendo a lista organizada.
-        `,
+**EXEMPLO DE ENTRADA:**
+\`\`\`
+Bom dia! Segue a lista:
+- 2x IPHONE 15 PRO MAX 256GB - AZUL/PRETO - 5.100,00
+- SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00
+- 1x POCO X6 5G 128GB/6GB RAM
+\`\`\`
+
+**EXEMPLO DE SAÍDA ESPERADA:**
+\`\`\`json
+{
+    "organizedList": "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00\n2x IPHONE 15 PRO MAX 256GB - PRETO - 5.100,00\n1x SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00\n1x POCO X6 5G 128GB/6GB RAM"
+}
+\`\`\`
+
+Apenas retorne o JSON com a chave 'organizedList' contendo a lista limpa e organizada, com cada variação de produto em sua própria linha.
+`,
     });
     
     const {output} = await prompt(input);
