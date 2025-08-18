@@ -55,26 +55,24 @@ export function StockConference() {
     ]);
 
     const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
 
     // Calculate Today's Stats
-    const entriesToday = inventoryItems.filter(item => {
+    const entriesTodayFiltered = inventoryItems.filter(item => {
         const itemDate = parseISO(item.createdAt);
-        // Only count items created today that are in 'Novo' condition
-        return itemDate >= todayStart && itemDate <= todayEnd && item.condition === 'Novo';
+        // Filter for "Novo" condition for the display card
+        return itemDate >= todayStart && item.condition === 'Novo';
     }).length;
+
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
     const currentStock = inventoryItems.length;
 
     // Calculate Initial Stock for Today
-    const yesterdayEnd = endOfDay(subDays(new Date(), 1));
-    const entriesUntilYesterday = inventoryItems.filter(item => parseISO(item.createdAt) <= yesterdayEnd).length;
-    const exitsUntilYesterday = pickingLogs.filter(log => parseISO(log.pickedAt) <= yesterdayEnd).length;
-    const initialStockToday = entriesUntilYesterday - exitsUntilYesterday;
+    const allEntriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
+    const initialStockToday = currentStock - allEntriesToday + exitsToday;
     
     setStats({
       initialStock: initialStockToday,
-      entriesToday,
+      entriesToday: entriesTodayFiltered, // Use the filtered count for display
       exitsToday,
       currentStock,
     });
