@@ -56,12 +56,13 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
     **REGRAS DE PADRONIZAÇÃO:**
     1.  **Extraia e Reorganize os Componentes:** Para cada linha, extraia os componentes existentes: Marca, Modelo, Armazenamento, Memória RAM, Cor, Rede (se informado) e Preço. **NÃO adivinhe ou infira a marca.** Use apenas as palavras presentes no item.
     2.  **Ordem Estrita:** Reorganize os componentes de cada produto para seguir EXATAMENTE esta ordem, separados por um espaço:
-        \`Marca Modelo Armazenamento Memoria Cor Rede Preço\`
-    3.  **Memória RAM e Armazenamento:** Assegure que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: 8GB RAM).
-    4.  **Rede:** Se a rede (ex: 4G, 5G) não for mencionada, omita essa parte da estrutura, mas mantenha os outros campos.
-    5.  **Preço:** O preço DEVE ser mantido no final de cada linha.
-    6.  **Limpeza:** Remova qualquer informação extra que não se encaixe na estrutura (como "Americano A+").
-    7.  **Itens Não Processados:** Se uma linha não puder ser padronizada (por exemplo, faltam informações essenciais como modelo ou preço, ou o formato é irreconhecível), adicione-a à lista 'unprocessedItems'. Para cada item, forneça a linha original e uma breve razão para a falha na padronização (ex: "Faltando preço", "Formato de memória RAM/ROM irreconhecível").
+        \`Marca Modelo Armazenamento Global Memoria Cor Rede Preço\`
+    3.  **Inserção de "Global":** Você DEVE inserir a palavra "Global" exatamente entre o Armazenamento e a Memória RAM.
+    4.  **Memória RAM e Armazenamento:** Assegure que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: 8GB RAM).
+    5.  **Rede:** Se a rede (ex: 4G, 5G) não for mencionada, omita essa parte da estrutura, mas mantenha os outros campos.
+    6.  **Preço:** O preço DEVE ser mantido no final de cada linha.
+    7.  **Limpeza:** Remova qualquer informação extra que não se encaixe na estrutura (como "Americano A+").
+    8.  **Itens Não Processados:** Se uma linha não puder ser padronizada (por exemplo, faltam informações essenciais como modelo ou preço, ou o formato é irreconhecível), adicione-a à lista 'unprocessedItems'. Para cada item, forneça a linha original e uma breve razão para a falha na padronização (ex: "Faltando preço", "Formato de memória RAM/ROM irreconhecível").
 
     **EXEMPLO DE ENTRADA:**
     \`\`\`
@@ -74,8 +75,8 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
     \`\`\`json
     {
         "standardizedList": [
-            "iPhone 13 128GB 4GB RAM Rosa 5G 2.000,00",
-            "Redmi Note 14 Pro 256GB 8GB RAM Preto 4G 1.235,00"
+            "iPhone 13 128GB Global 4GB RAM Rosa 5G 2.000,00",
+            "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 4G 1.235,00"
         ],
         "unprocessedItems": [
         {
