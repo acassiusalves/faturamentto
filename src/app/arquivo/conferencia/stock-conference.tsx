@@ -55,15 +55,22 @@ export function StockConference() {
     ]);
 
     const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
 
     // Calculate Today's Stats
-    const entriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
+    const entriesToday = inventoryItems.filter(item => {
+        const itemDate = parseISO(item.createdAt);
+        // Only count items created today that are in 'Novo' condition
+        return itemDate >= todayStart && itemDate <= todayEnd && item.condition === 'Novo';
+    }).length;
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
     const currentStock = inventoryItems.length;
 
-    // Correctly calculate Initial Stock for Today
-    // It's the current stock minus today's entries plus today's exits.
-    const initialStockToday = currentStock - entriesToday + exitsToday;
+    // Calculate Initial Stock for Today
+    const yesterdayEnd = endOfDay(subDays(new Date(), 1));
+    const entriesUntilYesterday = inventoryItems.filter(item => parseISO(item.createdAt) <= yesterdayEnd).length;
+    const exitsUntilYesterday = pickingLogs.filter(log => parseISO(log.pickedAt) <= yesterdayEnd).length;
+    const initialStockToday = entriesUntilYesterday - exitsUntilYesterday;
     
     setStats({
       initialStock: initialStockToday,
