@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from './ui/button';
-import { Download, Search, PackageCheck, PackageX } from 'lucide-react';
+import { Download, Search, PackageCheck, PackageX, ArrowUpDown } from 'lucide-react';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -22,9 +22,13 @@ interface ProductTableProps {
   unprocessedItems?: UnprocessedItem[];
 }
 
+type SkuSortOrder = 'default' | 'sem_codigo_first' | 'com_codigo_first';
+
+
 export function ProductTable({ products, unprocessedItems = [] }: ProductTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('all');
+  const [skuSortOrder, setSkuSortOrder] = useState<SkuSortOrder>('default');
 
   const brands = useMemo(() => {
     const brandSet = new Set<string>();
@@ -36,9 +40,18 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
     });
     return Array.from(brandSet);
   }, [products]);
+  
+  const handleSortBySku = () => {
+    setSkuSortOrder(prev => {
+        if (prev === 'default') return 'sem_codigo_first';
+        if (prev === 'sem_codigo_first') return 'com_codigo_first';
+        return 'default';
+    });
+  }
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = products.filter(product => {
       const lowerCaseSearch = searchTerm.toLowerCase();
       const nameMatch = product.name.toLowerCase().includes(lowerCaseSearch);
       const skuMatch = product.sku?.toLowerCase().includes(lowerCaseSearch);
@@ -48,7 +61,32 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
       
       return (nameMatch || skuMatch) && brandMatch;
     });
-  }, [products, searchTerm, brandFilter]);
+
+    if (skuSortOrder !== 'default') {
+        filtered.sort((a, b) => {
+            const aHasCode = a.sku !== 'SEM CÓDIGO';
+            const bHasCode = b.sku !== 'SEM CÓDIGO';
+
+            if (skuSortOrder === 'sem_codigo_first') {
+                if (aHasCode && !bHasCode) return 1;
+                if (!aHasCode && bHasCode) return -1;
+            } else if (skuSortOrder === 'com_codigo_first') {
+                if (aHasCode && !bHasCode) return -1;
+                if (!aHasCode && bHasCode) return 1;
+            }
+            
+            // For items with code, sort them alphabetically
+            if(aHasCode && bHasCode) {
+                return a.sku.localeCompare(b.sku);
+            }
+
+            return 0;
+        });
+    }
+
+    return filtered;
+
+  }, [products, searchTerm, brandFilter, skuSortOrder]);
 
   const notFoundCount = useMemo(() => {
     const withoutSku = products.filter(p => p.sku === 'SEM CÓDIGO').length;
@@ -61,7 +99,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   
   const formatCurrency = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    const numericValue = parseFloat(String(value));
+    const numericValue = parseFloat(String(value).replace(".", "").replace(",", "."));
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
@@ -123,14 +161,19 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
             <Table>
             <TableHeader>
                 <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>Nome do Produto (Conforme Banco de Dados)</TableHead>
-                <TableHead className="text-right">Preço de Custo</TableHead>
+                    <TableHead>
+                        <Button variant="ghost" onClick={handleSortBySku}>
+                            SKU
+                            <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    </TableHead>
+                    <TableHead>Nome do Produto (Conforme Banco de Dados)</TableHead>
+                    <TableHead className="text-right">Preço de Custo</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {filteredProducts.length > 0 ? (
-                filteredProducts.map((product, index) => (
+                {filteredAndSortedProducts.length > 0 ? (
+                filteredAndSortedProducts.map((product, index) => (
                     <TableRow key={index}>
                     <TableCell className="font-mono">{product.sku}</TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
