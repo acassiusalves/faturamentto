@@ -59,15 +59,15 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
         \`Marca Modelo Armazenamento Global Memoria Cor Rede Preço\`
     3.  **Inserção de "Global":** Você DEVE inserir a palavra "Global" exatamente entre o Armazenamento e a Memória RAM.
     4.  **Memória RAM e Armazenamento:** Assegure que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: 8GB RAM).
-    5.  **Rede:** Se a rede (ex: 4G, 5G) não for mencionada, omita essa parte da estrutura, mas mantenha os outros campos.
+    5.  **Regra de Rede (4G/5G):** Após a Memória RAM e a Cor, você DEVE inserir a conectividade. Se a descrição original do item mencionar "5G", use "5G". Se não houver menção sobre a rede, assuma como padrão e insira "4G".
     6.  **Preço:** O preço DEVE ser mantido no final de cada linha.
-    7.  **Limpeza:** Remova qualquer informação extra que não se encaixe na estrutura (como "Americano A+").
+    7.  **Limpeza:** Remova qualquer informação extra que não se encaixe na estrutura (como "Americano A+", "Versão Global").
     8.  **Itens Não Processados:** Se uma linha não puder ser padronizada (por exemplo, faltam informações essenciais como modelo ou preço, ou o formato é irreconhecível), adicione-a à lista 'unprocessedItems'. Para cada item, forneça a linha original e uma breve razão para a falha na padronização (ex: "Faltando preço", "Formato de memória RAM/ROM irreconhecível").
 
     **EXEMPLO DE ENTRADA:**
     \`\`\`
     1x IPHONE 13 128GB AMERICANO A+ - ROSA - 2.000,00
-    1x REDMI NOTE 14 PRO 4G 8GB/256GB - PRETO - 1.235,00
+    1x REDMI NOTE 14 PRO 5G 8GB/256GB - PRETO - 1.235,00
     1x Produto com defeito sem preço
     \`\`\`
 
@@ -75,8 +75,8 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
     \`\`\`json
     {
         "standardizedList": [
-            "iPhone 13 128GB Global 4GB RAM Rosa 5G 2.000,00",
-            "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 4G 1.235,00"
+            "iPhone 13 128GB Global 4GB RAM Rosa 4G 2.000,00",
+            "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 5G 1.235,00"
         ],
         "unprocessedItems": [
         {
