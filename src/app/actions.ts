@@ -7,6 +7,8 @@ import type {PipelineResult} from '@/lib/types';
 import {organizeList, type OrganizeResult, type OrganizeListInput} from '@/ai/flows/organize-list';
 import {standardizeList, type StandardizeListOutput, type StandardizeListInput} from '@/ai/flows/standardize-list';
 import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
+import { saveAppSettings } from '@/services/firestore';
+import { revalidatePath } from 'next/cache';
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -132,4 +134,28 @@ export async function lookupProductsAction(
         console.error('Error in lookupProductsAction:', e);
         return { result: null, error: e.message || 'Ocorreu um erro desconhecido.' };
     }
+}
+
+export async function savePromptAction(
+  prevState: { error: string | null, success?: boolean },
+  formData: FormData
+): Promise<{ error: string | null, success?: boolean }> {
+  const promptKey = formData.get('promptKey') as string;
+  const promptValue = formData.get('promptValue') as string;
+
+  if (!promptKey || !['organizePrompt', 'standardizePrompt', 'lookupPrompt'].includes(promptKey)) {
+    return { error: 'Chave de prompt inválida.' };
+  }
+  if (!promptValue) {
+    return { error: 'O conteúdo do prompt não pode estar vazio.' };
+  }
+
+  try {
+    await saveAppSettings({ [promptKey]: promptValue });
+    revalidatePath('/feed-25'); // Revalidate the page to ensure it loads the new prompt
+    return { error: null, success: true };
+  } catch (e: any) {
+    console.error("Error saving prompt:", e);
+    return { error: e.message || 'Ocorreu um erro ao salvar o prompt.' };
+  }
 }

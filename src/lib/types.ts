@@ -9,6 +9,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -258,6 +259,9 @@ export interface AppSettings {
     conciliacaoColumnOrder?: string[];
     conciliacaoVisibleColumns?: Record<string, boolean>;
     stores?: string[];
+    organizePrompt?: string;
+    standardizePrompt?: string;
+    lookupPrompt?: string;
 }
 
 // -- Purchase History Types --

@@ -2,12 +2,13 @@
 'use client';
 
 import { useActionState, useState, useEffect, useTransition, useRef, FormEvent } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check, Pencil } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check, Pencil, Save } from 'lucide-react';
 
 import {
   organizeListAction,
   standardizeListAction,
   lookupProductsAction,
+  savePromptAction, // Import the new action
   type ProductDetail,
   type OrganizeResult,
   type StandardizeListOutput,
@@ -214,6 +215,11 @@ function StepByStepTab() {
     const [organizePrompt, setOrganizePrompt] = useState(DEFAULT_ORGANIZE_PROMPT);
     const [standardizePrompt, setStandardizePrompt] = useState(DEFAULT_STANDARDIZE_PROMPT);
     const [lookupPrompt, setLookupPrompt] = useState(DEFAULT_LOOKUP_PROMPT);
+
+    // State for saving prompts
+    const [savePromptState, handleSavePrompt] = useActionState(savePromptAction, { error: null });
+    const [isSavingPrompt, startSavingPromptTransition] = useTransition();
+
     
     useEffect(() => {
         // Set date on client-side only to avoid hydration mismatch
@@ -232,8 +238,11 @@ function StepByStepTab() {
                 setDatabaseList(dbList);
               }
               const appSettings = await loadAppSettings();
-              if (appSettings?.stores) {
-                setAvailableStores(appSettings.stores);
+              if (appSettings) {
+                setAvailableStores(appSettings.stores || []);
+                if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
+                if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
+                if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
               }
             } catch (error) {
               console.error("Failed to load data", error);
@@ -263,6 +272,14 @@ function StepByStepTab() {
         }
         return () => clearInterval(timer);
     }, [isProcessing]);
+    
+    useEffect(() => {
+        if(savePromptState.error) {
+            toast({ variant: 'destructive', title: 'Erro ao Salvar Prompt', description: savePromptState.error });
+        } else if (savePromptState.success) {
+            toast({ title: 'Prompt Salvo!', description: 'O novo prompt será usado como padrão.' });
+        }
+    }, [savePromptState, toast])
 
 
     const handleRestart = () => {
@@ -272,9 +289,7 @@ function StepByStepTab() {
         setStep3Result(null);
         setStoreName('');
         setDate(new Date());
-        setOrganizePrompt(DEFAULT_ORGANIZE_PROMPT);
-        setStandardizePrompt(DEFAULT_STANDARDIZE_PROMPT);
-        setLookupPrompt(DEFAULT_LOOKUP_PROMPT);
+        // Do not reset prompts on restart, they are now loaded from settings
         toast({
             title: "Processo Reiniciado",
             description: "Você pode começar uma nova análise."
@@ -289,7 +304,7 @@ function StepByStepTab() {
             formData.append('modelName', modelName);
             formData.append('prompt_override', organizePrompt);
             
-            const result = await organizeListAction(null, formData);
+            const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
             }
@@ -308,7 +323,7 @@ function StepByStepTab() {
             formData.append('modelName', modelName);
             formData.append('prompt_override', standardizePrompt);
             
-            const result = await standardizeListAction(null, formData);
+            const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
             }
@@ -327,7 +342,7 @@ function StepByStepTab() {
             formData.append('modelName', modelName);
             formData.append('prompt_override', lookupPrompt);
             
-            const result = await lookupProductsAction(null, formData);
+            const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
             }
@@ -384,6 +399,15 @@ function StepByStepTab() {
         return <CircleDashed className="h-5 w-5 text-muted-foreground" />;
       };
 
+      const onSavePrompt = (promptKey: 'organizePrompt' | 'standardizePrompt' | 'lookupPrompt', promptValue: string) => {
+          startSavingPromptTransition(() => {
+            const formData = new FormData();
+            formData.append('promptKey', promptKey);
+            formData.append('promptValue', promptValue);
+            handleSavePrompt(formData);
+          });
+      };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-end">
@@ -419,10 +443,16 @@ function StepByStepTab() {
                         <Accordion type="single" collapsible>
                           <AccordionItem value="item-1">
                             <AccordionTrigger>
-                              <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                                <div className="flex justify-between items-center w-full pr-2">
+                                  <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                </div>
                             </AccordionTrigger>
-                            <AccordionContent>
+                            <AccordionContent className="space-y-2">
                               <Textarea value={organizePrompt} onChange={(e) => setOrganizePrompt(e.target.value)} rows={15} className="text-xs" />
+                              <Button size="sm" onClick={() => onSavePrompt('organizePrompt', organizePrompt)} disabled={isSavingPrompt}>
+                                {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Salvar Prompt
+                              </Button>
                             </AccordionContent>
                           </AccordionItem>
                         </Accordion>
@@ -464,10 +494,16 @@ function StepByStepTab() {
                                 <Accordion type="single" collapsible>
                                   <AccordionItem value="item-1">
                                     <AccordionTrigger>
-                                      <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                                        <div className="flex justify-between items-center w-full pr-2">
+                                            <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                        </div>
                                     </AccordionTrigger>
-                                    <AccordionContent>
+                                    <AccordionContent className="space-y-2">
                                       <Textarea value={standardizePrompt} onChange={(e) => setStandardizePrompt(e.target.value)} rows={15} className="text-xs" />
+                                      <Button size="sm" onClick={() => onSavePrompt('standardizePrompt', standardizePrompt)} disabled={isSavingPrompt}>
+                                        {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                        Salvar Prompt
+                                      </Button>
                                     </AccordionContent>
                                   </AccordionItem>
                                 </Accordion>
@@ -515,10 +551,16 @@ function StepByStepTab() {
                                 <Accordion type="single" collapsible>
                                   <AccordionItem value="item-1">
                                     <AccordionTrigger>
-                                      <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                                       <div className="flex justify-between items-center w-full pr-2">
+                                         <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                       </div>
                                     </AccordionTrigger>
-                                    <AccordionContent>
+                                    <AccordionContent className="space-y-2">
                                       <Textarea value={lookupPrompt} onChange={(e) => setLookupPrompt(e.target.value)} rows={15} className="text-xs" />
+                                      <Button size="sm" onClick={() => onSavePrompt('lookupPrompt', lookupPrompt)} disabled={isSavingPrompt}>
+                                        {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                        Salvar Prompt
+                                      </Button>
                                     </AccordionContent>
                                   </AccordionItem>
                                 </Accordion>
