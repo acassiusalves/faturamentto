@@ -41,7 +41,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
     return products.filter(product => {
       const lowerCaseSearch = searchTerm.toLowerCase();
       const nameMatch = product.name.toLowerCase().includes(lowerCaseSearch);
-      const skuMatch = product.sku.toLowerCase().includes(lowerCaseSearch);
+      const skuMatch = product.sku?.toLowerCase().includes(lowerCaseSearch);
 
       const brand = product.name.split(' ')[0];
       const brandMatch = brandFilter === 'all' || brand.toLowerCase() === brandFilter.toLowerCase();
@@ -49,6 +49,12 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
       return (nameMatch || skuMatch) && brandMatch;
     });
   }, [products, searchTerm, brandFilter]);
+
+  const notFoundCount = useMemo(() => {
+      const foundInDetails = products.filter(p => p.sku === 'N/D').length;
+      return foundInDetails + unprocessedItems.length;
+  }, [products, unprocessedItems]);
+
   
   const formatCurrency = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
@@ -68,14 +74,14 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
                 <div className="flex items-center gap-2">
                     <PackageCheck className="h-6 w-6 text-green-600"/>
                     <div>
-                        <p className="font-bold text-lg">{products.length} Produtos Encontrados</p>
+                        <p className="font-bold text-lg">{products.length - notFoundCount} Produtos Encontrados</p>
                         <p className="text-xs text-muted-foreground">Itens com SKU correspondente no BD.</p>
                     </div>
                 </div>
                  <div className="flex items-center gap-2">
                     <PackageX className="h-6 w-6 text-destructive"/>
                     <div>
-                        <p className="font-bold text-lg">{unprocessedItems.length} Produtos Sem Código</p>
+                        <p className="font-bold text-lg">{notFoundCount} Produtos Sem Código</p>
                         <p className="text-xs text-muted-foreground">Itens não localizados no BD.</p>
                     </div>
                 </div>
