@@ -281,7 +281,7 @@ export default function EstoquePage() {
       ? inventory
       : inventory.filter(item => item.condition === conditionFilter);
 
-    const totalItems = inventory.reduce((sum, item) => sum + item.quantity, 0);
+    const totalItems = itemsToSum.reduce((sum, item) => sum + item.quantity, 0);
     const totalValue = itemsToSum.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
     return { totalItems, totalValue };
   }, [inventory, conditionFilter]);
