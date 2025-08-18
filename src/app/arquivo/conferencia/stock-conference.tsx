@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus } from "lucide-react";
+import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus, Undo } from "lucide-react";
 import { loadInventoryItems, loadAllPickingLogs } from "@/services/firestore";
 import { startOfDay, endOfDay, format, parseISO, isToday, subDays, differenceInDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +19,7 @@ interface DailyStats {
   entriesToday: number;
   exitsToday: number;
   currentStock: number;
+  returnedToday: number; // Novo campo para retornos
 }
 
 interface DailyHistoryRow {
@@ -56,30 +57,33 @@ export function StockConference() {
 
     const todayStart = startOfDay(new Date());
 
-    // Calculate Today's Stats
     const entriesTodayFiltered = inventoryItems.filter(item => {
         const itemDate = parseISO(item.createdAt);
-        // Filter for "Novo" condition for the display card
         return itemDate >= todayStart && item.condition === 'Novo';
+    }).length;
+
+    const returnedTodayFiltered = inventoryItems.filter(item => {
+        const itemDate = parseISO(item.createdAt);
+        return itemDate >= todayStart && (item.condition === 'Vitrine' || item.condition === 'Usado');
     }).length;
 
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
     const currentStock = inventoryItems.length;
 
-    // Calculate Initial Stock for Today
     const allEntriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
     const initialStockToday = currentStock - allEntriesToday + exitsToday;
     
     setStats({
       initialStock: initialStockToday,
-      entriesToday: entriesTodayFiltered, // Use the filtered count for display
+      entriesToday: entriesTodayFiltered,
       exitsToday,
       currentStock,
+      returnedToday: returnedTodayFiltered,
     });
 
     // Calculate Daily History for the last 7 days
-    const history: DailyHistoryRow[] = [];
     let rollingStock = currentStock;
+    const history: DailyHistoryRow[] = [];
 
     for (let i = 0; i < 7; i++) {
         const date = subDays(new Date(), i);
@@ -140,9 +144,10 @@ export function StockConference() {
                     Atualizar
                 </Button>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <StatsCard title="Estoque Inicial do Dia" value={stats.initialStock} icon={Warehouse} />
-                <StatsCard title="Entradas no Dia" value={stats.entriesToday} icon={ArrowDownToDot} />
+                <StatsCard title="Entradas (Novo)" value={stats.entriesToday} icon={ArrowDownToDot} />
+                <StatsCard title="Retornos (Vitrine/Usado)" value={stats.returnedToday} icon={Undo} />
                 <StatsCard title="Saídas no Dia" value={stats.exitsToday} icon={ArrowUpFromDot} />
                 <StatsCard title="Estoque Atual" value={stats.currentStock} icon={Boxes} />
             </div>
