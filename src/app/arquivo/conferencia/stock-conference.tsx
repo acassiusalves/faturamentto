@@ -54,12 +54,18 @@ export function StockConference() {
       loadAllPickingLogs()
     ]);
 
-    // Calculate Today's Stats
-    const entriesToday = inventoryItems.filter(item => isToday(parseISO(item.createdAt))).length;
-    const exitsToday = pickingLogs.filter(log => isToday(parseISO(log.pickedAt))).length;
-    const currentStock = inventoryItems.length;
-    const initialStockToday = currentStock - entriesToday + exitsToday;
+    const todayStart = startOfDay(new Date());
 
+    // Calculate Today's Stats
+    const entriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
+    const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
+    const currentStock = inventoryItems.length;
+
+    // Calculate Initial Stock based on end of previous day
+    const entriesBeforeToday = inventoryItems.filter(item => parseISO(item.createdAt) < todayStart).length;
+    const exitsBeforeToday = pickingLogs.filter(log => parseISO(log.pickedAt) < todayStart).length;
+    const initialStockToday = entriesBeforeToday - exitsBeforeToday;
+    
     setStats({
       initialStock: initialStockToday,
       entriesToday,
@@ -73,9 +79,18 @@ export function StockConference() {
 
     for (let i = 0; i < 7; i++) {
         const date = subDays(new Date(), i);
-        
-        const entriesOnDate = inventoryItems.filter(item => isToday(parseISO(item.createdAt), date)).length;
-        const exitsOnDate = pickingLogs.filter(log => isToday(parseISO(log.pickedAt), date)).length;
+        const loopDayStart = startOfDay(date);
+        const loopDayEnd = endOfDay(date);
+
+        const entriesOnDate = inventoryItems.filter(item => {
+            const itemDate = parseISO(item.createdAt);
+            return itemDate >= loopDayStart && itemDate <= loopDayEnd;
+        }).length;
+
+        const exitsOnDate = pickingLogs.filter(log => {
+            const logDate = parseISO(log.pickedAt);
+            return logDate >= loopDayStart && logDate <= loopDayEnd;
+        }).length;
         
         const finalStock = rollingStock;
         const initialStock = finalStock - entriesOnDate + exitsOnDate;
