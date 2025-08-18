@@ -9,11 +9,8 @@ import {
   standardizeListAction,
   lookupProductsAction,
   savePromptAction,
-  type ProductDetail,
-  type OrganizeResult,
-  type StandardizeListOutput,
-  type LookupResult
 } from '@/app/actions';
+import type { ProductDetail, OrganizeResult, StandardizeListOutput, LookupResult } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -180,23 +177,6 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;
-
-function FullPipelineTab() {
-  const { toast } = useToast();
-  // This tab is not fully implemented with a single pipeline action anymore.
-  // It could be re-enabled by creating a new `processListPipelineAction` that orchestrates the three steps.
-  // For now, it's a placeholder.
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Fluxo Completo (Em Breve)</CardTitle>
-        <CardDescription>
-          Esta funcionalidade para processar a lista inteira com um único clique será ativada em breve. Por favor, utilize a aba "Passo a Passo" por enquanto.
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
-}
 
 function StepByStepTab() {
     const { toast } = useToast();
@@ -666,18 +646,7 @@ export default function ListaPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
-        <Tabs defaultValue="step-by-step">
-            <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
-                <TabsTrigger value="pipeline">Fluxo Completo</TabsTrigger>
-                <TabsTrigger value="step-by-step">Passo a Passo</TabsTrigger>
-            </TabsList>
-            <TabsContent value="pipeline" className="mt-6">
-                <FullPipelineTab />
-            </TabsContent>
-            <TabsContent value="step-by-step" className="mt-6">
-                <StepByStepTab />
-            </TabsContent>
-        </Tabs>
+        <StepByStepTab />
       </main>
     </div>
   );
