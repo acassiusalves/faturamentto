@@ -6,6 +6,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -278,9 +279,10 @@ export interface PurchaseList {
 export interface ProductDetail {
   name: string;
   sku: string;
-  quantity: string;
-  unitPrice: string;
-  totalPrice: string;
+  quantity?: string; // Tornar opcional
+  unitPrice?: string; // Tornar opcional
+  totalPrice?: string; // Tornar opcional
+  costPrice?: string; // Adicionar novo campo
 }
 
 export interface UnprocessedItem {
@@ -292,14 +294,13 @@ export interface OrganizeResult {
   organizedList: string;
 }
 
-export interface StandardizeResult {
-  standardizedList: string;
+export interface StandardizeListOutput {
+  standardizedList: string[];
   unprocessedItems: UnprocessedItem[];
 }
 
 export interface LookupResult {
-  details: ProductDetail[];
-  finalFormattedList: string;
+  details: Omit<ProductDetail, 'quantity' | 'unitPrice' | 'totalPrice'>[];
 }
 
 export interface PipelineResult {
