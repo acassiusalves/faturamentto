@@ -11,7 +11,7 @@ import {
   lookupProductsAction,
   savePromptAction,
 } from '@/app/actions';
-import type { ProductDetail, OrganizeResult, StandardizeListOutput, LookupResult } from '@/lib/types'
+import type { ProductDetail, OrganizeResult, StandardizeListOutput, LookupResult, UnprocessedItem } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -402,45 +402,7 @@ function ProcessListTab() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <Card className="flex-1">
-                    <CardHeader>
-                        <CardTitle>Configurações da IA</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col sm:flex-row gap-4">
-                         <div className="flex-1 space-y-2">
-                            <Label htmlFor="gemini-api-key">Chave de API do Gemini (Opcional)</Label>
-                            <Input 
-                                id="gemini-api-key"
-                                type="password"
-                                value={apiKey}
-                                onChange={(e) => {
-                                    setApiKey(e.target.value);
-                                    localStorage.setItem(API_KEY_STORAGE_KEY, e.target.value);
-                                }}
-                                placeholder="Use sua própria chave de API"
-                            />
-                         </div>
-                         <div className="flex-1 space-y-2">
-                            <Label htmlFor="gemini-model">Modelo</Label>
-                             <Select 
-                                value={modelName}
-                                onValueChange={(value) => {
-                                    setModelName(value);
-                                    localStorage.setItem(MODEL_STORAGE_KEY, value);
-                                }}
-                            >
-                                <SelectTrigger id="gemini-model">
-                                    <SelectValue placeholder="Selecione um modelo" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Rápido)</SelectItem>
-                                    <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Poderoso)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                         </div>
-                    </CardContent>
-                </Card>
+             <div className="flex justify-end items-center">
                 <Button variant="ghost" onClick={handleRestart}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Recomeçar
