@@ -57,17 +57,17 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
     1.  **Extraia e Reorganize os Componentes:** Para cada linha, extraia os componentes existentes: Marca, Modelo, Armazenamento, Memória RAM, Cor, Rede (se informado) e Preço. **NÃO adivinhe ou infira a marca.** Use apenas as palavras presentes no item.
     2.  **Ordem Estrita:** Reorganize os componentes de cada produto para seguir EXATAMENTE esta ordem, separados por um espaço:
         \`Marca Modelo Armazenamento Global Memoria Cor Rede Preço\`
-    3.  **Inserção de "Global":** Você DEVE inserir a palavra "Global" exatamente entre o Armazenamento e a Memória RAM.
-    4.  **Memória RAM e Armazenamento:** Assegure que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: 8GB RAM).
+    3.  **Memória RAM e Armazenamento:** Assegure que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: 8GB RAM). Formatos como "8/256GB" significam "8GB RAM" e "256GB" de armazenamento.
+    4.  **Inserção de "Global":** Você DEVE inserir a palavra "Global" exatamente entre o Armazenamento e a Memória RAM.
     5.  **Regra de Rede (4G/5G):** Após a Cor, você DEVE inserir a conectividade. Se a descrição original do item mencionar "5G", use "5G". Se não houver menção sobre a rede, assuma como padrão e insira "4G".
     6.  **Preço:** O preço DEVE ser mantido no final de cada linha.
-    7.  **Limpeza:** Remova qualquer informação extra que não se encaixe na estrutura (como "Americano A+", "Versão Global").
+    7.  **Limpeza Final:** Após reorganizar, **remova qualquer informação extra que já foi utilizada** na padronização (como "6/128GB", "Americano A+", "Versão Global", etc.) para que o nome final seja limpo.
     8.  **Itens Não Processados:** Se uma linha não puder ser padronizada (por exemplo, faltam informações essenciais como modelo ou preço, ou o formato é irreconhecível), adicione-a à lista 'unprocessedItems'. Para cada item, forneça a linha original e uma breve razão para a falha na padronização (ex: "Faltando preço", "Formato de memória RAM/ROM irreconhecível").
 
     **EXEMPLO DE ENTRADA:**
     \`\`\`
     1x IPHONE 13 128GB AMERICANO A+ - ROSA - 2.000,00
-    1x REDMI NOTE 14 PRO 5G 8GB/256GB - PRETO - 1.235,00
+    1x REDMI NOTE 14 PRO 5G 8/256GB - PRETO - 1.235,00
     1x Produto com defeito sem preço
     \`\`\`
 
