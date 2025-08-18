@@ -33,7 +33,7 @@ const LookupResultSchema = z.object({
     .array(
       z.object({
         sku: z.string().describe('The corresponding SKU from the database, or "N/D" if not found.'),
-        name: z.string().describe('The full name of the product from the database.'),
+        name: z.string().describe('The full name of the product from the database, or the original name if not found.'),
         costPrice: z.string().describe('The cost price of the product, extracted from the initial list.'),
       })
     )
@@ -66,15 +66,14 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
         \`\`\`
 
         **REGRAS DE BUSCA E FORMATAÇÃO:**
-        1.  **Correspondência de Produtos:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima na 'Lista do Banco de Dados'. O nome no banco de dados é a versão oficial e completa do nome do produto. Se um item da lista padronizada não for encontrado no banco de dados, o campo 'sku' deve ser preenchido com o valor "N/D".
-        2.  **Extração de Preço de Custo:** A 'Lista Padronizada' contém o preço de custo no final de cada linha. Você DEVE extrair e manter este preço para cada produto correspondente.
-        3.  **Criação da Lista Final ('details'):** Crie um array de objetos onde cada objeto representa um produto encontrado e contém EXATAMENTE os seguintes campos, nesta ordem:
-            *   'sku': O SKU correspondente, extraído da 'Lista do Banco de Dados'. Se não for encontrado, use "N/D".
-            *   'name': O nome COMPLETO e OFICIAL do produto, exatamente como está na 'Lista do Banco de Dados'.
+        1.  **Correspondência de Produtos:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima na 'Lista do Banco de Dados'. O nome no banco de dados é a versão oficial e completa do nome do produto.
+        2.  **Formatação da Saída:** Crie um array de objetos ('details') onde cada objeto representa um produto e contém EXATAMENTE os seguintes campos:
+            *   'sku': O SKU correspondente, extraído da 'Lista do Banco de Dados'. Se um item não for encontrado, use o valor "N/D".
+            *   'name': O nome COMPLETO e OFICIAL do produto, exatamente como está na 'Lista do Banco de Dados'. Se não for encontrado, repita o nome do produto da 'Lista Padronizada'.
             *   'costPrice': O preço de custo, extraído da 'Lista Padronizada' original. Formate como "R$ XXX,XX".
         
         **EXEMPLO DE ENTRADA:**
-        *   productList: \`Redmi Note 12 256GB 8GB RAM Azul 5G 1200.00\nTablet Galaxy A9 64GB 4GB RAM 630.00\`
+        *   productList: \`Redmi Note 12 256GB Global 8GB RAM Azul 5G 1200.00\nTablet Galaxy A9 64GB Global 4GB RAM 4G 630.00\`
         *   databaseList: \`Xiaomi Redmi Note 12 256GB 8GB RAM 5G - Versão Global\t#RN12P256A\`
 
         **EXEMPLO DE SAÍDA ESPERADA:**
@@ -88,7 +87,7 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
                 },
                 {
                     "sku": "N/D",
-                    "name": "Tablet Galaxy A9 64GB 4GB RAM",
+                    "name": "Tablet Galaxy A9 64GB Global 4GB RAM 4G",
                     "costPrice": "R$ 630,00"
                 }
             ]
