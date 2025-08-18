@@ -26,6 +26,7 @@ interface DailyHistoryRow {
     date: string;
     initialStock: number;
     entries: number;
+    returns: number;
     exits: number;
     finalStock: number;
 }
@@ -96,6 +97,16 @@ export function StockConference() {
             const itemDate = parseISO(item.createdAt);
             return itemDate >= dayStart && itemDate <= dayEnd;
         }).length;
+        
+        const newEntriesOnDate = inventoryItems.filter(item => {
+            const itemDate = parseISO(item.createdAt);
+            return itemDate >= dayStart && itemDate <= dayEnd && item.condition === 'Novo';
+        }).length;
+
+        const returnsOnDate = inventoryItems.filter(item => {
+            const itemDate = parseISO(item.createdAt);
+            return itemDate >= dayStart && itemDate <= dayEnd && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado');
+        }).length;
 
         const exitsOnDate = pickingLogs.filter(log => {
             const logDate = parseISO(log.pickedAt);
@@ -108,7 +119,8 @@ export function StockConference() {
         history.push({
             date: format(date, "dd/MM/yyyy"),
             initialStock,
-            entries: entriesOnDate,
+            entries: newEntriesOnDate,
+            returns: returnsOnDate,
             exits: exitsOnDate,
             finalStock,
         });
@@ -169,7 +181,8 @@ export function StockConference() {
                             <TableRow>
                                 <TableHead>Data</TableHead>
                                 <TableHead>Estoque Inicial</TableHead>
-                                <TableHead>Entradas</TableHead>
+                                <TableHead>Entradas (Novo)</TableHead>
+                                <TableHead>Retornos</TableHead>
                                 <TableHead>Saídas</TableHead>
                                 <TableHead>Estoque Final</TableHead>
                             </TableRow>
@@ -186,6 +199,12 @@ export function StockConference() {
                                         <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
                                             <Plus className="mr-1 h-3 w-3" />
                                             {row.entries}
+                                        </Badge>
+                                    </TableCell>
+                                     <TableCell>
+                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                            <Undo className="mr-1 h-3 w-3" />
+                                            {row.returns}
                                         </Badge>
                                     </TableCell>
                                      <TableCell>
