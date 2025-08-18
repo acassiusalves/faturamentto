@@ -72,7 +72,7 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
         4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Remova qualquer formatação de milhar (pontos) e use um ponto como separador decimal (ex: "1.234,56" deve se tornar "1234.56").
         5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
-            *   \`name\`: O nome completo e oficial do produto, exatamente como está no 'Banco de Dados'. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
+            *   \`name\`: O nome completo e oficial do produto, exatamente como está no 'Banco de Dados'. Se não for encontrado, **repita o nome original da 'Lista Padronizada'**.
             *   \`costPrice\`: O preço de custo extraído e formatado como número.
 
         **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
