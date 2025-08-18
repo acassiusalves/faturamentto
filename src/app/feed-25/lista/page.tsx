@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -328,200 +328,204 @@ export default function FeedListPage() {
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline text-2xl">Feed Comparativo de Preços</CardTitle>
-                <CardDescription>
-                    Compare os preços dos mesmos produtos entre diferentes listas para a data selecionada.
-                    A análise com IA também será aplicada apenas para a data escolhida.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {feedData.length > 0 ? (
-                    <TooltipProvider>
-                        <div className="mb-6 flex flex-col gap-4 sm:flex-row">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                type="search"
-                                placeholder="Filtrar por nome do produto..."
-                                className="w-full rounded-lg bg-white pl-8"
-                                value={filter}
-                                onChange={(e) => setFilter(e.target.value)}
-                                />
-                            </div>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full sm:w-[240px] justify-start text-left font-normal",
-                                        !selectedDate && "text-muted-foreground"
-                                    )}
-                                    disabled={!selectedDate}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {selectedDate ? format(selectedDate, "PPP", {}) : <span>Escolha uma data</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                    mode="single"
-                                    selected={selectedDate}
-                                    onSelect={setSelectedDate}
-                                    initialFocus
+            <Link href="/feed-25" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-fit mb-4">
+                <ChevronLeft className="h-4 w-4" />
+                voltar
+            </Link>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline text-2xl">Feed Comparativo de Preços</CardTitle>
+                    <CardDescription>
+                        Compare os preços dos mesmos produtos entre diferentes listas para a data selecionada.
+                        A análise com IA também será aplicada apenas para a data escolhida.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {feedData.length > 0 ? (
+                        <TooltipProvider>
+                            <div className="mb-6 flex flex-col gap-4 sm:flex-row">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                    type="search"
+                                    placeholder="Filtrar por nome do produto..."
+                                    className="w-full rounded-lg bg-white pl-8"
+                                    value={filter}
+                                    onChange={(e) => setFilter(e.target.value)}
                                     />
-                                </PopoverContent>
-                            </Popover>
-                            <form action={formAction}>
-                                <input type="hidden" name="feedData" value={JSON.stringify(comparisonData)} />
-                                <input type="hidden" name="apiKey" value={apiKey} />
-                                <input type="hidden" name="modelName" value={modelName} />
-                                <Button type="submit" className="w-full sm:w-auto" disabled={isAnalyzing || comparisonData.length === 0 || !apiKey}>
-                                    {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4" />}
-                                    Analisar com IA
-                                </Button>
-                            </form>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" className="w-full sm:w-auto" disabled={entriesForSelectedDate === 0}>
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Apagar Dados do Dia
+                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full sm:w-[240px] justify-start text-left font-normal",
+                                            !selectedDate && "text-muted-foreground"
+                                        )}
+                                        disabled={!selectedDate}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedDate ? format(selectedDate, "PPP", {}) : <span>Escolha uma data</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={setSelectedDate}
+                                        initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <form action={formAction}>
+                                    <input type="hidden" name="feedData" value={JSON.stringify(comparisonData)} />
+                                    <input type="hidden" name="apiKey" value={apiKey} />
+                                    <input type="hidden" name="modelName" value={modelName} />
+                                    <Button type="submit" className="w-full sm:w-auto" disabled={isAnalyzing || comparisonData.length === 0 || !apiKey}>
+                                        {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Bot className="mr-2 h-4 w-4" />}
+                                        Analisar com IA
                                     </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Essa ação não pode ser desfeita. Isso irá apagar permanentemente
-                                        todas as {entriesForSelectedDate} listas de preços enviadas para a data{' '}
-                                        {selectedDate && <strong>{format(selectedDate, 'dd/MM/yyyy')}</strong>}.
-                                    </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDeleteDataForDay}>Continuar</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </div>
-                        
-                        {isAnalyzing && progress > 0 && (
-                            <div className="mb-6 space-y-2">
-                                <Progress value={progress} className="w-full" />
-                                <p className="text-sm text-center text-muted-foreground">Analisando... um momento.</p>
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between gap-2 mb-4">
-                           <div className="flex items-center gap-2">
-                             <Tablets className="h-5 w-5 text-muted-foreground" />
-                             <h3 className="text-lg font-semibold">Tabela de Preços</h3>
-                           </div>
-                           {incorrectOffers.length > 0 && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" className="text-destructive hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/50">
-                                        Excluir {incorrectOffers.length} oferta(s) incorreta(s)
-                                        <Trash2 className="ml-2 h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Excluir Ofertas Incorretas?</AlertDialogTitle>
+                                </form>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" className="w-full sm:w-auto" disabled={entriesForSelectedDate === 0}>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Apagar Dados do Dia
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Você tem certeza que deseja excluir as <strong>{incorrectOffers.length}</strong> ofertas sinalizadas como "Atenção"? Esta ação removerá os produtos das suas respectivas listas para esta data e não pode ser desfeita.
+                                            Essa ação não pode ser desfeita. Isso irá apagar permanentemente
+                                            todas as {entriesForSelectedDate} listas de preços enviadas para a data{' '}
+                                            {selectedDate && <strong>{format(selectedDate, 'dd/MM/yyyy')}</strong>}.
                                         </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
                                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeleteIncorrectOffers}>
-                                            Sim, Excluir Ofertas
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                           )}
-                        </div>
+                                        <AlertDialogAction onClick={handleDeleteDataForDay}>Continuar</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                            
+                            {isAnalyzing && progress > 0 && (
+                                <div className="mb-6 space-y-2">
+                                    <Progress value={progress} className="w-full" />
+                                    <p className="text-sm text-center text-muted-foreground">Analisando... um momento.</p>
+                                </div>
+                            )}
 
-                        <div className="rounded-md border overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Produto</TableHead>
-                                        <TableHead className="text-right min-w-[120px] font-bold bg-muted/50">Média</TableHead>
-                                        <TableHead className="text-center min-w-[150px]">Status</TableHead>
-                                        {uniqueStores.map(store => (
-                                            <TableHead key={store} className="text-right min-w-[150px]">{store}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredData.length > 0 ? filteredData.map(product => (
-                                        <TableRow key={product.sku}>
-                                            <TableCell className="font-medium sticky left-0 bg-card z-10">
-                                                <div className="font-bold">{product.name}</div>
-                                                <div className="text-xs text-muted-foreground">{product.sku} ({product.storeCount} lojas)</div>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono font-bold bg-muted/50">
-                                                <div className={cn(
-                                                    "rounded-md p-1",
-                                                    product.averagePrice !== 0 && {
-                                                        'bg-green-100 dark:bg-green-900/50': product.averagePrice === product.minPrice,
-                                                    }
-                                                )}>
-                                                    {formatCurrency(product.averagePrice)}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {product.analysis && (
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Badge variant={statusConfig[product.analysis.status].variant} className="cursor-help">
-                                                                {statusConfig[product.analysis.status].text}
-                                                                <Info className="ml-1.5 h-3 w-3" />
-                                                            </Badge>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="max-w-xs">{product.analysis.justification}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                )}
-                                            </TableCell>
-                                            {uniqueStores.map(store => {
-                                                const price = product.prices[store] ?? null;
-                                                const isMin = price !== null && price === product.minPrice;
-                                                const isMax = price !== null && price === product.maxPrice;
-                                                
-                                                return (
-                                                    <TableCell key={store} className={cn("text-right font-mono", {
-                                                        'bg-green-100 dark:bg-green-800/30': isMin,
-                                                        'bg-red-100 dark:bg-red-800/30': isMax,
-                                                    })}>
-                                                        {formatCurrency(price)}
-                                                    </TableCell>
-                                                )
-                                            })}
-                                        </TableRow>
-                                    )) : (
+                            <div className="flex items-center justify-between gap-2 mb-4">
+                               <div className="flex items-center gap-2">
+                                 <Tablets className="h-5 w-5 text-muted-foreground" />
+                                 <h3 className="text-lg font-semibold">Tabela de Preços</h3>
+                               </div>
+                               {incorrectOffers.length > 0 && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" className="text-destructive hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/50">
+                                            Excluir {incorrectOffers.length} oferta(s) incorreta(s)
+                                            <Trash2 className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Excluir Ofertas Incorretas?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Você tem certeza que deseja excluir as <strong>{incorrectOffers.length}</strong> ofertas sinalizadas como "Atenção"? Esta ação removerá os produtos das suas respectivas listas para esta data e não pode ser desfeita.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleDeleteIncorrectOffers}>
+                                                Sim, Excluir Ofertas
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                               )}
+                            </div>
+
+                            <div className="rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
                                         <TableRow>
-                                            <TableCell colSpan={uniqueStores.length + 3} className="h-24 text-center">
-                                                Nenhum produto encontrado para a data selecionada.
-                                            </TableCell>
+                                            <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Produto</TableHead>
+                                            <TableHead className="text-right min-w-[120px] font-bold bg-muted/50">Média</TableHead>
+                                            <TableHead className="text-center min-w-[150px]">Status</TableHead>
+                                            {uniqueStores.map(store => (
+                                                <TableHead key={store} className="text-right min-w-[150px]">{store}</TableHead>
+                                            ))}
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredData.length > 0 ? filteredData.map(product => (
+                                            <TableRow key={product.sku}>
+                                                <TableCell className="font-medium sticky left-0 bg-card z-10">
+                                                    <div className="font-bold">{product.name}</div>
+                                                    <div className="text-xs text-muted-foreground">{product.sku} ({product.storeCount} lojas)</div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-bold bg-muted/50">
+                                                    <div className={cn(
+                                                        "rounded-md p-1",
+                                                        product.averagePrice !== 0 && {
+                                                            'bg-green-100 dark:bg-green-900/50': product.averagePrice === product.minPrice,
+                                                        }
+                                                    )}>
+                                                        {formatCurrency(product.averagePrice)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {product.analysis && (
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Badge variant={statusConfig[product.analysis.status].variant} className="cursor-help">
+                                                                    {statusConfig[product.analysis.status].text}
+                                                                    <Info className="ml-1.5 h-3 w-3" />
+                                                                </Badge>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p className="max-w-xs">{product.analysis.justification}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    )}
+                                                </TableCell>
+                                                {uniqueStores.map(store => {
+                                                    const price = product.prices[store] ?? null;
+                                                    const isMin = price !== null && price === product.minPrice;
+                                                    const isMax = price !== null && price === product.maxPrice;
+                                                    
+                                                    return (
+                                                        <TableCell key={store} className={cn("text-right font-mono", {
+                                                            'bg-green-100 dark:bg-green-800/30': isMin,
+                                                            'bg-red-100 dark:bg-red-800/30': isMax,
+                                                        })}>
+                                                            {formatCurrency(price)}
+                                                        </TableCell>
+                                                    )
+                                                })}
+                                            </TableRow>
+                                        )) : (
+                                            <TableRow>
+                                                <TableCell colSpan={uniqueStores.length + 3} className="h-24 text-center">
+                                                    Nenhum produto encontrado para a data selecionada.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </TooltipProvider>
+                    ) : (
+                        <div className="text-center py-10">
+                            <p className="text-muted-foreground">Nenhuma lista foi enviada para o Feed ainda.</p>
+                            <p className="text-sm text-muted-foreground mt-2">Processe uma lista na tela "Processar Lista" e clique em "Enviar para o Feed".</p>
                         </div>
-                    </TooltipProvider>
-                ) : (
-                    <div className="text-center py-10">
-                        <p className="text-muted-foreground">Nenhuma lista foi enviada para o Feed ainda.</p>
-                        <p className="text-sm text-muted-foreground mt-2">Processe uma lista na tela "Processar Lista" e clique em "Enviar para o Feed".</p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    )}
+                </CardContent>
+            </Card>
         </main>
     );
 }
