@@ -147,11 +147,11 @@ export function StockConference() {
                 </Button>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <StatsCard title="Estoque Inicial do Dia" value={stats.initialStock} icon={Warehouse} />
+                <StatsCard title="Estoque Inicial do dia (TOTAL)" value={stats.initialStock} icon={Warehouse} />
                 <StatsCard title="Entradas (Novo)" value={stats.entriesToday} icon={ArrowDownToDot} />
                 <StatsCard title="Retornos (Lacrado/Seminovo/Usado)" value={stats.returnedToday} icon={Undo} />
-                <StatsCard title="Saídas no Dia" value={stats.exitsToday} icon={ArrowUpFromDot} />
-                <StatsCard title="Estoque Atual" value={stats.currentStock} icon={Boxes} />
+                <StatsCard title="Saidas do dia (TOTAL)" value={stats.exitsToday} icon={ArrowUpFromDot} />
+                <StatsCard title="Estoque atual (TOTAL)" value={stats.currentStock} icon={Boxes} />
             </div>
         </div>
         
