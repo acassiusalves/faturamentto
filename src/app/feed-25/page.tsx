@@ -8,7 +8,7 @@ import {
   organizeListAction,
   standardizeListAction,
   lookupProductsAction,
-  savePromptAction, // Import the new action
+  savePromptAction,
   type ProductDetail,
   type OrganizeResult,
   type StandardizeListOutput,
@@ -306,6 +306,9 @@ function StepByStepTab() {
 
     const handleOrganize = () => {
         startOrganizeTransition(async () => {
+            setStep2Result(null);
+            setStep3Result(null);
+
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('apiKey', apiKey);
@@ -317,14 +320,14 @@ function StepByStepTab() {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
             }
             setStep1Result(result.result);
-            setStep2Result(null);
-            setStep3Result(null);
         });
     };
 
     const handleStandardize = () => {
         if (!step1Result?.organizedList) return;
         startStandardizeTransition(async () => {
+            setStep3Result(null);
+
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('apiKey', apiKey);
@@ -336,7 +339,6 @@ function StepByStepTab() {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
             }
             setStep2Result(result.result);
-            setStep3Result(null);
         });
     };
 
@@ -442,7 +444,6 @@ function StepByStepTab() {
                             onChange={(e) => setInitialProductList(e.target.value)}
                             placeholder="Cole a lista de produtos aqui..."
                             className="min-h-[150px] bg-white"
-                            disabled={isOrganizing}
                         />
                         <Button onClick={handleOrganize} disabled={isOrganizing || !initialProductList}>
                             {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
