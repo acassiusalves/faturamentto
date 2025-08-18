@@ -71,13 +71,19 @@ export function PurchaseHistory() {
         setPendingItems([]);
     };
     
-    const handleItemChange = (sku: string, field: 'unitCost' | 'storeName' | 'isPaid', value: string | boolean) => {
+    const handleItemChange = (sku: string, field: 'unitCost' | 'storeName' | 'isPaid' | 'surplus', value: string | boolean | number) => {
         setPendingItems(prev =>
             prev.map(item => {
                 if (item.sku === sku) {
                     if (field === 'unitCost') {
                         const numericCost = parseFloat(value as string);
                         return { ...item, unitCost: isNaN(numericCost) ? item.unitCost : numericCost };
+                    }
+                    if (field === 'surplus') {
+                        const numericSurplus = parseInt(value as string, 10);
+                        const newSurplus = isNaN(numericSurplus) ? 0 : numericSurplus;
+                        const originalQuantity = item.quantity - (item.surplus || 0);
+                        return { ...item, surplus: newSurplus, quantity: originalQuantity + newSurplus };
                     }
                      if (field === 'isPaid') {
                         return { ...item, isPaid: value as boolean };
@@ -234,6 +240,7 @@ export function PurchaseHistory() {
                                                         <TableHead>SKU</TableHead>
                                                         <TableHead>Loja</TableHead>
                                                         <TableHead className="text-center">Quantidade</TableHead>
+                                                        <TableHead className="text-center">Excedente</TableHead>
                                                         <TableHead className="text-right">Custo Unit.</TableHead>
                                                         <TableHead className="text-right">Custo Total</TableHead>
                                                         <TableHead className="text-center">Pago</TableHead>
@@ -257,6 +264,18 @@ export function PurchaseHistory() {
                                                                 )}
                                                             </TableCell>
                                                             <TableCell className="text-center">{item.quantity}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                {isEditingThis ? (
+                                                                    <Input
+                                                                        type="number"
+                                                                        defaultValue={item.surplus}
+                                                                        onChange={(e) => handleItemChange(item.sku, 'surplus', e.target.value)}
+                                                                        className="w-20"
+                                                                    />
+                                                                ) : (
+                                                                    item.surplus || 0
+                                                                )}
+                                                            </TableCell>
                                                             <TableCell className="text-right">
                                                                 {isEditingThis ? (
                                                                     <Input

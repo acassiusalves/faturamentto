@@ -54,6 +54,7 @@ export default function ComprasPage() {
     
     const [costs, setCosts] = useState<Map<string, number>>(new Map());
     const [storeNames, setStoreNames] = useState<Map<string, string>>(new Map());
+    const [surplusQuantities, setSurplusQuantities] = useState<Map<string, number>>(new Map());
     const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState("generator");
@@ -209,6 +210,20 @@ export default function ComprasPage() {
             });
         }
     };
+    
+    const handleSurplusChange = (sku: string, value: string) => {
+        const surplus = parseInt(value, 10);
+        if (!isNaN(surplus) && surplus >= 0) {
+            setSurplusQuantities(prev => new Map(prev).set(sku, surplus));
+        } else {
+            setSurplusQuantities(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(sku);
+                return newMap;
+            });
+        }
+    };
+
 
     const handleStoreNameChange = (sku: string, value: string) => {
         setStoreNames(prev => new Map(prev).set(sku, value));
@@ -219,11 +234,13 @@ export default function ComprasPage() {
             let total = 0;
             processedList.forEach(item => {
                 const cost = costs.get((item as GroupedListItem).sku) || 0;
-                total += cost * (item as GroupedListItem).totalQuantity;
+                const surplus = surplusQuantities.get((item as GroupedListItem).sku) || 0;
+                const totalQuantity = (item as GroupedListItem).totalQuantity + surplus;
+                total += cost * totalQuantity;
             });
             setTotalPurchaseCost(total);
         }
-    }, [costs, processedList, isGrouped]);
+    }, [costs, surplusQuantities, processedList, isGrouped]);
 
 
     const pageCount = Math.ceil(orders.length / pageSize);
@@ -262,7 +279,8 @@ export default function ComprasPage() {
             const itemsToSave: PurchaseListItem[] = (processedList as GroupedListItem[]).map(item => ({
                 productName: item.productName,
                 sku: item.sku,
-                quantity: item.totalQuantity,
+                quantity: item.totalQuantity + (surplusQuantities.get(item.sku) || 0),
+                surplus: surplusQuantities.get(item.sku) || 0,
                 unitCost: costs.get(item.sku) || 0,
                 storeName: storeNames.get(item.sku) || '',
             }));
@@ -282,6 +300,7 @@ export default function ComprasPage() {
             // Reset state after saving
             setDisplayList([]);
             setCosts(new Map());
+            setSurplusQuantities(new Map());
             setTotalPurchaseCost(0);
             setStoreNames(new Map());
 
@@ -503,6 +522,7 @@ export default function ComprasPage() {
                                         <TableHead>SKU</TableHead>
                                         {isGrouped && <TableHead>Loja</TableHead>}
                                         <TableHead className="text-center">Quantidade</TableHead>
+                                        {isGrouped && <TableHead className="text-center">Excedente</TableHead>}
                                         {isGrouped && <TableHead className="text-right">Custo Unitário</TableHead>}
                                         {isGrouped && <TableHead className="text-right">Custo Total</TableHead>}
                                         {isGrouped && <TableHead className="text-center">Ações</TableHead>}
@@ -512,8 +532,9 @@ export default function ComprasPage() {
                                     {processedList.map((item, index) => {
                                         const sku = 'sku' in item ? item.sku : '';
                                         const quantity = 'quantity' in item ? item.quantity : ('totalQuantity' in item ? item.totalQuantity : 0);
+                                        const surplus = surplusQuantities.get(sku) || 0;
                                         const unitCost = costs.get(sku) || 0;
-                                        const totalCost = unitCost * quantity;
+                                        const totalCost = unitCost * (quantity + surplus);
 
                                         return (
                                         <TableRow key={`${'orderId' in item ? item.orderId : ''}-${sku}-${index}`}>
@@ -535,6 +556,15 @@ export default function ComprasPage() {
                                                         </Select>
                                                     </TableCell>
                                                     <TableCell className="text-center font-bold">{quantity}</TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="0"
+                                                            className="w-20 mx-auto text-center"
+                                                            onChange={(e) => handleSurplusChange(sku, e.target.value)}
+                                                            defaultValue={surplusQuantities.get(sku) || ''}
+                                                        />
+                                                    </TableCell>
                                                     <TableCell className="text-right">
                                                         <Input
                                                             type="number"
