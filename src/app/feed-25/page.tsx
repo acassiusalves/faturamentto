@@ -189,7 +189,7 @@ function StepByStepTab() {
         if (!step1Result?.organizedList) return;
         startStandardizeTransition(async () => {
             const formData = new FormData();
-            formData.append('organizedList', step1Result.organizedList);
+            formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('apiKey', apiKey);
             formData.append('modelName', modelName);
             
@@ -328,10 +328,10 @@ function StepByStepTab() {
                             <div className="space-y-4">
                                 <Textarea
                                     readOnly
-                                    value={step1Result.organizedList || ''}
+                                    value={step1Result.organizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleStandardize} disabled={isStandardizing || !step1Result.organizedList || !!step2Result}>
+                                <Button onClick={handleStandardize} disabled={isStandardizing || step1Result.organizedList.length === 0 || !!step2Result}>
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>

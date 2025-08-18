@@ -25,9 +25,9 @@ export type OrganizeListInput = z.infer<typeof OrganizeListInputSchema>;
 
 const OrganizeResultSchema = z.object({
   organizedList: z
-    .string()
+    .array(z.string())
     .describe(
-      'The cleaned and organized list, with each product on a new line, typically in "1x Product Name" format.'
+      'An array of strings, where each string is a cleaned and organized product entry.'
     ),
 });
 
@@ -65,11 +65,16 @@ Bom dia! Segue a lista:
 **EXEMPLO DE SAÍDA ESPERADA:**
 \`\`\`json
 {
-    "organizedList": "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00\n2x IPHONE 15 PRO MAX 256GB - PRETO - 5.100,00\n1x SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00\n1x POCO X6 5G 128GB/6GB RAM"
+    "organizedList": [
+        "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00",
+        "2x IPHONE 15 PRO MAX 256GB - PRETO - 5.100,00",
+        "1x SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00",
+        "1x POCO X6 5G 128GB/6GB RAM"
+    ]
 }
 \`\`\`
 
-Apenas retorne o JSON com a chave 'organizedList' contendo a lista limpa e organizada, com cada variação de produto em sua própria linha.
+Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
 `,
     });
     

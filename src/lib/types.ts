@@ -7,6 +7,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -291,7 +292,7 @@ export interface UnprocessedItem {
 }
 
 export interface OrganizeResult {
-  organizedList: string;
+  organizedList: string[];
 }
 
 export interface StandardizeListOutput {
