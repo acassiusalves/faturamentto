@@ -61,10 +61,9 @@ export function StockConference() {
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
     const currentStock = inventoryItems.length;
 
-    // Calculate Initial Stock based on end of previous day
-    const entriesBeforeToday = inventoryItems.filter(item => parseISO(item.createdAt) < todayStart).length;
-    const exitsBeforeToday = pickingLogs.filter(log => parseISO(log.pickedAt) < todayStart).length;
-    const initialStockToday = entriesBeforeToday - exitsBeforeToday;
+    // Correctly calculate Initial Stock for Today
+    // It's the current stock minus today's entries plus today's exits.
+    const initialStockToday = currentStock - entriesToday + exitsToday;
     
     setStats({
       initialStock: initialStockToday,
@@ -105,7 +104,7 @@ export function StockConference() {
 
         rollingStock = initialStock;
     }
-    setDailyHistory(history);
+    setDailyHistory(history.reverse());
     
     setIsLoading(false);
   }, []);
