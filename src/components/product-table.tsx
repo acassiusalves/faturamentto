@@ -51,14 +51,19 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   }, [products, searchTerm, brandFilter]);
 
   const notFoundCount = useMemo(() => {
-      const foundInDetails = products.filter(p => p.sku === 'N/D').length;
-      return foundInDetails + unprocessedItems.length;
+    // Count items from the main list that have 'SEM CÓDIGO' and add items that failed standardization.
+    const withoutSku = products.filter(p => p.sku === 'SEM CÓDIGO').length;
+    return withoutSku + (unprocessedItems?.length || 0);
   }, [products, unprocessedItems]);
 
+  const foundCount = useMemo(() => {
+      return products.length - notFoundCount;
+  }, [products, notFoundCount]);
   
   const formatCurrency = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    const numericValue = parseFloat(value.replace(/[^0-9,-]/g, '').replace(',', '.'));
+    // Remove all characters except digits and comma, then replace comma with dot for parsing
+    const numericValue = parseFloat(String(value).replace(/[^\d,]/g, '').replace(',', '.'));
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
@@ -74,7 +79,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
                 <div className="flex items-center gap-2">
                     <PackageCheck className="h-6 w-6 text-green-600"/>
                     <div>
-                        <p className="font-bold text-lg">{products.length - notFoundCount} Produtos Encontrados</p>
+                        <p className="font-bold text-lg">{foundCount} Produtos Encontrados</p>
                         <p className="text-xs text-muted-foreground">Itens com SKU correspondente no BD.</p>
                     </div>
                 </div>
