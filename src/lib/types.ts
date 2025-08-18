@@ -10,6 +10,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -290,6 +291,13 @@ export interface ProductDetail {
   unitPrice?: string; // Tornar opcional
   totalPrice?: string; // Tornar opcional
   costPrice?: string; // Adicionar novo campo
+}
+
+export interface FeedEntry {
+    storeName: string;
+    date: string;
+    products: ProductDetail[];
+    id: string;
 }
 
 export interface UnprocessedItem {

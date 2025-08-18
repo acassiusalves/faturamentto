@@ -159,3 +159,38 @@ export async function savePromptAction(
     return { error: e.message || 'Ocorreu um erro ao salvar o prompt.' };
   }
 }
+
+export async function analyzeFeedAction(
+    prevState: {
+      result: { analysis: any[] } | null;
+      error: string | null;
+    },
+    formData: FormData
+  ): Promise<{
+    result: { analysis: any[] } | null;
+    error: string | null;
+  }> {
+    const feedData = formData.get('feedData') as string;
+    const apiKey = formData.get('apiKey') as string;
+    const modelName = formData.get('modelName') as string;
+
+    if (!feedData) {
+      return {result: null, error: 'Nenhum dado do feed para analisar.'};
+    }
+  
+    try {
+      // This is a placeholder for the actual AI analysis call
+      await new Promise(res => setTimeout(res, 2000));
+      const parsedFeed = JSON.parse(feedData);
+      const analysis = parsedFeed.map((product: any) => ({
+          sku: product.sku,
+          status: 'PRECO_OK',
+          justification: 'Este é um placeholder de análise.'
+      }));
+
+      return {result: { analysis }, error: null};
+    } catch (e: any) {
+      console.error('Error in analyzeFeedAction:', e);
+      return {result: null, error: e.message || 'Ocorreu um erro desconhecido durante a análise.'};
+    }
+  }

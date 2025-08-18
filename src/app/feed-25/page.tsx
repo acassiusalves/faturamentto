@@ -3,6 +3,7 @@
 
 import { useActionState, useState, useEffect, useTransition, useRef, FormEvent } from 'react';
 import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check, Pencil, Save } from 'lucide-react';
+import { FeedPage } from './feed-page';
 
 import {
   organizeListAction,
@@ -178,7 +179,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;
 
-function StepByStepTab() {
+function ProcessListTab() {
     const { toast } = useToast();
     const [databaseList, setDatabaseList] = useState('');
     const [apiKey, setApiKey] = useState('');
@@ -400,7 +401,45 @@ function StepByStepTab() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+                <Card className="flex-1">
+                    <CardHeader>
+                        <CardTitle>Configurações da IA</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col sm:flex-row gap-4">
+                         <div className="flex-1 space-y-2">
+                            <Label htmlFor="gemini-api-key">Chave de API do Gemini (Opcional)</Label>
+                            <Input 
+                                id="gemini-api-key"
+                                type="password"
+                                value={apiKey}
+                                onChange={(e) => {
+                                    setApiKey(e.target.value);
+                                    localStorage.setItem(API_KEY_STORAGE_KEY, e.target.value);
+                                }}
+                                placeholder="Use sua própria chave de API"
+                            />
+                         </div>
+                         <div className="flex-1 space-y-2">
+                            <Label htmlFor="gemini-model">Modelo</Label>
+                             <Select 
+                                value={modelName}
+                                onValueChange={(value) => {
+                                    setModelName(value);
+                                    localStorage.setItem(MODEL_STORAGE_KEY, value);
+                                }}
+                            >
+                                <SelectTrigger id="gemini-model">
+                                    <SelectValue placeholder="Selecione um modelo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Rápido)</SelectItem>
+                                    <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Poderoso)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                         </div>
+                    </CardContent>
+                </Card>
                 <Button variant="ghost" onClick={handleRestart}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Recomeçar
@@ -425,7 +464,7 @@ function StepByStepTab() {
                             placeholder="Cole a lista de produtos aqui..."
                             className="min-h-[150px] bg-white"
                         />
-                        <Button onClick={handleOrganize} disabled={isOrganizing || !initialProductList}>
+                        <Button onClick={handleOrganize} disabled={!initialProductList}>
                             {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Organizar
                         </Button>
@@ -481,7 +520,7 @@ function StepByStepTab() {
                                     value={step1Result.organizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleStandardize} disabled={isStandardizing || step1Result.organizedList.length === 0}>
+                                <Button onClick={handleStandardize} disabled={step1Result.organizedList.length === 0}>
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
@@ -538,7 +577,7 @@ function StepByStepTab() {
                                     value={step2Result.standardizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleLookup} disabled={isLookingUp || step2Result.standardizedList.length === 0 || !databaseList}>
+                                <Button onClick={handleLookup} disabled={step2Result.standardizedList.length === 0 || !databaseList}>
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
@@ -646,7 +685,18 @@ export default function ListaPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
-        <StepByStepTab />
+        <Tabs defaultValue="process">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="process">Processar Lista</TabsTrigger>
+            <TabsTrigger value="feed">Lista</TabsTrigger>
+          </TabsList>
+          <TabsContent value="process" className="mt-6">
+            <ProcessListTab />
+          </TabsContent>
+          <TabsContent value="feed" className="mt-6">
+             <FeedPage />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
