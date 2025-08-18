@@ -2,7 +2,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useTransition, useRef, FormEvent } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check, Pencil } from 'lucide-react';
 
 import {
   organizeListAction,
@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
 import { loadAppSettings, loadProducts } from '@/services/firestore';
+import { Label } from '@/components/ui/label';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -47,25 +48,129 @@ export interface FeedEntry {
     id: string;
 }
 
-function StepIndicator({ title, status, count }: { title: string, status: 'pending' | 'active' | 'complete', count?: number | null }) {
-    return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div>
-                    {status === 'active' && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-                    {status === 'pending' && <CircleDashed className="h-5 w-5 text-muted-foreground" />}
-                    {status === 'complete' && <CheckCircle className="h-5 w-5 text-green-500" />}
-                </div>
-                <div>
-                    <p className={`font-medium ${status === 'active' ? 'text-primary' : status === 'pending' ? 'text-muted-foreground' : ''}`}>{title}</p>
-                </div>
-            </div>
-            {status === 'complete' && count !== null && count !== undefined && (
-                 <p className="text-sm text-muted-foreground">{count} itens</p>
-            )}
-        </div>
-    )
+const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
+
+**LISTA BRUTA DO FORNECEDOR:**
+\`\`\`
+{{{productList}}}
+\`\`\`
+
+**REGRAS DE ORGANIZAÇÃO:**
+1.  **Um Produto Por Linha:** A regra principal é identificar cada produto e suas variações. Se um item como "iPhone 13" tem duas cores (Azul e Preto) listadas, ele deve ser transformado em duas linhas separadas na saída.
+2.  **Agrupamento por Variação:** Fique atento a padrões onde um item principal tem várias cores ou preços listados juntos. Crie uma linha separada para cada combinação de produto/variação.
+3.  **Extração de Detalhes:** Para cada linha, extraia os detalhes que conseguir identificar: Marca, Modelo, Armazenamento (ROM), Memória RAM, Cor e Preço.
+4.  **Limpeza Geral:** Remova qualquer informação desnecessária: saudações ("Bom dia"), emojis, formatação excessiva (ex: "---"), ou palavras de marketing que não são essenciais ("Qualidade Premium", "Oportunidade").
+5.  **Formato de Quantidade:** Padronize a quantidade para o formato "1x " no início de cada linha. Se nenhuma quantidade for mencionada, assuma 1.
+
+**EXEMPLO DE ENTRADA:**
+\`\`\`
+Bom dia! Segue a lista:
+- 2x IPHONE 15 PRO MAX 256GB - AZUL/PRETO - 5.100,00
+- SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00
+- 1x POCO X6 5G 128GB/6GB RAM
+\`\`\`
+
+**EXEMPLO DE SAÍDA ESPERADA:**
+\`\`\`json
+{
+    "organizedList": [
+        "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00",
+        "2x IPHONE 15 PRO MAX 256GB - PRETO - 5.100,00",
+        "1x SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00",
+        "1x POCO X6 5G 128GB/6GB RAM"
+    ]
 }
+\`\`\`
+
+Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
+`;
+
+const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado.
+
+    **LISTA ORGANIZADA PARA ANÁLISE:**
+    \`\`\`
+    {{{organizedList}}}
+    \`\`\`
+
+    **REGRAS DE PADRONIZAÇÃO:**
+    1.  **Extração de Componentes:** Para cada linha, identifique e extraia os seguintes dados: Marca, Modelo, Armazenamento (ROM), Memória RAM, Cor, Rede (4G/5G, se houver) e Preço. **Importante:** Não adivinhe a marca; use apenas o que está escrito no item.
+    2.  **Ordem Estrita:** Reorganize os componentes extraídos para seguir EXATAMENTE esta ordem, separados por um espaço: \`Marca Modelo Armazenamento Global Memoria Cor Rede Preço\`.
+    3.  **Formatação de Memória:** Garanta que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada corretamente (ex: "8GB RAM"). Formatos como "8/256GB" significam "8GB RAM" e "256GB" de armazenamento.
+    4.  **Omissão de Rede:** Se a conectividade (4G ou 5G) não for mencionada na linha original do produto, essa informação deve ser **omitida** da string final. Não assuma um valor padrão.
+    5.  **Manutenção do Preço:** O preço DEVE ser mantido no final de cada linha padronizada.
+    6.  **Limpeza de Dados:** Após a padronização, remova qualquer informação extra que não se encaixe na nova estrutura (por exemplo, "6/128GB", "Versão Global", "Americano A+") para limpar a descrição do produto.
+    7.  **Tratamento de Erros:** Se uma linha não puder ser padronizada (por faltar informações essenciais como preço, ou se o formato for muito confuso), adicione-a à lista 'unprocessedItems' com uma breve justificativa (ex: "Faltando preço", "Formato de memória/armazenamento irreconhecível").
+
+    **EXEMPLO DE ENTRADA:**
+    \`\`\`
+    1x IPHONE 13 128GB AMERICANO A+ - ROSA - 2.000,00
+    1x REDMI NOTE 14 PRO 5G 8/256GB - PRETO - 1.235,00
+    1x Produto com defeito sem preço
+    \`\`\`
+
+    **EXEMPLO DE SAÍDA ESPERADA:**
+    \`\`\`json
+    {
+        "standardizedList": [
+            "iPhone 13 128GB Global 4GB RAM Rosa 2.000,00",
+            "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 5G 1.235,00"
+        ],
+        "unprocessedItems": [
+        {
+            "line": "1x Produto com defeito sem preço",
+            "reason": "Faltando preço"
+        }
+        ]
+    }
+    \`\`\`
+
+    Execute a análise e gere a lista padronizada e a lista de itens não processados. A saída deve ser um JSON válido.
+    `;
+
+const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
+
+        **LISTA PADRONIZADA (Resultado do Passo 2):**
+        \`\`\`
+        {{{productList}}}
+        \`\`\`
+
+        **BANCO DE DADOS (Nome do Produto\tSKU):**
+        \`\`\`
+        {{{databaseList}}}
+        \`\`\`
+
+        **REGRAS DE PROCESSAMENTO E BUSCA:**
+        1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
+        2.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome (como "/") podem ser ignoradas se estes componentes forem idênticos.
+        3.  **Regra de Conectividade Padrão:**
+            *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
+            *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
+        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Remova qualquer formatação de milhar (pontos) e use um ponto como separador decimal (ex: "1.234,56" deve se tornar "1234.56").
+        5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
+            *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
+            *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
+            *   \`costPrice\`: O preço de custo extraído e formatado como número.
+
+        **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
+        1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
+        2.  **Ignorar Outras Marcas:** Produtos de marcas que não sejam uma das quatro mencionadas acima devem ser completamente ignorados e não devem aparecer no resultado final.
+        3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
+
+        **EXEMPLO DE SAÍDA ESPERADA:**
+        \`\`\`json
+        {
+          "details": [
+            { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
+            { "sku": "#RMGTN256P", "name": "Realme GT Neo 256GB 12GB RAM 5G - Preto", "costPrice": "2800.00" },
+            { "sku": "#MTG2264A", "name": "Motorola Moto G22 64GB 4GB RAM 4G - Azul", "costPrice": "980.00" },
+            { "sku": "#SMA53128V", "name": "Samsung Galaxy A53 128GB 8GB RAM 5G - Verde", "costPrice": "1500.00" },
+            { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
+          ]
+        }
+        \`\`\`
+
+        Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
+        `;
 
 function FullPipelineTab() {
   const { toast } = useToast();
@@ -104,6 +209,11 @@ function StepByStepTab() {
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
     const [step2Result, setStep2Result] = useState<StandardizeListOutput | null>(null);
     const [step3Result, setStep3Result] = useState<LookupResult | null>(null);
+    
+    // States for prompt overrides
+    const [organizePrompt, setOrganizePrompt] = useState(DEFAULT_ORGANIZE_PROMPT);
+    const [standardizePrompt, setStandardizePrompt] = useState(DEFAULT_STANDARDIZE_PROMPT);
+    const [lookupPrompt, setLookupPrompt] = useState(DEFAULT_LOOKUP_PROMPT);
     
     useEffect(() => {
         // Set date on client-side only to avoid hydration mismatch
@@ -162,6 +272,9 @@ function StepByStepTab() {
         setStep3Result(null);
         setStoreName('');
         setDate(new Date());
+        setOrganizePrompt(DEFAULT_ORGANIZE_PROMPT);
+        setStandardizePrompt(DEFAULT_STANDARDIZE_PROMPT);
+        setLookupPrompt(DEFAULT_LOOKUP_PROMPT);
         toast({
             title: "Processo Reiniciado",
             description: "Você pode começar uma nova análise."
@@ -174,6 +287,7 @@ function StepByStepTab() {
             formData.append('productList', initialProductList);
             formData.append('apiKey', apiKey);
             formData.append('modelName', modelName);
+            formData.append('prompt_override', organizePrompt);
             
             const result = await organizeListAction(null, formData);
             if (result.error) {
@@ -192,6 +306,7 @@ function StepByStepTab() {
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('apiKey', apiKey);
             formData.append('modelName', modelName);
+            formData.append('prompt_override', standardizePrompt);
             
             const result = await standardizeListAction(null, formData);
             if (result.error) {
@@ -210,6 +325,7 @@ function StepByStepTab() {
             formData.append('databaseList', databaseList);
             formData.append('apiKey', apiKey);
             formData.append('modelName', modelName);
+            formData.append('prompt_override', lookupPrompt);
             
             const result = await lookupProductsAction(null, formData);
             if (result.error) {
@@ -300,6 +416,16 @@ function StepByStepTab() {
                             {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Organizar
                         </Button>
+                        <Accordion type="single" collapsible>
+                          <AccordionItem value="item-1">
+                            <AccordionTrigger>
+                              <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <Textarea value={organizePrompt} onChange={(e) => setOrganizePrompt(e.target.value)} rows={15} className="text-xs" />
+                            </AccordionContent>
+                          </AccordionItem>
+                        </Accordion>
                         {isOrganizing && progress > 0 && (
                             <div className="flex items-center gap-4 pt-2">
                                 <Progress value={progress} className="w-full" />
@@ -335,6 +461,16 @@ function StepByStepTab() {
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
+                                <Accordion type="single" collapsible>
+                                  <AccordionItem value="item-1">
+                                    <AccordionTrigger>
+                                      <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <Textarea value={standardizePrompt} onChange={(e) => setStandardizePrompt(e.target.value)} rows={15} className="text-xs" />
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                </Accordion>
                                 {isStandardizing && progress > 0 && (
                                     <div className="flex items-center gap-4 pt-2">
                                         <Progress value={progress} className="w-full" />
@@ -376,6 +512,16 @@ function StepByStepTab() {
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
+                                <Accordion type="single" collapsible>
+                                  <AccordionItem value="item-1">
+                                    <AccordionTrigger>
+                                      <Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <Textarea value={lookupPrompt} onChange={(e) => setLookupPrompt(e.target.value)} rows={15} className="text-xs" />
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                </Accordion>
                                 {isLookingUp && progress > 0 && (
                                     <div className="flex items-center gap-4 pt-2">
                                         <Progress value={progress} className="w-full" />
@@ -403,7 +549,7 @@ function StepByStepTab() {
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="storeName-step" className="text-sm font-medium mb-2 block">Nome da Loja (Obrigatório)</label>
+                                    <Label htmlFor="storeName-step" className="text-sm font-medium mb-2 block">Nome da Loja (Obrigatório)</Label>
                                     <Select onValueChange={setStoreName} value={storeName}>
                                         <SelectTrigger id="storeName-step">
                                             <SelectValue placeholder="Selecione uma loja" />
@@ -418,7 +564,7 @@ function StepByStepTab() {
                                     </Select>
                                 </div>
                                 <div>
-                                    <label htmlFor="listDate-step" className="text-sm font-medium mb-2 block">Data da Lista</label>
+                                    <Label htmlFor="listDate-step" className="text-sm font-medium mb-2 block">Data da Lista</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button

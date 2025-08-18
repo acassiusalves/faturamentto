@@ -59,13 +59,14 @@ export async function organizeListAction(
     const productList = formData.get('productList') as string;
     const apiKey = formData.get('apiKey') as string;
     const modelName = formData.get('modelName') as string;
+    const prompt_override = formData.get('prompt_override') as string;
 
     if (!productList) {
         return { result: null, error: 'A lista de produtos está vazia.' };
     }
     
     try {
-        const result = await organizeList({ productList, apiKey, modelName });
+        const result = await organizeList({ productList, apiKey, modelName, prompt_override });
         return { result, error: null };
     } catch (e: any) {
         console.error('Error in organizeListAction:', e);
@@ -86,13 +87,14 @@ export async function standardizeListAction(
     const organizedList = formData.get('organizedList') as string;
     const apiKey = formData.get('apiKey') as string;
     const modelName = formData.get('modelName') as string;
+    const prompt_override = formData.get('prompt_override') as string;
     
     if (!organizedList) {
         return { result: null, error: 'A lista organizada está vazia.' };
     }
     
     try {
-        const result = await standardizeList({ organizedList, apiKey, modelName });
+        const result = await standardizeList({ organizedList, apiKey, modelName, prompt_override });
         return { result, error: null };
     } catch (e: any) {
         console.error('Error in standardizeListAction:', e);
@@ -114,6 +116,7 @@ export async function lookupProductsAction(
     const databaseList = formData.get('databaseList') as string;
     const apiKey = formData.get('apiKey') as string;
     const modelName = formData.get('modelName') as string;
+    const prompt_override = formData.get('prompt_override') as string;
     
     if (!productList) {
         return { result: null, error: 'A lista de produtos padronizada está vazia.' };
@@ -123,7 +126,7 @@ export async function lookupProductsAction(
     }
 
     try {
-        const result = await lookupProducts({ productList, databaseList, apiKey, modelName });
+        const result = await lookupProducts({ productList, databaseList, apiKey, modelName, prompt_override });
         return { result, error: null };
     } catch (e: any) {
         console.error('Error in lookupProductsAction:', e);

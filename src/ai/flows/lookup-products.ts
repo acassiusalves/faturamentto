@@ -15,43 +15,7 @@ import {z} from 'genkit';
 import type { LookupResult } from '@/lib/types';
 
 
-const LookupProductsInputSchema = z.object({
-  productList: z.string().describe('The standardized list of products (Brand Model Storage RAM etc.) with their costs.'),
-  databaseList: z
-    .string()
-    .describe(
-      'The list of available products in the database, formatted as "Product Name\\tSKU" per line.'
-    ),
-  apiKey: z.string().optional(),
-  modelName: z.string().optional(),
-});
-export type LookupProductsInput = z.infer<typeof LookupProductsInputSchema>;
-
-
-const LookupResultSchema = z.object({
-  details: z
-    .array(
-      z.object({
-        sku: z.string().describe('The corresponding SKU from the database, or "SEM CÓDIGO" if not found.'),
-        name: z.string().describe('The full name of the product from the database, or the original name if not found.'),
-        costPrice: z.string().describe('The cost price of the product, extracted from the initial list.'),
-      })
-    )
-    .describe(
-      'A structured array of the final product details after matching with the database.'
-    ),
-});
-
-export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
-    const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
-
-    const prompt = ai.definePrompt({
-        name: 'lookupProductsPrompt',
-        model: selectedModel,
-        input: {schema: LookupProductsInputSchema},
-        output: {schema: LookupResultSchema},
-        prompt: `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
+const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
 
         **LISTA PADRONIZADA (Resultado do Passo 2):**
         \`\`\`
@@ -94,7 +58,46 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
         \`\`\`
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
-        `,
+        `;
+
+const LookupProductsInputSchema = z.object({
+  productList: z.string().describe('The standardized list of products (Brand Model Storage RAM etc.) with their costs.'),
+  databaseList: z
+    .string()
+    .describe(
+      'The list of available products in the database, formatted as "Product Name\\tSKU" per line.'
+    ),
+  apiKey: z.string().optional(),
+  modelName: z.string().optional(),
+  prompt_override: z.string().optional(),
+});
+export type LookupProductsInput = z.infer<typeof LookupProductsInputSchema>;
+
+
+const LookupResultSchema = z.object({
+  details: z
+    .array(
+      z.object({
+        sku: z.string().describe('The corresponding SKU from the database, or "SEM CÓDIGO" if not found.'),
+        name: z.string().describe('The full name of the product from the database, or the original name if not found.'),
+        costPrice: z.string().describe('The cost price of the product, extracted from the initial list.'),
+      })
+    )
+    .describe(
+      'A structured array of the final product details after matching with the database.'
+    ),
+});
+
+export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
+    const ai = getAi(input.apiKey);
+    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+
+    const prompt = ai.definePrompt({
+        name: 'lookupProductsPrompt',
+        model: selectedModel,
+        input: {schema: LookupProductsInputSchema},
+        output: {schema: LookupResultSchema},
+        prompt: input.prompt_override || DEFAULT_LOOKUP_PROMPT,
     });
 
     const {output} = await prompt(input);

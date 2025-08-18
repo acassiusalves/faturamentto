@@ -15,32 +15,7 @@ import {z} from 'genkit';
 import type { OrganizeResult } from '@/lib/types';
 
 
-const OrganizeListInputSchema = z.object({
-  productList: z.string().describe('The raw, unstructured list of products to process.'),
-  apiKey: z.string().optional(),
-  modelName: z.string().optional(),
-});
-export type OrganizeListInput = z.infer<typeof OrganizeListInputSchema>;
-
-
-const OrganizeResultSchema = z.object({
-  organizedList: z
-    .array(z.string())
-    .describe(
-      'An array of strings, where each string is a cleaned and organized product entry.'
-    ),
-});
-
-export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
-    const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
-
-    const prompt = ai.definePrompt({
-        name: 'organizeListPrompt',
-        model: selectedModel,
-        input: {schema: OrganizeListInputSchema},
-        output: {schema: OrganizeResultSchema},
-        prompt: `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
+const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
 **LISTA BRUTA DO FORNECEDOR:**
 \`\`\`
@@ -75,7 +50,36 @@ Bom dia! Segue a lista:
 \`\`\`
 
 Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
-`,
+`;
+
+
+const OrganizeListInputSchema = z.object({
+  productList: z.string().describe('The raw, unstructured list of products to process.'),
+  apiKey: z.string().optional(),
+  modelName: z.string().optional(),
+  prompt_override: z.string().optional(),
+});
+export type OrganizeListInput = z.infer<typeof OrganizeListInputSchema>;
+
+
+const OrganizeResultSchema = z.object({
+  organizedList: z
+    .array(z.string())
+    .describe(
+      'An array of strings, where each string is a cleaned and organized product entry.'
+    ),
+});
+
+export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
+    const ai = getAi(input.apiKey);
+    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+
+    const prompt = ai.definePrompt({
+        name: 'organizeListPrompt',
+        model: selectedModel,
+        input: {schema: OrganizeListInputSchema},
+        output: {schema: OrganizeResultSchema},
+        prompt: input.prompt_override || DEFAULT_ORGANIZE_PROMPT,
     });
     
     const {output} = await prompt(input);

@@ -13,38 +13,7 @@ import {getAi} from '@/ai/genkit';
 import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
-const StandardizeListInputSchema = z.object({
-  organizedList: z.string().describe('The organized, line-by-line list of products, including prices.'),
-  apiKey: z.string().optional(),
-  modelName: z.string().optional(),
-});
-export type StandardizeListInput = z.infer<typeof StandardizeListInputSchema>;
-
-const UnprocessedItemSchema = z.object({
-    line: z.string().describe('The original line item that could not be processed.'),
-    reason: z.string().describe('The reason why the item could not be standardized.'),
-});
-
-const StandardizeListOutputSchema = z.object({
-  standardizedList: z
-    .array(z.string())
-    .describe(
-      'An array of strings, where each string is a fully standardized product line, including the price.'
-    ),
-  unprocessedItems: z.array(UnprocessedItemSchema).describe('A list of items that could not be standardized and the reason why.'),
-});
-export type StandardizeListOutput = z.infer<typeof StandardizeListOutputSchema>;
-
-export async function standardizeList(input: StandardizeListInput): Promise<StandardizeListOutput> {
-    const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
-
-    const prompt = ai.definePrompt({
-    name: 'standardizeListPrompt',
-    model: selectedModel,
-    input: {schema: StandardizeListInputSchema},
-    output: {schema: StandardizeListOutputSchema},
-    prompt: `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado.
+const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado.
 
     **LISTA ORGANIZADA PARA ANÁLISE:**
     \`\`\`
@@ -84,7 +53,41 @@ export async function standardizeList(input: StandardizeListInput): Promise<Stan
     \`\`\`
 
     Execute a análise e gere a lista padronizada e a lista de itens não processados. A saída deve ser um JSON válido.
-    `,
+    `;
+
+const StandardizeListInputSchema = z.object({
+  organizedList: z.string().describe('The organized, line-by-line list of products, including prices.'),
+  apiKey: z.string().optional(),
+  modelName: z.string().optional(),
+  prompt_override: z.string().optional(),
+});
+export type StandardizeListInput = z.infer<typeof StandardizeListInputSchema>;
+
+const UnprocessedItemSchema = z.object({
+    line: z.string().describe('The original line item that could not be processed.'),
+    reason: z.string().describe('The reason why the item could not be standardized.'),
+});
+
+const StandardizeListOutputSchema = z.object({
+  standardizedList: z
+    .array(z.string())
+    .describe(
+      'An array of strings, where each string is a fully standardized product line, including the price.'
+    ),
+  unprocessedItems: z.array(UnprocessedItemSchema).describe('A list of items that could not be standardized and the reason why.'),
+});
+export type StandardizeListOutput = z.infer<typeof StandardizeListOutputSchema>;
+
+export async function standardizeList(input: StandardizeListInput): Promise<StandardizeListOutput> {
+    const ai = getAi(input.apiKey);
+    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+
+    const prompt = ai.definePrompt({
+    name: 'standardizeListPrompt',
+    model: selectedModel,
+    input: {schema: StandardizeListInputSchema},
+    output: {schema: StandardizeListOutputSchema},
+    prompt: input.prompt_override || DEFAULT_STANDARDIZE_PROMPT,
     });
 
     const {output} = await prompt(input);
