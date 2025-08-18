@@ -31,6 +31,7 @@ import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
 import { loadAppSettings, loadProducts } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -472,12 +473,17 @@ function StepByStepTab() {
                     {/* Step 2: Standardize */}
                     <Card className="w-full">
                         <CardHeader>
-                            <div className="flex items-center gap-4">
-                                {getStepIcon(isStandardizing, step2Result)}
-                                <div>
-                                    <CardTitle className="font-headline text-xl">Passo 2: Padronizar Lista</CardTitle>
-                                    <CardDescription>A lista organizada abaixo será usada para padronização.</CardDescription>
+                            <div className="flex justify-between items-start">
+                                <div className="flex items-center gap-4">
+                                    {getStepIcon(isStandardizing, step2Result)}
+                                    <div>
+                                        <CardTitle className="font-headline text-xl">Passo 2: Padronizar Lista</CardTitle>
+                                        <CardDescription>A lista organizada abaixo será usada para padronização.</CardDescription>
+                                    </div>
                                 </div>
+                                {step1Result && (
+                                    <Badge variant="secondary" className="text-base font-semibold">{step1Result.organizedList.length} Produtos</Badge>
+                                )}
                             </div>
                         </CardHeader>
                         <CardContent>
