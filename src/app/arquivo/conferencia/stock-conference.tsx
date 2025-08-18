@@ -19,7 +19,7 @@ interface DailyStats {
   entriesToday: number;
   exitsToday: number;
   currentStock: number;
-  returnedToday: number; // Novo campo para retornos
+  returnedToday: number;
 }
 
 interface DailyHistoryRow {
