@@ -56,50 +56,50 @@ export function StockConference() {
     ]);
 
     const todayStart = startOfDay(new Date());
+    const currentStock = inventoryItems.length;
 
-    const entriesTodayFiltered = inventoryItems.filter(item => {
-        const itemDate = parseISO(item.createdAt);
-        return itemDate >= todayStart && item.condition === 'Novo';
-    }).length;
-
-    const returnedTodayFiltered = inventoryItems.filter(item => {
-        const itemDate = parseISO(item.createdAt);
-        return itemDate >= todayStart && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado');
-    }).length;
+    // --- Daily Stats Calculation ---
+    const entriesTodayNew = inventoryItems.filter(item => 
+        parseISO(item.createdAt) >= todayStart && item.condition === 'Novo'
+    ).length;
+    
+    const returnedTodayItems = inventoryItems.filter(item => 
+        parseISO(item.createdAt) >= todayStart && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado')
+    ).length;
 
     const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
     
-    const currentStock = inventoryItems.length;
+    // --- History & Initial Stock Calculation ---
+    const history: DailyHistoryRow[] = [];
+    let rollingStock = currentStock; // Start with today's final stock
 
+    // Calculate for today first to get yesterday's final stock
     const allEntriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
-    
-    const initialStockToday = currentStock - allEntriesToday + exitsToday;
-    
+    const finalStockYesterday = currentStock - allEntriesToday + exitsToday;
+    const initialStockToday = finalStockYesterday;
+
     setStats({
       initialStock: initialStockToday,
-      entriesToday: entriesTodayFiltered,
+      entriesToday: entriesTodayNew,
+      returnedToday: returnedTodayItems,
       exitsToday,
       currentStock,
-      returnedToday: returnedTodayFiltered,
     });
 
-    // Calculate Daily History for the last 7 days
-    let rollingStock = currentStock;
-    const history: DailyHistoryRow[] = [];
-
+    // Calculate history for the last 7 days
     for (let i = 0; i < 7; i++) {
         const date = subDays(new Date(), i);
-        const loopDayStart = startOfDay(date);
-        const loopDayEnd = endOfDay(date);
+        const dayStart = startOfDay(date);
+        const dayEnd = endOfDay(date);
 
         const entriesOnDate = inventoryItems.filter(item => {
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= loopDayStart && itemDate <= loopDayEnd;
+            return itemDate >= dayStart && itemDate <= dayEnd;
         }).length;
 
         const exitsOnDate = pickingLogs.filter(log => {
             const logDate = parseISO(log.pickedAt);
-            return logDate >= loopDayStart && logDate <= loopDayEnd;
+            return logDate >= dayStart && logDate <= dayEnd;
         }).length;
         
         const finalStock = rollingStock;
@@ -113,10 +113,10 @@ export function StockConference() {
             finalStock,
         });
 
-        rollingStock = initialStock;
+        rollingStock = initialStock; // The initial stock for this day is the final stock of the previous day
     }
-    setDailyHistory(history.reverse());
     
+    setDailyHistory(history.reverse());
     setIsLoading(false);
   }, []);
 
