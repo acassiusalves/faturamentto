@@ -268,11 +268,10 @@ function ProcessListTab() {
     }
 
     const handleOrganize = () => {
+        setStep1Result(null);
+        setStep2Result(null);
+        setStep3Result(null);
         startOrganizeTransition(async () => {
-            setStep1Result(null);
-            setStep2Result(null);
-            setStep3Result(null);
-
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
@@ -287,10 +286,9 @@ function ProcessListTab() {
 
     const handleStandardize = () => {
         if (!step1Result?.organizedList) return;
+        setStep2Result(null);
+        setStep3Result(null);
         startStandardizeTransition(async () => {
-            setStep2Result(null);
-            setStep3Result(null);
-
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
@@ -353,6 +351,7 @@ function ProcessListTab() {
                 title: 'Enviado para o Feed!',
                 description: `A lista da loja ${storeName} foi salva. Se já existia uma para esta data, ela foi substituída.`,
             });
+            handleRestart();
     
         } catch (error) {
             toast({
@@ -628,9 +627,11 @@ function ProcessListTab() {
 }
 
 export default function FeedPage() {
-    return (
-        <ProcessListTab />
-    );
-}
+  const [activeTab, setActiveTab] = useState("process");
 
-    
+  return (
+    <div className="flex flex-col gap-8">
+        <ProcessListTab />
+    </div>
+  );
+}
