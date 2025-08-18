@@ -32,7 +32,7 @@ const LookupResultSchema = z.object({
   details: z
     .array(
       z.object({
-        sku: z.string().describe('The corresponding SKU from the database, or "N/D" if not found.'),
+        sku: z.string().describe('The corresponding SKU from the database, or "SEM CÓDIGO" if not found.'),
         name: z.string().describe('The full name of the product from the database, or the original name if not found.'),
         costPrice: z.string().describe('The cost price of the product, extracted from the initial list.'),
       })
@@ -51,50 +51,48 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
         model: selectedModel,
         input: {schema: LookupProductsInputSchema},
         output: {schema: LookupResultSchema},
-        prompt: `Você é um sistema de busca inteligente para uma loja de celulares.
-        
-        Sua tarefa é cruzar a 'Lista Padronizada de Produtos' com a 'Lista do Banco de Dados' para encontrar o SKU e o nome oficial de cada item, e manter o preço de custo original.
+        prompt: `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
 
-        **LISTA PADRONIZADA DE PRODUTOS (com preços):**
+        **LISTA PADRONIZADA (Resultado do Passo 2):**
         \`\`\`
         {{{productList}}}
         \`\`\`
 
-        **LISTA DO BANCO DE DADOS (Nome do Produto\tSKU):**
+        **BANCO DE DADOS (Nome do Produto\tSKU):**
         \`\`\`
         {{{databaseList}}}
         \`\`\`
 
-        **REGRAS DE BUSCA E FORMATAÇÃO:**
-        1.  **Correspondência de Produtos:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima na 'Lista do Banco de Dados'. O nome no banco de dados é a versão oficial e completa do nome do produto.
-        2.  **Formatação da Saída:** Crie um array de objetos ('details') onde cada objeto representa um produto e contém EXATAMENTE os seguintes campos:
-            *   'sku': O SKU correspondente, extraído da 'Lista do Banco de Dados'. Se um item não for encontrado, use o valor "N/D".
-            *   'name': O nome COMPLETO e OFICIAL do produto, exatamente como está na 'Lista do Banco de Dados'. Se não for encontrado, repita o nome do produto da 'Lista Padronizada'.
-            *   'costPrice': O preço de custo, extraído da 'Lista Padronizada' original. Formate como "R$ XXX,XX".
-        
-        **EXEMPLO DE ENTRADA:**
-        *   productList: \`Redmi Note 12 256GB Global 8GB RAM Azul 5G 1200.00\nTablet Galaxy A9 64GB Global 4GB RAM 4G 630.00\`
-        *   databaseList: \`Xiaomi Redmi Note 12 256GB 8GB RAM 5G - Versão Global\t#RN12P256A\`
+        **REGRAS DE PROCESSAMENTO E BUSCA:**
+        1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
+        2.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome podem ser ignoradas se estes componentes forem idênticos.
+        3.  **Regra de Conectividade Padrão:**
+            *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
+            *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
+        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'.
+        5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
+            *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
+            *   \`name\`: O nome completo e oficial do produto, exatamente como está no 'Banco de Dados'. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
+            *   \`costPrice\`: O preço de custo extraído.
+
+        **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
+        1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
+        2.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
 
         **EXEMPLO DE SAÍDA ESPERADA:**
         \`\`\`json
         {
-            "details": [
-                {
-                    "sku": "#RN12P256A",
-                    "name": "Xiaomi Redmi Note 12 256GB 8GB RAM 5G - Versão Global",
-                    "costPrice": "R$ 1.200,00"
-                },
-                {
-                    "sku": "N/D",
-                    "name": "Tablet Galaxy A9 64GB Global 4GB RAM 4G",
-                    "costPrice": "R$ 630,00"
-                }
-            ]
+          "details": [
+            { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
+            { "sku": "#RMGTN256P", "name": "Realme GT Neo 256GB 12GB RAM 5G - Preto", "costPrice": "2800.00" },
+            { "sku": "#MTG2264A", "name": "Motorola Moto G22 64GB 4GB RAM 4G - Azul", "costPrice": "980.00" },
+            { "sku": "#SMA53128V", "name": "Samsung Galaxy A53 128GB 8GB RAM 5G - Verde", "costPrice": "1500.00" },
+            { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
+          ]
         }
         \`\`\`
 
-        Execute a busca e a formatação, gerando a saída JSON completa com a chave 'details' e nada mais.
+        Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `,
     });
 
