@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useActionState, useState, useEffect, useTransition, useRef, FormEvent } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, Calendar as CalendarIcon, ClipboardCopy, Send, ArrowRight, Store, RotateCcw, Check, Pencil, Save } from 'lucide-react';
-import { FeedPage } from './feed-page';
+import { useActionState, useState, useEffect, useTransition, useRef } from 'react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 import {
   organizeListAction,
@@ -11,43 +11,30 @@ import {
   lookupProductsAction,
   savePromptAction,
 } from '@/app/actions';
-import type { ProductDetail, OrganizeResult, StandardizeListOutput, LookupResult, UnprocessedItem } from '@/lib/types'
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
+import { Progress } from '@/components/ui/progress';
+import { loadAppSettings, loadProducts } from '@/services/firestore';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
-import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts } from '@/services/firestore';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { CalendarIcon } from 'lucide-react';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
 const FEED_STORAGE_KEY = 'feedData';
 const STORES_STORAGE_KEY = 'storesDatabase';
-const API_KEY_STORAGE_KEY = 'gemini_api_key';
-const MODEL_STORAGE_KEY = 'gemini_model';
 
-
-type ProcessingStep = 'idle' | 'organizing' | 'standardizing' | 'lookingUp' | 'done' | 'error';
-
-export interface FeedEntry {
-    storeName: string;
-    date: string;
-    products: ProductDetail[];
-    id: string;
-}
 
 const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
@@ -180,11 +167,10 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;
 
-function ProcessListTab() {
+
+export default function ProcessFeedPage() {
     const { toast } = useToast();
     const [databaseList, setDatabaseList] = useState('');
-    const [apiKey, setApiKey] = useState('');
-    const [modelName, setModelName] = useState('');
     const [isOrganizing, startOrganizeTransition] = useTransition();
     const [isStandardizing, startStandardizeTransition] = useTransition();
     const [isLookingUp, startLookupTransition] = useTransition();
@@ -216,12 +202,6 @@ function ProcessListTab() {
         setDate(new Date());
         async function loadData() {
             try {
-              const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-              if (savedApiKey) setApiKey(savedApiKey);
-              
-              const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-              if (savedModel) setModelName(savedModel);
-        
               const allProducts = await loadProducts();
               if (allProducts) {
                 const dbList = allProducts.map(p => `${p.name}\t${p.sku}`).join('\n');
@@ -279,7 +259,6 @@ function ProcessListTab() {
         setStep3Result(null);
         setStoreName('');
         setDate(new Date());
-        // Do not reset prompts on restart, they are now loaded from settings
         toast({
             title: "Processo Reiniciado",
             description: "Você pode começar uma nova análise."
@@ -288,13 +267,12 @@ function ProcessListTab() {
 
     const handleOrganize = () => {
         startOrganizeTransition(async () => {
+            setStep1Result(null);
             setStep2Result(null);
             setStep3Result(null);
 
             const formData = new FormData();
             formData.append('productList', initialProductList);
-            formData.append('apiKey', apiKey);
-            formData.append('modelName', modelName);
             formData.append('prompt_override', organizePrompt);
             
             const result = await organizeListAction({ result: null, error: null }, formData);
@@ -308,12 +286,11 @@ function ProcessListTab() {
     const handleStandardize = () => {
         if (!step1Result?.organizedList) return;
         startStandardizeTransition(async () => {
+            setStep2Result(null);
             setStep3Result(null);
 
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
-            formData.append('apiKey', apiKey);
-            formData.append('modelName', modelName);
             formData.append('prompt_override', standardizePrompt);
             
             const result = await standardizeListAction({ result: null, error: null }, formData);
@@ -327,11 +304,10 @@ function ProcessListTab() {
     const handleLookup = () => {
         if (!step2Result?.standardizedList) return;
         startLookupTransition(async () => {
+            setStep3Result(null);
             const formData = new FormData();
             formData.append('productList', step2Result.standardizedList.join('\n'));
             formData.append('databaseList', databaseList);
-            formData.append('apiKey', apiKey);
-            formData.append('modelName', modelName);
             formData.append('prompt_override', lookupPrompt);
             
             const result = await lookupProductsAction({ result: null, error: null }, formData);
@@ -401,8 +377,14 @@ function ProcessListTab() {
       };
 
     return (
-        <div className="space-y-6">
-             <div className="flex justify-end items-center">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+            <div className="flex justify-end items-center gap-4">
+                <Button variant="ghost" asChild>
+                    <Link href="/feed-25/lista">
+                       Lista
+                       <ExternalLink className="ml-2 h-4 w-4"/>
+                    </Link>
+                </Button>
                 <Button variant="ghost" onClick={handleRestart}>
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Recomeçar
@@ -483,7 +465,7 @@ function ProcessListTab() {
                                     value={step1Result.organizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleStandardize} disabled={step1Result.organizedList.length === 0}>
+                                <Button onClick={handleStandardize} disabled={!step1Result?.organizedList.length}>
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
@@ -540,7 +522,7 @@ function ProcessListTab() {
                                     value={step2Result.standardizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleLookup} disabled={step2Result.standardizedList.length === 0 || !databaseList}>
+                                <Button onClick={handleLookup} disabled={!step2Result?.standardizedList.length || !databaseList}>
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
@@ -630,7 +612,7 @@ function ProcessListTab() {
                                 </div>
                             </div>
                             <Button onClick={sendToFeed} disabled={!storeName || !step3Result}>
-                                <Send className="mr-2 h-4 w-4" />
+                                <ExternalLink className="mr-2 h-4 w-4" />
                                 Enviar para o Feed
                             </Button>
                         </CardContent>
@@ -639,28 +621,6 @@ function ProcessListTab() {
                     <ProductTable products={step3Result.details} unprocessedItems={step2Result?.unprocessedItems} />
                 </>
             )}
-        </div>
+        </main>
     )
-}
-
-
-export default function ListaPage() {
-  return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
-        <Tabs defaultValue="process">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="process">Processar Lista</TabsTrigger>
-            <TabsTrigger value="feed">Lista</TabsTrigger>
-          </TabsList>
-          <TabsContent value="process" className="mt-6">
-            <ProcessListTab />
-          </TabsContent>
-          <TabsContent value="feed" className="mt-6">
-             <FeedPage />
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
-  );
 }

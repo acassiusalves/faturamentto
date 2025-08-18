@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
     AlertDialog,
@@ -78,7 +79,7 @@ const statusConfig: Record<ProductStatus, { variant: "default" | "destructive" |
     OPORTUNIDADE: { variant: 'default', text: 'Oportunidade' }
 };
 
-export function FeedPage() {
+export default function FeedListPage() {
     const [feedData, setFeedData] = useState<FeedEntry[]>([]);
     const [filter, setFilter] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date | undefined>();
