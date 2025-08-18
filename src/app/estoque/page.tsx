@@ -276,6 +276,19 @@ export default function EstoquePage() {
     return { totalItems, totalValue };
   }, [inventory]);
   
+  const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
+    switch (condition) {
+        case 'Novo':
+            return { variant: 'default', className: '' };
+        case 'Seminovo':
+            return { variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-800/30 dark:text-yellow-300' };
+        case 'Lacrado':
+            return { variant: 'secondary', className: 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-800/30 dark:text-green-300' };
+        default:
+            return { variant: 'secondary', className: '' };
+    }
+  };
+
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   const formatDate = (dateString: string) => {
     try {
@@ -531,7 +544,9 @@ export default function EstoquePage() {
                   </TableHeader>
                   <TableBody>
                     {filteredAndSortedInventory.length > 0 ? (
-                      filteredAndSortedInventory.map(item => (
+                      filteredAndSortedInventory.map(item => {
+                        const badgeStyle = getConditionBadgeVariant(item.condition);
+                        return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             <div className="flex flex-col gap-1">
@@ -539,7 +554,9 @@ export default function EstoquePage() {
                                 {!isGrouped && (
                                     <>
                                         <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
-                                        <Badge variant={item.condition === 'Novo' ? 'default' : 'secondary'} className="w-fit mt-1">{item.condition || 'N/A'}</Badge>
+                                        <Badge variant={badgeStyle.variant} className={cn('w-fit mt-1', badgeStyle.className)}>
+                                          {item.condition || 'N/A'}
+                                        </Badge>
                                     </>
                                 )}
                             </div>
@@ -576,7 +593,7 @@ export default function EstoquePage() {
                              )}
                           </TableCell>
                         </TableRow>
-                      ))
+                      )})
                     ) : (
                       <TableRow>
                         <TableCell colSpan={isGrouped ? 6 : 7} className="h-24 text-center">
