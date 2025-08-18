@@ -29,6 +29,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -168,7 +169,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         `;
 
 
-export default function ProcessFeedPage() {
+function ProcessListTab() {
     const { toast } = useToast();
     const [databaseList, setDatabaseList] = useState('');
     const [isOrganizing, startOrganizeTransition] = useTransition();
@@ -465,7 +466,7 @@ export default function ProcessFeedPage() {
                                     value={step1Result.organizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleStandardize} disabled={!step1Result?.organizedList.length}>
+                                <Button onClick={handleStandardize}>
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
@@ -522,7 +523,7 @@ export default function ProcessFeedPage() {
                                     value={step2Result.standardizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleLookup} disabled={!step2Result?.standardizedList.length || !databaseList}>
+                                <Button onClick={handleLookup} disabled={!databaseList}>
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
@@ -623,4 +624,10 @@ export default function ProcessFeedPage() {
             )}
         </main>
     )
+}
+
+export default function FeedPage() {
+    return (
+        <ProcessListTab />
+    );
 }
