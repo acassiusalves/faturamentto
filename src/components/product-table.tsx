@@ -61,9 +61,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   
   const formatCurrency = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    // Removemos os pontos de milhar e substituímos a vírgula decimal por um ponto
-    const sanitizedValue = String(value).replace(/\./g, '').replace(',', '.');
-    const numericValue = parseFloat(sanitizedValue);
+    const numericValue = parseFloat(String(value));
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
