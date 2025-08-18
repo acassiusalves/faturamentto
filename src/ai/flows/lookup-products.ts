@@ -65,19 +65,20 @@ export async function lookupProducts(input: LookupProductsInput): Promise<Lookup
 
         **REGRAS DE PROCESSAMENTO E BUSCA:**
         1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
-        2.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome podem ser ignoradas se estes componentes forem idênticos.
+        2.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome (como "/") podem ser ignoradas se estes componentes forem idênticos.
         3.  **Regra de Conectividade Padrão:**
             *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
             *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
         4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Remova qualquer formatação de milhar (pontos) e use um ponto como separador decimal (ex: "1.234,56" deve se tornar "1234.56").
         5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
-            *   \`name\`: O nome completo e oficial do produto, exatamente como está no 'Banco de Dados'. Se não for encontrado, **repita o nome original da 'Lista Padronizada'**.
+            *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
             *   \`costPrice\`: O preço de custo extraído e formatado como número.
 
         **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
         1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
-        2.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
+        2.  **Ignorar Outras Marcas:** Produtos de marcas que não sejam uma das quatro mencionadas acima devem ser completamente ignorados e não devem aparecer no resultado final.
+        3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
 
         **EXEMPLO DE SAÍDA ESPERADA:**
         \`\`\`json
