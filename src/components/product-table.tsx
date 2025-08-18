@@ -51,19 +51,19 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   }, [products, searchTerm, brandFilter]);
 
   const notFoundCount = useMemo(() => {
-    // Count items from the main list that have 'SEM CÓDIGO' and add items that failed standardization.
     const withoutSku = products.filter(p => p.sku === 'SEM CÓDIGO').length;
     return withoutSku + (unprocessedItems?.length || 0);
   }, [products, unprocessedItems]);
 
   const foundCount = useMemo(() => {
-      return products.length - notFoundCount;
-  }, [products, notFoundCount]);
+      return products.filter(p => p.sku !== 'SEM CÓDIGO').length;
+  }, [products]);
   
   const formatCurrency = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    // Remove all characters except digits and comma, then replace comma with dot for parsing
-    const numericValue = parseFloat(String(value).replace(/[^\d,]/g, '').replace(',', '.'));
+    // Removemos os pontos de milhar e substituímos a vírgula decimal por um ponto
+    const sanitizedValue = String(value).replace(/\./g, '').replace(',', '.');
+    const numericValue = parseFloat(sanitizedValue);
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
