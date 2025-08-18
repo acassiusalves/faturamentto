@@ -46,11 +46,13 @@ export default function EstoquePage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [origins, setOrigins] = useState<string[]>([]);
+  const [availableConditions, setAvailableConditions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGrouped, setIsGrouped] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [conditionFilter, setConditionFilter] = useState('all');
   
   const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
   const [currentSN, setCurrentSN] = useState("");
@@ -81,6 +83,10 @@ export default function EstoquePage() {
             const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
             if (originAttribute) {
                 setOrigins(originAttribute.values);
+            }
+            const conditionAttribute = productSettings.attributes.find(attr => attr.key === 'condicao');
+            if (conditionAttribute) {
+                setAvailableConditions(conditionAttribute.values);
             }
         }
         setIsLoading(false);
@@ -271,10 +277,14 @@ export default function EstoquePage() {
   }, [inventory, isGrouped, sortConfig, searchTerm]);
 
   const totals = useMemo(() => {
+    const itemsToSum = conditionFilter === 'all'
+      ? inventory
+      : inventory.filter(item => item.condition === conditionFilter);
+
     const totalItems = inventory.reduce((sum, item) => sum + item.quantity, 0);
-    const totalValue = inventory.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
+    const totalValue = itemsToSum.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
     return { totalItems, totalValue };
-  }, [inventory]);
+  }, [inventory, conditionFilter]);
   
   const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
     switch (condition) {
@@ -483,7 +493,20 @@ export default function EstoquePage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatCurrency(totals.totalValue)}</div>
-                         <p className="text-xs text-muted-foreground">Custo total de todos os itens em estoque.</p>
+                         <div className="flex items-center gap-2 mt-1">
+                            <Label htmlFor="condition-filter" className="text-xs text-muted-foreground whitespace-nowrap">Filtrar por:</Label>
+                            <Select value={conditionFilter} onValueChange={setConditionFilter}>
+                                <SelectTrigger id="condition-filter" className="h-7 text-xs">
+                                    <SelectValue placeholder="Filtrar por condição..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    {availableConditions.map(cond => (
+                                        <SelectItem key={cond} value={cond}>{cond}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
