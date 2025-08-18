@@ -1,4 +1,5 @@
 
+
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
@@ -137,26 +138,43 @@ export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any
     const startDate = formatDateForApi(subDays(new Date(), 5));
     const endDate = formatDateForApi(new Date());
 
-    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc`;
-    
-    // A API da Ideris pode retornar a lista em 'result.obj' ou diretamente em 'obj'
-    try {
-        const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
+    let allSummaries: any[] = [];
+    let currentOffset = 0;
+    const limitPerPage = 50;
+    let hasMorePages = true;
+    let currentPage = 0;
+    const maxPages = 100; // Safety break for infinite loops
 
-        if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
-            return searchResult.result.obj;
-        } 
-        if (searchResult?.obj && Array.isArray(searchResult.obj)) {
-            return searchResult.obj;
+    while (hasMorePages && currentPage < maxPages) {
+        const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
+        try {
+            const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
+            let pageResults: any[] = [];
+
+            if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
+                pageResults = searchResult.result.obj;
+            } else if (searchResult?.obj && Array.isArray(searchResult.obj)) {
+                pageResults = searchResult.obj;
+            }
+            
+            if (pageResults.length > 0) {
+                allSummaries = allSummaries.concat(pageResults);
+                currentOffset += pageResults.length;
+            } else {
+                hasMorePages = false;
+            }
+        } catch (error) {
+            console.error(`Falha ao buscar página ${currentPage + 1} de pedidos da Ideris:`, error);
+            hasMorePages = false; // Stop fetching on error
         }
-    } catch (error) {
-        console.error("Falha ao buscar pedidos em aberto da Ideris:", error);
-        // Em caso de erro, retorna um array vazio para não quebrar a UI
-        return [];
+        currentPage++;
     }
-    
-    // Garante que, se a resposta vier em um formato inesperado, ainda retorne um array vazio
-    return [];
+
+    if (currentPage >= maxPages) {
+        console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+    }
+
+    return allSummaries;
 }
 
 
