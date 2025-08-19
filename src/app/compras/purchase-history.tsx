@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList } from '@/services/firestore';
+import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings } from '@/services/firestore';
 import type { PurchaseList, PurchaseListItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 
 export function PurchaseHistory() {
@@ -27,12 +28,19 @@ export function PurchaseHistory() {
     const [pendingItems, setPendingItems] = useState<PurchaseListItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+    const [availableStores, setAvailableStores] = useState<string[]>([]);
 
 
     const fetchHistory = useCallback(async () => {
         setIsLoading(true);
-        const purchaseHistory = await loadPurchaseHistory();
+        const [purchaseHistory, settings] = await Promise.all([
+            loadPurchaseHistory(),
+            loadAppSettings()
+        ]);
         setHistory(purchaseHistory);
+        if (settings?.stores) {
+            setAvailableStores(settings.stores);
+        }
         setIsLoading(false);
     }, []);
 
@@ -253,12 +261,19 @@ export function PurchaseHistory() {
                                                             <TableCell className="font-mono">{item.sku}</TableCell>
                                                             <TableCell>
                                                                 {isEditingThis ? (
-                                                                     <Input
-                                                                        type="text"
-                                                                        defaultValue={item.storeName}
-                                                                        onChange={(e) => handleItemChange(item.sku, 'storeName', e.target.value)}
-                                                                        className="w-32"
-                                                                    />
+                                                                     <Select 
+                                                                        onValueChange={(value) => handleItemChange(item.sku, 'storeName', value)} 
+                                                                        value={item.storeName}
+                                                                     >
+                                                                        <SelectTrigger className="w-32">
+                                                                            <SelectValue placeholder="Selecione..." />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {availableStores.map(store => (
+                                                                                <SelectItem key={store} value={store}>{store}</SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
                                                                 ) : (
                                                                     item.storeName || 'N/A'
                                                                 )}
