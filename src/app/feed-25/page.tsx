@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/context/auth-context';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -172,6 +173,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
 
 function ProcessListTab() {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [databaseList, setDatabaseList] = useState('');
     const [isOrganizing, startOrganizeTransition] = useTransition();
     const [isStandardizing, startStandardizeTransition] = useTransition();
@@ -433,22 +435,24 @@ function ProcessListTab() {
                             {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Organizar
                         </Button>
-                        <Accordion type="single" collapsible>
-                          <AccordionItem value="item-1">
-                            <AccordionTrigger>
-                                <div className="flex justify-between items-center w-full pr-2">
-                                  <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="space-y-2">
-                              <Textarea value={organizePrompt} onChange={(e) => setOrganizePrompt(e.target.value)} rows={15} className="text-xs" />
-                              <Button size="sm" onClick={() => onSavePrompt('organizePrompt', organizePrompt)} disabled={isSavingPrompt}>
-                                {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Salvar Prompt
-                              </Button>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
+                        {user?.role === 'admin' && (
+                            <Accordion type="single" collapsible>
+                              <AccordionItem value="item-1">
+                                <AccordionTrigger>
+                                    <div className="flex justify-between items-center w-full pr-2">
+                                      <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-2">
+                                  <Textarea value={organizePrompt} onChange={(e) => setOrganizePrompt(e.target.value)} rows={15} className="text-xs" />
+                                  <Button size="sm" onClick={() => onSavePrompt('organizePrompt', organizePrompt)} disabled={isSavingPrompt}>
+                                    {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Salvar Prompt
+                                  </Button>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                        )}
                         {isOrganizing && progress > 0 && (
                             <div className="flex items-center gap-4 pt-2">
                                 <Progress value={progress} className="w-full" />
@@ -489,6 +493,7 @@ function ProcessListTab() {
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
+                                {user?.role === 'admin' && (
                                 <Accordion type="single" collapsible>
                                   <AccordionItem value="item-1">
                                     <AccordionTrigger>
@@ -505,6 +510,7 @@ function ProcessListTab() {
                                     </AccordionContent>
                                   </AccordionItem>
                                 </Accordion>
+                                )}
                                 {isStandardizing && progress > 0 && (
                                     <div className="flex items-center gap-4 pt-2">
                                         <Progress value={progress} className="w-full" />
@@ -546,6 +552,7 @@ function ProcessListTab() {
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
+                                {user?.role === 'admin' && (
                                 <Accordion type="single" collapsible>
                                   <AccordionItem value="item-1">
                                     <AccordionTrigger>
@@ -562,6 +569,7 @@ function ProcessListTab() {
                                     </AccordionContent>
                                   </AccordionItem>
                                 </Accordion>
+                                )}
                                 {isLookingUp && progress > 0 && (
                                     <div className="flex items-center gap-4 pt-2">
                                         <Progress value={progress} className="w-full" />
