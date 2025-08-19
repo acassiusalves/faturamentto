@@ -2,7 +2,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useTransition, useRef, useMemo } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -10,6 +10,7 @@ import {
   standardizeListAction,
   lookupProductsAction,
   savePromptAction,
+  fullProcessAction,
 } from '@/app/actions';
 import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail } from '@/lib/types'
 import { Button } from '@/components/ui/button';
@@ -178,6 +179,7 @@ function ProcessListTab() {
     const [isOrganizing, startOrganizeTransition] = useTransition();
     const [isStandardizing, startStandardizeTransition] = useTransition();
     const [isLookingUp, startLookupTransition] = useTransition();
+    const [isFullProcessing, startFullProcessTransition] = useTransition();
     const [progress, setProgress] = useState(0);
 
     // Form inputs
@@ -225,7 +227,7 @@ function ProcessListTab() {
         loadData();
     }, []);
 
-    const isProcessing = isOrganizing || isStandardizing || isLookingUp;
+    const isProcessing = isOrganizing || isStandardizing || isLookingUp || isFullProcessing;
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -317,6 +319,27 @@ function ProcessListTab() {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
             }
             setStep3Result(result.result);
+        });
+    };
+    
+    const handleFullProcess = () => {
+        setStep1Result(null);
+        setStep2Result(null);
+        setStep3Result(null);
+        startFullProcessTransition(async () => {
+            const formData = new FormData();
+            formData.append('productList', initialProductList);
+            formData.append('databaseList', databaseList);
+            
+            const result = await fullProcessAction({}, formData);
+            
+            if (result.error) {
+                toast({ variant: 'destructive', title: 'Erro no Fluxo Completo', description: result.error });
+            }
+            // Update all steps at once
+            setStep1Result(result.step1Result);
+            setStep2Result(result.step2Result);
+            setStep3Result(result.step3Result);
         });
     };
 
@@ -416,7 +439,7 @@ function ProcessListTab() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-4">
-                        {getStepIcon(isOrganizing, step1Result)}
+                        {getStepIcon(isOrganizing || isFullProcessing, step1Result)}
                         <div>
                             <CardTitle className="font-headline text-xl">Passo 1: Organizar Lista</CardTitle>
                             <CardDescription>Cole o texto bruto da lista de produtos.</CardDescription>
@@ -431,10 +454,16 @@ function ProcessListTab() {
                             placeholder="Cole a lista de produtos aqui..."
                             className="min-h-[150px] bg-white"
                         />
-                        <Button onClick={handleOrganize} disabled={!initialProductList}>
-                            {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Organizar
-                        </Button>
+                         <div className="flex items-center gap-4">
+                            <Button onClick={handleOrganize} disabled={!initialProductList || isProcessing}>
+                                {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                Organizar
+                            </Button>
+                             <Button onClick={handleFullProcess} disabled={!initialProductList || isProcessing} variant="outline">
+                                {isFullProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
+                                Fluxo Completo
+                            </Button>
+                        </div>
                         {user?.role === 'admin' && (
                             <Accordion type="single" collapsible>
                               <AccordionItem value="item-1">
@@ -453,7 +482,7 @@ function ProcessListTab() {
                               </AccordionItem>
                             </Accordion>
                         )}
-                        {isOrganizing && progress > 0 && (
+                        {isProcessing && progress > 0 && (
                             <div className="flex items-center gap-4 pt-2">
                                 <Progress value={progress} className="w-full" />
                                 <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
@@ -471,7 +500,7 @@ function ProcessListTab() {
                         <CardHeader>
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-4">
-                                    {getStepIcon(isStandardizing, step2Result)}
+                                    {getStepIcon(isStandardizing || isFullProcessing, step2Result)}
                                     <div>
                                         <CardTitle className="font-headline text-xl">Passo 2: Padronizar Lista</CardTitle>
                                         <CardDescription>A lista organizada abaixo será usada para padronização.</CardDescription>
@@ -489,7 +518,7 @@ function ProcessListTab() {
                                     value={step1Result.organizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleStandardize}>
+                                <Button onClick={handleStandardize} disabled={isProcessing}>
                                     {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
@@ -511,12 +540,6 @@ function ProcessListTab() {
                                   </AccordionItem>
                                 </Accordion>
                                 )}
-                                {isStandardizing && progress > 0 && (
-                                    <div className="flex items-center gap-4 pt-2">
-                                        <Progress value={progress} className="w-full" />
-                                        <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
-                                    </div>
-                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -534,7 +557,7 @@ function ProcessListTab() {
                     <Card className="w-full">
                         <CardHeader>
                              <div className="flex items-center gap-4">
-                                {getStepIcon(isLookingUp, step3Result)}
+                                {getStepIcon(isLookingUp || isFullProcessing, step3Result)}
                                 <div>
                                     <CardTitle className="font-headline text-xl">Passo 3: Buscar no Banco de Dados</CardTitle>
                                     <CardDescription>A lista padronizada abaixo será cruzada com seu banco de dados.</CardDescription>
@@ -548,7 +571,7 @@ function ProcessListTab() {
                                     value={step2Result.standardizedList.join('\n') || ''}
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
-                                <Button onClick={handleLookup} disabled={!databaseList}>
+                                <Button onClick={handleLookup} disabled={!databaseList || isProcessing}>
                                     {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
@@ -569,12 +592,6 @@ function ProcessListTab() {
                                     </AccordionContent>
                                   </AccordionItem>
                                 </Accordion>
-                                )}
-                                {isLookingUp && progress > 0 && (
-                                    <div className="flex items-center gap-4 pt-2">
-                                        <Progress value={progress} className="w-full" />
-                                        <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
-                                    </div>
                                 )}
                             </div>
                         </CardContent>
