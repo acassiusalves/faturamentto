@@ -14,6 +14,7 @@ import {
   orderBy,
   Timestamp,
   updateDoc,
+  getCountFromServer
 } from 'firebase/firestore';
 import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -45,8 +46,43 @@ const fromFirestore = (docData) => {
 };
 
 // --- ENTRY LOG ---
+const migrateInventoryToEntryLog = async (): Promise<void> => {
+    console.log("Iniciando migração de dados do inventário para o log de entradas...");
+    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    
+    const inventorySnapshot = await getDocs(inventoryCol);
+    if (inventorySnapshot.empty) {
+        console.log("Nenhum item no inventário para migrar.");
+        return;
+    }
+
+    const batch = writeBatch(db);
+    let count = 0;
+    inventorySnapshot.forEach(doc => {
+        const item = fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem;
+        const logDocRef = doc(logCol, item.id);
+        batch.set(logDocRef, toFirestore(item));
+        count++;
+    });
+
+    await batch.commit();
+    console.log(`${count} itens migrados com sucesso para o log de entradas.`);
+};
+
+
 export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
   const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+  
+  // Verifica se o log de entradas está vazio para executar a migração uma única vez.
+  const snapshotCount = await getCountFromServer(query(logCol, limit(1)));
+  if (snapshotCount.data().count === 0) {
+      const inventorySnapshot = await getDocs(collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory'));
+      if (!inventorySnapshot.empty) {
+          await migrateInventoryToEntryLog();
+      }
+  }
+
   const snapshot = await getDocs(query(logCol, orderBy('createdAt', 'desc')));
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
 };
@@ -54,7 +90,9 @@ export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
 const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
     const logDocRef = doc(logCol, item.id); // Use the same ID as the inventory item for traceability
-    await batch.set(logDocRef, toFirestore(item));
+    // Certifique-se que o item passado já tem o formato correto (sem Timestamps do Firestore)
+    const dataToLog = toFirestore(item);
+    batch.set(logDocRef, dataToLog);
 }
 
 
@@ -72,13 +110,15 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
 
   for (const item of items) {
     const docRef = doc(inventoryCol);
-    const newItem = { ...item, id: docRef.id, createdAt: new Date(), condition: 'Novo' };
-    const firestoreItem = toFirestore(newItem);
+    // Garante que 'createdAt' seja um objeto Date antes de converter para Firestore
+    const newItem = { ...item, id: docRef.id, createdAt: new Date().toISOString() };
+    const firestoreItem = toFirestore({ ...newItem, createdAt: new Date(newItem.createdAt) });
     
     batch.set(docRef, firestoreItem);
-    await logInventoryEntry(batch, fromFirestore(newItem)); // Log the entry
+    // Para o log, usamos o objeto com a data já em string ISO
+    await logInventoryEntry(batch, newItem as InventoryItem);
 
-    newItemsWithIds.push(fromFirestore(newItem) as InventoryItem);
+    newItemsWithIds.push(newItem as InventoryItem);
   }
 
   await batch.commit();
