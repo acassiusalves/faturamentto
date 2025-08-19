@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2 } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useAuth } from '@/context/auth-context';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+
 
 const inventorySchema = z.object({
   id: z.string().optional(),
@@ -52,8 +54,9 @@ export default function EstoquePage() {
   const [isGrouped, setIsGrouped] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [conditionFilter, setConditionFilter] = useState('all');
   
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+
   const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
   const [currentSN, setCurrentSN] = useState("");
   const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -211,16 +214,30 @@ export default function EstoquePage() {
     }
     setSortConfig({ key, direction });
   };
+  
+  const handleConditionFilterChange = (condition: string, checked: boolean) => {
+    setSelectedConditions(prev => {
+        if (checked) {
+            return [...prev, condition];
+        } else {
+            return prev.filter(c => c !== condition);
+        }
+    });
+  }
 
   const filteredAndSortedInventory = useMemo(() => {
       let itemsToDisplay: (InventoryItem & {count?: number; totalCost?: number})[] = inventory;
+      
+      if (selectedConditions.length > 0) {
+        itemsToDisplay = itemsToDisplay.filter(item => item.condition && selectedConditions.includes(item.condition));
+      }
 
       if (searchTerm) {
           const lowercasedTerm = searchTerm.toLowerCase();
           itemsToDisplay = itemsToDisplay.filter(item =>
               item.name.toLowerCase().includes(lowercasedTerm) ||
               item.sku.toLowerCase().includes(lowercasedTerm) ||
-              item.serialNumber.toLowerCase().includes(lowercasedTerm)
+              (item.serialNumber && item.serialNumber.toLowerCase().includes(lowercasedTerm))
           );
       }
       
@@ -274,17 +291,17 @@ export default function EstoquePage() {
       }
       
       return groupedArray;
-  }, [inventory, isGrouped, sortConfig, searchTerm]);
+  }, [inventory, isGrouped, sortConfig, searchTerm, selectedConditions]);
 
   const totals = useMemo(() => {
-    const itemsToSum = conditionFilter === 'all'
-      ? inventory
-      : inventory.filter(item => item.condition === conditionFilter);
+    const itemsToSum = selectedConditions.length > 0
+      ? inventory.filter(item => item.condition && selectedConditions.includes(item.condition))
+      : inventory;
 
     const totalItems = itemsToSum.reduce((sum, item) => sum + item.quantity, 0);
     const totalValue = itemsToSum.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
     return { totalItems, totalValue };
-  }, [inventory, conditionFilter]);
+  }, [inventory, selectedConditions]);
   
   const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
     switch (condition) {
@@ -495,17 +512,33 @@ export default function EstoquePage() {
                         <div className="text-2xl font-bold">{formatCurrency(totals.totalValue)}</div>
                          <div className="flex items-center gap-2 mt-1">
                             <Label htmlFor="condition-filter" className="text-xs text-muted-foreground whitespace-nowrap">Filtrar por:</Label>
-                            <Select value={conditionFilter} onValueChange={setConditionFilter}>
-                                <SelectTrigger id="condition-filter" className="h-7 text-xs">
-                                    <SelectValue placeholder="Filtrar por condição..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {availableConditions.map(cond => (
-                                        <SelectItem key={cond} value={cond}>{cond}</SelectItem>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="h-7 text-xs w-full justify-between">
+                                       <span className="truncate">
+                                            {selectedConditions.length === 0
+                                                ? "Todos"
+                                                : selectedConditions.length === 1
+                                                ? selectedConditions[0]
+                                                : `${selectedConditions.length} selecionados`}
+                                        </span>
+                                       <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                                    <DropdownMenuLabel>Filtrar por Condição</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                     {availableConditions.map(cond => (
+                                        <DropdownMenuCheckboxItem
+                                            key={cond}
+                                            checked={selectedConditions.includes(cond)}
+                                            onCheckedChange={(checked) => handleConditionFilterChange(cond, !!checked)}
+                                        >
+                                            {cond}
+                                        </DropdownMenuCheckboxItem>
                                     ))}
-                                </SelectContent>
-                            </Select>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </CardContent>
                 </Card>
