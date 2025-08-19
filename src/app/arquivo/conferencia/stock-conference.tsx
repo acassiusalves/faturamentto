@@ -55,35 +55,11 @@ export function StockConference() {
       loadInventoryItems(),
       loadAllPickingLogs()
     ]);
-
+    
     const todayStart = startOfDay(new Date());
     const currentStock = inventoryItems.length;
 
-    // --- Daily Stats Calculation ---
-    const entriesTodayNew = inventoryItems.filter(item => {
-        const itemDate = item.createdAt ? parseISO(item.createdAt) : new Date(0);
-        return itemDate >= todayStart && item.condition === 'Novo';
-    }).length;
-    
-    const returnedTodayItems = inventoryItems.filter(item => {
-        const itemDate = item.createdAt ? parseISO(item.createdAt) : new Date(0);
-        return itemDate >= todayStart && item.condition !== 'Novo';
-    }).length;
-
-    const exitsToday = pickingLogs.filter(log => log.pickedAt && parseISO(log.pickedAt) >= todayStart).length;
-    
-    const allEntriesToday = entriesTodayNew + returnedTodayItems;
-    const initialStockToday = currentStock - allEntriesToday + exitsToday;
-
-    setStats({
-      initialStock: initialStockToday,
-      entriesToday: entriesTodayNew,
-      returnedToday: returnedTodayItems,
-      exitsToday,
-      currentStock,
-    });
-    
-    // --- History Calculation ---
+    // --- History Calculation (New Logic) ---
     const history: DailyHistoryRow[] = [];
     let rollingStock = currentStock;
 
@@ -96,13 +72,15 @@ export function StockConference() {
         const newEntriesOnDate = inventoryItems.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd && (item.condition === 'Novo' || !item.condition);
+            const condition = item.condition || 'Novo';
+            return itemDate >= dayStart && itemDate <= dayEnd && condition === 'Novo';
         }).length;
-
+        
         const returnsOnDate = inventoryItems.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd && item.condition !== 'Novo' && !!item.condition;
+            const condition = item.condition || 'Novo';
+            return itemDate >= dayStart && itemDate <= dayEnd && condition !== 'Novo';
         }).length;
 
         const exitsOnDate = pickingLogs.filter(log => {
@@ -127,7 +105,20 @@ export function StockConference() {
         rollingStock = initialStock;
     }
     
-    setDailyHistory(history.reverse());
+    const finalHistory = history.reverse();
+    setDailyHistory(finalHistory);
+    
+    // --- Daily Stats Calculation ---
+    const todayHistory = finalHistory.find(h => h.date === format(new Date(), "dd/MM/yyyy"));
+    
+    setStats({
+      initialStock: todayHistory?.initialStock || 0,
+      entriesToday: todayHistory?.entries || 0,
+      returnedToday: todayHistory?.returns || 0,
+      exitsToday: todayHistory?.exits || 0,
+      currentStock: currentStock,
+    });
+    
     setIsLoading(false);
   }, []);
 
