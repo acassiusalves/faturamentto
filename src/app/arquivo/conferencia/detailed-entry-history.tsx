@@ -72,7 +72,7 @@ export function DetailedEntryHistory() {
         return (
           item.name.toLowerCase().includes(lowerSearchTerm) ||
           item.sku.toLowerCase().includes(lowerSearchTerm) ||
-          item.serialNumber.toLowerCase().includes(lowerSearchTerm)
+          (item.serialNumber && item.serialNumber.toLowerCase().includes(lowerSearchTerm))
         );
       }
 
@@ -94,7 +94,12 @@ export function DetailedEntryHistory() {
   
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    try {
+        const date = new Date(dateString);
+        return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    } catch {
+        return "Data inválida";
+    }
   }
 
   return (
