@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo, FC } from 'react';
 import type { InventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -8,11 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { loadInventoryItems } from '@/services/firestore'; // Importar a função
+import { loadInventoryItems } from '@/services/firestore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ConferenceResult {
   found: InventoryItem[];
@@ -20,14 +22,81 @@ interface ConferenceResult {
   notScanned: InventoryItem[];
 }
 
+interface ResultsPaginationProps {
+    totalItems: number;
+    pageIndex: number;
+    pageSize: number;
+    setPageIndex: (index: number) => void;
+    setPageSize: (size: number) => void;
+    pageCount: number;
+}
+
+const ResultsPagination: FC<ResultsPaginationProps> = ({ totalItems, pageIndex, pageSize, setPageIndex, setPageSize, pageCount }) => (
+    <div className="flex items-center justify-between flex-wrap gap-4 pt-4">
+        <div className="text-sm text-muted-foreground">
+            Total de {totalItems} itens.
+        </div>
+        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+            <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Itens por página</p>
+                <Select
+                    value={`${pageSize}`}
+                    onValueChange={(value) => {
+                        setPageSize(Number(value));
+                        setPageIndex(0);
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={pageSize.toString()} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                        {[10, 20, 50, 100].map((size) => (
+                            <SelectItem key={size} value={`${size}`}>
+                                {size}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="text-sm font-medium">
+                Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+            </div>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0}>
+                    <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0}>
+                    <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}>
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1}>
+                    <ChevronsRight className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
+    </div>
+);
+
+
 export function IndividualConference() {
   const [scannedSns, setScannedSns] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ConferenceResult | null>(null);
 
+  // Pagination states for each list
+  const [foundPageIndex, setFoundPageIndex] = useState(0);
+  const [foundPageSize, setFoundPageSize] = useState(10);
+  const [notScannedPageIndex, setNotScannedPageIndex] = useState(0);
+  const [notScannedPageSize, setNotScannedPageSize] = useState(10);
+  
+
   const handleSearch = async () => {
     setIsLoading(true);
     setResults(null);
+    setFoundPageIndex(0);
+    setNotScannedPageIndex(0);
     
     try {
       const allInventoryItems = await loadInventoryItems();
@@ -36,7 +105,7 @@ export function IndividualConference() {
       
       const scannedSnList = scannedSns
         .trim()
-        .split('\n')
+        .split(/[\n,;]+/)
         .map(sn => sn.trim())
         .filter(Boolean);
       const scannedSnSet = new Set(scannedSnList);
@@ -79,6 +148,23 @@ export function IndividualConference() {
     if(!dateString) return 'N/A';
     return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
   }
+
+  // Memoized paginated data for "Found" items
+  const foundPageCount = useMemo(() => Math.ceil((results?.found.length || 0) / foundPageSize), [results?.found, foundPageSize]);
+  const paginatedFoundItems = useMemo(() => {
+    if (!results?.found) return [];
+    const startIndex = foundPageIndex * foundPageSize;
+    return results.found.slice(startIndex, startIndex + foundPageSize);
+  }, [results?.found, foundPageIndex, foundPageSize]);
+
+  // Memoized paginated data for "Not Scanned" items
+  const notScannedPageCount = useMemo(() => Math.ceil((results?.notScanned.length || 0) / notScannedPageSize), [results?.notScanned, notScannedPageSize]);
+  const paginatedNotScannedItems = useMemo(() => {
+    if (!results?.notScanned) return [];
+    const startIndex = notScannedPageIndex * notScannedPageSize;
+    return results.notScanned.slice(startIndex, startIndex + notScannedPageSize);
+  }, [results?.notScanned, notScannedPageIndex, notScannedPageSize]);
+
 
   const ResultTable = ({ items }: { items: InventoryItem[] }) => (
       <div className="rounded-md border">
@@ -140,7 +226,7 @@ export function IndividualConference() {
                 />
             </div>
             <div className="text-sm text-muted-foreground">
-                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split('\n').filter(Boolean).length : 0}</span>
+                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split(/[\n,;]+/).filter(Boolean).length : 0}</span>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
@@ -182,7 +268,15 @@ export function IndividualConference() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="found" className="mt-4">
-                  <ResultTable items={results.found} />
+                  <ResultTable items={paginatedFoundItems} />
+                  <ResultsPagination 
+                    totalItems={results.found.length}
+                    pageIndex={foundPageIndex}
+                    pageSize={foundPageSize}
+                    setPageIndex={setFoundPageIndex}
+                    setPageSize={setFoundPageSize}
+                    pageCount={foundPageCount}
+                  />
               </TabsContent>
               <TabsContent value="not_found" className="mt-4">
                   <div className="rounded-md border p-4 space-y-2">
@@ -196,7 +290,15 @@ export function IndividualConference() {
                   </div>
               </TabsContent>
               <TabsContent value="not_scanned" className="mt-4">
-                  <ResultTable items={results.notScanned} />
+                  <ResultTable items={paginatedNotScannedItems} />
+                   <ResultsPagination 
+                    totalItems={results.notScanned.length}
+                    pageIndex={notScannedPageIndex}
+                    pageSize={notScannedPageSize}
+                    setPageIndex={setNotScannedPageIndex}
+                    setPageSize={setNotScannedPageSize}
+                    pageCount={notScannedPageCount}
+                  />
               </TabsContent>
             </Tabs>
           )}
@@ -205,3 +307,5 @@ export function IndividualConference() {
     </div>
   );
 }
+
+    
