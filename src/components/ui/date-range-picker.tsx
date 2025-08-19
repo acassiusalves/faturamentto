@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
+import { format, addDays, startOfDay, endOfDay, subDays } from "date-fns"
 import { ptBR } from 'date-fns/locale'
 import { Calendar as CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Separator } from "./separator"
 
 interface DateRangePickerProps extends React.ComponentProps<"div"> {
     date: DateRange | undefined;
@@ -25,6 +26,34 @@ export function DateRangePicker({
   date,
   onDateChange
 }: DateRangePickerProps) {
+
+  const handlePresetClick = (preset: 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth') => {
+    const today = new Date();
+    let fromDate: Date;
+    let toDate: Date = endOfDay(today);
+
+    switch (preset) {
+        case 'today':
+            fromDate = startOfDay(today);
+            break;
+        case 'yesterday':
+            fromDate = startOfDay(subDays(today, 1));
+            toDate = endOfDay(subDays(today, 1));
+            break;
+        case 'last7':
+            fromDate = startOfDay(subDays(today, 6));
+            break;
+        case 'last30':
+            fromDate = startOfDay(subDays(today, 29));
+            break;
+        case 'thisMonth':
+            fromDate = startOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
+            break;
+    }
+    onDateChange({ from: fromDate, to: toDate });
+  };
+
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -41,18 +70,26 @@ export function DateRangePicker({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y", { locale: ptBR })} -{" "}
-                  {format(date.to, "LLL dd, y", { locale: ptBR })}
+                  {format(date.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                  {format(date.to, "dd/MM/yyyy", { locale: ptBR })}
                 </>
               ) : (
-                format(date.from, "LLL dd, y", { locale: ptBR })
+                format(date.from, "dd/MM/yyyy", { locale: ptBR })
               )
             ) : (
               <span>Selecione um período</span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="flex w-auto p-0" align="start">
+          <div className="flex flex-col space-y-2 border-r p-4">
+              <span className="text-sm font-medium">Usados recentemente</span>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick('today')}>Hoje</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick('yesterday')}>Ontem</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick('last7')}>Últimos 7 dias</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick('last30')}>Últimos 30 dias</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePresetClick('thisMonth')}>Este Mês</Button>
+          </div>
           <Calendar
             initialFocus
             mode="range"
