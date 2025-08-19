@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, FC } from 'react';
+import { useState, useMemo, FC, useEffect } from 'react';
 import type { InventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -9,17 +9,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, History, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { loadInventoryItems } from '@/services/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 interface ConferenceResult {
   found: InventoryItem[];
   notFound: string[];
   notScanned: InventoryItem[];
+}
+
+interface ConferenceHistoryEntry {
+    id: string;
+    date: string;
+    results: ConferenceResult;
 }
 
 interface ResultsPaginationProps {
@@ -29,6 +36,7 @@ interface ResultsPaginationProps {
     setPageIndex: (index: number) => void;
     setPageSize: (size: number) => void;
     pageCount: number;
+    idPrefix: string;
 }
 
 const ResultsPagination: FC<ResultsPaginationProps> = ({ totalItems, pageIndex, pageSize, setPageIndex, setPageSize, pageCount }) => (
@@ -84,13 +92,21 @@ export function IndividualConference() {
   const [scannedSns, setScannedSns] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ConferenceResult | null>(null);
+  const [history, setHistory] = useState<ConferenceHistoryEntry[]>([]);
 
-  // Pagination states for each list
+  // Pagination states for current search
   const [foundPageIndex, setFoundPageIndex] = useState(0);
   const [foundPageSize, setFoundPageSize] = useState(10);
   const [notScannedPageIndex, setNotScannedPageIndex] = useState(0);
   const [notScannedPageSize, setNotScannedPageSize] = useState(10);
   
+  useEffect(() => {
+    // Load history from localStorage on component mount
+    const savedHistory = localStorage.getItem('conferenceHistory');
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
+    }
+  }, []);
 
   const handleSearch = async () => {
     setIsLoading(true);
@@ -128,7 +144,19 @@ export function IndividualConference() {
         }
       }
       
-      setResults({ found, notFound, notScanned });
+      const newResults = { found, notFound, notScanned };
+      setResults(newResults);
+
+      // Save to history
+      const newHistoryEntry: ConferenceHistoryEntry = {
+        id: `conf-${Date.now()}`,
+        date: new Date().toISOString(),
+        results: newResults,
+      };
+      const updatedHistory = [newHistoryEntry, ...history];
+      setHistory(updatedHistory);
+      localStorage.setItem('conferenceHistory', JSON.stringify(updatedHistory));
+
 
     } catch (error) {
         console.error("Error during stock conference:", error);
@@ -276,6 +304,7 @@ export function IndividualConference() {
                     setPageIndex={setFoundPageIndex}
                     setPageSize={setFoundPageSize}
                     pageCount={foundPageCount}
+                    idPrefix="current-found"
                   />
               </TabsContent>
               <TabsContent value="not_found" className="mt-4">
@@ -298,14 +327,61 @@ export function IndividualConference() {
                     setPageIndex={setNotScannedPageIndex}
                     setPageSize={setNotScannedPageSize}
                     pageCount={notScannedPageCount}
+                    idPrefix="current-not-scanned"
                   />
               </TabsContent>
             </Tabs>
           )}
         </div>
       </div>
+       {history.length > 0 && (
+            <div className="space-y-4 pt-8">
+                <h2 className="text-2xl font-bold font-headline flex items-center gap-2"><Clock /> Histórico de Conferência</h2>
+                <Accordion type="single" collapsible className="w-full space-y-2">
+                   {history.map(entry => (
+                       <AccordionItem value={entry.id} key={entry.id} className="border-b-0">
+                           <Card>
+                                <AccordionTrigger className="p-4 hover:no-underline">
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className="flex items-center gap-2">
+                                            <History className="h-5 w-5 text-primary"/>
+                                            <span className="font-semibold">Conferência de {format(new Date(entry.date), 'dd/MM/yyyy HH:mm:ss')}</span>
+                                        </div>
+                                        <div className="flex gap-4 text-sm">
+                                            <Badge variant="default" className="bg-green-100 text-green-800">Encontrados: {entry.results.found.length}</Badge>
+                                            <Badge variant="destructive">Não Encontrados: {entry.results.notFound.length}</Badge>
+                                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">Não Bipados: {entry.results.notScanned.length}</Badge>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-0">
+                                   <Tabs defaultValue="found" className="w-full">
+                                      <TabsList className="grid w-full grid-cols-3">
+                                        <TabsTrigger value="found">Encontrado ({entry.results.found.length})</TabsTrigger>
+                                        <TabsTrigger value="not_found">Não Encontrado ({entry.results.notFound.length})</TabsTrigger>
+                                        <TabsTrigger value="not_scanned">Não Bipado ({entry.results.notScanned.length})</TabsTrigger>
+                                      </TabsList>
+                                      <TabsContent value="found" className="mt-4">
+                                        <ResultTable items={entry.results.found} />
+                                      </TabsContent>
+                                      <TabsContent value="not_found" className="mt-4">
+                                         <div className="rounded-md border p-4 space-y-2">
+                                            {entry.results.notFound.length > 0 ? (
+                                                <div className="flex flex-wrap gap-2">{entry.results.notFound.map(sn => <Badge key={sn} variant="destructive">{sn}</Badge>)}</div>
+                                            ) : <p className="text-sm text-muted-foreground">Nenhum</p>}
+                                        </div>
+                                      </TabsContent>
+                                       <TabsContent value="not_scanned" className="mt-4">
+                                        <ResultTable items={entry.results.notScanned} />
+                                      </TabsContent>
+                                    </Tabs>
+                                </AccordionContent>
+                           </Card>
+                       </AccordionItem>
+                   ))}
+                </Accordion>
+            </div>
+       )}
     </div>
   );
 }
-
-    
