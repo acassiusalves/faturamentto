@@ -224,26 +224,6 @@ export default function FeedPage() {
     }, []);
 
     useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (isProcessing) {
-            setProgress(0);
-            timer = setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 95) {
-                        clearInterval(timer);
-                        return prev;
-                    }
-                    return prev + 5;
-                });
-            }, 200);
-        } else {
-            setProgress(100);
-            setTimeout(() => setProgress(0), 500); // Reset after completion animation
-        }
-        return () => clearInterval(timer);
-    }, [isProcessing]);
-    
-    useEffect(() => {
         if(savePromptState.error) {
             toast({ variant: 'destructive', title: 'Erro ao Salvar Prompt', description: savePromptState.error });
         } else if (savePromptState.success) {
@@ -259,6 +239,7 @@ export default function FeedPage() {
         setStep3Result(null);
         setStoreName('');
         setDate(new Date());
+        setProgress(0);
         toast({
             title: "Processo Reiniciado",
             description: "Você pode começar uma nova análise."
@@ -288,6 +269,7 @@ export default function FeedPage() {
 
             try {
                 // Step 1
+                setProgress(10);
                 const organizeFormData = new FormData();
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
@@ -296,12 +278,14 @@ export default function FeedPage() {
                 );
 
                 // Step 2
+                setProgress(40);
                 const standardizeFormData = new FormData();
                 standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
                 const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
                 );
+                setProgress(70);
 
                 // Step 3
                 if (step2Res.standardizedList && step2Res.standardizedList.length > 0) {
@@ -313,10 +297,11 @@ export default function FeedPage() {
                         toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
                     );
                 }
+                setProgress(100);
 
             } catch (error) {
+                setProgress(0);
                 console.error("Full process failed:", error);
-                // The specific error toast is already shown by runStep's onError callback
             }
         });
     };
@@ -326,14 +311,17 @@ export default function FeedPage() {
             setStep1Result(null);
             setStep2Result(null);
             setStep3Result(null);
+            setProgress(33);
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
             const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
+                setProgress(0);
             }
             setStep1Result(result.result);
+            setProgress(100);
         });
     };
 
@@ -342,14 +330,17 @@ export default function FeedPage() {
         startProcessingTransition(async () => {
             setStep2Result(null);
             setStep3Result(null);
+            setProgress(66);
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
             const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
+                setProgress(0);
             }
             setStep2Result(result.result);
+            setProgress(100);
         });
     };
 
@@ -357,6 +348,7 @@ export default function FeedPage() {
         if (!step2Result?.standardizedList) return;
         startProcessingTransition(async () => {
             setStep3Result(null);
+            setProgress(99);
             const formData = new FormData();
             formData.append('productList', step2Result.standardizedList.join('\n'));
             formData.append('databaseList', databaseList);
@@ -364,8 +356,10 @@ export default function FeedPage() {
             const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
+                setProgress(0);
             }
             setStep3Result(result.result);
+            setProgress(100);
         });
     };
     
@@ -414,12 +408,14 @@ export default function FeedPage() {
         }
       };
 
-      const getStepIcon = (isProcessing: boolean, result: any) => {
-        if (isProcessing) return <Loader2 className="h-5 w-5 animate-spin text-primary" />;
+      const getStepIcon = (isProcessing: boolean, result: any, currentProgress: number, stepStart: number, stepEnd: number) => {
+        if (isProcessing && currentProgress > stepStart && currentProgress < stepEnd) {
+            return <Loader2 className="h-5 w-5 animate-spin text-primary" />;
+        }
         if (result) return <CheckCircle className="h-5 w-5 text-green-500" />;
         return <CircleDashed className="h-5 w-5 text-muted-foreground" />;
       };
-
+      
       const onSavePrompt = (promptKey: 'organizePrompt' | 'standardizePrompt' | 'lookupPrompt', promptValue: string) => {
           startSavingPromptTransition(() => {
             const formData = new FormData();
@@ -466,7 +462,7 @@ export default function FeedPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-4">
-                        {getStepIcon(isProcessing, step1Result)}
+                        {getStepIcon(isProcessing, step1Result, progress, 0, 39)}
                         <div>
                             <CardTitle className="font-headline text-xl">Passo 1: Organizar Lista</CardTitle>
                             <CardDescription>Cole o texto bruto da lista de produtos.</CardDescription>
@@ -509,7 +505,7 @@ export default function FeedPage() {
                               </AccordionItem>
                             </Accordion>
                         )}
-                        {isProcessing && progress > 0 && (
+                        {isProcessing && progress > 0 && progress < 100 && (
                             <div className="flex items-center gap-4 pt-2">
                                 <Progress value={progress} className="w-full" />
                                 <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
@@ -520,57 +516,70 @@ export default function FeedPage() {
             </Card>
 
             {step1Result && (
-                <div className="flex flex-col items-center">
-                    <ArrowRight className="h-8 w-8 text-muted-foreground my-4" />
+                <>
+                    <div className="flex justify-center my-2">
+                      <ArrowRight className="h-6 w-6 text-muted-foreground" />
+                    </div>
                     {/* Step 2: Standardize */}
-                    <Card className="w-full">
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-4">
-                                    {getStepIcon(isProcessing, step2Result)}
-                                    <div>
-                                        <CardTitle className="font-headline text-xl">Passo 2: Padronizar Lista</CardTitle>
-                                        <CardDescription>A lista organizada abaixo será usada para padronização.</CardDescription>
-                                    </div>
-                                </div>
-                                {step1Result && (
-                                    <Badge variant="secondary" className="text-base font-semibold">{step1Result.organizedList.length} Produtos</Badge>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <Textarea
-                                    readOnly
-                                    value={step1Result.organizedList.join('\n') || ''}
-                                    className="min-h-[150px] bg-white/50 text-xs"
-                                />
-                                <Button onClick={handleStandardize} disabled={isProcessing}>
-                                    {isProcessing && !step2Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-                                    Padronizar
-                                </Button>
-                                {user?.role === 'admin' && (
-                                <Accordion type="single" collapsible>
-                                  <AccordionItem value="item-1">
-                                    <AccordionTrigger>
-                                        <div className="flex justify-between items-center w-full pr-2">
-                                            <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                    <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
+                        <AccordionItem value="item-1">
+                            <Card>
+                                <AccordionTrigger className="p-0 hover:no-underline w-full">
+                                <CardHeader className="flex-1 w-full">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-4">
+                                            {getStepIcon(isProcessing, step2Result, progress, 39, 69)}
+                                            <div>
+                                                <CardTitle className="font-headline text-xl text-left">Passo 2: Padronizar Lista</CardTitle>
+                                                <CardDescription className="text-left">A lista organizada abaixo será usada para padronização.</CardDescription>
+                                            </div>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="space-y-2">
-                                      <Textarea value={standardizePrompt} onChange={(e) => setStandardizePrompt(e.target.value)} rows={15} className="text-xs" />
-                                      <Button size="sm" onClick={() => onSavePrompt('standardizePrompt', standardizePrompt)} disabled={isSavingPrompt}>
-                                        {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                        Salvar Prompt
-                                      </Button>
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                </Accordion>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                                         <div className="flex items-center gap-4">
+                                             <div className="w-40 space-y-1">
+                                                 <span className="text-sm font-semibold">{step1Result.organizedList.length} Produtos</span>
+                                                 { (isProcessing && progress >= 10 && progress < 70) || step2Result ? (
+                                                    <Progress value={isProcessing && progress < 70 ? (progress - 40) / 0.3 : 100} />
+                                                 ) : null}
+                                             </div>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-6 pb-6">
+                                    <div className="space-y-4">
+                                        <Textarea
+                                            readOnly
+                                            value={step1Result.organizedList.join('\n') || ''}
+                                            className="min-h-[150px] bg-white/50 text-xs"
+                                        />
+                                        <Button onClick={handleStandardize} disabled={isProcessing}>
+                                            {isProcessing && !step2Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                                            Padronizar
+                                        </Button>
+                                        {user?.role === 'admin' && (
+                                        <Accordion type="single" collapsible>
+                                        <AccordionItem value="item-1">
+                                            <AccordionTrigger>
+                                                <div className="flex justify-between items-center w-full pr-2">
+                                                    <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="space-y-2">
+                                            <Textarea value={standardizePrompt} onChange={(e) => setStandardizePrompt(e.target.value)} rows={15} className="text-xs" />
+                                            <Button size="sm" onClick={() => onSavePrompt('standardizePrompt', standardizePrompt)} disabled={isSavingPrompt}>
+                                                {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                Salvar Prompt
+                                            </Button>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                        </Accordion>
+                                        )}
+                                    </div>
+                                </AccordionContent>
+                            </Card>
+                         </AccordionItem>
+                     </Accordion>
+                </>
             )}
             
             {step2Result?.unprocessedItems && step2Result.unprocessedItems.length > 0 && (
@@ -578,52 +587,70 @@ export default function FeedPage() {
             )}
 
             {step2Result?.standardizedList && (
-                 <div className="flex flex-col items-center">
-                    <ArrowRight className="h-8 w-8 text-muted-foreground my-4" />
+                 <>
+                    <div className="flex justify-center my-2">
+                      <ArrowRight className="h-6 w-6 text-muted-foreground" />
+                    </div>
                     {/* Step 3: Lookup */}
-                    <Card className="w-full">
-                        <CardHeader>
-                             <div className="flex items-center gap-4">
-                                {getStepIcon(isProcessing, step3Result)}
-                                <div>
-                                    <CardTitle className="font-headline text-xl">Passo 3: Buscar no Banco de Dados</CardTitle>
-                                    <CardDescription>A lista padronizada abaixo será cruzada com seu banco de dados.</CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <Textarea
-                                    readOnly
-                                    value={step2Result.standardizedList.join('\n') || ''}
-                                    className="min-h-[150px] bg-white/50 text-xs"
-                                />
-                                <Button onClick={handleLookup} disabled={!databaseList || isProcessing}>
-                                    {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                                    Buscar Produtos
-                                </Button>
-                                {user?.role === 'admin' && (
-                                <Accordion type="single" collapsible>
-                                  <AccordionItem value="item-1">
-                                    <AccordionTrigger>
-                                       <div className="flex justify-between items-center w-full pr-2">
-                                         <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
-                                       </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="space-y-2">
-                                      <Textarea value={lookupPrompt} onChange={(e) => setLookupPrompt(e.target.value)} rows={15} className="text-xs" />
-                                      <Button size="sm" onClick={() => onSavePrompt('lookupPrompt', lookupPrompt)} disabled={isSavingPrompt}>
-                                        {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                        Salvar Prompt
-                                      </Button>
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                </Accordion>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                     <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
+                        <AccordionItem value="item-1">
+                            <Card>
+                                <AccordionTrigger className="p-0 hover:no-underline w-full">
+                                    <CardHeader className="flex-1 w-full">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-4">
+                                                {getStepIcon(isProcessing, step3Result, progress, 69, 100)}
+                                                <div>
+                                                    <CardTitle className="font-headline text-xl text-left">Passo 3: Buscar no Banco de Dados</CardTitle>
+                                                    <CardDescription className="text-left">A lista padronizada abaixo será cruzada com seu banco de dados.</CardDescription>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-40 space-y-1">
+                                                    <span className="text-sm font-semibold">{step2Result.standardizedList.length} Produtos</span>
+                                                    { (isProcessing && progress >= 70) || step3Result ? (
+                                                        <Progress value={isProcessing && progress < 100 ? (progress - 70) / 0.3 : 100} />
+                                                     ) : null}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-6 pb-6">
+                                    <div className="space-y-4">
+                                        <Textarea
+                                            readOnly
+                                            value={step2Result.standardizedList.join('\n') || ''}
+                                            className="min-h-[150px] bg-white/50 text-xs"
+                                        />
+                                        <Button onClick={handleLookup} disabled={!databaseList || isProcessing}>
+                                            {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                                            Buscar Produtos
+                                        </Button>
+                                        {user?.role === 'admin' && (
+                                        <Accordion type="single" collapsible>
+                                        <AccordionItem value="item-1">
+                                            <AccordionTrigger>
+                                            <div className="flex justify-between items-center w-full pr-2">
+                                                <span className="flex items-center"><Pencil className="mr-2 h-4 w-4" /> Editar Instrução (Prompt) da IA</span>
+                                            </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="space-y-2">
+                                            <Textarea value={lookupPrompt} onChange={(e) => setLookupPrompt(e.target.value)} rows={15} className="text-xs" />
+                                            <Button size="sm" onClick={() => onSavePrompt('lookupPrompt', lookupPrompt)} disabled={isSavingPrompt}>
+                                                {isSavingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                Salvar Prompt
+                                            </Button>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                        </Accordion>
+                                        )}
+                                    </div>
+                                </AccordionContent>
+                            </Card>
+                        </AccordionItem>
+                    </Accordion>
+                </>
             )}
 
             {step3Result && (
