@@ -14,7 +14,8 @@ import {
   orderBy,
   Timestamp,
   updateDoc,
-  getCountFromServer
+  getCountFromServer,
+  WriteBatch
 } from 'firebase/firestore';
 import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -90,9 +91,9 @@ export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
 const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
     const logDocRef = doc(logCol, item.id); // Use the same ID as the inventory item for traceability
-    // Certifique-se que o item passado já tem o formato correto (sem Timestamps do Firestore)
-    const dataToLog = toFirestore(item);
-    batch.set(logDocRef, dataToLog);
+    // The item passed in should have a string date. Convert it to Firestore Timestamp for saving.
+    const itemWithDateObject = { ...item, createdAt: new Date(item.createdAt) };
+    batch.set(logDocRef, toFirestore(itemWithDateObject));
 }
 
 
@@ -107,15 +108,17 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
   const batch = writeBatch(db);
   const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
   const newItemsWithIds: InventoryItem[] = [];
+  const nowISO = new Date().toISOString();
 
   for (const item of items) {
     const docRef = doc(inventoryCol);
-    // Garante que 'createdAt' seja um objeto Date antes de converter para Firestore
-    const newItem = { ...item, id: docRef.id, createdAt: new Date().toISOString() };
-    const firestoreItem = toFirestore({ ...newItem, createdAt: new Date(newItem.createdAt) });
+    const newItem = { ...item, id: docRef.id, createdAt: nowISO };
     
+    // Use the same consistent date object for both inventory and log
+    const firestoreItem = toFirestore({ ...newItem, createdAt: new Date(newItem.createdAt) });
     batch.set(docRef, firestoreItem);
-    // Para o log, usamos o objeto com a data já em string ISO
+
+    // Pass the item with the ISO string date to the logger
     await logInventoryEntry(batch, newItem as InventoryItem);
 
     newItemsWithIds.push(newItem as InventoryItem);
@@ -290,7 +293,9 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
     if (!pickLog.id.startsWith('manual-')) {
         const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
         const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
-        batch.set(inventoryDocRef, toFirestore(itemToAddBack));
+        // Ensure createdAt is a Date object for toFirestore
+        const itemWithDate = { ...itemToAddBack, createdAt: new Date(itemToAddBack.createdAt) };
+        batch.set(inventoryDocRef, toFirestore(itemWithDate));
     }
     
     await batch.commit();
