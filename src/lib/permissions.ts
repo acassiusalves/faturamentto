@@ -41,7 +41,6 @@ export const pagePermissions: Record<string, string[]> = {
     '/conciliacao': ['admin', 'financeiro'],
     '/compras': ['admin', 'financeiro'],
     '/arquivo': ['admin', 'expedicao', 'sac', 'financeiro'],
-    '/arquivo/conferencia': ['admin', 'expedicao', 'financeiro'],
     '/dre': ['admin', 'financeiro'],
     '/custos-geral': ['admin', 'financeiro'],
     '/mapeamento': ['admin'],
