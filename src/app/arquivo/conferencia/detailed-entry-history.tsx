@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { InventoryItem } from "@/lib/types";
-import { loadInventoryItems, loadProductSettings } from "@/services/firestore";
+import { loadEntryLogs, loadProductSettings } from "@/services/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export function DetailedEntryHistory() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     const [items, productSettings] = await Promise.all([
-      loadInventoryItems(),
+      loadEntryLogs(), // Changed to load from the entry log
       loadProductSettings('celular') // Assuming 'celular' is the category
     ]);
     setAllItems(items);
@@ -75,7 +75,7 @@ export function DetailedEntryHistory() {
         return (
           item.name?.toLowerCase().includes(lowerSearchTerm) ||
           item.sku?.toLowerCase().includes(lowerSearchTerm) ||
-          (item.serialNumber && item.serialNumber.toLowerCase().includes(lowerSearchTerm))
+          item.serialNumber?.toLowerCase().includes(lowerSearchTerm)
         );
       }
 
@@ -110,8 +110,8 @@ export function DetailedEntryHistory() {
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Histórico Detalhado de Entradas no Estoque</CardTitle>
-                 <CardDescription>Visualize todos os itens que foram adicionados ao inventário.</CardDescription>
+                 <CardTitle>Arquivo de Entradas no Estoque</CardTitle>
+                 <CardDescription>Visualize o registo de todos os itens que foram adicionados ao inventário.</CardDescription>
             </div>
             <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
                 {filteredItems.length} registros encontrados

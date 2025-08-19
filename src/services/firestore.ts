@@ -1,7 +1,3 @@
-
-
-
-
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -48,6 +44,19 @@ const fromFirestore = (docData) => {
   return data;
 };
 
+// --- ENTRY LOG ---
+export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+  const snapshot = await getDocs(query(logCol, orderBy('createdAt', 'desc')));
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
+};
+
+const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    const logDocRef = doc(logCol, item.id); // Use the same ID as the inventory item for traceability
+    await batch.set(logDocRef, toFirestore(item));
+}
+
 
 // --- INVENTORY ---
 export const loadInventoryItems = async (): Promise<InventoryItem[]> => {
@@ -61,12 +70,16 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
   const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
   const newItemsWithIds: InventoryItem[] = [];
 
-  items.forEach(item => {
+  for (const item of items) {
     const docRef = doc(inventoryCol);
     const newItem = { ...item, id: docRef.id, createdAt: new Date(), condition: 'Novo' };
-    batch.set(docRef, toFirestore(newItem));
+    const firestoreItem = toFirestore(newItem);
+    
+    batch.set(docRef, firestoreItem);
+    await logInventoryEntry(batch, fromFirestore(newItem)); // Log the entry
+
     newItemsWithIds.push(fromFirestore(newItem) as InventoryItem);
-  });
+  }
 
   await batch.commit();
   return newItemsWithIds;
@@ -287,7 +300,9 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         condition: data.condition,
         createdAt: new Date().toISOString(), // The date it re-entered inventory
     };
-    batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
+    const firestoreItem = toFirestore(itemToReenter);
+    batch.set(inventoryItemDocRef, firestoreItem);
+    await logInventoryEntry(batch, fromFirestore(itemToReenter)); // Log the return as an entry
 
     await batch.commit();
 };
