@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, History, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { loadInventoryItems } from '@/services/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -101,10 +101,18 @@ export function IndividualConference() {
   const [notScannedPageSize, setNotScannedPageSize] = useState(10);
   
   useEffect(() => {
-    // Load history from localStorage on component mount
+    // Load and clean history from localStorage on component mount
     const savedHistory = localStorage.getItem('conferenceHistory');
     if (savedHistory) {
-      setHistory(JSON.parse(savedHistory));
+      const parsedHistory: ConferenceHistoryEntry[] = JSON.parse(savedHistory);
+      const now = new Date();
+      const validHistory = parsedHistory.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return differenceInDays(now, entryDate) <= 7;
+      });
+      setHistory(validHistory);
+      // Save the cleaned history back to localStorage
+      localStorage.setItem('conferenceHistory', JSON.stringify(validHistory));
     }
   }, []);
 
@@ -153,9 +161,17 @@ export function IndividualConference() {
         date: new Date().toISOString(),
         results: newResults,
       };
-      const updatedHistory = [newHistoryEntry, ...history];
-      setHistory(updatedHistory);
-      localStorage.setItem('conferenceHistory', JSON.stringify(updatedHistory));
+      setHistory(prevHistory => {
+          const updatedHistory = [newHistoryEntry, ...prevHistory];
+           // Clean up old entries when adding a new one
+          const now = new Date();
+          const validHistory = updatedHistory.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return differenceInDays(now, entryDate) <= 7;
+          });
+          localStorage.setItem('conferenceHistory', JSON.stringify(validHistory));
+          return validHistory;
+      });
 
 
     } catch (error) {
@@ -336,7 +352,10 @@ export function IndividualConference() {
       </div>
        {history.length > 0 && (
             <div className="space-y-4 pt-8">
-                <h2 className="text-2xl font-bold font-headline flex items-center gap-2"><Clock /> Histórico de Conferência</h2>
+                <div>
+                    <h2 className="text-2xl font-bold font-headline flex items-center gap-2"><Clock /> Histórico de Conferência</h2>
+                    <p className="text-sm text-muted-foreground">O histórico é guardado no seu navegador e é automaticamente apagado após 7 dias.</p>
+                </div>
                 <Accordion type="single" collapsible className="w-full space-y-2">
                    {history.map(entry => (
                        <AccordionItem value={entry.id} key={entry.id} className="border-b-0">
