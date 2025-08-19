@@ -115,16 +115,14 @@ export function DetailedEntryHistory() {
             </div>
         </div>
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-4">
-            <div className="flex items-center gap-2 w-full md:w-auto">
-                 <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por produto, SKU, SN..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
+            <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Buscar por produto, SKU, SN..."
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
             </div>
              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                  <Select value={originFilter} onValueChange={setOriginFilter}>
