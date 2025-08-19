@@ -1,6 +1,7 @@
 
 
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -18,7 +19,7 @@ import {
   Timestamp,
   updateDoc,
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice } from '@/lib/types';
 import { startOfDay, endOfDay } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -484,6 +485,25 @@ export const deletePurchaseList = async (id: string): Promise<void> => {
 };
 
 
+// --- NOTICES ---
+export const saveNotice = async (notice: Partial<Notice>): Promise<void> => {
+  const noticeId = notice.id || doc(collection(db, 'notices')).id;
+  const docRef = doc(db, 'notices', noticeId);
+  await setDoc(docRef, toFirestore({ ...notice, id: noticeId }), { merge: true });
+};
+
+export const loadNotices = async (): Promise<Notice[]> => {
+  const noticesCol = collection(db, 'notices');
+  const q = query(noticesCol, orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as Notice);
+};
+
+export const deleteNotice = async (noticeId: string): Promise<void> => {
+  const docRef = doc(db, 'notices', noticeId);
+  await deleteDoc(docRef);
+};
+
 
 // --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
@@ -510,3 +530,41 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     const userDocRef = doc(db, 'users', uid);
     await updateDoc(userDocRef, { role });
 }
+
+/**
+ * Atualiza o campo de status de múltiplos documentos de venda no Firestore.
+ * @param updates Array de objetos com o ID da venda e o novo status.
+ */
+export const updateSalesStatuses = async (updates: { saleId: string; newStatus: string }[]): Promise<void> => {
+  if (!updates || updates.length === 0) {
+    return;
+  }
+
+  const batch = writeBatch(db);
+  const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+
+  updates.forEach(update => {
+    const docRef = doc(salesCol, update.saleId);
+    batch.update(docRef, { status: update.newStatus, status_description: update.newStatus });
+  });
+
+  await batch.commit();
+};
+
+export async function fetchSalesByIds(saleIds: string[]): Promise<Sale[]> {
+    if (saleIds.length === 0) {
+      return [];
+    }
+    const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+    const sales: Sale[] = [];
+    // Firestore 'in' query is limited to 30 items. We need to batch the requests.
+    for (let i = 0; i < saleIds.length; i += 30) {
+      const batchIds = saleIds.slice(i, i + 30);
+      const q = query(salesCol, where('__name__', 'in', batchIds));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(doc => {
+        sales.push(fromFirestore({ ...doc.data(), id: doc.id }) as Sale);
+      });
+    }
+    return sales;
+  }

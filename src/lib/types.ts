@@ -11,6 +11,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -44,7 +45,7 @@ export interface InventoryItem {
   origin: string;
   quantity: number;
   createdAt: string; // ISO 8601 string date
-  condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito'; // Condition for returns
+  condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito' | 'Lacrado' | 'Seminovo';
 }
 
 export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };
@@ -238,6 +239,20 @@ export interface ApprovalRequest {
     createdAt: string; // ISO Date
     orderData: Sale;
     scannedItem: InventoryItem;
+}
+
+// -- Notice Types --
+export interface Notice {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'destructive';
+  startDate: string; // ISO Date
+  endDate: string; // ISO Date
+  targetRoles: ('financeiro' | 'expedicao' | 'sac' | 'admin')[];
+  isActive: boolean;
+  createdAt: string; // ISO Date
+  createdBy: string; // User's email
 }
 
 
