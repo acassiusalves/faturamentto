@@ -11,7 +11,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
-import { format } from "date-fns";
+import { format, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,10 +56,9 @@ export function DetailedEntryHistory() {
       }
       if (dateRange?.to) {
         const itemDate = new Date(item.createdAt);
-        // Add one day to the 'to' date to make the range inclusive
-        const toDate = new Date(dateRange.to);
-        toDate.setDate(toDate.getDate() + 1);
-        if (itemDate >= toDate) return false;
+        // Use endOfDay to include the entire 'to' date
+        const toDate = endOfDay(dateRange.to);
+        if (itemDate > toDate) return false;
       }
 
       // Origin filter
