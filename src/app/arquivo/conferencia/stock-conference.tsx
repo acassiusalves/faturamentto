@@ -61,23 +61,17 @@ export function StockConference() {
 
     // --- Daily Stats Calculation ---
     const entriesTodayNew = inventoryItems.filter(item => 
-        parseISO(item.createdAt) >= todayStart && item.condition === 'Novo'
+        item.createdAt && parseISO(item.createdAt) >= todayStart && item.condition === 'Novo'
     ).length;
     
     const returnedTodayItems = inventoryItems.filter(item => 
-        parseISO(item.createdAt) >= todayStart && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado')
+        item.createdAt && parseISO(item.createdAt) >= todayStart && item.condition !== 'Novo'
     ).length;
 
-    const exitsToday = pickingLogs.filter(log => parseISO(log.pickedAt) >= todayStart).length;
+    const exitsToday = pickingLogs.filter(log => log.pickedAt && parseISO(log.pickedAt) >= todayStart).length;
     
-    // --- History & Initial Stock Calculation ---
-    const history: DailyHistoryRow[] = [];
-    let rollingStock = currentStock; // Start with today's final stock
-
-    // Calculate for today first to get yesterday's final stock
-    const allEntriesToday = inventoryItems.filter(item => parseISO(item.createdAt) >= todayStart).length;
-    const finalStockYesterday = currentStock - allEntriesToday + exitsToday;
-    const initialStockToday = finalStockYesterday;
+    const allEntriesToday = entriesTodayNew + returnedTodayItems;
+    const initialStockToday = currentStock - allEntriesToday + exitsToday;
 
     setStats({
       initialStock: initialStockToday,
@@ -86,35 +80,38 @@ export function StockConference() {
       exitsToday,
       currentStock,
     });
+    
+    // --- History Calculation ---
+    const history: DailyHistoryRow[] = [];
+    let rollingStock = currentStock;
 
-    // Calculate history for the last 7 days
+    // Calculate for the last 7 days (including today)
     for (let i = 0; i < 7; i++) {
         const date = subDays(new Date(), i);
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        const entriesOnDate = inventoryItems.filter(item => {
-            const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd;
-        }).length;
-        
         const newEntriesOnDate = inventoryItems.filter(item => {
+            if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
             return itemDate >= dayStart && itemDate <= dayEnd && item.condition === 'Novo';
         }).length;
 
         const returnsOnDate = inventoryItems.filter(item => {
+            if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd && (item.condition === 'Lacrado' || item.condition === 'Seminovo' || item.condition === 'Usado');
+            return itemDate >= dayStart && itemDate <= dayEnd && item.condition !== 'Novo';
         }).length;
 
         const exitsOnDate = pickingLogs.filter(log => {
+            if (!log.pickedAt) return false;
             const logDate = parseISO(log.pickedAt);
             return logDate >= dayStart && logDate <= dayEnd;
         }).length;
         
         const finalStock = rollingStock;
-        const initialStock = finalStock - entriesOnDate + exitsOnDate;
+        const totalEntriesOnDate = newEntriesOnDate + returnsOnDate;
+        const initialStock = finalStock - totalEntriesOnDate + exitsOnDate;
         
         history.push({
             date: format(date, "dd/MM/yyyy"),
@@ -125,7 +122,7 @@ export function StockConference() {
             finalStock,
         });
 
-        rollingStock = initialStock; // The initial stock for this day is the final stock of the previous day
+        rollingStock = initialStock;
     }
     
     setDailyHistory(history.reverse());
