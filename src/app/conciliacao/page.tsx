@@ -15,6 +15,8 @@ import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
 import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import type { DateRange } from "react-day-picker";
 
 
 // Helper to generate months
@@ -61,8 +63,10 @@ export default function ConciliationPage() {
     const [pickingLogs, setPickingLogs] = useState<PickedItemLog[]>([]);
     const [supportData, setSupportData] = useState<SupportData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedMonth, setSelectedMonth] = useState<string>(new Date().getMonth().toString());
-    const [dateRange, setDateRange] = useState<{ from: Date, to: Date }>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
+    });
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
     const [isCalculationOpen, setIsCalculationOpen] = useState(false);
     
@@ -121,18 +125,6 @@ export default function ConciliationPage() {
             setSupportData(data);
         }
     }, [getMonthYearKey]);
-
-    useEffect(() => {
-        const monthNumber = parseInt(selectedMonth, 10);
-        if (!isNaN(monthNumber)) {
-            const currentYear = getYear(new Date());
-            const targetDate = setMonth(new Date(currentYear, 0, 1), monthNumber);
-            setDateRange({
-                from: startOfMonth(targetDate),
-                to: endOfMonth(targetDate),
-            });
-        }
-    }, [selectedMonth]);
 
     useEffect(() => {
         loadSupportDataForMonth();
@@ -371,7 +363,7 @@ export default function ConciliationPage() {
                     <div className="flex justify-between items-center">
                         <div>
                             <CardTitle>Seleção de Período</CardTitle>
-                            <CardDescription>Filtre as vendas que você deseja analisar selecionando o mês.</CardDescription>
+                            <CardDescription>Filtre as vendas que você deseja analisar.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" onClick={() => setIsSupportDataOpen(true)}>
@@ -386,18 +378,7 @@ export default function ConciliationPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                        <SelectTrigger className="w-[280px]">
-                            <SelectValue placeholder="Selecione um mês" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {getMonths().map(month => (
-                                <SelectItem key={month.value} value={month.value}>
-                                    {month.label.charAt(0).toUpperCase() + month.label.slice(1)}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
                 </CardContent>
             </Card>
 
