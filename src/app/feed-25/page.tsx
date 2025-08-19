@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useActionState, useState, useEffect, useTransition, useRef, useMemo } from 'react';
+import { useActionState, useState, useEffect, useTransition, useRef, useMemo, useCallback } from 'react';
 import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,7 +10,6 @@ import {
   standardizeListAction,
   lookupProductsAction,
   savePromptAction,
-  fullProcessAction,
 } from '@/app/actions';
 import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail } from '@/lib/types'
 import { Button } from '@/components/ui/button';
@@ -43,9 +42,9 @@ const STORES_STORAGE_KEY = 'storesDatabase';
 const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
 **LISTA BRUTA DO FORNECEDOR:**
-\`\`\`
+\'\'\'
 {{{productList}}}
-\`\`\`
+\'\'\'
 
 **REGRAS DE ORGANIZAÇÃO:**
 1.  **Um Produto Por Linha:** A regra principal é identificar cada produto e suas variações. Se um item como "iPhone 13" tem duas cores (Azul e Preto) listadas, ele deve ser transformado em duas linhas separadas na saída.
@@ -55,15 +54,15 @@ const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dado
 5.  **Formato de Quantidade:** Padronize a quantidade para o formato "1x " no início de cada linha. Se nenhuma quantidade for mencionada, assuma 1.
 
 **EXEMPLO DE ENTRADA:**
-\`\`\`
+\'\'\'
 Bom dia! Segue a lista:
 - 2x IPHONE 15 PRO MAX 256GB - AZUL/PRETO - 5.100,00
 - SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00
 - 1x POCO X6 5G 128GB/6GB RAM
-\`\`\`
+\'\'\'
 
 **EXEMPLO DE SAÍDA ESPERADA:**
-\`\`\`json
+\'\'\'json
 {
     "organizedList": [
         "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00",
@@ -72,7 +71,7 @@ Bom dia! Segue a lista:
         "1x POCO X6 5G 128GB/6GB RAM"
     ]
 }
-\`\`\`
+\'\'\'
 
 Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
 `;
@@ -80,9 +79,9 @@ Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, 
 const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado, focando apenas em marcas específicas.
 
     **LISTA ORGANIZADA PARA ANÁLISE:**
-    \`\`\`
+    \'\'\'
     {{{organizedList}}}
-    \`\`\`
+    \'\'\'
 
     **REGRAS DE PADRONIZAÇÃO:**
     1.  **Foco em Marcas Principais:** Processe e padronize **APENAS** produtos que sejam claramente das marcas **Xiaomi, Realme, Motorola ou Samsung**.
@@ -96,15 +95,15 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
     9.  **Tratamento de Erros:** Se uma linha (de uma marca prioritária) não puder ser padronizada por outro motivo (faltando preço, formato confuso), adicione-a à lista 'unprocessedItems' com uma breve justificativa.
 
     **EXEMPLO DE ENTRADA:**
-    \`\`\`
+    \'\'\'
     1x IPHONE 13 128GB AMERICANO A+ - ROSA - 2.000,00
     1x REDMI NOTE 14 PRO 5G 8/256GB - PRETO - 1.235,00
     1x Produto com defeito sem preço
     1x SAMSUNG GALAXY S23 128GB PRETO 5G - 3500.00
-    \`\`\`
+    \'\'\'
 
     **EXEMPLO DE SAÍDA ESPERADA:**
-    \`\`\`json
+    \'\'\'json
     {
         "standardizedList": [
             "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 5G 1.235,00",
@@ -121,7 +120,7 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
         }
         ]
     }
-    \`\`\`
+    \'\'\'
 
     Execute a análise e gere a lista padronizada e a lista de itens não processados. A saída deve ser um JSON válido.
     `;
@@ -129,14 +128,14 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
 const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
 
         **LISTA PADRONIZADA (Resultado do Passo 2):**
-        \`\`\`
+        \'\'\'
         {{{productList}}}
-        \`\`\`
+        \'\'\'
 
         **BANCO DE DADOS (Nome do Produto\tSKU):**
-        \`\`\`
+        \'\'\'
         {{{databaseList}}}
-        \`\`\`
+        \'\'\'
 
         **REGRAS DE PROCESSAMENTO E BUSCA:**
         1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
@@ -156,7 +155,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
 
         **EXEMPLO DE SAÍDA ESPERADA:**
-        \`\`\`json
+        \'\'\'json
         {
           "details": [
             { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
@@ -166,7 +165,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
             { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
           ]
         }
-        \`\`\`
+        \'\'\'
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;
@@ -176,10 +175,7 @@ export default function FeedPage() {
     const { toast } = useToast();
     const { user } = useAuth();
     const [databaseList, setDatabaseList] = useState('');
-    const [isOrganizing, startOrganizeTransition] = useTransition();
-    const [isStandardizing, startStandardizeTransition] = useTransition();
-    const [isLookingUp, startLookupTransition] = useTransition();
-    const [isFullProcessing, startFullProcessTransition] = useTransition();
+    const [isProcessing, startProcessingTransition] = useTransition();
     const [progress, setProgress] = useState(0);
 
     // Form inputs
@@ -227,8 +223,6 @@ export default function FeedPage() {
         loadData();
     }, []);
 
-    const isProcessing = isOrganizing || isStandardizing || isLookingUp || isFullProcessing;
-
     useEffect(() => {
         let timer: NodeJS.Timeout;
         if (isProcessing) {
@@ -270,16 +264,71 @@ export default function FeedPage() {
             description: "Você pode começar uma nova análise."
         })
     }
+    
+    const runStep = useCallback(async (
+        stepAction: (prevState: any, formData: FormData) => Promise<any>,
+        formData: FormData,
+        onSuccess: (result: any) => void,
+        onError: (message: string) => void
+    ) => {
+        const result = await stepAction({ result: null, error: null }, formData);
+        if (result.error) {
+            onError(result.error);
+            throw new Error(result.error); // Stop the chain on error
+        }
+        onSuccess(result.result);
+        return result.result;
+    }, []);
+
+    const handleFullProcess = () => {
+        startProcessingTransition(async () => {
+            setStep1Result(null);
+            setStep2Result(null);
+            setStep3Result(null);
+
+            try {
+                // Step 1
+                const organizeFormData = new FormData();
+                organizeFormData.append('productList', initialProductList);
+                organizeFormData.append('prompt_override', organizePrompt);
+                const step1Res = await runStep(organizeListAction, organizeFormData, setStep1Result, (error) => 
+                    toast({ variant: 'destructive', title: 'Erro no Passo 1 (Organizar)', description: error })
+                );
+
+                // Step 2
+                const standardizeFormData = new FormData();
+                standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
+                standardizeFormData.append('prompt_override', standardizePrompt);
+                const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
+                    toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
+                );
+
+                // Step 3
+                if (step2Res.standardizedList && step2Res.standardizedList.length > 0) {
+                    const lookupFormData = new FormData();
+                    lookupFormData.append('productList', step2Res.standardizedList.join('\n'));
+                    lookupFormData.append('databaseList', databaseList);
+                    lookupFormData.append('prompt_override', lookupPrompt);
+                    await runStep(lookupProductsAction, lookupFormData, setStep3Result, (error) => 
+                        toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
+                    );
+                }
+
+            } catch (error) {
+                console.error("Full process failed:", error);
+                // The specific error toast is already shown by runStep's onError callback
+            }
+        });
+    };
 
     const handleOrganize = () => {
-        setStep1Result(null);
-        setStep2Result(null);
-        setStep3Result(null);
-        startOrganizeTransition(async () => {
+        startProcessingTransition(async () => {
+            setStep1Result(null);
+            setStep2Result(null);
+            setStep3Result(null);
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
-            
             const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
@@ -290,13 +339,12 @@ export default function FeedPage() {
 
     const handleStandardize = () => {
         if (!step1Result?.organizedList) return;
-        setStep2Result(null);
-        setStep3Result(null);
-        startStandardizeTransition(async () => {
+        startProcessingTransition(async () => {
+            setStep2Result(null);
+            setStep3Result(null);
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
-            
             const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
@@ -307,13 +355,12 @@ export default function FeedPage() {
 
     const handleLookup = () => {
         if (!step2Result?.standardizedList) return;
-        startLookupTransition(async () => {
+        startProcessingTransition(async () => {
             setStep3Result(null);
             const formData = new FormData();
             formData.append('productList', step2Result.standardizedList.join('\n'));
             formData.append('databaseList', databaseList);
             formData.append('prompt_override', lookupPrompt);
-            
             const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
@@ -322,26 +369,6 @@ export default function FeedPage() {
         });
     };
     
-    const handleFullProcess = () => {
-        setStep1Result(null);
-        setStep2Result(null);
-        setStep3Result(null);
-        startFullProcessTransition(async () => {
-            const formData = new FormData();
-            formData.append('productList', initialProductList);
-            formData.append('databaseList', databaseList);
-            
-            const result = await fullProcessAction({}, formData);
-            
-            if (result.error) {
-                toast({ variant: 'destructive', title: 'Erro no Fluxo Completo', description: result.error });
-            }
-            // Update all steps at once
-            setStep1Result(result.step1Result);
-            setStep2Result(result.step2Result);
-            setStep3Result(result.step3Result);
-        });
-    };
 
     const sendToFeed = () => {
         if (!step3Result || !storeName) {
@@ -439,7 +466,7 @@ export default function FeedPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-4">
-                        {getStepIcon(isOrganizing || isFullProcessing, step1Result)}
+                        {getStepIcon(isProcessing, step1Result)}
                         <div>
                             <CardTitle className="font-headline text-xl">Passo 1: Organizar Lista</CardTitle>
                             <CardDescription>Cole o texto bruto da lista de produtos.</CardDescription>
@@ -456,11 +483,11 @@ export default function FeedPage() {
                         />
                          <div className="flex items-center gap-4">
                             <Button onClick={handleOrganize} disabled={!initialProductList || isProcessing}>
-                                {isOrganizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                                {isProcessing && !step1Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                 Organizar
                             </Button>
                              <Button onClick={handleFullProcess} disabled={!initialProductList || isProcessing} variant="outline">
-                                {isFullProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
+                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
                                 Fluxo Completo
                             </Button>
                         </div>
@@ -500,7 +527,7 @@ export default function FeedPage() {
                         <CardHeader>
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-4">
-                                    {getStepIcon(isStandardizing || isFullProcessing, step2Result)}
+                                    {getStepIcon(isProcessing, step2Result)}
                                     <div>
                                         <CardTitle className="font-headline text-xl">Passo 2: Padronizar Lista</CardTitle>
                                         <CardDescription>A lista organizada abaixo será usada para padronização.</CardDescription>
@@ -519,7 +546,7 @@ export default function FeedPage() {
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
                                 <Button onClick={handleStandardize} disabled={isProcessing}>
-                                    {isStandardizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                                    {isProcessing && !step2Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                     Padronizar
                                 </Button>
                                 {user?.role === 'admin' && (
@@ -557,7 +584,7 @@ export default function FeedPage() {
                     <Card className="w-full">
                         <CardHeader>
                              <div className="flex items-center gap-4">
-                                {getStepIcon(isLookingUp || isFullProcessing, step3Result)}
+                                {getStepIcon(isProcessing, step3Result)}
                                 <div>
                                     <CardTitle className="font-headline text-xl">Passo 3: Buscar no Banco de Dados</CardTitle>
                                     <CardDescription>A lista padronizada abaixo será cruzada com seu banco de dados.</CardDescription>
@@ -572,7 +599,7 @@ export default function FeedPage() {
                                     className="min-h-[150px] bg-white/50 text-xs"
                                 />
                                 <Button onClick={handleLookup} disabled={!databaseList || isProcessing}>
-                                    {isLookingUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                                    {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                     Buscar Produtos
                                 </Button>
                                 {user?.role === 'admin' && (
