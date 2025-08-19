@@ -60,13 +60,15 @@ export function StockConference() {
     const currentStock = inventoryItems.length;
 
     // --- Daily Stats Calculation ---
-    const entriesTodayNew = inventoryItems.filter(item => 
-        item.createdAt && parseISO(item.createdAt) >= todayStart && item.condition === 'Novo'
-    ).length;
+    const entriesTodayNew = inventoryItems.filter(item => {
+        const itemDate = item.createdAt ? parseISO(item.createdAt) : new Date(0);
+        return itemDate >= todayStart && item.condition === 'Novo';
+    }).length;
     
-    const returnedTodayItems = inventoryItems.filter(item => 
-        item.createdAt && parseISO(item.createdAt) >= todayStart && item.condition !== 'Novo'
-    ).length;
+    const returnedTodayItems = inventoryItems.filter(item => {
+        const itemDate = item.createdAt ? parseISO(item.createdAt) : new Date(0);
+        return itemDate >= todayStart && item.condition !== 'Novo';
+    }).length;
 
     const exitsToday = pickingLogs.filter(log => log.pickedAt && parseISO(log.pickedAt) >= todayStart).length;
     
@@ -94,13 +96,13 @@ export function StockConference() {
         const newEntriesOnDate = inventoryItems.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd && item.condition === 'Novo';
+            return itemDate >= dayStart && itemDate <= dayEnd && (item.condition === 'Novo' || !item.condition);
         }).length;
 
         const returnsOnDate = inventoryItems.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            return itemDate >= dayStart && itemDate <= dayEnd && item.condition !== 'Novo';
+            return itemDate >= dayStart && itemDate <= dayEnd && item.condition !== 'Novo' && !!item.condition;
         }).length;
 
         const exitsOnDate = pickingLogs.filter(log => {
