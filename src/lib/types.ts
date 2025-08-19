@@ -12,6 +12,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -339,4 +340,17 @@ export interface PipelineResult {
   details: ProductDetail[];
   finalFormattedList: string;
   unprocessedItems: UnprocessedItem[];
+}
+
+// Conference History
+export interface ConferenceResult {
+  found: InventoryItem[];
+  notFound: string[];
+  notScanned: InventoryItem[];
+}
+
+export interface ConferenceHistoryEntry {
+    id: string;
+    date: string;
+    results: ConferenceResult;
 }

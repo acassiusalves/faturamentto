@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, FC, useEffect } from 'react';
-import type { InventoryItem } from '@/lib/types';
+import type { InventoryItem, ConferenceResult, ConferenceHistoryEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,21 +13,9 @@ import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, Chevro
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { loadInventoryItems } from '@/services/firestore';
+import { loadInventoryItems, saveConferenceHistory, loadConferenceHistory } from '@/services/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
-interface ConferenceResult {
-  found: InventoryItem[];
-  notFound: string[];
-  notScanned: InventoryItem[];
-}
-
-interface ConferenceHistoryEntry {
-    id: string;
-    date: string;
-    results: ConferenceResult;
-}
 
 interface ResultsPaginationProps {
     totalItems: number;
@@ -36,7 +24,6 @@ interface ResultsPaginationProps {
     setPageIndex: (index: number) => void;
     setPageSize: (size: number) => void;
     pageCount: number;
-    idPrefix: string;
 }
 
 const ResultsPagination: FC<ResultsPaginationProps> = ({ totalItems, pageIndex, pageSize, setPageIndex, setPageSize, pageCount }) => (
@@ -101,19 +88,11 @@ export function IndividualConference() {
   const [notScannedPageSize, setNotScannedPageSize] = useState(10);
   
   useEffect(() => {
-    // Load and clean history from localStorage on component mount
-    const savedHistory = localStorage.getItem('conferenceHistory');
-    if (savedHistory) {
-      const parsedHistory: ConferenceHistoryEntry[] = JSON.parse(savedHistory);
-      const now = new Date();
-      const validHistory = parsedHistory.filter(entry => {
-        const entryDate = new Date(entry.date);
-        return differenceInDays(now, entryDate) <= 7;
-      });
-      setHistory(validHistory);
-      // Save the cleaned history back to localStorage
-      localStorage.setItem('conferenceHistory', JSON.stringify(validHistory));
+    async function fetchHistory() {
+      const savedHistory = await loadConferenceHistory();
+      setHistory(savedHistory);
     }
+    fetchHistory();
   }, []);
 
   const handleSearch = async () => {
@@ -155,24 +134,9 @@ export function IndividualConference() {
       const newResults = { found, notFound, notScanned };
       setResults(newResults);
 
-      // Save to history
-      const newHistoryEntry: ConferenceHistoryEntry = {
-        id: `conf-${Date.now()}`,
-        date: new Date().toISOString(),
-        results: newResults,
-      };
-      setHistory(prevHistory => {
-          const updatedHistory = [newHistoryEntry, ...prevHistory];
-           // Clean up old entries when adding a new one
-          const now = new Date();
-          const validHistory = updatedHistory.filter(entry => {
-            const entryDate = new Date(entry.date);
-            return differenceInDays(now, entryDate) <= 7;
-          });
-          localStorage.setItem('conferenceHistory', JSON.stringify(validHistory));
-          return validHistory;
-      });
-
+      // Save to history in Firestore
+      const savedEntry = await saveConferenceHistory(newResults);
+      setHistory(prevHistory => [savedEntry, ...prevHistory]);
 
     } catch (error) {
         console.error("Error during stock conference:", error);
@@ -320,7 +284,6 @@ export function IndividualConference() {
                     setPageIndex={setFoundPageIndex}
                     setPageSize={setFoundPageSize}
                     pageCount={foundPageCount}
-                    idPrefix="current-found"
                   />
               </TabsContent>
               <TabsContent value="not_found" className="mt-4">
@@ -343,7 +306,6 @@ export function IndividualConference() {
                     setPageIndex={setNotScannedPageIndex}
                     setPageSize={setNotScannedPageSize}
                     pageCount={notScannedPageCount}
-                    idPrefix="current-not-scanned"
                   />
               </TabsContent>
             </Tabs>
@@ -354,7 +316,7 @@ export function IndividualConference() {
             <div className="space-y-4 pt-8">
                 <div>
                     <h2 className="text-2xl font-bold font-headline flex items-center gap-2"><Clock /> Histórico de Conferência</h2>
-                    <p className="text-sm text-muted-foreground">O histórico é guardado no seu navegador e é automaticamente apagado após 7 dias.</p>
+                    <p className="text-sm text-muted-foreground">O histórico partilhado é guardado na base de dados e é automaticamente apagado após 7 dias.</p>
                 </div>
                 <Accordion type="single" collapsible className="w-full space-y-2">
                    {history.map(entry => (

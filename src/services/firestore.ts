@@ -17,8 +17,8 @@ import {
   getCountFromServer,
   WriteBatch
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice } from '@/lib/types';
-import { startOfDay, endOfDay } from 'date-fns';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry } from '@/lib/types';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
 const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
@@ -628,3 +628,29 @@ export async function fetchSalesByIds(saleIds: string[]): Promise<Sale[]> {
     }
     return sales;
   }
+
+
+// --- CONFERENCE HISTORY ---
+export const saveConferenceHistory = async (results: ConferenceResult): Promise<ConferenceHistoryEntry> => {
+    const historyCol = collection(db, 'conference-history');
+    const docRef = doc(historyCol);
+    const newEntry: ConferenceHistoryEntry = {
+        id: docRef.id,
+        date: new Date().toISOString(),
+        results: {
+            found: results.found.map(item => ({ ...item })),
+            notFound: [...results.notFound],
+            notScanned: results.notScanned.map(item => ({ ...item })),
+        }
+    };
+    await setDoc(docRef, toFirestore(newEntry));
+    return newEntry;
+}
+
+export const loadConferenceHistory = async (): Promise<ConferenceHistoryEntry[]> => {
+    const historyCol = collection(db, 'conference-history');
+    const sevenDaysAgo = subDays(new Date(), 7);
+    const q = query(historyCol, where('date', '>=', sevenDaysAgo.toISOString()), orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ConferenceHistoryEntry);
+}
