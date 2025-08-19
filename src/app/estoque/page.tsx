@@ -229,7 +229,10 @@ export default function EstoquePage() {
       let itemsToDisplay: (InventoryItem & {count?: number; totalCost?: number})[] = inventory;
       
       if (selectedConditions.length > 0) {
-        itemsToDisplay = itemsToDisplay.filter(item => item.condition && selectedConditions.includes(item.condition));
+        itemsToDisplay = itemsToDisplay.filter(item => {
+            const condition = item.condition || 'Novo'; // Treat null/undefined as 'Novo'
+            return selectedConditions.includes(condition);
+        });
       }
 
       if (searchTerm) {
@@ -295,7 +298,10 @@ export default function EstoquePage() {
 
   const totals = useMemo(() => {
     const itemsToSum = selectedConditions.length > 0
-      ? inventory.filter(item => item.condition && selectedConditions.includes(item.condition))
+      ? inventory.filter(item => {
+          const condition = item.condition || 'Novo';
+          return selectedConditions.includes(condition);
+        })
       : inventory;
 
     const totalItems = itemsToSum.reduce((sum, item) => sum + item.quantity, 0);
@@ -304,7 +310,7 @@ export default function EstoquePage() {
   }, [inventory, selectedConditions]);
   
   const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
-    switch (condition) {
+    switch (condition || 'Novo') { // Default to 'Novo' for styling
         case 'Novo':
             return { variant: 'default', className: '' };
         case 'Seminovo':
@@ -601,7 +607,8 @@ export default function EstoquePage() {
                   <TableBody>
                     {filteredAndSortedInventory.length > 0 ? (
                       filteredAndSortedInventory.map(item => {
-                        const badgeStyle = getConditionBadgeVariant(item.condition);
+                        const condition = item.condition || 'Novo';
+                        const badgeStyle = getConditionBadgeVariant(condition);
                         return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
@@ -611,7 +618,7 @@ export default function EstoquePage() {
                                     <>
                                         <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
                                         <Badge variant={badgeStyle.variant} className={cn('w-fit mt-1', badgeStyle.className)}>
-                                          {item.condition || 'N/A'}
+                                          {condition}
                                         </Badge>
                                     </>
                                 )}
