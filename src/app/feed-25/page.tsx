@@ -2,7 +2,7 @@
 'use client';
 
 import { useActionState, useState, useEffect, useTransition, useRef, useMemo, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -581,7 +581,7 @@ export default function FeedPage() {
                 <>
                     {/* Step 2: Standardize */}
                     <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
-                        <AccordionItem value="item-1">
+                        <AccordionItem value="item-1" className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="p-0 hover:no-underline w-full">
                                 <CardHeader className="flex-1 w-full">
@@ -596,8 +596,11 @@ export default function FeedPage() {
                                          <div className="flex items-center gap-4">
                                              <div className="w-40 space-y-1">
                                                  <span className="text-sm font-semibold">{step1Result.organizedList.length} Produtos</span>
-                                                  {(isProcessing && progress >= 33 && progress < 66) || step2Result ? (
-                                                    <Progress value={isProcessing && progress < 66 ? ((progress - 33) / 33) * 100 : 100} />
+                                                  {(isProcessing && progress >= 33) || step2Result ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Progress value={isProcessing && progress < 66 ? ((progress - 33) / 33) * 100 : 100} className="w-full"/>
+                                                        <span className="text-sm font-medium text-muted-foreground">{Math.round(isProcessing && progress < 66 ? progress : 66)}%</span>
+                                                    </div>
                                                   ) : null}
                                              </div>
                                         </div>
@@ -658,7 +661,7 @@ export default function FeedPage() {
                  <>
                     {/* Step 3: Lookup */}
                      <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
-                        <AccordionItem value="item-1">
+                        <AccordionItem value="item-1" className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="p-0 hover:no-underline w-full">
                                     <CardHeader className="flex-1 w-full">
@@ -674,7 +677,10 @@ export default function FeedPage() {
                                                 <div className="w-40 space-y-1">
                                                     <span className="text-sm font-semibold">{step2Result.standardizedList.length} Produtos</span>
                                                     {(isProcessing && progress >= 66) || step3Result ? (
-                                                        <Progress value={isProcessing && progress < 100 ? ((progress - 66) / 34) * 100 : 100} />
+                                                        <div className="flex items-center gap-2">
+                                                            <Progress value={isProcessing && progress < 100 ? ((progress - 66) / 34) * 100 : 100} className="w-full" />
+                                                            <span className="text-sm font-medium text-muted-foreground">{Math.round(isProcessing && progress < 100 ? progress : 100)}%</span>
+                                                        </div>
                                                      ) : null}
                                                 </div>
                                             </div>
