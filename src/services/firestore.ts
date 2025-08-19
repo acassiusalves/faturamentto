@@ -59,8 +59,8 @@ const migrateInventoryToEntryLog = async (): Promise<void> => {
 
     const batch = writeBatch(db);
     let count = 0;
-    inventorySnapshot.forEach(doc => {
-        const item = fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem;
+    inventorySnapshot.forEach(docSnapshot => {
+        const item = fromFirestore({ ...docSnapshot.data(), id: docSnapshot.id }) as InventoryItem;
         const logDocRef = doc(logCol, item.id);
         batch.set(logDocRef, toFirestore(item));
         count++;
