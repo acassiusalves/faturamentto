@@ -18,14 +18,14 @@ import type { LookupResult } from '@/lib/types';
 const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
 
         **LISTA PADRONIZADA (Resultado do Passo 2):**
-        \`\`\`
+        \'\'\'
         {{{productList}}}
-        \`\`\`
+        \'\'\'
 
         **BANCO DE DADOS (Nome do Produto\tSKU):**
-        \`\`\`
+        \'\'\'
         {{{databaseList}}}
-        \`\`\`
+        \'\'\'
 
         **REGRAS DE PROCESSAMENTO E BUSCA:**
         1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
@@ -45,7 +45,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
 
         **EXEMPLO DE SAÍDA ESPERADA:**
-        \`\`\`json
+        \'\'\'json
         {
           "details": [
             { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
@@ -55,7 +55,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
             { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
           ]
         }
-        \`\`\`
+        \'\'\'
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;

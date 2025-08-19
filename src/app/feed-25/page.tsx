@@ -184,6 +184,8 @@ export default function FeedPage() {
     const [storeName, setStoreName] = useState('');
     const [availableStores, setAvailableStores] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>();
+    const [geminiApiKey, setGeminiApiKey] = useState('');
+
 
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
@@ -213,6 +215,7 @@ export default function FeedPage() {
               const appSettings = await loadAppSettings();
               if (appSettings) {
                 setAvailableStores(appSettings.stores || []);
+                setGeminiApiKey(appSettings.geminiApiKey || '');
                 if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
                 if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
                 if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
@@ -296,6 +299,7 @@ export default function FeedPage() {
                 const organizeFormData = new FormData();
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
+                organizeFormData.append('apiKey', geminiApiKey);
                 const step1Res = await runStep(organizeListAction, organizeFormData, setStep1Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 1 (Organizar)', description: error })
                 );
@@ -306,6 +310,7 @@ export default function FeedPage() {
                 const standardizeFormData = new FormData();
                 standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
+                standardizeFormData.append('apiKey', geminiApiKey);
                 const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
                 );
@@ -318,6 +323,7 @@ export default function FeedPage() {
                     lookupFormData.append('productList', step2Res.standardizedList.join('\n'));
                     lookupFormData.append('databaseList', databaseList);
                     lookupFormData.append('prompt_override', lookupPrompt);
+                    lookupFormData.append('apiKey', geminiApiKey);
                     await runStep(lookupProductsAction, lookupFormData, setStep3Result, (error) => 
                         toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
                     );
@@ -350,6 +356,7 @@ export default function FeedPage() {
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
+            formData.append('apiKey', geminiApiKey);
             const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
@@ -376,6 +383,7 @@ export default function FeedPage() {
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
+            formData.append('apiKey', geminiApiKey);
             const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
@@ -402,6 +410,7 @@ export default function FeedPage() {
             formData.append('productList', step2Result.standardizedList.join('\n'));
             formData.append('databaseList', databaseList);
             formData.append('prompt_override', lookupPrompt);
+            formData.append('apiKey', geminiApiKey);
             const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
@@ -596,7 +605,7 @@ export default function FeedPage() {
                                          <div className="flex items-center gap-4">
                                              <div className="w-40 space-y-1">
                                                  <span className="text-sm font-semibold">{step1Result.organizedList.length} Produtos</span>
-                                                  {(isProcessing && progress >= 33) || step2Result ? (
+                                                  {((isProcessing && progress >= 33) || step2Result) ? (
                                                     <div className="flex items-center gap-2">
                                                         <Progress value={isProcessing && progress < 66 ? ((progress - 33) / 33) * 100 : 100} className="w-full"/>
                                                         <span className="text-sm font-medium text-muted-foreground">{Math.round(isProcessing && progress < 66 ? progress : 66)}%</span>
@@ -676,7 +685,7 @@ export default function FeedPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="w-40 space-y-1">
                                                     <span className="text-sm font-semibold">{step2Result.standardizedList.length} Produtos</span>
-                                                    {(isProcessing && progress >= 66) || step3Result ? (
+                                                    {((isProcessing && progress >= 66) || step3Result) ? (
                                                         <div className="flex items-center gap-2">
                                                             <Progress value={isProcessing && progress < 100 ? ((progress - 66) / 34) * 100 : 100} className="w-full" />
                                                             <span className="text-sm font-medium text-muted-foreground">{Math.round(isProcessing && progress < 100 ? progress : 100)}%</span>
