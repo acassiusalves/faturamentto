@@ -51,14 +51,17 @@ export function DetailedEntryHistory() {
     return allItems.filter(item => {
       // Date range filter
       if (dateRange?.from) {
-        const itemDate = new Date(item.createdAt);
-        if (itemDate < dateRange.from) return false;
+        try {
+          const itemDate = new Date(item.createdAt);
+          if (itemDate < dateRange.from) return false;
+        } catch { return false; }
       }
       if (dateRange?.to) {
-        const itemDate = new Date(item.createdAt);
-        // Use endOfDay to include the entire 'to' date
-        const toDate = endOfDay(dateRange.to);
-        if (itemDate > toDate) return false;
+        try {
+          const itemDate = new Date(item.createdAt);
+          const toDate = endOfDay(dateRange.to);
+          if (itemDate > toDate) return false;
+        } catch { return false; }
       }
 
       // Origin filter
@@ -70,8 +73,8 @@ export function DetailedEntryHistory() {
       if (searchTerm) {
         const lowerSearchTerm = searchTerm.toLowerCase();
         return (
-          item.name.toLowerCase().includes(lowerSearchTerm) ||
-          item.sku.toLowerCase().includes(lowerSearchTerm) ||
+          item.name?.toLowerCase().includes(lowerSearchTerm) ||
+          item.sku?.toLowerCase().includes(lowerSearchTerm) ||
           (item.serialNumber && item.serialNumber.toLowerCase().includes(lowerSearchTerm))
         );
       }
@@ -87,12 +90,12 @@ export function DetailedEntryHistory() {
     return filteredItems.slice(startIndex, startIndex + pageSize);
   }, [filteredItems, pageIndex, pageSize]);
   
-  const formatCurrency = (value: number) => {
-    if (isNaN(value)) return 'R$ 0,00';
+  const formatCurrency = (value: number | undefined) => {
+    if (value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
   
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
         const date = new Date(dateString);
