@@ -177,6 +177,7 @@ export default function FeedPage() {
     const [databaseList, setDatabaseList] = useState('');
     const [isProcessing, startProcessingTransition] = useTransition();
     const [progress, setProgress] = useState(0);
+    const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Form inputs
     const [initialProductList, setInitialProductList] = useState('');
@@ -240,6 +241,9 @@ export default function FeedPage() {
         setStoreName('');
         setDate(new Date());
         setProgress(0);
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+        }
         toast({
             title: "Processo Reiniciado",
             description: "Você pode começar uma nova análise."
@@ -260,6 +264,25 @@ export default function FeedPage() {
         onSuccess(result.result);
         return result.result;
     }, []);
+    
+    const animateProgress = (start: number, end: number, duration: number) => {
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+        }
+        const startTime = Date.now();
+        
+        progressIntervalRef.current = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const progressFraction = elapsedTime / duration;
+            const newProgress = start + (end - start) * Math.min(progressFraction, 1);
+            
+            setProgress(newProgress);
+            
+            if (progressFraction >= 1) {
+                if(progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+            }
+        }, 16); // ~60fps
+    };
 
     const handleFullProcess = () => {
         startProcessingTransition(async () => {
@@ -269,26 +292,28 @@ export default function FeedPage() {
 
             try {
                 // Step 1
-                setProgress(10);
+                animateProgress(0, 33, 1500);
                 const organizeFormData = new FormData();
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
                 const step1Res = await runStep(organizeListAction, organizeFormData, setStep1Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 1 (Organizar)', description: error })
                 );
+                setProgress(33);
 
                 // Step 2
-                setProgress(40);
+                animateProgress(33, 66, 1500);
                 const standardizeFormData = new FormData();
                 standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
                 const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
                 );
-                setProgress(70);
+                setProgress(66);
 
                 // Step 3
                 if (step2Res.standardizedList && step2Res.standardizedList.length > 0) {
+                    animateProgress(66, 100, 1500);
                     const lookupFormData = new FormData();
                     lookupFormData.append('productList', step2Res.standardizedList.join('\n'));
                     lookupFormData.append('databaseList', databaseList);
@@ -298,9 +323,15 @@ export default function FeedPage() {
                     );
                 }
                 setProgress(100);
+                 if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                }
 
             } catch (error) {
                 setProgress(0);
+                 if (progressIntervalRef.current) {
+                    clearInterval(progressIntervalRef.current);
+                }
                 console.error("Full process failed:", error);
             }
         });
@@ -311,7 +342,11 @@ export default function FeedPage() {
             setStep1Result(null);
             setStep2Result(null);
             setStep3Result(null);
-            setProgress(33);
+            setProgress(0);
+             if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
+            animateProgress(0, 100, 1500);
             const formData = new FormData();
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
@@ -322,6 +357,9 @@ export default function FeedPage() {
             }
             setStep1Result(result.result);
             setProgress(100);
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
         });
     };
 
@@ -330,7 +368,11 @@ export default function FeedPage() {
         startProcessingTransition(async () => {
             setStep2Result(null);
             setStep3Result(null);
-            setProgress(66);
+            setProgress(0);
+             if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
+            animateProgress(0, 100, 1500);
             const formData = new FormData();
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
@@ -341,6 +383,9 @@ export default function FeedPage() {
             }
             setStep2Result(result.result);
             setProgress(100);
+             if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
         });
     };
 
@@ -348,7 +393,11 @@ export default function FeedPage() {
         if (!step2Result?.standardizedList) return;
         startProcessingTransition(async () => {
             setStep3Result(null);
-            setProgress(99);
+            setProgress(0);
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
+            animateProgress(0, 100, 1500);
             const formData = new FormData();
             formData.append('productList', step2Result.standardizedList.join('\n'));
             formData.append('databaseList', databaseList);
@@ -360,6 +409,9 @@ export default function FeedPage() {
             }
             setStep3Result(result.result);
             setProgress(100);
+             if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
         });
     };
     
@@ -462,7 +514,7 @@ export default function FeedPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-4">
-                        {getStepIcon(isProcessing, step1Result, progress, 0, 39)}
+                        {getStepIcon(isProcessing, step1Result, progress, 0, 33)}
                         <div>
                             <CardTitle className="font-headline text-xl">Passo 1: Organizar Lista</CardTitle>
                             <CardDescription>Cole o texto bruto da lista de produtos.</CardDescription>
@@ -505,21 +557,28 @@ export default function FeedPage() {
                               </AccordionItem>
                             </Accordion>
                         )}
-                        {isProcessing && progress > 0 && progress < 100 && (
+                        {isProcessing && progress > 0 && progress < 33 && (
                             <div className="flex items-center gap-4 pt-2">
-                                <Progress value={progress} className="w-full" />
+                                <Progress value={(progress / 33) * 100} className="w-full" />
                                 <span className="text-sm font-medium text-muted-foreground">{Math.round(progress)}%</span>
                             </div>
                         )}
                     </div>
                 </CardContent>
             </Card>
+            
+            <div className="flex justify-center my-[-1rem]">
+                <div className="h-8 w-px bg-border-strong mx-auto" style={{
+                    height: (step1Result) ? '2rem' : '0',
+                    borderRight: '2px dashed hsl(var(--border))',
+                    opacity: (step1Result) ? 1 : 0,
+                    transition: 'height 0.3s ease, opacity 0.3s ease',
+                }}></div>
+            </div>
+
 
             {step1Result && (
                 <>
-                    <div className="flex justify-center my-2">
-                      <ArrowRight className="h-6 w-6 text-muted-foreground" />
-                    </div>
                     {/* Step 2: Standardize */}
                     <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
                         <AccordionItem value="item-1">
@@ -528,7 +587,7 @@ export default function FeedPage() {
                                 <CardHeader className="flex-1 w-full">
                                     <div className="flex justify-between items-start">
                                         <div className="flex items-center gap-4">
-                                            {getStepIcon(isProcessing, step2Result, progress, 39, 69)}
+                                            {getStepIcon(isProcessing, step2Result, progress, 33, 66)}
                                             <div>
                                                 <CardTitle className="font-headline text-xl text-left">Passo 2: Padronizar Lista</CardTitle>
                                                 <CardDescription className="text-left">A lista organizada abaixo será usada para padronização.</CardDescription>
@@ -537,9 +596,9 @@ export default function FeedPage() {
                                          <div className="flex items-center gap-4">
                                              <div className="w-40 space-y-1">
                                                  <span className="text-sm font-semibold">{step1Result.organizedList.length} Produtos</span>
-                                                 { (isProcessing && progress >= 10 && progress < 70) || step2Result ? (
-                                                    <Progress value={isProcessing && progress < 70 ? (progress - 40) / 0.3 : 100} />
-                                                 ) : null}
+                                                  {(isProcessing && progress >= 33 && progress < 66) || step2Result ? (
+                                                    <Progress value={isProcessing && progress < 66 ? ((progress - 33) / 33) * 100 : 100} />
+                                                  ) : null}
                                              </div>
                                         </div>
                                     </div>
@@ -585,12 +644,18 @@ export default function FeedPage() {
             {step2Result?.unprocessedItems && step2Result.unprocessedItems.length > 0 && (
                 <UnprocessedItemsTable items={step2Result.unprocessedItems} />
             )}
+            
+             <div className="flex justify-center my-[-1rem]">
+                 <div className="h-8 w-px bg-border-strong mx-auto" style={{
+                    height: (step2Result) ? '2rem' : '0',
+                    borderRight: '2px dashed hsl(var(--border))',
+                    opacity: (step2Result) ? 1 : 0,
+                    transition: 'height 0.3s ease, opacity 0.3s ease',
+                }}></div>
+            </div>
 
             {step2Result?.standardizedList && (
                  <>
-                    <div className="flex justify-center my-2">
-                      <ArrowRight className="h-6 w-6 text-muted-foreground" />
-                    </div>
                     {/* Step 3: Lookup */}
                      <Accordion type="single" collapsible className="w-full" defaultValue='item-1'>
                         <AccordionItem value="item-1">
@@ -599,7 +664,7 @@ export default function FeedPage() {
                                     <CardHeader className="flex-1 w-full">
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-4">
-                                                {getStepIcon(isProcessing, step3Result, progress, 69, 100)}
+                                                {getStepIcon(isProcessing, step3Result, progress, 66, 100)}
                                                 <div>
                                                     <CardTitle className="font-headline text-xl text-left">Passo 3: Buscar no Banco de Dados</CardTitle>
                                                     <CardDescription className="text-left">A lista padronizada abaixo será cruzada com seu banco de dados.</CardDescription>
@@ -608,8 +673,8 @@ export default function FeedPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="w-40 space-y-1">
                                                     <span className="text-sm font-semibold">{step2Result.standardizedList.length} Produtos</span>
-                                                    { (isProcessing && progress >= 70) || step3Result ? (
-                                                        <Progress value={isProcessing && progress < 100 ? (progress - 70) / 0.3 : 100} />
+                                                    {(isProcessing && progress >= 66) || step3Result ? (
+                                                        <Progress value={isProcessing && progress < 100 ? ((progress - 66) / 34) * 100 : 100} />
                                                      ) : null}
                                                 </div>
                                             </div>
