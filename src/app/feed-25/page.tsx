@@ -172,7 +172,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         `;
 
 
-function ProcessListTab() {
+export default function FeedPage() {
     const { toast } = useToast();
     const { user } = useAuth();
     const [databaseList, setDatabaseList] = useState('');
@@ -667,13 +667,5 @@ function ProcessListTab() {
                 </>
             )}
         </main>
-    )
-}
-
-export default function FeedPage() {
-  return (
-    <div className="flex flex-col gap-8">
-        <ProcessListTab />
-    </div>
-  );
+    );
 }
