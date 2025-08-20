@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw } from 'lucide-react';
+import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findSaleByOrderNumber, saveSales, loadAppSettings } from '@/services/firestore';
@@ -21,6 +21,8 @@ export default function SacPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [foundSale, setFoundSale] = useState<Sale | null>(null);
+    const [rawApiResponse, setRawApiResponse] = useState<any | null>(null);
+
 
     const handleSearchOrder = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -30,6 +32,7 @@ export default function SacPage() {
         }
         setIsLoading(true);
         setFoundSale(null);
+        setRawApiResponse(null);
         try {
             const sale = await findSaleByOrderNumber(orderNumber.trim());
             if (sale) {
@@ -52,6 +55,7 @@ export default function SacPage() {
         }
         
         setIsUpdating(true);
+        setRawApiResponse(null);
         try {
             const settings = await loadAppSettings();
             if (!settings?.iderisPrivateKey) {
@@ -59,6 +63,7 @@ export default function SacPage() {
             }
             
             const iderisOrderData = await fetchOrderById(settings.iderisPrivateKey, (foundSale as any).order_id);
+            setRawApiResponse(iderisOrderData?.obj || { error: 'Nenhum dado retornado' });
 
             if (iderisOrderData && iderisOrderData.obj) {
                 const updatedSale = mapIderisOrderToSale(iderisOrderData.obj, 0);
@@ -173,6 +178,21 @@ export default function SacPage() {
                             </div>
                          </CardContent>
                     </Card>
+                     {rawApiResponse && (
+                        <Card className="lg:col-span-3">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Database/> Resposta da API</CardTitle>
+                                <CardDescription>Dados brutos retornados pela API da Ideris para este pedido.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs">
+                                    <code>
+                                        {JSON.stringify(rawApiResponse, null, 2)}
+                                    </code>
+                                </pre>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
         </div>
