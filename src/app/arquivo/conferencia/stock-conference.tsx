@@ -51,7 +51,6 @@ export function StockConference() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     
-    // CORREÇÃO: Usar loadEntryLogs para o histórico e loadInventoryItems para o estoque atual.
     const [entryLogs, pickingLogs, currentInventory] = await Promise.all([
       loadEntryLogs(),
       loadAllPickingLogs(),
@@ -60,17 +59,16 @@ export function StockConference() {
     
     const currentStock = currentInventory.length;
 
-    // --- History Calculation (New Logic) ---
+    // --- History Calculation ---
     const history: DailyHistoryRow[] = [];
     let rollingStock = currentStock;
 
-    // Calculate for the last 7 days (including today)
-    for (let i = 0; i < 7; i++) {
+    // Calculate for the last 7 days, starting from yesterday (i=1) up to 7 days ago
+    for (let i = 1; i <= 7; i++) {
         const date = subDays(new Date(), i);
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
         
-        // CORREÇÃO: Calcular entradas e retornos com base no log de entradas (entryLogs)
         const newEntriesOnDate = entryLogs.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
@@ -81,7 +79,7 @@ export function StockConference() {
         const returnsOnDate = entryLogs.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            const condition = item.condition; // Não usar padrão 'Novo' aqui
+            const condition = item.condition; 
             return itemDate >= dayStart && itemDate <= dayEnd && condition !== 'Novo';
         }).length;
 
@@ -108,17 +106,53 @@ export function StockConference() {
     }
     
     const finalHistory = history.reverse();
-    setDailyHistory(finalHistory);
     
     // --- Daily Stats Calculation ---
-    const todayHistory = finalHistory.find(h => h.date === format(new Date(), "dd/MM/yyyy"));
+    const yesterdayHistory = finalHistory.find(h => h.date === format(subDays(new Date(), 1), "dd/MM/yyyy"));
+    const initialStockForToday = yesterdayHistory?.finalStock || currentStock; // Use yesterday's final stock or current stock if no history
+
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    const entriesToday = entryLogs.filter(item => {
+        if (!item.createdAt) return false;
+        const itemDate = parseISO(item.createdAt);
+        const condition = item.condition || 'Novo';
+        return itemDate >= todayStart && itemDate <= todayEnd && condition === 'Novo';
+    }).length;
+
+    const returnedToday = entryLogs.filter(item => {
+        if (!item.createdAt) return false;
+        const itemDate = parseISO(item.createdAt);
+        const condition = item.condition;
+        return itemDate >= todayStart && itemDate <= todayEnd && condition !== 'Novo';
+    }).length;
+    
+    const exitsToday = pickingLogs.filter(log => {
+        if (!log.pickedAt) return false;
+        const logDate = parseISO(log.pickedAt);
+        return logDate >= todayStart && logDate <= todayEnd;
+    }).length;
+
+    const todayFinalStock = initialStockForToday + entriesToday + returnedToday - exitsToday;
+
+    const todayHistoryEntry: DailyHistoryRow = {
+        date: format(new Date(), "dd/MM/yyyy"),
+        initialStock: initialStockForToday,
+        entries: entriesToday,
+        returns: returnedToday,
+        exits: exitsToday,
+        finalStock: todayFinalStock,
+    };
+    
+    setDailyHistory([...finalHistory, todayHistoryEntry].slice(-7)); // Keep last 7 days including today
     
     setStats({
-      initialStock: todayHistory?.initialStock || 0,
-      entriesToday: todayHistory?.entries || 0,
-      returnedToday: todayHistory?.returns || 0,
-      exitsToday: todayHistory?.exits || 0,
-      currentStock: currentStock,
+      initialStock: initialStockForToday,
+      entriesToday: entriesToday,
+      returnedToday: returnedToday,
+      exitsToday: exitsToday,
+      currentStock: currentStock, // This remains the real-time count
     });
     
     setIsLoading(false);
@@ -185,6 +219,7 @@ export function StockConference() {
                                     <TableCell className="font-medium flex items-center gap-2">
                                         <CalendarDays className="h-4 w-4 text-muted-foreground"/>
                                         {row.date}
+                                        {isToday(parseISO(row.date.split('/').reverse().join('-'))) && <Badge variant="default" className="bg-primary/20 text-primary">Hoje</Badge>}
                                     </TableCell>
                                     <TableCell>{row.initialStock}</TableCell>
                                     <TableCell>
