@@ -89,7 +89,14 @@ export default function NoticesPage() {
 
   const handleCancelEdit = () => {
     setEditingNotice(null);
-    reset();
+    reset({
+      title: "",
+      message: "",
+      type: "info",
+      targetRoles: [],
+      isActive: true,
+      dateRange: undefined,
+    });
   };
 
   const handleDelete = async (noticeId: string) => {
@@ -100,6 +107,15 @@ export default function NoticesPage() {
 
   const onSubmit = async (data: NoticeFormValues) => {
     if (!user) return;
+    if (!data.dateRange.from || !data.dateRange.to) {
+        toast({
+            variant: "destructive",
+            title: "Erro de Validação",
+            description: "É obrigatório selecionar um período de exibição.",
+        });
+        return;
+    }
+
     const noticeToSave: Partial<Notice> = {
       title: data.title,
       message: data.message,
