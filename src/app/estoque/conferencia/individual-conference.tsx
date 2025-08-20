@@ -13,7 +13,7 @@ import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, Chevro
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { saveConferenceHistory, loadConferenceHistory } from '@/services/firestore';
+import { saveConferenceHistory, loadConferenceHistory, loadInventoryItems } from '@/services/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
