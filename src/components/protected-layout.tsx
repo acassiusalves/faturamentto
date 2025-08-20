@@ -3,9 +3,12 @@
 
 import { useAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Header } from './header';
+import type { Notice } from '@/lib/types';
+import { loadNotices } from '@/services/firestore';
+import { NoticesDisplay } from './notices-display';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
@@ -15,6 +18,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { user, loading, pagePermissions, inactivePages } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [activeNotices, setActiveNotices] = useState<Notice[]>([]);
 
   useEffect(() => {
     if (loading) return; 
@@ -27,8 +31,31 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
         }
         return;
     }
+
+    // --- Notice Fetching and Filtering Logic ---
+    async function fetchAndFilterNotices() {
+        if(user && user.role) {
+            const allNotices = await loadNotices();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const filtered = allNotices.filter(notice => {
+                const startDate = new Date(notice.startDate);
+                const endDate = new Date(notice.endDate);
+                endDate.setHours(23, 59, 59, 999);
+
+                const isDateActive = today >= startDate && today <= endDate;
+                const isRoleTargeted = notice.targetRoles.includes(user.role);
+
+                return notice.isActive && isDateActive && isRoleTargeted;
+            });
+            setActiveNotices(filtered);
+        }
+    }
+    fetchAndFilterNotices();
     
-    // User is logged in
+    // --- End of Notice Logic ---
+    
     if (isLoginPage) {
         router.push('/');
         return;
@@ -84,6 +111,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
       <div className="flex flex-col min-h-screen">
         {!isFirstTimeSetup && <Header />}
         <main className="flex-1 container mx-auto py-8">
+          <NoticesDisplay notices={activeNotices} />
           {children}
         </main>
       </div>
