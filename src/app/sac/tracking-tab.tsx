@@ -95,7 +95,7 @@ export function TrackingTab() {
             return;
         }
 
-        const salesToUpdate = filteredData.filter(sale => sale.status !== 'Entregue');
+        const salesToUpdate = filteredData.filter(sale => (sale as any).status !== 'Entregue');
         if (salesToUpdate.length === 0) {
             toast({ title: 'Tudo Certo!', description: 'Nenhum pedido com status pendente encontrado no período selecionado.' });
             return;
@@ -116,8 +116,8 @@ export function TrackingTab() {
             const updates: { saleId: string; newStatus: string }[] = [];
             salesToUpdate.forEach((sale, index) => {
                 const iderisStatus = statusMap.get((sale as any).order_id);
-                if (iderisStatus && iderisStatus !== sale.status) {
-                    updates.push({ saleId: sale.id, newStatus: iderisStatus });
+                if (iderisStatus && iderisStatus !== (sale as any).status) {
+                    updates.push({ saleId: (sale as any).id, newStatus: iderisStatus });
                 }
                 const currentProgress = ((index + 1) / salesToUpdate.length) * 100;
                 setSyncProgress(currentProgress);
