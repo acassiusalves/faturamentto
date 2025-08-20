@@ -50,7 +50,7 @@ function getValueFromPath(obj: any, path: string | undefined): any {
     }, obj);
 }
 
-function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
+export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
     const mappedSale: Partial<Sale> = {};
     iderisFields.forEach(iderisField => {
         (mappedSale as any)[iderisField.key] = getValueFromPath(iderisOrder, iderisField.path);

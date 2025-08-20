@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -5,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, FileText, Package, User, MapPin } from 'lucide-react';
+import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findSaleByOrderNumber } from '@/services/firestore';
+import { findSaleByOrderNumber, saveSales, loadAppSettings } from '@/services/firestore';
+import { fetchOrderById, mapIderisOrderToSale } from '@/services/ideris';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,6 +19,7 @@ export default function SacPage() {
     const { toast } = useToast();
     const [orderNumber, setOrderNumber] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
     const [foundSale, setFoundSale] = useState<Sale | null>(null);
 
     const handleSearchOrder = async (e?: React.FormEvent) => {
@@ -39,6 +42,38 @@ export default function SacPage() {
             toast({ variant: 'destructive', title: 'Erro na Busca', description: 'Não foi possível completar a busca. Tente novamente.' });
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleUpdateOrder = async () => {
+        if (!foundSale || !(foundSale as any).order_id) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Nenhum pedido válido para atualizar.' });
+            return;
+        }
+        
+        setIsUpdating(true);
+        try {
+            const settings = await loadAppSettings();
+            if (!settings?.iderisPrivateKey) {
+                throw new Error("Chave da API da Ideris não configurada.");
+            }
+            
+            const iderisOrderData = await fetchOrderById(settings.iderisPrivateKey, (foundSale as any).order_id);
+
+            if (iderisOrderData && iderisOrderData.obj) {
+                const updatedSale = mapIderisOrderToSale(iderisOrderData.obj, 0);
+                await saveSales([updatedSale]); // Save updated data to Firestore
+                setFoundSale(updatedSale); // Update the state to reflect changes instantly
+                toast({ title: 'Sucesso!', description: 'Os dados do pedido foram atualizados com sucesso.'});
+            } else {
+                throw new Error("A API da Ideris não retornou dados para este pedido.");
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
+            console.error("Error updating order:", error);
+            toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: errorMessage });
+        } finally {
+            setIsUpdating(false);
         }
     };
     
@@ -84,18 +119,24 @@ export default function SacPage() {
                             {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
                             Buscar
                         </Button>
+                        {foundSale && (
+                            <Button type="button" variant="outline" onClick={handleUpdateOrder} disabled={isUpdating}>
+                                {isUpdating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                                Atualizar Dados
+                            </Button>
+                        )}
                     </form>
                 </CardContent>
             </Card>
 
-            {isLoading && (
+            {(isLoading || isUpdating) && (
                  <div className="flex items-center justify-center h-64">
                     <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando informações do pedido...</p>
+                    <p className="ml-4">{isUpdating ? 'Atualizando dados do pedido...' : 'Buscando informações do pedido...'}</p>
                 </div>
             )}
 
-            {foundSale && (
+            {foundSale && !isUpdating && (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <Card className="lg:col-span-1">
                         <CardHeader>
