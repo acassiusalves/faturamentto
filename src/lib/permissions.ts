@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -20,6 +20,7 @@ export const navLinks = [
     { href: "/arquivo", label: "Arquivo", icon: Archive },
     { href: "/dre", label: "DRE", icon: BarChart3 },
     { href: "/custos-geral", label: "Custos", icon: DollarSign },
+    { href: "/sac", label: "SAC", icon: Headset },
     { href: "/mapeamento", label: "Mapeamento", icon: Map },
     { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
     { href: "/feed-25", label: "Feed 25", icon: Sparkles },
@@ -43,6 +44,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/arquivo': ['admin', 'expedicao', 'sac', 'financeiro'],
     '/dre': ['admin', 'financeiro'],
     '/custos-geral': ['admin', 'financeiro'],
+    '/sac': ['admin', 'sac'],
     '/mapeamento': ['admin'],
     '/aprovacoes': ['admin'],
     '/configuracoes': ['admin'],
