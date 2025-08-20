@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus, Undo } from "lucide-react";
-import { loadInventoryItems, loadAllPickingLogs } from "@/services/firestore";
+import { loadInventoryItems, loadAllPickingLogs, loadEntryLogs } from "@/services/firestore";
 import { startOfDay, endOfDay, format, parseISO, isToday, subDays, differenceInDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -51,13 +51,14 @@ export function StockConference() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     
-    const [inventoryItems, pickingLogs] = await Promise.all([
-      loadInventoryItems(),
-      loadAllPickingLogs()
+    // CORREÇÃO: Usar loadEntryLogs para o histórico e loadInventoryItems para o estoque atual.
+    const [entryLogs, pickingLogs, currentInventory] = await Promise.all([
+      loadEntryLogs(),
+      loadAllPickingLogs(),
+      loadInventoryItems() 
     ]);
     
-    const todayStart = startOfDay(new Date());
-    const currentStock = inventoryItems.length;
+    const currentStock = currentInventory.length;
 
     // --- History Calculation (New Logic) ---
     const history: DailyHistoryRow[] = [];
@@ -68,18 +69,19 @@ export function StockConference() {
         const date = subDays(new Date(), i);
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
-
-        const newEntriesOnDate = inventoryItems.filter(item => {
+        
+        // CORREÇÃO: Calcular entradas e retornos com base no log de entradas (entryLogs)
+        const newEntriesOnDate = entryLogs.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
             const condition = item.condition || 'Novo';
             return itemDate >= dayStart && itemDate <= dayEnd && condition === 'Novo';
         }).length;
         
-        const returnsOnDate = inventoryItems.filter(item => {
+        const returnsOnDate = entryLogs.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            const condition = item.condition || 'Novo';
+            const condition = item.condition; // Não usar padrão 'Novo' aqui
             return itemDate >= dayStart && itemDate <= dayEnd && condition !== 'Novo';
         }).length;
 
