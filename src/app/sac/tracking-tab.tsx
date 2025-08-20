@@ -43,7 +43,6 @@ export function TrackingTab() {
     // Filter and pagination states
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [mktStatusFilter, setMktStatusFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     
@@ -86,10 +85,9 @@ export function TrackingTab() {
                 ? saleData.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) || saleData.order_id?.toString().includes(searchTerm)
                 : true;
             const statusMatch = statusFilter === 'all' || saleData.status?.toLowerCase() === statusFilter.toLowerCase();
-            const mktStatusMatch = mktStatusFilter === 'all' || saleData.mktStatusDescription?.toLowerCase() === mktStatusFilter.toLowerCase();
-            return searchMatch && statusMatch && mktStatusMatch;
+            return searchMatch && statusMatch;
         });
-    }, [allSales, dateRange, searchTerm, statusFilter, mktStatusFilter]);
+    }, [allSales, dateRange, searchTerm, statusFilter]);
 
     const handleSyncStatus = async () => {
         if (!dateRange?.from || !dateRange?.to) {
@@ -169,7 +167,7 @@ export function TrackingTab() {
             <Card>
                 <CardHeader>
                     <CardTitle>Acompanhamento de Status de Pedidos</CardTitle>
-                    <CardDescription>Busque e sincronize os status dos pedidos em um determinado período diretamente da Ideris.</CardDescription>
+                    <CardDescription>Busque os status dos pedidos em um determinado período. A sincronização com a Ideris ignora automaticamente pedidos que já foram marcados como "Entregue".</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-4">
                     <div className="flex-grow">
@@ -216,7 +214,7 @@ export function TrackingTab() {
                             </div>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder="Filtrar por Status" />
+                                    <SelectValue placeholder="Filtrar por Status (Ideris)" />
                                 </SelectTrigger>
                                 <SelectContent>
                                      {uniqueStatusDescriptions.map((status, index) => (
