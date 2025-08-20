@@ -23,10 +23,10 @@ import type { DateRange } from 'react-day-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Loader2, PlusCircle, Megaphone, Trash2, Pencil, Info, CheckCircle, XCircle } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { availableRoles } from '@/lib/permissions';
+import { availableRoles, navLinks } from '@/lib/permissions';
 
 
 const noticeSchema = z.object({
@@ -37,7 +37,10 @@ const noticeSchema = z.object({
     from: z.date({ required_error: "A data de início é obrigatória." }),
     to: z.date({ required_error: "A data de término é obrigatória." }),
   }),
+  startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
   targetRoles: z.array(z.string()).min(1, "Selecione pelo menos uma função de destino."),
+  targetPages: z.array(z.string()).optional(),
   isActive: z.boolean(),
 });
 
@@ -57,7 +60,10 @@ export default function NoticesPage() {
       message: "",
       type: "info",
       targetRoles: [],
+      targetPages: [],
       isActive: true,
+      startTime: "00:00",
+      endTime: "23:59",
     },
   });
 
@@ -76,14 +82,17 @@ export default function NoticesPage() {
 
   const handleEditClick = (notice: Notice) => {
     setEditingNotice(notice);
+    const startDate = parseISO(notice.startDate);
+    const endDate = parseISO(notice.endDate);
+
     setValue("title", notice.title);
     setValue("message", notice.message);
     setValue("type", notice.type);
-    setValue("dateRange", {
-      from: parseISO(notice.startDate),
-      to: parseISO(notice.endDate),
-    });
+    setValue("dateRange", { from: startDate, to: endDate });
+    setValue("startTime", format(startDate, 'HH:mm'));
+    setValue("endTime", format(endDate, 'HH:mm'));
     setValue("targetRoles", notice.targetRoles);
+    setValue("targetPages", notice.targetPages || []);
     setValue("isActive", notice.isActive);
   };
 
@@ -94,8 +103,11 @@ export default function NoticesPage() {
       message: "",
       type: "info",
       targetRoles: [],
+      targetPages: [],
       isActive: true,
       dateRange: undefined,
+      startTime: "00:00",
+      endTime: "23:59",
     });
   };
 
@@ -107,7 +119,7 @@ export default function NoticesPage() {
 
   const onSubmit = async (data: NoticeFormValues) => {
     if (!user) return;
-    if (!data.dateRange.from || !data.dateRange.to) {
+    if (!data.dateRange?.from || !data.dateRange?.to) {
         toast({
             variant: "destructive",
             title: "Erro de Validação",
@@ -115,14 +127,21 @@ export default function NoticesPage() {
         });
         return;
     }
+    
+    const [startHours, startMinutes] = data.startTime.split(':').map(Number);
+    const [endHours, endMinutes] = data.endTime.split(':').map(Number);
+
+    const finalStartDate = setMinutes(setHours(data.dateRange.from, startHours), startMinutes);
+    const finalEndDate = setMinutes(setHours(data.dateRange.to, endHours), endMinutes);
 
     const noticeToSave: Partial<Notice> = {
       title: data.title,
       message: data.message,
       type: data.type,
-      startDate: data.dateRange.from.toISOString(),
-      endDate: data.dateRange.to.toISOString(),
+      startDate: finalStartDate.toISOString(),
+      endDate: finalEndDate.toISOString(),
       targetRoles: data.targetRoles as Notice['targetRoles'],
+      targetPages: data.targetPages,
       isActive: data.isActive,
       createdBy: editingNotice?.createdBy || user.email || 'desconhecido',
       createdAt: editingNotice?.createdAt || new Date().toISOString(),
@@ -140,6 +159,7 @@ export default function NoticesPage() {
   };
 
   const noticeRoles = availableRoles.filter(r => r.key !== 'admin');
+  const availablePages = navLinks.filter(l => l.href !== '/');
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -199,17 +219,44 @@ export default function NoticesPage() {
                         </div>
                     )}
                 />
-                 <Controller
-                    name="dateRange"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                        <div className="space-y-2">
-                            <Label>Período de Exibição</Label>
-                            <DateRangePicker date={field.value} onDateChange={field.onChange} />
-                             {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                        </div>
-                    )}
-                 />
+                <div className="space-y-2">
+                  <Label>Período de Exibição</Label>
+                  <Controller
+                      name="dateRange"
+                      control={control}
+                      render={({ field, fieldState }) => (
+                        <>
+                          <DateRangePicker date={field.value} onDateChange={field.onChange} />
+                          {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                        </>
+                      )}
+                  />
+                  <div className="flex gap-4">
+                      <Controller
+                          name="startTime"
+                          control={control}
+                          render={({ field, fieldState }) => (
+                              <div className="flex-1 space-y-1">
+                                  <Label htmlFor="start-time" className="text-xs">Hora Início</Label>
+                                  <Input id="start-time" type="time" {...field} />
+                                  {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                              </div>
+                          )}
+                      />
+                      <Controller
+                          name="endTime"
+                          control={control}
+                          render={({ field, fieldState }) => (
+                              <div className="flex-1 space-y-1">
+                                  <Label htmlFor="end-time" className="text-xs">Hora Fim</Label>
+                                  <Input id="end-time" type="time" {...field} />
+                                   {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                              </div>
+                          )}
+                      />
+                  </div>
+                </div>
+
                  <Controller
                     name="targetRoles"
                     control={control}
@@ -237,6 +284,35 @@ export default function NoticesPage() {
                         </div>
                     )}
                  />
+
+                 <Controller
+                    name="targetPages"
+                    control={control}
+                    render={({ field }) => (
+                        <div className="space-y-2">
+                            <Label>Exibir nas Páginas (opcional):</Label>
+                             <p className="text-xs text-muted-foreground">Se nenhuma página for selecionada, o aviso aparecerá em todas.</p>
+                            <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
+                                {availablePages.map((page) => (
+                                    <div key={page.href} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`page-${page.href}`}
+                                            checked={field.value?.includes(page.href)}
+                                            onCheckedChange={(checked) => {
+                                                const currentPages = field.value || [];
+                                                return checked
+                                                ? field.onChange([...currentPages, page.href])
+                                                : field.onChange(currentPages.filter((value) => value !== page.href))
+                                            }}
+                                        />
+                                        <Label htmlFor={`page-${page.href}`} className="font-normal">{page.label}</Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                 />
+
                  <Controller
                     name="isActive"
                     control={control}
@@ -289,11 +365,12 @@ export default function NoticesPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                {format(parseISO(notice.startDate), 'dd/MM/yy')} - {format(parseISO(notice.endDate), 'dd/MM/yy')}
+                                                {format(parseISO(notice.startDate), 'dd/MM/yy HH:mm')} - {format(parseISO(notice.endDate), 'dd/MM/yy HH:mm')}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-wrap gap-1">
                                                     {notice.targetRoles.map(role => <Badge key={role} variant="secondary">{role}</Badge>)}
+                                                    {notice.targetPages && notice.targetPages.length > 0 && notice.targetPages.map(page => <Badge key={page} variant="outline">{page}</Badge>)}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">

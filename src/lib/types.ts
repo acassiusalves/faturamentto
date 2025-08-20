@@ -248,9 +248,10 @@ export interface Notice {
   title: string;
   message: string;
   type: 'info' | 'warning' | 'success' | 'destructive';
-  startDate: string; // ISO Date
-  endDate: string; // ISO Date
+  startDate: string; // ISO Date string
+  endDate: string;   // ISO Date string
   targetRoles: ('financeiro' | 'expedicao' | 'sac' | 'admin')[];
+  targetPages?: string[]; // Array of page paths like '/estoque'
   isActive: boolean;
   createdAt: string; // ISO Date
   createdBy: string; // User's email

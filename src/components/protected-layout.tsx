@@ -9,6 +9,7 @@ import { Header } from './header';
 import type { Notice } from '@/lib/types';
 import { loadNotices } from '@/services/firestore';
 import { NoticesDisplay } from './notices-display';
+import { parseISO } from 'date-fns';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
@@ -36,18 +37,17 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     async function fetchAndFilterNotices() {
         if(user && user.role) {
             const allNotices = await loadNotices();
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = new Date();
 
             const filtered = allNotices.filter(notice => {
-                const startDate = new Date(notice.startDate);
-                const endDate = new Date(notice.endDate);
-                endDate.setHours(23, 59, 59, 999);
+                const startDate = parseISO(notice.startDate);
+                const endDate = parseISO(notice.endDate);
 
-                const isDateActive = today >= startDate && today <= endDate;
+                const isTimeActive = now >= startDate && now <= endDate;
                 const isRoleTargeted = notice.targetRoles.includes(user.role);
+                const isPageTargeted = !notice.targetPages || notice.targetPages.length === 0 || notice.targetPages.includes(pathname);
 
-                return notice.isActive && isDateActive && isRoleTargeted;
+                return notice.isActive && isTimeActive && isRoleTargeted && isPageTargeted;
             });
             setActiveNotices(filtered);
         }
