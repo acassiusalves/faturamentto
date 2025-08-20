@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, FC, useEffect } from 'react';
+import { useState, useMemo, FC, useEffect, useCallback } from 'react';
 import type { InventoryItem, ConferenceResult, ConferenceHistoryEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { Loader2, Search, CheckCircle, XCircle, AlertTriangle, RotateCcw, Chevro
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { loadInventoryItems, saveConferenceHistory, loadConferenceHistory } from '@/services/firestore';
+import { saveConferenceHistory, loadConferenceHistory } from '@/services/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -108,7 +108,7 @@ export function IndividualConference() {
       
       const scannedSnList = scannedSns
         .trim()
-        .split(/[\n,;]+/)
+        .split(/[\n,]+/)
         .map(sn => sn.trim())
         .filter(Boolean);
       const scannedSnSet = new Set(scannedSnList);
@@ -234,7 +234,7 @@ export function IndividualConference() {
                 />
             </div>
             <div className="text-sm text-muted-foreground">
-                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split(/[\n,;]+/).filter(Boolean).length : 0}</span>
+                Contagem: <span className="font-semibold text-primary">{scannedSns.trim() ? scannedSns.trim().split(/[\n,]+/).filter(Boolean).length : 0}</span>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
