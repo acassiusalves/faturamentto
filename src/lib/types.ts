@@ -13,6 +13,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -240,6 +241,8 @@ export interface ApprovalRequest {
     createdAt: string; // ISO Date
     orderData: Sale;
     scannedItem: InventoryItem;
+    processedBy?: string; // User's email
+    processedAt?: string; // ISO Date
 }
 
 // -- Notice Types --

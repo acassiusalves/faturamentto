@@ -18,7 +18,7 @@ import {
   getCountFromServer,
   WriteBatch
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, ApprovalRequest } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -494,8 +494,13 @@ export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rej
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ApprovalRequest);
 }
 
-export const processApprovalRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected'): Promise<void> => {
+export const processApprovalRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected', userEmail: string): Promise<void> => {
     const requestDocRef = doc(db, 'approval-requests', request.id);
+    const updateData: Partial<ApprovalRequest> = {
+        status: decision,
+        processedBy: userEmail,
+        processedAt: new Date().toISOString(),
+    };
 
     if (decision === 'approved') {
         const batch = writeBatch(db);
@@ -516,13 +521,13 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
         batch.set(logDocRef, toFirestore(newLogEntry));
         
         // 3. Update the request status
-        batch.update(requestDocRef, { status: 'approved' });
+        batch.update(requestDocRef, toFirestore(updateData));
 
         await batch.commit();
 
     } else { // 'rejected'
         // Just update the status, no inventory action needed.
-        await updateDoc(requestDocRef, { status: 'rejected' });
+        await updateDoc(requestDocRef, toFirestore(updateData));
     }
 }
 

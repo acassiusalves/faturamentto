@@ -1,29 +1,42 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, XCircle, Package, ArrowRight, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Package, ArrowRight, AlertTriangle, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { ApprovalRequest } from "@/lib/types";
 import { loadApprovalRequests, processApprovalRequest } from "@/services/firestore";
 import { useToast } from "@/hooks/use-toast";
-
+import { useAuth } from "@/context/auth-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ApprovalsPage() {
-  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<ApprovalRequest[]>([]);
+  const [historyRequests, setHistoryRequests] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // History state
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'approved' | 'rejected'>('all');
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true);
-    const pendingRequests = await loadApprovalRequests('pending');
-    setRequests(pendingRequests);
+    const [pending, approved, rejected] = await Promise.all([
+        loadApprovalRequests('pending'),
+        loadApprovalRequests('approved'),
+        loadApprovalRequests('rejected')
+    ]);
+    setPendingRequests(pending);
+    setHistoryRequests([...approved, ...rejected].sort((a, b) => new Date(b.processedAt || 0).getTime() - new Date(a.processedAt || 0).getTime()));
     setIsLoading(false);
   }, []);
 
@@ -32,15 +45,19 @@ export default function ApprovalsPage() {
   }, [fetchRequests]);
 
   const handleProcessRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected') => {
+    if (!user?.email) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível identificar o usuário logado.' });
+        return;
+    }
     setProcessingId(request.id);
     try {
-        await processApprovalRequest(request, decision);
+        await processApprovalRequest(request, decision, user.email);
         toast({
             title: "Sucesso!",
             description: `A solicitação para o pedido ${request.orderData.order_code} foi ${decision === 'approved' ? 'aprovada' : 'rejeitada'}.`
         });
-        // Refresh the list by removing the processed request
-        setRequests(prev => prev.filter(r => r.id !== request.id));
+        // Refetch all data to update both lists
+        await fetchRequests();
     } catch(error) {
         console.error("Error processing request:", error);
         toast({
@@ -54,9 +71,13 @@ export default function ApprovalsPage() {
   }
 
 
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateString?: string) => {
     if (!dateString) return 'N/A';
-    return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    try {
+        return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+    } catch {
+        return "Data inválida";
+    }
   };
 
   const renderRequestDetails = (request: ApprovalRequest) => {
@@ -80,6 +101,25 @@ export default function ApprovalsPage() {
     }
     return <p>Tipo de solicitação desconhecida.</p>;
   };
+  
+  const filteredHistory = useMemo(() => {
+    if (historyFilter === 'all') return historyRequests;
+    return historyRequests.filter(r => r.status === historyFilter);
+  }, [historyRequests, historyFilter]);
+  
+  const pageCount = Math.ceil(filteredHistory.length / pageSize);
+  const paginatedHistory = useMemo(() => {
+    const startIndex = pageIndex * pageSize;
+    return filteredHistory.slice(startIndex, startIndex + pageSize);
+  }, [filteredHistory, pageIndex, pageSize]);
+  
+   useEffect(() => {
+    if (pageIndex >= pageCount && pageCount > 0) {
+        setPageIndex(pageCount - 1);
+    } else if (pageCount === 0) {
+        setPageIndex(0);
+    }
+  }, [filteredHistory, pageIndex, pageCount]);
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -116,8 +156,8 @@ export default function ApprovalsPage() {
                                     <Loader2 className="animate-spin" />
                                 </TableCell>
                             </TableRow>
-                        ) : requests.length > 0 ? (
-                            requests.map(req => (
+                        ) : pendingRequests.length > 0 ? (
+                            pendingRequests.map(req => (
                                 <TableRow key={req.id}>
                                     <TableCell>{formatDateTime(req.createdAt)}</TableCell>
                                     <TableCell className="font-semibold">{(req.orderData as any).order_code}</TableCell>
@@ -154,6 +194,119 @@ export default function ApprovalsPage() {
                 </Table>
              </div>
         </CardContent>
+      </Card>
+      
+       <Card>
+        <CardHeader>
+            <div className="flex justify-between items-center">
+                <div>
+                     <CardTitle className="flex items-center gap-2"><History /> Histórico de Aprovações</CardTitle>
+                    <CardDescription>
+                        Consulte todas as solicitações que já foram processadas.
+                    </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Select value={historyFilter} onValueChange={(v) => setHistoryFilter(v as any)}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filtrar por status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="approved">Aprovados</SelectItem>
+                            <SelectItem value="rejected">Recusados</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent>
+             <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Data da Solicitação</TableHead>
+                            <TableHead>Pedido</TableHead>
+                            <TableHead>Solicitante</TableHead>
+                            <TableHead>Detalhes da Solicitação</TableHead>
+                            <TableHead>Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    <Loader2 className="animate-spin" />
+                                </TableCell>
+                            </TableRow>
+                        ) : paginatedHistory.length > 0 ? (
+                            paginatedHistory.map(req => (
+                                <TableRow key={req.id}>
+                                    <TableCell>{formatDateTime(req.createdAt)}</TableCell>
+                                    <TableCell className="font-semibold">{(req.orderData as any).order_code}</TableCell>
+                                    <TableCell>{req.requestedBy}</TableCell>
+                                    <TableCell>
+                                        {renderRequestDetails(req)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col text-left">
+                                            <Badge variant={req.status === 'approved' ? 'default' : 'destructive'} className={req.status === 'approved' ? 'bg-green-600' : ''}>
+                                                {req.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground mt-1">
+                                                Por: {req.processedBy} <br/> em {formatDateTime(req.processedAt)}
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                    Nenhum item no histórico.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+             </div>
+        </CardContent>
+         <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+            <div className="text-sm text-muted-foreground">
+                Total de {filteredHistory.length} registros.
+            </div>
+            <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Itens por página</p>
+                    <Select
+                        value={`${pageSize}`}
+                        onValueChange={(value) => {
+                            setPageSize(Number(value));
+                            setPageIndex(0);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize.toString()} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 20, 50, 100].map((size) => (
+                                <SelectItem key={size} value={`${size}`}>
+                                    {size}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm font-medium">
+                    Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
     </div>
   );
