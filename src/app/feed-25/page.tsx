@@ -20,7 +20,7 @@ import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts } from '@/services/firestore';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -425,7 +425,7 @@ export default function FeedPage() {
     };
     
 
-    const sendToFeed = () => {
+    const sendToFeed = async () => {
         if (!step3Result || !storeName) {
             toast({
                 variant: 'destructive',
@@ -444,15 +444,8 @@ export default function FeedPage() {
                 products: step3Result.details,
                 id: `${storeName}-${formattedDate}`,
             };
-    
-            const existingFeedData = localStorage.getItem(FEED_STORAGE_KEY);
-            let feed: FeedEntry[] = existingFeedData ? JSON.parse(existingFeedData) : [];
             
-            // Remove any existing entry for the same store and date
-            const updatedFeed = feed.filter(entry => !(entry.storeName === storeName && entry.date === formattedDate));
-
-            updatedFeed.push(newEntry);
-            localStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(updatedFeed));
+            await saveFeedEntry(newEntry);
     
             toast({
                 title: 'Enviado para o Feed!',
@@ -464,7 +457,7 @@ export default function FeedPage() {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Salvar',
-                description: 'Não foi possível salvar os dados para o Feed no seu navegador.',
+                description: 'Não foi possível salvar os dados para o Feed.',
             });
         }
       };
@@ -486,18 +479,19 @@ export default function FeedPage() {
           });
       };
       
-      const storesForSelectedDate = useMemo(() => {
-        if (!date) return [];
-        const formattedDate = format(date, 'yyyy-MM-dd');
-        try {
-          const existingFeedData = localStorage.getItem(FEED_STORAGE_KEY);
-          const feed: FeedEntry[] = existingFeedData ? JSON.parse(existingFeedData) : [];
-          return feed
-            .filter(entry => entry.date === formattedDate)
-            .map(entry => entry.storeName);
-        } catch (error) {
-          return [];
-        }
+      const [storesForSelectedDate, setStoresForSelectedDate] = useState<string[]>([]);
+      
+      useEffect(() => {
+          async function fetchFeedForDate() {
+              if (!date) return;
+              const formattedDate = format(date, 'yyyy-MM-dd');
+              const entries = await loadAllFeedEntries();
+              const stores = entries
+                  .filter(entry => entry.date === formattedDate)
+                  .map(entry => entry.storeName);
+              setStoresForSelectedDate(stores);
+          }
+          fetchFeedForDate();
       }, [date]);
     
       const pendingStores = useMemo(() => {

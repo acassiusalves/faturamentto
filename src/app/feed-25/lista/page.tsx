@@ -29,9 +29,9 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { loadAllFeedEntries, deleteFeedEntry } from '@/services/firestore';
 
 
-const FEED_STORAGE_KEY = 'feedData';
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
 const MODEL_STORAGE_KEY = 'gemini_model';
 
@@ -71,6 +71,7 @@ interface ComparisonProduct {
 interface IncorrectOffer {
     sku: string;
     storeName: string;
+    id: string;
 }
 
 const statusConfig: Record<ProductStatus, { variant: "default" | "destructive" | "secondary", text: string, icon?: React.ReactNode }> = {
@@ -80,7 +81,8 @@ const statusConfig: Record<ProductStatus, { variant: "default" | "destructive" |
 };
 
 export default function FeedListPage() {
-    const [feedData, setFeedData] = useState<FeedEntry[]>([]);
+    const [allFeedData, setAllFeedData] = useState<FeedEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date | undefined>();
     const [apiKey, setApiKey] = useState('');
@@ -92,15 +94,29 @@ export default function FeedListPage() {
         result: null,
         error: null,
     });
+    
+    const fetchFeedData = async () => {
+        setIsLoading(true);
+        try {
+            const data = await loadAllFeedEntries();
+            setAllFeedData(data);
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Carregar Feed',
+                description: 'Não foi possível carregar os dados do feed da base de dados.',
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }
 
     useEffect(() => {
         // Set date on client-side only to avoid hydration mismatch
         setSelectedDate(new Date());
+        fetchFeedData();
+
         try {
-            const savedFeed = localStorage.getItem(FEED_STORAGE_KEY);
-            if (savedFeed) {
-                setFeedData(JSON.parse(savedFeed));
-            }
             const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
             if (savedApiKey) setApiKey(savedApiKey);
 
@@ -110,8 +126,8 @@ export default function FeedListPage() {
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: 'Erro ao Carregar',
-                description: 'Não foi possível carregar os dados salvos no navegador.',
+                title: 'Erro ao Carregar Configurações',
+                description: 'Não foi possível carregar as configurações de API do navegador.',
             });
         }
     }, [toast]);
@@ -151,7 +167,7 @@ export default function FeedListPage() {
         const storeSet = new Set<string>();
 
         const filteredFeed = selectedDate 
-            ? feedData.filter(entry => entry.date === format(selectedDate, 'yyyy-MM-dd'))
+            ? allFeedData.filter(entry => entry.date === format(selectedDate, 'yyyy-MM-dd'))
             : [];
         
         const entriesForSelectedDate = filteredFeed.length;
@@ -161,7 +177,7 @@ export default function FeedListPage() {
                 storeSet.add(entry.storeName);
             }
             entry.products.forEach(product => {
-                if (product.sku.toUpperCase() === 'SEM CÓDIGO') {
+                if (!product.sku || product.sku.toUpperCase() === 'SEM CÓDIGO') {
                     return;
                 }
 
@@ -178,7 +194,7 @@ export default function FeedListPage() {
                 if (product.name.length > existingProduct.name.length) {
                     existingProduct.name = product.name;
                 }
-                const price = parseFloat(product.costPrice.replace(',', '.'));
+                const price = product.costPrice ? parseFloat(product.costPrice.replace(',', '.')) : NaN;
                 existingProduct.prices.set(entry.storeName, isNaN(price) ? null : price);
             });
         });
@@ -223,8 +239,9 @@ export default function FeedListPage() {
                 Object.entries(product.prices).forEach(([storeName, price]) => {
                     if (price !== null && product.averagePrice > 0) {
                         const deviation = Math.abs(price - product.averagePrice) / product.averagePrice;
-                        if (deviation > DEVIATION_THRESHOLD) {
-                            incorrectOffers.push({ sku: product.sku, storeName });
+                         if (deviation > DEVIATION_THRESHOLD) {
+                             const id = `${storeName}-${selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}`;
+                             incorrectOffers.push({ sku: product.sku, storeName, id });
                         }
                     }
                 });
@@ -237,44 +254,45 @@ export default function FeedListPage() {
             entriesForSelectedDate,
             incorrectOffers,
         };
-    }, [feedData, selectedDate, analysisState.result]);
+    }, [allFeedData, selectedDate, analysisState.result]);
 
     const filteredData = useMemo(() => {
         if (!filter) return comparisonData;
         return comparisonData.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
     }, [comparisonData, filter]);
 
-    const handleDeleteIncorrectOffers = () => {
+    const handleDeleteIncorrectOffers = async () => {
         if (!selectedDate || incorrectOffers.length === 0) return;
     
         try {
-            const dateToFilter = format(selectedDate, 'yyyy-MM-dd');
-            let updatedFeedData = [...feedData];
-    
-            incorrectOffers.forEach(({ sku, storeName }) => {
-                const feedEntryIndex = updatedFeedData.findIndex(entry => 
-                    entry.date === dateToFilter && entry.storeName === storeName
-                );
-    
-                if (feedEntryIndex > -1) {
-                    const updatedProducts = updatedFeedData[feedEntryIndex].products.filter(p => p.sku !== sku);
-                    updatedFeedData[feedEntryIndex] = {
-                        ...updatedFeedData[feedEntryIndex],
-                        products: updatedProducts,
-                    };
+            const offersToDelete = new Set(incorrectOffers.map(offer => offer.id));
+            const skusToDelete = new Map<string, Set<string>>(); // Map<id, Set<sku>>
+            incorrectOffers.forEach(offer => {
+                if (!skusToDelete.has(offer.id)) {
+                    skusToDelete.set(offer.id, new Set());
+                }
+                skusToDelete.get(offer.id)!.add(offer.sku);
+            });
+            
+            let updatedFeedData = [...allFeedData];
+
+            skusToDelete.forEach((skuSet, id) => {
+                const entryIndex = updatedFeedData.findIndex(e => e.id === id);
+                if (entryIndex > -1) {
+                    const originalEntry = updatedFeedData[entryIndex];
+                    const newProducts = originalEntry.products.filter(p => !skuSet.has(p.sku));
+                    
+                    if (newProducts.length === 0) {
+                        deleteFeedEntry(id);
+                    } else {
+                        const updatedEntry = { ...originalEntry, products: newProducts };
+                        saveFeedEntry(updatedEntry);
+                    }
                 }
             });
     
-            // Filter out empty product lists
-            updatedFeedData = updatedFeedData.map(entry => ({
-                ...entry,
-                products: entry.products.filter(p => p !== null),
-            })).filter(entry => entry.products.length > 0);
-    
-            setFeedData(updatedFeedData);
-            localStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(updatedFeedData));
+            await fetchFeedData(); // Refresh data from Firestore
             
-            // Clear analysis state as it's now stale
             analysisState.result = null;
 
             toast({
@@ -290,7 +308,7 @@ export default function FeedListPage() {
         }
     };
 
-    const handleDeleteDataForDay = () => {
+    const handleDeleteDataForDay = async () => {
         if (!selectedDate) {
             toast({
                 variant: 'destructive',
@@ -302,9 +320,14 @@ export default function FeedListPage() {
 
         try {
             const dateToFilter = format(selectedDate, 'yyyy-MM-dd');
-            const newData = feedData.filter(entry => entry.date !== dateToFilter);
-            setFeedData(newData);
-            localStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(newData));
+            const entriesToDelete = allFeedData.filter(entry => entry.date === dateToFilter);
+
+            for (const entry of entriesToDelete) {
+                await deleteFeedEntry(entry.id);
+            }
+            
+            await fetchFeedData(); // Refresh data
+
             toast({
                 title: 'Sucesso!',
                 description: `Todos os dados do dia ${format(selectedDate, 'dd/MM/yyyy')} foram removidos.`,
@@ -326,6 +349,16 @@ export default function FeedListPage() {
         }).format(value);
     }
 
+    if (isLoading) {
+        return (
+             <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+                 <div className="flex items-center justify-center h-96">
+                    <Loader2 className="animate-spin" />
+                 </div>
+             </main>
+        )
+    }
+
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
             <Link href="/feed-25" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-fit mb-4">
@@ -341,7 +374,7 @@ export default function FeedListPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {feedData.length > 0 ? (
+                    {allFeedData.length > 0 ? (
                         <TooltipProvider>
                             <div className="mb-6 flex flex-col gap-4 sm:flex-row">
                                 <div className="relative flex-1">

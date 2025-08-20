@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -17,7 +18,7 @@ import {
   getCountFromServer,
   WriteBatch
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 const USERS_COLLECTION = 'users';
@@ -108,18 +109,22 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
   const batch = writeBatch(db);
   const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
   const newItemsWithIds: InventoryItem[] = [];
-  const nowISO = new Date().toISOString();
+  const now = new Date(); // Use a single date object for consistency
 
   for (const item of items) {
     const docRef = doc(inventoryCol);
-    const newItem = { ...item, id: docRef.id, createdAt: nowISO };
+    const newItem = { 
+        ...item, 
+        id: docRef.id, 
+        createdAt: now.toISOString() // Use ISO string for the object
+    };
     
     // Use the same consistent date object for both inventory and log
-    const firestoreItem = toFirestore({ ...newItem, createdAt: new Date(newItem.createdAt) });
-    batch.set(docRef, firestoreItem);
+    const firestoreItem = { ...newItem, createdAt: now }; // Use Date object for Firestore
+    batch.set(docRef, toFirestore(firestoreItem));
 
-    // Pass the item with the ISO string date to the logger
-    await logInventoryEntry(batch, newItem as InventoryItem);
+    // Log the entry using the consistent date
+    await logInventoryEntry(batch, fromFirestore(firestoreItem));
 
     newItemsWithIds.push(newItem as InventoryItem);
   }
@@ -321,13 +326,14 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
 
     // 1. Create the return log
     const returnDocRef = doc(returnsLogCol);
+    const now = new Date();
     const newReturnLog: ReturnLog = {
         ...data,
         id: returnDocRef.id,
-        returnedAt: new Date().toISOString(),
+        returnedAt: now.toISOString(),
         originalSaleData: data.originalSaleData || null, // Ensure null instead of undefined
     };
-    batch.set(returnDocRef, toFirestore(newReturnLog));
+    batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
 
     // 2. Add the item back to the inventory
     const inventoryItemDocRef = doc(inventoryCol); // Always create a new inventory item for a return
@@ -343,11 +349,11 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         origin: data.originalSaleData?.origin || 'Devolução',
         quantity: 1,
         condition: data.condition,
-        createdAt: new Date().toISOString(), // The date it re-entered inventory
+        createdAt: now.toISOString(), // The date it re-entered inventory
     };
-    const firestoreItem = toFirestore(itemToReenter);
-    batch.set(inventoryItemDocRef, firestoreItem);
-    await logInventoryEntry(batch, fromFirestore(itemToReenter)); // Log the return as an entry
+    const firestoreItem = { ...itemToReenter, createdAt: now }; // Use Date object for Firestore
+    batch.set(inventoryItemDocRef, toFirestore(firestoreItem));
+    await logInventoryEntry(batch, itemToReenter); // Log the return as an entry
 
     await batch.commit();
 };
@@ -654,3 +660,22 @@ export const loadConferenceHistory = async (): Promise<ConferenceHistoryEntry[]>
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ConferenceHistoryEntry);
 }
+
+
+// --- FEED 25 ---
+export const saveFeedEntry = async (entry: FeedEntry): Promise<void> => {
+    const docRef = doc(db, "feed_entries", entry.id);
+    await setDoc(docRef, toFirestore(entry), { merge: true });
+};
+
+export const loadAllFeedEntries = async (): Promise<FeedEntry[]> => {
+    const feedCol = collection(db, "feed_entries");
+    const q = query(feedCol, orderBy("date", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data() }) as FeedEntry);
+};
+
+export const deleteFeedEntry = async (id: string): Promise<void> => {
+    const docRef = doc(db, "feed_entries", id);
+    await deleteDoc(docRef);
+};
