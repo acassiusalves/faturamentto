@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrackingTab } from './tracking-tab';
 
 
 export default function SacPage() {
@@ -229,17 +230,7 @@ export default function SacPage() {
                     </div>
                 </TabsContent>
                 <TabsContent value="tracking" className="mt-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Acompanhamento</CardTitle>
-                            <CardDescription>
-                                Esta área será desenvolvida para o acompanhamento de casos abertos no SAC.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex items-center justify-center h-64">
-                            <p className="text-muted-foreground">(Funcionalidade em construção)</p>
-                        </CardContent>
-                    </Card>
+                    <TrackingTab />
                 </TabsContent>
             </Tabs>
         </div>

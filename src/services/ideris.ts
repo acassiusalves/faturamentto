@@ -266,6 +266,42 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
+export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange): Promise<any[]> {
+    const token = await getValidAccessToken(privateKey);
+    const initialDate = formatDateForApi(dateRange.from!);
+    const finalDate = formatDateForApi(dateRange.to!);
+
+    let allStatuses: any[] = [];
+    let currentOffset = 0;
+    const limitPerPage = 50;
+    let hasMorePages = true;
+    let currentPage = 0;
+    const maxPages = 100; // Safety break
+
+    while (hasMorePages && currentPage < maxPages) {
+        const searchUrl = `https://apiv3.ideris.com.br/order/status/search?startDate=${initialDate}&endDate=${finalDate}&limit=${limitPerPage}&offset=${currentOffset}`;
+        try {
+            const result = await fetchWithToken<{ obj?: any[] }>(searchUrl, token);
+            if (result.obj && result.obj.length > 0) {
+                allStatuses = allStatuses.concat(result.obj);
+                currentOffset += result.obj.length;
+            } else {
+                hasMorePages = false;
+            }
+        } catch (error) {
+            console.error(`Falha ao buscar página ${currentPage + 1} de status de pedidos:`, error);
+            hasMorePages = false;
+        }
+        currentPage++;
+    }
+
+    if (currentPage >= maxPages) {
+        console.warn("Atingido o limite máximo de páginas na busca de status da Ideris.");
+    }
+    
+    return allStatuses;
+}
+
 export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string }> {
     try {
         await generateAccessToken(privateKey);
