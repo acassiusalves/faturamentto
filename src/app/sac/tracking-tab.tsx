@@ -3,19 +3,21 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { DateRange } from "react-day-picker";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth, startOfDay, endOfDay as dateFnsEndOfDay } from "date-fns";
 
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { loadAppSettings } from '@/services/firestore';
+import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, FilePieChart } from 'lucide-react';
+import { loadAppSettings, loadSales, updateSalesStatuses } from '@/services/firestore';
 import { fetchOrdersStatus } from '@/services/ideris';
+import type { Sale } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 
 interface OrderStatus {
     orderId: number;
@@ -27,12 +29,16 @@ interface OrderStatus {
 
 export function TrackingTab() {
     const { toast } = useToast();
+    const [allSales, setAllSales] = useState<Sale[]>([]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: startOfMonth(new Date()),
         to: endOfMonth(new Date()),
     });
-    const [isLoading, setIsLoading] = useState(false);
-    const [apiResponse, setApiResponse] = useState<OrderStatus[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
+    
+    const [syncProgress, setSyncProgress] = useState(0);
+    const [syncStatus, setSyncStatus] = useState({ current: 0, total: 0 });
 
     // Filter and pagination states
     const [searchTerm, setSearchTerm] = useState('');
@@ -40,49 +46,108 @@ export function TrackingTab() {
     const [mktStatusFilter, setMktStatusFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    
+    useEffect(() => {
+        async function fetchData() {
+            setIsLoading(true);
+            const salesData = await loadSales();
+            setAllSales(salesData);
+            setIsLoading(false);
+        }
+        fetchData();
+    }, []);
 
-    const handleFetchStatus = async () => {
+    const filteredData = useMemo(() => {
+        if (!allSales) return [];
+
+        let filtered = allSales;
+
+        // Apply date range filter
+        if (dateRange?.from) {
+            const fromDate = startOfDay(dateRange.from);
+            const toDate = dateRange.to ? dateFnsEndOfDay(dateRange.to) : dateFnsEndOfDay(dateRange.from);
+
+            filtered = filtered.filter(sale => {
+                try {
+                    const saleDateStr = (sale as any).payment_approved_date;
+                    if (!saleDateStr) return false;
+                    const saleDate = new Date(saleDateStr);
+                    return saleDate >= fromDate && saleDate <= toDate;
+                } catch {
+                    return false;
+                }
+            });
+        }
+        
+        // Apply other filters
+        return filtered.filter(item => {
+            const saleData = item as any;
+            const searchMatch = searchTerm 
+                ? saleData.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) || saleData.order_id?.toString().includes(searchTerm)
+                : true;
+            const statusMatch = statusFilter === 'all' || saleData.status?.toLowerCase() === statusFilter.toLowerCase();
+            const mktStatusMatch = mktStatusFilter === 'all' || saleData.mktStatusDescription?.toLowerCase() === mktStatusFilter.toLowerCase();
+            return searchMatch && statusMatch && mktStatusMatch;
+        });
+    }, [allSales, dateRange, searchTerm, statusFilter, mktStatusFilter]);
+
+    const handleSyncStatus = async () => {
         if (!dateRange?.from || !dateRange?.to) {
             toast({ variant: 'destructive', title: 'Período Inválido', description: 'Por favor, selecione um período de datas válido.' });
             return;
         }
-        setIsLoading(true);
-        setApiResponse(null);
+
+        const salesToUpdate = filteredData.filter(sale => sale.status !== 'Entregue');
+        if (salesToUpdate.length === 0) {
+            toast({ title: 'Tudo Certo!', description: 'Nenhum pedido com status pendente encontrado no período selecionado.' });
+            return;
+        }
+
+        setIsSyncing(true);
+        setSyncProgress(0);
+        setSyncStatus({ current: 0, total: salesToUpdate.length });
+
         try {
             const settings = await loadAppSettings();
             if (!settings?.iderisPrivateKey) {
                 throw new Error("A chave da API da Ideris não está configurada.");
             }
-            const statuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange);
-            setApiResponse(statuses);
-            toast({ title: 'Busca Concluída!', description: `${statuses.length} status de pedidos foram encontrados no período.` });
+            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange);
+            const statusMap = new Map(iderisStatuses.map(s => [s.orderId, s.statusDescription]));
+
+            const updates: { saleId: string; newStatus: string }[] = [];
+            salesToUpdate.forEach((sale, index) => {
+                const iderisStatus = statusMap.get((sale as any).order_id);
+                if (iderisStatus && iderisStatus !== sale.status) {
+                    updates.push({ saleId: sale.id, newStatus: iderisStatus });
+                }
+                const currentProgress = ((index + 1) / salesToUpdate.length) * 100;
+                setSyncProgress(currentProgress);
+                setSyncStatus({ current: index + 1, total: salesToUpdate.length });
+            });
+
+            if (updates.length > 0) {
+                await updateSalesStatuses(updates);
+                // Refresh local data after update
+                const reloadedSales = await loadSales();
+                setAllSales(reloadedSales);
+                 toast({ title: 'Sincronização Concluída!', description: `${updates.length} de ${salesToUpdate.length} pedidos tiveram seus status atualizados.` });
+            } else {
+                 toast({ title: 'Nenhuma Mudança', description: 'Todos os pedidos no período já estavam com o status atualizado.' });
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
-            toast({ variant: 'destructive', title: 'Erro ao Buscar Status', description: errorMessage });
+            toast({ variant: 'destructive', title: 'Erro ao Sincronizar Status', description: errorMessage });
         } finally {
-            setIsLoading(false);
+            setIsSyncing(false);
         }
     };
     
     const uniqueStatusDescriptions = useMemo(() => {
-        if (!apiResponse) return [];
-        return ['all', ...Array.from(new Set(apiResponse.map(r => r.statusDescription)))];
-    }, [apiResponse]);
-
-    const uniqueMktStatusDescriptions = useMemo(() => {
-        if (!apiResponse) return [];
-        return ['all', ...Array.from(new Set(apiResponse.map(r => r.mktStatusDescription)))];
-    }, [apiResponse]);
-
-    const filteredData = useMemo(() => {
-        if (!apiResponse) return [];
-        return apiResponse.filter(item => {
-            const searchMatch = searchTerm ? item.orderId.toString().includes(searchTerm) : true;
-            const statusMatch = statusFilter === 'all' || item.statusDescription === statusFilter;
-            const mktStatusMatch = mktStatusFilter === 'all' || item.mktStatusDescription === mktStatusFilter;
-            return searchMatch && statusMatch && mktStatusMatch;
-        });
-    }, [apiResponse, searchTerm, statusFilter, mktStatusFilter]);
+        if (!allSales) return [];
+        const statuses = allSales.map(r => (r as any).status).filter(Boolean);
+        return ['all', ...Array.from(new Set(statuses))];
+    }, [allSales]);
 
     const pageCount = Math.ceil(filteredData.length / pageSize);
     const paginatedData = useMemo(() => {
@@ -104,37 +169,46 @@ export function TrackingTab() {
             <Card>
                 <CardHeader>
                     <CardTitle>Acompanhamento de Status de Pedidos</CardTitle>
-                    <CardDescription>Busque os status de todos os pedidos em um determinado período diretamente da Ideris.</CardDescription>
+                    <CardDescription>Busque e sincronize os status dos pedidos em um determinado período diretamente da Ideris.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-end gap-4">
                     <div className="flex-grow">
                         <DateRangePicker date={dateRange} onDateChange={setDateRange} />
                     </div>
-                    <Button onClick={handleFetchStatus} disabled={isLoading}>
-                        {isLoading ? <Loader2 className="animate-spin" /> : 'Buscar Status'}
+                    <Button onClick={handleSyncStatus} disabled={isSyncing || isLoading}>
+                        {isSyncing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                        Sincronizar Status com a Ideris
                     </Button>
                 </CardContent>
             </Card>
 
-            {isLoading && (
-                 <div className="flex items-center justify-center h-64">
+            {(isLoading || isSyncing) && (
+                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando status na Ideris...</p>
+                    <p className="ml-4">{isLoading ? "Carregando dados..." : "Sincronizando com a Ideris..."}</p>
+                    {isSyncing && (
+                         <div className="w-full max-w-md space-y-2">
+                             <Progress value={syncProgress} className="w-full" />
+                             <p className="text-sm text-muted-foreground text-center">
+                                Verificando {syncStatus.current} de {syncStatus.total}...
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {apiResponse && (
+            {!isLoading && !isSyncing && (
                  <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Database/> Resultado da Busca</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><FilePieChart/> Resultado da Busca</CardTitle>
                         <CardDescription>
-                            Exibindo {filteredData.length} de {apiResponse.length} registros encontrados.
+                            Exibindo {filteredData.length} de {allSales.length} registros encontrados no banco de dados para o período.
                         </CardDescription>
                          <div className="flex flex-col md:flex-row gap-4 pt-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Buscar por ID do Pedido..."
+                                    placeholder="Buscar por ID ou Cód. do Pedido..."
                                     className="pl-9"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -142,21 +216,11 @@ export function TrackingTab() {
                             </div>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder="Filtrar por Status Ideris" />
+                                    <SelectValue placeholder="Filtrar por Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {uniqueStatusDescriptions.map(status => (
-                                        <SelectItem key={status} value={status}>{status === 'all' ? 'Todos os Status (Ideris)' : status}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select value={mktStatusFilter} onValueChange={setMktStatusFilter}>
-                                <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder="Filtrar por Status Marketplace" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {uniqueMktStatusDescriptions.map(status => (
-                                        <SelectItem key={status} value={status}>{status === 'all' ? 'Todos os Status (Marketplace)' : status}</SelectItem>
+                                     {uniqueStatusDescriptions.map((status, index) => (
+                                        <SelectItem key={`${status}-${index}`} value={status}>{status === 'all' ? 'Todos os Status' : status}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -168,20 +232,22 @@ export function TrackingTab() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>ID do Pedido</TableHead>
-                                        <TableHead>Status Ideris</TableHead>
-                                        <TableHead>Status Marketplace</TableHead>
+                                        <TableHead>Cód. do Pedido</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Marketplace</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedData.length > 0 ? paginatedData.map((item) => (
-                                        <TableRow key={item.orderId}>
-                                            <TableCell className="font-semibold">{item.orderId}</TableCell>
-                                            <TableCell><Badge variant="secondary">{item.statusDescription}</Badge></TableCell>
-                                            <TableCell><Badge variant="outline">{item.mktStatusDescription}</Badge></TableCell>
+                                        <TableRow key={(item as any).id}>
+                                            <TableCell className="font-semibold">{(item as any).order_id}</TableCell>
+                                            <TableCell className="font-mono">{(item as any).order_code}</TableCell>
+                                            <TableCell><Badge variant={(item as any).status === 'Entregue' ? 'default' : 'secondary'} className={(item as any).status === 'Entregue' ? 'bg-green-600' : ''}>{(item as any).status}</Badge></TableCell>
+                                            <TableCell>{(item as any).marketplace_name}</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="h-24 text-center">Nenhum registro encontrado com os filtros atuais.</TableCell>
+                                            <TableCell colSpan={4} className="h-24 text-center">Nenhum registro encontrado com os filtros atuais.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
