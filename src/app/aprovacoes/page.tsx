@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle, XCircle, Package, ArrowRight, AlertTriangle, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ApprovalRequest } from "@/lib/types";
-import { loadApprovalRequests, processApprovalRequest } from "@/services/firestore";
+import type { ApprovalRequest, Product } from "@/lib/types";
+import { loadApprovalRequests, processApprovalRequest, loadProducts } from "@/services/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function ApprovalsPage() {
   const [pendingRequests, setPendingRequests] = useState<ApprovalRequest[]>([]);
   const [historyRequests, setHistoryRequests] = useState<ApprovalRequest[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -30,13 +31,15 @@ export default function ApprovalsPage() {
 
   const fetchRequests = useCallback(async () => {
     setIsLoading(true);
-    const [pending, approved, rejected] = await Promise.all([
+    const [pending, approved, rejected, loadedProducts] = await Promise.all([
         loadApprovalRequests('pending'),
         loadApprovalRequests('approved'),
-        loadApprovalRequests('rejected')
+        loadApprovalRequests('rejected'),
+        loadProducts()
     ]);
     setPendingRequests(pending);
     setHistoryRequests([...approved, ...rejected].sort((a, b) => new Date(b.processedAt || 0).getTime() - new Date(a.processedAt || 0).getTime()));
+    setProducts(loadedProducts);
     setIsLoading(false);
   }, []);
 
@@ -69,6 +72,21 @@ export default function ApprovalsPage() {
         setProcessingId(null);
     }
   }
+  
+  const productSkuMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (products) {
+        products.forEach(p => {
+            // Map the main SKU
+            if (p.sku) map.set(p.sku, p.name);
+            // Map all associated SKUs
+            p.associatedSkus?.forEach(assocSku => {
+                map.set(assocSku, p.name);
+            });
+        });
+    }
+    return map;
+  }, [products]);
 
 
   const formatDateTime = (dateString?: string) => {
@@ -83,13 +101,14 @@ export default function ApprovalsPage() {
   const renderRequestDetails = (request: ApprovalRequest) => {
     if (request.type === 'SKU_MISMATCH_PICKING') {
       const orderSku = (request.orderData as any).item_sku || 'N/A';
-      const orderName = (request.orderData as any).item_title || 'Produto do Pedido';
+      const defaultOrderName = (request.orderData as any).item_title || 'Produto do Pedido';
+      const standardizedOrderName = productSkuMap.get(orderSku) || defaultOrderName;
 
       return (
         <div className="flex flex-col md:flex-row items-center gap-4 text-sm">
             <div className="flex flex-col items-center p-2 border rounded-md bg-muted text-center flex-1">
                 <Package className="h-5 w-5 mb-1 text-primary" />
-                <span className="font-semibold" title={orderName}>{orderName.substring(0,25)}...</span>
+                <span className="font-semibold" title={standardizedOrderName}>{standardizedOrderName.substring(0,25)}...</span>
                 <span className="text-xs text-muted-foreground">{orderSku}</span>
             </div>
             <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block"/>
