@@ -143,7 +143,9 @@ export function TrackingTab() {
     
     const uniqueStatusDescriptions = useMemo(() => {
         if (!allSales) return [];
-        const statuses = allSales.map(r => (r as any).status).filter(Boolean);
+        const statuses = allSales
+            .map(r => (r as any).status)
+            .filter((status): status is string => !!status && status.trim() !== '');
         return ['all', ...Array.from(new Set(statuses))];
     }, [allSales]);
 
@@ -240,7 +242,13 @@ export function TrackingTab() {
                                         <TableRow key={(item as any).id}>
                                             <TableCell className="font-semibold">{(item as any).order_id}</TableCell>
                                             <TableCell className="font-mono">{(item as any).order_code}</TableCell>
-                                            <TableCell><Badge variant={(item as any).status === 'Entregue' ? 'default' : 'secondary'} className={(item as any).status === 'Entregue' ? 'bg-green-600' : ''}>{(item as any).status}</Badge></TableCell>
+                                            <TableCell>
+                                                {(item as any).status ? (
+                                                     <Badge variant={(item as any).status === 'Entregue' ? 'default' : 'secondary'} className={(item as any).status === 'Entregue' ? 'bg-green-600' : ''}>{(item as any).status}</Badge>
+                                                ) : (
+                                                     <Badge variant="outline">N/A</Badge>
+                                                )}
+                                            </TableCell>
                                             <TableCell>{(item as any).marketplace_name}</TableCell>
                                         </TableRow>
                                     )) : (
