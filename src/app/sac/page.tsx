@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock } from 'lucide-react';
+import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock, ListChecks, SearchCheck } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findSaleByOrderNumber, saveSales, loadAppSettings } from '@/services/firestore';
@@ -14,6 +14,8 @@ import { fetchOrderById, mapIderisOrderToSale } from '@/services/ideris';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 export default function SacPage() {
     const { toast } = useToast();
@@ -104,112 +106,142 @@ export default function SacPage() {
                 <p className="text-muted-foreground">Localize pedidos para tratar de devoluções e outros problemas de pós-venda.</p>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Buscar Pedido</CardTitle>
-                    <CardDescription>Insira o código do pedido para carregar os detalhes da venda e do cliente.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSearchOrder} className="flex items-end gap-4">
-                        <div className="flex-grow space-y-2">
-                            <Label htmlFor="order-search">Código do Pedido</Label>
-                            <Input
-                                id="order-search"
-                                placeholder="Digite o código do pedido aqui..."
-                                value={orderNumber}
-                                onChange={(e) => setOrderNumber(e.target.value)}
-                            />
-                        </div>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
-                            Buscar
-                        </Button>
-                        {foundSale && (
-                            <Button type="button" variant="outline" onClick={handleUpdateOrder} disabled={isUpdating}>
-                                {isUpdating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                                Atualizar Dados
-                            </Button>
-                        )}
-                    </form>
-                </CardContent>
-            </Card>
+            <Tabs defaultValue="search" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="search">
+                        <SearchCheck className="mr-2"/>
+                        Buscar Pedido
+                    </TabsTrigger>
+                    <TabsTrigger value="tracking">
+                        <ListChecks className="mr-2"/>
+                        Acompanhamento
+                    </TabsTrigger>
+                </TabsList>
 
-            {(isLoading || isUpdating) && (
-                 <div className="flex items-center justify-center h-64">
-                    <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">{isUpdating ? 'Atualizando dados do pedido...' : 'Buscando informações do pedido...'}</p>
-                </div>
-            )}
-
-            {foundSale && !isUpdating && (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Card className="lg:col-span-1">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><FileText/> Detalhes da Venda</CardTitle>
-                        </CardHeader>
-                         <CardContent className="space-y-3 text-sm">
-                            <div className="flex justify-between"><span>ID do Pedido:</span> <span className="font-semibold">{(foundSale as any).order_id}</span></div>
-                            <div className="flex justify-between"><span>Código:</span> <span className="font-mono">{(foundSale as any).order_code}</span></div>
-                            <div className="flex justify-between"><span>Data da Venda:</span> <span className="font-semibold">{formatDate((foundSale as any).payment_approved_date)}</span></div>
-                            <div className="flex justify-between items-center"><span>Marketplace:</span> <Badge variant="secondary">{(foundSale as any).marketplace_name}</Badge></div>
-                            <div className="flex justify-between items-center"><span>Conta:</span> <Badge variant="outline">{(foundSale as any).auth_name}</Badge></div>
-                            <div className="flex justify-between items-center"><span>Status:</span> <Badge>{(foundSale as any).status}</Badge></div>
-                             <div className="flex justify-between">
-                                <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4"/> Data de Envio:</span> 
-                                <span className="font-semibold">{formatDate((foundSale as any).sent_date)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4"/> Rastreio:</span> 
-                                <span className="font-mono">{(foundSale as any).deliveryTrackingCode || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between"><span>Valor Pago:</span> <span className="font-bold text-primary">{formatCurrency((foundSale as any).paid_amount)}</span></div>
-                         </CardContent>
-                    </Card>
-                     <Card className="lg:col-span-1">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Package/> Produto Vendido</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
-                             <p className="font-semibold text-base leading-tight">{(foundSale as any).item_title}</p>
-                             <div className="flex justify-between"><span>SKU:</span> <span className="font-mono">{(foundSale as any).item_sku}</span></div>
-                             <div className="flex justify-between"><span>Quantidade:</span> <span className="font-semibold">{(foundSale as any).item_quantity}</span></div>
-                        </CardContent>
-                    </Card>
-                     <Card className="lg:col-span-1">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><User/> Cliente e Entrega</CardTitle>
-                        </CardHeader>
-                         <CardContent className="space-y-3 text-sm">
-                            <div className="flex justify-between items-start gap-2">
-                                <span>Nome:</span> 
-                                <span className="font-semibold text-right">{(foundSale as any).customer_name}</span>
-                            </div>
-                            <div className="flex justify-between"><span>Documento:</span> <span className="font-semibold">{(foundSale as any).document_value}</span></div>
-                            <div className="flex justify-between items-start gap-2">
-                                <span className="whitespace-nowrap flex items-center gap-1.5"><MapPin className="h-4 w-4"/> Endereço:</span> 
-                                <span className="font-semibold text-right">
-                                    {(foundSale as any).address_line}, {(foundSale as any).address_district} - {(foundSale as any).address_city}, {(foundSale as any).state_name} - CEP: {(foundSale as any).address_zip_code}
-                                </span>
-                            </div>
-                         </CardContent>
-                    </Card>
-                     {rawApiResponse && (
-                        <Card className="lg:col-span-3">
+                <TabsContent value="search" className="mt-6">
+                    <div className="space-y-6">
+                        <Card>
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><Database/> Resposta da API</CardTitle>
-                                <CardDescription>Dados brutos retornados pela API da Ideris para este pedido.</CardDescription>
+                                <CardTitle>Buscar Pedido</CardTitle>
+                                <CardDescription>Insira o código do pedido para carregar os detalhes da venda e do cliente.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs">
-                                    <code>
-                                        {JSON.stringify(rawApiResponse, null, 2)}
-                                    </code>
-                                </pre>
+                                <form onSubmit={handleSearchOrder} className="flex items-end gap-4">
+                                    <div className="flex-grow space-y-2">
+                                        <Label htmlFor="order-search">Código do Pedido</Label>
+                                        <Input
+                                            id="order-search"
+                                            placeholder="Digite o código do pedido aqui..."
+                                            value={orderNumber}
+                                            onChange={(e) => setOrderNumber(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button type="submit" disabled={isLoading}>
+                                        {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
+                                        Buscar
+                                    </Button>
+                                    {foundSale && (
+                                        <Button type="button" variant="outline" onClick={handleUpdateOrder} disabled={isUpdating}>
+                                            {isUpdating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                                            Atualizar Dados
+                                        </Button>
+                                    )}
+                                </form>
                             </CardContent>
                         </Card>
-                    )}
-                </div>
-            )}
+
+                        {(isLoading || isUpdating) && (
+                            <div className="flex items-center justify-center h-64">
+                                <Loader2 className="animate-spin text-primary" size={32} />
+                                <p className="ml-4">{isUpdating ? 'Atualizando dados do pedido...' : 'Buscando informações do pedido...'}</p>
+                            </div>
+                        )}
+
+                        {foundSale && !isUpdating && (
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <Card className="lg:col-span-1">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2"><FileText/> Detalhes da Venda</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3 text-sm">
+                                        <div className="flex justify-between"><span>ID do Pedido:</span> <span className="font-semibold">{(foundSale as any).order_id}</span></div>
+                                        <div className="flex justify-between"><span>Código:</span> <span className="font-mono">{(foundSale as any).order_code}</span></div>
+                                        <div className="flex justify-between"><span>Data da Venda:</span> <span className="font-semibold">{formatDate((foundSale as any).payment_approved_date)}</span></div>
+                                        <div className="flex justify-between items-center"><span>Marketplace:</span> <Badge variant="secondary">{(foundSale as any).marketplace_name}</Badge></div>
+                                        <div className="flex justify-between items-center"><span>Conta:</span> <Badge variant="outline">{(foundSale as any).auth_name}</Badge></div>
+                                        <div className="flex justify-between items-center"><span>Status:</span> <Badge>{(foundSale as any).status}</Badge></div>
+                                        <div className="flex justify-between">
+                                            <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4"/> Data de Envio:</span> 
+                                            <span className="font-semibold">{formatDate((foundSale as any).sent_date)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="flex items-center gap-1.5"><Truck className="h-4 w-4"/> Rastreio:</span> 
+                                            <span className="font-mono">{(foundSale as any).deliveryTrackingCode || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between"><span>Valor Pago:</span> <span className="font-bold text-primary">{formatCurrency((foundSale as any).paid_amount)}</span></div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="lg:col-span-1">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2"><Package/> Produto Vendido</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3 text-sm">
+                                        <p className="font-semibold text-base leading-tight">{(foundSale as any).item_title}</p>
+                                        <div className="flex justify-between"><span>SKU:</span> <span className="font-mono">{(foundSale as any).item_sku}</span></div>
+                                        <div className="flex justify-between"><span>Quantidade:</span> <span className="font-semibold">{(foundSale as any).item_quantity}</span></div>
+                                    </CardContent>
+                                </Card>
+                                <Card className="lg:col-span-1">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2"><User/> Cliente e Entrega</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3 text-sm">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span>Nome:</span> 
+                                            <span className="font-semibold text-right">{(foundSale as any).customer_name}</span>
+                                        </div>
+                                        <div className="flex justify-between"><span>Documento:</span> <span className="font-semibold">{(foundSale as any).document_value}</span></div>
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span className="whitespace-nowrap flex items-center gap-1.5"><MapPin className="h-4 w-4"/> Endereço:</span> 
+                                            <span className="font-semibold text-right">
+                                                {(foundSale as any).address_line}, {(foundSale as any).address_district} - {(foundSale as any).address_city}, {(foundSale as any).state_name} - CEP: {(foundSale as any).address_zip_code}
+                                            </span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                                {rawApiResponse && (
+                                    <Card className="lg:col-span-3">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2"><Database/> Resposta da API</CardTitle>
+                                            <CardDescription>Dados brutos retornados pela API da Ideris para este pedido.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs">
+                                                <code>
+                                                    {JSON.stringify(rawApiResponse, null, 2)}
+                                                </code>
+                                            </pre>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+                <TabsContent value="tracking" className="mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Acompanhamento</CardTitle>
+                            <CardDescription>
+                                Esta área será desenvolvida para o acompanhamento de casos abertos no SAC.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex items-center justify-center h-64">
+                            <p className="text-muted-foreground">(Funcionalidade em construção)</p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
