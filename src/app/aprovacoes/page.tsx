@@ -83,17 +83,19 @@ export default function ApprovalsPage() {
   const renderRequestDetails = (request: ApprovalRequest) => {
     if (request.type === 'SKU_MISMATCH_PICKING') {
       const orderSku = (request.orderData as any).item_sku || 'N/A';
+      const orderName = (request.orderData as any).item_title || 'Produto do Pedido';
+
       return (
         <div className="flex flex-col md:flex-row items-center gap-4 text-sm">
             <div className="flex flex-col items-center p-2 border rounded-md bg-muted text-center flex-1">
                 <Package className="h-5 w-5 mb-1 text-primary" />
-                <span className="font-semibold">Pedido</span>
+                <span className="font-semibold" title={orderName}>{orderName.substring(0,25)}...</span>
                 <span className="text-xs text-muted-foreground">{orderSku}</span>
             </div>
             <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block"/>
             <div className="flex flex-col items-center p-2 border rounded-md bg-destructive/10 text-center flex-1">
                  <AlertTriangle className="h-5 w-5 mb-1 text-destructive" />
-                <span className="font-semibold">Bipado</span>
+                <span className="font-semibold" title={request.scannedItem.name}>{request.scannedItem.name.substring(0,25)}...</span>
                 <span className="text-xs text-muted-foreground">{request.scannedItem.sku}</span>
             </div>
         </div>
