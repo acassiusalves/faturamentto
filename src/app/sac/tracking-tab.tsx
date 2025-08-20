@@ -88,6 +88,25 @@ export function TrackingTab() {
             return searchMatch && statusMatch;
         });
     }, [allSales, dateRange, searchTerm, statusFilter]);
+    
+    const statusSummary = useMemo(() => {
+        if (!filteredData) return {};
+        const summary = filteredData.reduce((acc, sale) => {
+            const status = (sale as any).status || 'N/A';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+        
+        // Sort the summary object by count, descending
+        return Object.entries(summary)
+            .sort(([, countA], [, countB]) => countB - countA)
+            .reduce((acc, [status, count]) => {
+                acc[status] = count;
+                return acc;
+            }, {} as Record<string, number>);
+
+    }, [filteredData]);
+
 
     const handleSyncStatus = async () => {
         if (!dateRange?.from || !dateRange?.to) {
@@ -103,7 +122,8 @@ export function TrackingTab() {
 
         setIsSyncing(true);
         setSyncProgress(0);
-        setSyncStatus({ current: 0, total: salesToUpdate.length });
+        const totalToSync = salesToUpdate.length;
+        setSyncStatus({ current: 0, total: totalToSync });
 
         try {
             const settings = await loadAppSettings();
@@ -117,7 +137,7 @@ export function TrackingTab() {
                 setSyncStatus({ current, total });
             };
 
-            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange, onProgressCallback, salesToUpdate.length);
+            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange, onProgressCallback, totalToSync);
             const statusMap = new Map(iderisStatuses.map(s => [s.orderId, s.statusDescription]));
 
             const updates: { saleId: string; newStatus: string }[] = [];
@@ -132,7 +152,7 @@ export function TrackingTab() {
                 await updateSalesStatuses(updates);
                 const reloadedSales = await loadSales();
                 setAllSales(reloadedSales);
-                toast({ title: 'Sincronização Concluída!', description: `${updates.length} de ${salesToUpdate.length} pedidos tiveram seus status atualizados.` });
+                toast({ title: 'Sincronização Concluída!', description: `${updates.length} de ${totalToSync} pedidos verificados tiveram seus status atualizados.` });
             } else {
                 toast({ title: 'Nenhuma Mudança', description: 'Todos os pedidos no período já estavam com o status atualizado.' });
             }
@@ -207,6 +227,14 @@ export function TrackingTab() {
                         <CardDescription>
                             Exibindo {filteredData.length} de {allSales.length} registros encontrados no banco de dados para o período.
                         </CardDescription>
+                         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4">
+                            {Object.entries(statusSummary).map(([status, count]) => (
+                                <div key={status} className="flex items-center gap-2">
+                                    <span className="font-semibold text-lg">{status}</span>
+                                    <Badge variant="secondary" className="text-base">{count}</Badge>
+                                </div>
+                            ))}
+                         </div>
                          <div className="flex flex-col md:flex-row gap-4 pt-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
@@ -223,7 +251,7 @@ export function TrackingTab() {
                                 </SelectTrigger>
                                 <SelectContent>
                                      {uniqueStatusDescriptions.map((status, index) => (
-                                        <SelectItem key={`${status}-${index}`} value={status}>{status === 'all' ? 'Todos os Status' : status}</SelectItem>
+                                        <SelectItem key={`${status}-${index}`} value={status}>{status === 'all' ? 'Todos os Status' : status || 'N/A'}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
