@@ -109,7 +109,7 @@ async function fetchWithToken<T>(url: string, accessToken: string, options: Requ
     return JSON.parse(responseText);
 }
 
-type ProgressCallback = (progress: number, current: number, total: number) => void;
+type ProgressCallback = (current: number, total: number) => void;
 
 async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgress?: ProgressCallback): Promise<Sale[]> {
     const sales: Sale[] = [];
@@ -127,7 +127,7 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         }
         if (onProgress) {
             const currentCount = i + 1;
-            onProgress((currentCount / orderIds.length) * 100, currentCount, orderIds.length);
+            onProgress(currentCount, orderIds.length);
         }
     }
     return sales;
@@ -227,7 +227,7 @@ async function performFetchWithRetry(privateKey: string, dateRange: DateRange, e
 
     const newOrderIds = newSummaries.map(s => String(s.id)); // Garante que IDs sejam strings
     if (newOrderIds.length === 0) {
-        if (onProgress) onProgress(100, 0, 0);
+        if (onProgress) onProgress(0, 0);
         return [];
     }
 
@@ -266,7 +266,7 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
-export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange): Promise<any[]> {
+export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange, onProgress?: ProgressCallback): Promise<any[]> {
     const token = await getValidAccessToken(privateKey);
     const initialDate = formatDateForApi(dateRange.from!);
     const finalDate = formatDateForApi(dateRange.to!);
@@ -277,14 +277,22 @@ export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange
     let hasMorePages = true;
     let currentPage = 0;
     const maxPages = 100; // Safety break
+    let totalItems = -1; // -1 indicates total is unknown
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/status/search?startDate=${initialDate}&endDate=${finalDate}&limit=${limitPerPage}&offset=${currentOffset}`;
         try {
-            const result = await fetchWithToken<{ obj?: any[] }>(searchUrl, token);
+            const result = await fetchWithToken<{ obj?: any[], total?: number }>(searchUrl, token);
+            if (totalItems === -1 && result.total !== undefined) {
+                totalItems = result.total;
+            }
+
             if (result.obj && result.obj.length > 0) {
                 allStatuses = allStatuses.concat(result.obj);
                 currentOffset += result.obj.length;
+                if (onProgress) {
+                    onProgress(currentOffset, totalItems > 0 ? totalItems : allStatuses.length);
+                }
             } else {
                 hasMorePages = false;
             }

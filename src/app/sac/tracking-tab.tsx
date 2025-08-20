@@ -110,28 +110,31 @@ export function TrackingTab() {
             if (!settings?.iderisPrivateKey) {
                 throw new Error("A chave da API da Ideris não está configurada.");
             }
-            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange);
+
+            const onProgressCallback = (current: number, total: number) => {
+                const progressPercentage = total > 0 ? (current / total) * 100 : 0;
+                setSyncProgress(progressPercentage);
+                setSyncStatus({ current, total });
+            };
+
+            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange, onProgressCallback);
             const statusMap = new Map(iderisStatuses.map(s => [s.orderId, s.statusDescription]));
 
             const updates: { saleId: string; newStatus: string }[] = [];
-            salesToUpdate.forEach((sale, index) => {
+            salesToUpdate.forEach((sale) => {
                 const iderisStatus = statusMap.get((sale as any).order_id);
                 if (iderisStatus && iderisStatus !== (sale as any).status) {
                     updates.push({ saleId: (sale as any).id, newStatus: iderisStatus });
                 }
-                const currentProgress = ((index + 1) / salesToUpdate.length) * 100;
-                setSyncProgress(currentProgress);
-                setSyncStatus({ current: index + 1, total: salesToUpdate.length });
             });
 
             if (updates.length > 0) {
                 await updateSalesStatuses(updates);
-                // Refresh local data after update
                 const reloadedSales = await loadSales();
                 setAllSales(reloadedSales);
-                 toast({ title: 'Sincronização Concluída!', description: `${updates.length} de ${salesToUpdate.length} pedidos tiveram seus status atualizados.` });
+                toast({ title: 'Sincronização Concluída!', description: `${updates.length} de ${salesToUpdate.length} pedidos tiveram seus status atualizados.` });
             } else {
-                 toast({ title: 'Nenhuma Mudança', description: 'Todos os pedidos no período já estavam com o status atualizado.' });
+                toast({ title: 'Nenhuma Mudança', description: 'Todos os pedidos no período já estavam com o status atualizado.' });
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
