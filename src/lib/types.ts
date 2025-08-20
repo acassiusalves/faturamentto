@@ -14,6 +14,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -130,6 +131,13 @@ export interface Sale {
   transferForecast: string;
   transferDate: string;
   editedLabel: string;
+  deliveryTrackingCode: string; // added
+  sent_date: string; // added
+  customer_name: string; // added
+  address_line: string; // added
+  address_zip_code: string; // added
+  address_district: string; // added
+  address_city: string; // added
 
   // App-specific fields
   costs: Cost[];

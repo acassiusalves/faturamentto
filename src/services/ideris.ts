@@ -65,7 +65,7 @@ export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                 continue;
             }
             const keyLower = key.toLowerCase();
-            if (keyLower.includes('date') || keyLower.includes('approved')) {
+            if (keyLower.includes('date') || keyLower.includes('approved') || keyLower.includes('sent')) {
                  const parsedDate = new Date(value as string);
                  cleanedSale[key] = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
             } else if (typeof value === 'string' && (keyLower.includes('value') || keyLower.includes('amount') || keyLower.includes('fee') || keyLower.includes('cost') || keyLower.includes('discount') || keyLower.includes('leftover') || keyLower.includes('profit'))) {

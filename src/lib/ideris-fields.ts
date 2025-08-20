@@ -8,8 +8,15 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "auth_name", label: "Nome da Conta", path: "authenticationName" },
     { key: "document_value", label: "CPF/CNPJ do Cliente", path: "documentValue" },
     { key: "state_name", label: "Estado", path: "stateName" },
-    { key: "status", label: "Status do Pedido", path: "statusDescription" }, // <-- CORREÇÃO APLICADA AQUI
+    { key: "status", label: "Status do Pedido", path: "statusDescription" }, 
+    
+    // Shipping Details
+    { key: "deliveryTrackingCode", label: "Código de Rastreio", path: "deliveryTrackingCode" },
 
+    // Dates
+    { key: "sent_date", label: "Data de Envio", path: "sent" },
+    { key: "payment_approved_date", label: "Data de Aprovação (Pagamento)", path: "payments[0].approved" },
+    
     // Financial Values
     { key: "value_with_shipping", label: "Valor com Frete", path: "valueWithShipping" },
     { key: "paid_amount", label: "Valor Pago", path: "paidAmount" },
@@ -26,6 +33,10 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "item_quantity", label: "Quantidade (Item)", path: "items[0].quantity" },
     { key: "item_image", label: "Imagem", path: "items[0].image" },
 
-    // Payment Details (from first payment)
-    { key: "payment_approved_date", label: "Data de Aprovação (Pagamento)", path: "payments[0].approved" },
+    // Customer and Address
+    { key: "customer_name", label: "Nome do Cliente", path: "customerFirstName" },
+    { key: "address_line", label: "Endereço", path: "addressLine" },
+    { key: "address_zip_code", label: "CEP", path: "addressZipCode" },
+    { key: "address_district", label: "Bairro", path: "districtName" },
+    { key: "address_city", label: "Cidade", path: "cityName" },
 ];
