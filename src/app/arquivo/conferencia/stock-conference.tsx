@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus, Undo } from "lucide-react";
 import { loadInventoryItems, loadAllPickingLogs, loadEntryLogs } from "@/services/firestore";
-import { startOfDay, endOfDay, format, parseISO, isToday, subDays, differenceInDays } from "date-fns";
+import { startOfDay, endOfDay, format, parseISO, isToday, subDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,7 +59,7 @@ export function StockConference() {
     
     const currentStock = currentInventory.length;
 
-    // --- History Calculation ---
+    // --- History Calculation (from current stock backwards) ---
     const history: DailyHistoryRow[] = [];
     let rollingStock = currentStock;
 
@@ -79,7 +79,7 @@ export function StockConference() {
         const returnsOnDate = entryLogs.filter(item => {
             if (!item.createdAt) return false;
             const itemDate = parseISO(item.createdAt);
-            const condition = item.condition; 
+            const condition = item.condition;
             return itemDate >= dayStart && itemDate <= dayEnd && condition !== 'Novo';
         }).length;
 
@@ -109,7 +109,8 @@ export function StockConference() {
     
     // --- Daily Stats Calculation ---
     const yesterdayHistory = finalHistory.find(h => h.date === format(subDays(new Date(), 1), "dd/MM/yyyy"));
-    const initialStockForToday = yesterdayHistory?.finalStock || currentStock; // Use yesterday's final stock or current stock if no history
+    const initialStockForToday = yesterdayHistory ? yesterdayHistory.finalStock : (currentStock - (entryLogs.filter(item => isToday(parseISO(item.createdAt))).length - pickingLogs.filter(log => isToday(parseISO(log.pickedAt))).length));
+
 
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
@@ -145,7 +146,7 @@ export function StockConference() {
         finalStock: todayFinalStock,
     };
     
-    setDailyHistory([...finalHistory, todayHistoryEntry].slice(-7)); // Keep last 7 days including today
+    setDailyHistory([...finalHistory, todayHistoryEntry].slice(-7));
     
     setStats({
       initialStock: initialStockForToday,
