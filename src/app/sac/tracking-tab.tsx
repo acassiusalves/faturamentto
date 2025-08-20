@@ -117,7 +117,7 @@ export function TrackingTab() {
                 setSyncStatus({ current, total });
             };
 
-            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange, onProgressCallback);
+            const iderisStatuses = await fetchOrdersStatus(settings.iderisPrivateKey, dateRange, onProgressCallback, salesToUpdate.length);
             const statusMap = new Map(iderisStatuses.map(s => [s.orderId, s.statusDescription]));
 
             const updates: { saleId: string; newStatus: string }[] = [];

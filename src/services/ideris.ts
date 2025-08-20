@@ -266,7 +266,7 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
-export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange, onProgress?: ProgressCallback): Promise<any[]> {
+export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange, onProgress?: ProgressCallback, expectedTotal?: number): Promise<any[]> {
     const token = await getValidAccessToken(privateKey);
     const initialDate = formatDateForApi(dateRange.from!);
     const finalDate = formatDateForApi(dateRange.to!);
@@ -277,16 +277,17 @@ export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange
     let hasMorePages = true;
     let currentPage = 0;
     const maxPages = 100; // Safety break
-    let totalItems = -1; // -1 indicates total is unknown
+    let totalItems = expectedTotal ?? -1;
 
     while (hasMorePages && currentPage < maxPages) {
         const searchUrl = `https://apiv3.ideris.com.br/order/status/search?startDate=${initialDate}&endDate=${finalDate}&limit=${limitPerPage}&offset=${currentOffset}`;
         try {
             const result = await fetchWithToken<{ obj?: any[], total?: number }>(searchUrl, token);
+            
             if (totalItems === -1 && result.total !== undefined) {
                 totalItems = result.total;
             }
-
+            
             if (result.obj && result.obj.length > 0) {
                 allStatuses = allStatuses.concat(result.obj);
                 currentOffset += result.obj.length;
