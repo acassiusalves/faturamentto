@@ -18,6 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+
 
 interface OrderStatus {
     orderId: number;
@@ -84,7 +86,7 @@ export function TrackingTab() {
             const searchMatch = searchTerm 
                 ? saleData.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) || saleData.order_id?.toString().includes(searchTerm)
                 : true;
-            const statusMatch = statusFilter === 'all' || saleData.status?.toLowerCase() === statusFilter.toLowerCase();
+            const statusMatch = statusFilter === 'all' || (saleData.status || 'N/A').toLowerCase() === statusFilter.toLowerCase();
             return searchMatch && statusMatch;
         });
     }, [allSales, dateRange, searchTerm, statusFilter]);
@@ -169,7 +171,7 @@ export function TrackingTab() {
         const statuses = allSales
             .map(r => (r as any).status)
             .filter((status): status is string => !!status && status.trim() !== '');
-        return ['all', ...Array.from(new Set(statuses))];
+        return ['all', 'Entregue', ...Array.from(new Set(statuses)).filter(s => s !== 'Entregue')];
     }, [allSales]);
 
     const pageCount = Math.ceil(filteredData.length / pageSize);
@@ -185,6 +187,23 @@ export function TrackingTab() {
             setPageIndex(0);
         }
     }, [filteredData, pageIndex, pageCount]);
+
+    const getStatusBadgeClass = (status: string | null): string => {
+        const lowerStatus = status?.toLowerCase() || '';
+        if (lowerStatus.includes('entregue')) {
+            return 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200';
+        }
+        if (lowerStatus.includes('cancelado')) {
+            return 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200';
+        }
+        if (lowerStatus.includes('transito')) {
+            return 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200';
+        }
+        if (lowerStatus.includes('aberto') || lowerStatus.includes('expedicao') || lowerStatus.includes('pagamento')) {
+            return 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200';
+        }
+        return 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200';
+    };
 
 
     return (
@@ -269,20 +288,25 @@ export function TrackingTab() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paginatedData.length > 0 ? paginatedData.map((item) => (
+                                    {paginatedData.length > 0 ? paginatedData.map((item) => {
+                                        const status = (item as any).status;
+                                        return (
                                         <TableRow key={(item as any).id}>
                                             <TableCell className="font-semibold">{(item as any).order_id}</TableCell>
                                             <TableCell className="font-mono">{(item as any).order_code}</TableCell>
                                             <TableCell>
-                                                {(item as any).status ? (
-                                                     <Badge variant={(item as any).status === 'Entregue' ? 'default' : 'secondary'} className={(item as any).status === 'Entregue' ? 'bg-green-600' : ''}>{(item as any).status}</Badge>
+                                                {status ? (
+                                                     <Badge variant="outline" className={cn(getStatusBadgeClass(status))}>
+                                                         {status}
+                                                     </Badge>
                                                 ) : (
                                                      <Badge variant="outline">N/A</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell>{(item as any).marketplace_name}</TableCell>
                                         </TableRow>
-                                    )) : (
+                                        )
+                                    }) : (
                                         <TableRow>
                                             <TableCell colSpan={4} className="h-24 text-center">Nenhum registro encontrado com os filtros atuais.</TableCell>
                                         </TableRow>
