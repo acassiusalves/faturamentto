@@ -137,7 +137,8 @@ export default function ComprasPage() {
                 loadProducts()
             ]);
 
-            const filteredOrders = openOrders.filter(order => order.statusDescription !== 'PEDIDO_EM_TRANSITO');
+            const excludedStatuses = ['PEDIDO_EM_TRANSITO', 'Entregue'];
+            const filteredOrders = openOrders.filter(order => !excludedStatuses.includes(order.statusDescription));
             setOrders(filteredOrders);
             setAllProducts(products);
 
