@@ -194,62 +194,6 @@ export function StockConference() {
         </div>
         
         <Separator />
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Histórico de Atividades do Estoque</CardTitle>
-                <CardDescription>Analise diário da movimentação de produtos.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Data</TableHead>
-                                <TableHead>Estoque Inicial</TableHead>
-                                <TableHead>Entradas (Novo)</TableHead>
-                                <TableHead>Retornos</TableHead>
-                                <TableHead>Saídas</TableHead>
-                                <TableHead>Estoque Final</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {dailyHistory.map(row => (
-                                <TableRow key={row.date}>
-                                    <TableCell className="font-medium flex items-center gap-2">
-                                        <CalendarDays className="h-4 w-4 text-muted-foreground"/>
-                                        {row.date}
-                                        {isToday(parseISO(row.date.split('/').reverse().join('-'))) && <Badge variant="default" className="bg-primary/20 text-primary">Hoje</Badge>}
-                                    </TableCell>
-                                    <TableCell>{row.initialStock}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
-                                            <Plus className="mr-1 h-3 w-3" />
-                                            {row.entries}
-                                        </Badge>
-                                    </TableCell>
-                                     <TableCell>
-                                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
-                                            <Undo className="mr-1 h-3 w-3" />
-                                            {row.returns}
-                                        </Badge>
-                                    </TableCell>
-                                     <TableCell>
-                                        <Badge variant="destructive">
-                                            <Minus className="mr-1 h-3 w-3" />
-                                            {row.exits}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="font-bold">{row.finalStock}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </CardContent>
-        </Card>
-        
-        <Separator />
         
         <DetailedEntryHistory /> 
     </div>
