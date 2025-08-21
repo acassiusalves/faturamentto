@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, FilePieChart } from 'lucide-react';
+import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, FilePieChart, Ticket } from 'lucide-react';
 import { loadAppSettings, loadSales, updateSalesStatuses } from '@/services/firestore';
 import { fetchOrdersStatus } from '@/services/ideris';
 import type { Sale } from '@/lib/types';
@@ -29,7 +29,11 @@ interface OrderStatus {
     authenticationId: number;
 }
 
-export function TrackingTab() {
+interface TrackingTabProps {
+  onOpenTicket: (sale: Sale) => void;
+}
+
+export function TrackingTab({ onOpenTicket }: TrackingTabProps) {
     const { toast } = useToast();
     const [allSales, setAllSales] = useState<Sale[]>([]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -285,6 +289,7 @@ export function TrackingTab() {
                                         <TableHead>Cód. do Pedido</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>Marketplace</TableHead>
+                                        <TableHead className="text-center">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -304,11 +309,17 @@ export function TrackingTab() {
                                                 )}
                                             </TableCell>
                                             <TableCell>{(item as any).marketplace_name}</TableCell>
+                                            <TableCell className="text-center">
+                                                <Button variant="outline" size="sm" onClick={() => onOpenTicket(item)}>
+                                                    <Ticket className="mr-2 h-4 w-4" />
+                                                    Abrir Ticket
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                         )
                                     }) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">Nenhum registro encontrado com os filtros atuais.</TableCell>
+                                            <TableCell colSpan={5} className="h-24 text-center">Nenhum registro encontrado com os filtros atuais.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>

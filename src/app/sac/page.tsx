@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock, ListChecks, SearchCheck } from 'lucide-react';
+import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock, ListChecks, SearchCheck, Ticket } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findSaleByOrderNumber, saveSales, loadAppSettings } from '@/services/firestore';
@@ -26,6 +26,8 @@ export default function SacPage() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [foundSale, setFoundSale] = useState<Sale | null>(null);
     const [rawApiResponse, setRawApiResponse] = useState<any | null>(null);
+    const [activeTab, setActiveTab] = useState("search");
+    const [ticketOrder, setTicketOrder] = useState<Sale | null>(null);
 
 
     const handleSearchOrder = async (e?: React.FormEvent) => {
@@ -86,6 +88,11 @@ export default function SacPage() {
         }
     };
     
+    const handleOpenTicketForOrder = (sale: Sale) => {
+        setTicketOrder(sale);
+        setActiveTab("ticket");
+    }
+
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
         try {
@@ -108,7 +115,7 @@ export default function SacPage() {
                 <p className="text-muted-foreground">Localize pedidos para tratar de devoluções e outros problemas de pós-venda.</p>
             </div>
 
-            <Tabs defaultValue="search" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="search">
                         <SearchCheck className="mr-2"/>
@@ -119,7 +126,7 @@ export default function SacPage() {
                         Acompanhamento
                     </TabsTrigger>
                      <TabsTrigger value="ticket">
-                        <ListChecks className="mr-2"/>
+                        <Ticket className="mr-2"/>
                         Ticket
                     </TabsTrigger>
                 </TabsList>
@@ -235,10 +242,10 @@ export default function SacPage() {
                     </div>
                 </TabsContent>
                 <TabsContent value="tracking" className="mt-6">
-                    <TrackingTab />
+                    <TrackingTab onOpenTicket={handleOpenTicketForOrder} />
                 </TabsContent>
                 <TabsContent value="ticket" className="mt-6">
-                    <TicketTab />
+                    <TicketTab order={ticketOrder} />
                 </TabsContent>
             </Tabs>
         </div>
