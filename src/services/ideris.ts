@@ -119,6 +119,9 @@ type ProgressCallback = (current: number, total: number) => void;
 
 async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgress?: ProgressCallback): Promise<Sale[]> {
     const sales: Sale[] = [];
+    if (onProgress) {
+        onProgress(0, orderIds.length);
+    }
     for (let i = 0; i < orderIds.length; i++) {
         const orderId = orderIds[i];
         if (orderId) {

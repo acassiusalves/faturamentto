@@ -213,8 +213,9 @@ export default function MappingPage() {
     setImportStatus({ current: 0, total: 0 });
     setIsImporting(true);
 
-    const progressCallback = (progress: number, current: number, total: number) => {
-        setImportProgress(progress);
+    const progressCallback = (current: number, total: number) => {
+        const progressPercentage = total > 0 ? (current / total) * 100 : 0;
+        setImportProgress(progressPercentage);
         setImportStatus({ current, total });
     };
 
