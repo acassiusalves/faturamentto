@@ -76,6 +76,12 @@ export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
     const finalSale = cleanedSale as Sale;
     finalSale.id = `ideris-${(mappedSale as any).order_id || `temp-${index}`}`;
     finalSale.costs = finalSale.costs || [];
+    
+    // Combine first and last names
+    const firstName = (mappedSale as any).customer_name || '';
+    const lastName = (mappedSale as any).customerLastName || '';
+    finalSale.customer_name = `${firstName} ${lastName}`.trim();
+    
     finalSale.productName = finalSale.productName || (finalSale as any).item_title;
     return finalSale;
 }

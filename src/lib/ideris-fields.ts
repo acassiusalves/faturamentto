@@ -39,4 +39,19 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "address_zip_code", label: "CEP", path: "addressZipCode" },
     { key: "address_district", label: "Bairro", path: "districtName" },
     { key: "address_city", label: "Cidade", path: "cityName" },
+    
+    // New Fields
+    { key: "customerLastName", label: "Sobrenome do Cliente", path: "customerLastName" },
+    { key: "customerNickname", label: "Apelido do Cliente", path: "customerNickname" },
+    { key: "customerEmail", label: "Email do Cliente", path: "customerEmail" },
+    { key: "documentType", label: "Tipo do Documento", path: "documentType" },
+    { key: "phoneAreaCode", label: "DDD", path: "phoneAreaCode" },
+    { key: "phoneNumber", label: "Telefone", path: "phoneNumber" },
+    { key: "addressStreet", label: "Rua", path: "addressStreet" },
+    { key: "addressNumber", label: "Número", path: "addressNumber" },
+    { key: "stateAbbreviation", label: "Sigla do Estado", path: "stateAbbreviation" },
+    { key: "countryName", label: "País", path: "countryName" },
+    { key: "addressComment", label: "Comentário do Endereço", path: "addressComment" },
+    { key: "addressReceiverName", label: "Nome do Destinatário", path: "addressReceiverName" },
+    { key: "addressReceiverPhone", label: "Telefone do Destinatário", path: "addressReceiverPhone" },
 ];

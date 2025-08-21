@@ -11,13 +11,13 @@ export const systemFields: { key: keyof Sale; label: string }[] = [
     { key: "marketplace", label: "Canal de Venda" },
     { key: "auth_name", label: "Conta" },
     { key: "status", label: "Status" },
-    { key: "date", label: "Data de Venda" },
+    { key: "saleDate", label: "Data de Venda" },
     { key: "state_name", label: "Estado" },
     { key: "item_quantity", label: "Qtd." },
     { key: "grossValue", label: "Preço (sem frete)" },
     { key: "total", label: "Total" }, 
     { key: "value_with_shipping", label: "Total (com frete)" },
-    { key: "fee_order", label: "Comissão" },
+    { key: "commission", label: "Comissão" },
     { key: "commissionPercentage", label: "Comissão %" },
     { key: "fee", label: "Tarifa" },
     { key: "fee_shipment", label: "Custo de Envio" },
@@ -35,7 +35,7 @@ export const systemFields: { key: keyof Sale; label: string }[] = [
     { key: "discount", label: "Desconto" },
     { key: "discount_marketplace", label: "Desconto Marketplace" },
 
-    // Keeping other fields for potential mapping, but they won't be default.
+    // Other potential fields for mapping
     { key: "friendlyName", label: "Nome Amigável" },
     { key: "statusDescription", label: "Descrição do Status" },
     { key: "verified", label: "Verificado" },
@@ -49,4 +49,19 @@ export const systemFields: { key: keyof Sale; label: string }[] = [
     { key: "transferForecast", label: "Previsão de Transferência" },
     { key: "transferDate", label: "Data de Transferência" },
     { key: "editedLabel", label: "Etiqueta Editada" },
+
+    // Added fields
+    { key: 'customerLastName', label: "Sobrenome do Cliente" },
+    { key: 'customerNickname', label: "Apelido do Cliente" },
+    { key: 'customerEmail', label: "Email do Cliente" },
+    { key: 'documentType', label: "Tipo do Documento" },
+    { key: 'phoneAreaCode', label: "DDD" },
+    { key: 'phoneNumber', label: "Telefone" },
+    { key: 'addressStreet', label: "Rua" },
+    { key: 'addressNumber', label: "Número" },
+    { key: 'stateAbbreviation', label: "Sigla do Estado" },
+    { key: 'countryName', label: "País" },
+    { key: 'addressComment', label: "Comentário do Endereço" },
+    { key: 'addressReceiverName', label: "Nome do Destinatário" },
+    { key: 'addressReceiverPhone', label: "Telefone do Destinatário" },
 ];

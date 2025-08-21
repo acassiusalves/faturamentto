@@ -15,6 +15,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -139,6 +140,21 @@ export interface Sale {
   address_district: string; // added
   address_city: string; // added
 
+  // New fields from user request
+  customerLastName?: string;
+  customerNickname?: string;
+  customerEmail?: string;
+  documentType?: string;
+  phoneAreaCode?: string;
+  phoneNumber?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  stateAbbreviation?: string;
+  countryName?: string;
+  addressComment?: string;
+  addressReceiverName?: string;
+  addressReceiverPhone?: string;
+
   // App-specific fields
   costs: Cost[];
   grossRevenue: number;
@@ -192,6 +208,21 @@ export interface ColumnMapping {
     transferForecast?: string;
     transferDate?: string;
     editedLabel?: string;
+
+    // New fields from user request
+    customerLastName?: string;
+    customerNickname?: string;
+    customerEmail?: string;
+    documentType?: string;
+    phoneAreaCode?: string;
+    phoneNumber?: string;
+    addressStreet?: string;
+    addressNumber?: string;
+    stateAbbreviation?: string;
+    countryName?: string;
+    addressComment?: string;
+    addressReceiverName?: string;
+    addressReceiverPhone?: string;
 }
 
 // Type for the AI's direct output
