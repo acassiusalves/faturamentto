@@ -185,8 +185,7 @@ export function StockConference() {
                     Atualizar
                 </Button>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                <StatsCard title="Estoque Inicial do dia (TOTAL)" value={stats.initialStock} icon={Warehouse} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatsCard title="Entradas (Novo)" value={stats.entriesToday} icon={ArrowDownToDot} />
                 <StatsCard title="Retornos (Lacrado/Seminovo/Usado)" value={stats.returnedToday} icon={Undo} />
                 <StatsCard title="Saidas do dia (TOTAL)" value={stats.exitsToday} icon={ArrowUpFromDot} />
