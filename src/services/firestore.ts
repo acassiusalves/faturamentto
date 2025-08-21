@@ -435,9 +435,21 @@ export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_c
   });
 }
 
-export const findSaleByOrderNumber = async (orderNumber: string): Promise<Sale | null> => {
+export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sale | null> => {
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
-    const q = query(salesCol, where('order_code', '==', orderNumber), limit(1));
+    
+    // Check if the identifier is purely numeric, suggesting it's an order_id
+    if (/^\\d+$/.test(orderIdentifier)) {
+        const q = query(salesCol, where('order_id', '==', orderIdentifier), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const docData = snapshot.docs[0];
+            return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
+        }
+    }
+
+    // If not found by ID or if it's not numeric, search by order_code
+    const q = query(salesCol, where('order_code', '==', orderIdentifier), limit(1));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
         return null;

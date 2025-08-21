@@ -207,7 +207,7 @@ export default function PickingPage() {
     try {
         const logsToSave: PickedItemLog[] = scannedItems.map(item => ({
             ...item,
-            orderNumber: orderNumber,
+            orderNumber: (foundSale as any).order_code, // Save the order_code, not the input
             pickedAt: new Date().toISOString(),
             logId: `log-${item.id}-${Date.now()}`,
         }));
@@ -222,7 +222,7 @@ export default function PickingPage() {
 
         toast({
             title: 'Saída Registrada com Sucesso!',
-            description: `${scannedItems.length} produto(s) foram removidos para o pedido ${orderNumber}.`,
+            description: `${scannedItems.length} produto(s) foram removidos para o pedido ${(foundSale as any).order_code}.`,
         });
         
         await fetchTodaysPicks();
@@ -239,7 +239,7 @@ export default function PickingPage() {
   const handleSearchByOrder = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!orderNumber) {
-        toast({ variant: 'destructive', title: 'Campo Obrigatório', description: 'Por favor, insira um Número de Pedido.' });
+        toast({ variant: 'destructive', title: 'Campo Obrigatório', description: 'Por favor, insira um ID ou Código de Pedido.' });
         return;
     }
     
@@ -461,12 +461,12 @@ export default function PickingPage() {
                 <CardContent className="space-y-6">
                     <form onSubmit={handleSearchByOrder} className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="order-number">1. Número do Pedido de Venda</Label>
+                            <Label htmlFor="order-number">1. ID ou Cód. do Pedido</Label>
                             <div className="flex gap-2">
                                 <Input 
                                     id="order-number" 
                                     ref={orderNumberRef}
-                                    placeholder="Digite o nº do pedido"
+                                    placeholder="Digite o ID ou o Cód. do pedido"
                                     value={orderNumber}
                                     onChange={(e) => setOrderNumber(e.target.value)}
                                     autoFocus
