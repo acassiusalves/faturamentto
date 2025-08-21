@@ -122,7 +122,8 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
     if (onProgress) {
         onProgress(0, orderIds.length);
     }
-    for (let i = 0; i < orderIds.length; i++) {
+    const total = orderIds.length;
+    for (let i = 0; i < total; i++) {
         const orderId = orderIds[i];
         if (orderId) {
             try {
@@ -136,7 +137,7 @@ async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgr
         }
         if (onProgress) {
             const currentCount = i + 1;
-            onProgress(currentCount, orderIds.length);
+            onProgress(currentCount, total);
         }
     }
     return sales;

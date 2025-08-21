@@ -16,6 +16,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrackingTab } from './tracking-tab';
+import { TicketTab } from './ticket-tab';
 
 
 export default function SacPage() {
@@ -108,7 +109,7 @@ export default function SacPage() {
             </div>
 
             <Tabs defaultValue="search" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="search">
                         <SearchCheck className="mr-2"/>
                         Buscar Pedido
@@ -116,6 +117,10 @@ export default function SacPage() {
                     <TabsTrigger value="tracking">
                         <ListChecks className="mr-2"/>
                         Acompanhamento
+                    </TabsTrigger>
+                     <TabsTrigger value="ticket">
+                        <ListChecks className="mr-2"/>
+                        Ticket
                     </TabsTrigger>
                 </TabsList>
 
@@ -199,7 +204,7 @@ export default function SacPage() {
                                     <CardContent className="space-y-3 text-sm">
                                         <div className="flex justify-between items-start gap-2">
                                             <span>Nome:</span> 
-                                            <span className="font-semibold text-right">{(foundSale as any).customer_name}</span>
+                                            <span className="font-semibold text-right">{(foundSale as any).customer_name} {(foundSale as any).customerLastName}</span>
                                         </div>
                                         <div className="flex justify-between"><span>Documento:</span> <span className="font-semibold">{(foundSale as any).document_value}</span></div>
                                         <div className="flex justify-between items-start gap-2">
@@ -231,6 +236,9 @@ export default function SacPage() {
                 </TabsContent>
                 <TabsContent value="tracking" className="mt-6">
                     <TrackingTab />
+                </TabsContent>
+                <TabsContent value="ticket" className="mt-6">
+                    <TicketTab />
                 </TabsContent>
             </Tabs>
         </div>
