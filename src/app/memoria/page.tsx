@@ -67,12 +67,11 @@ export default function MemoryPage() {
         // Apply other filters
         return filtered.filter(item => {
             const saleData = item as any;
-            const searchMatch = searchTerm 
-                ? saleData.order_code?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  saleData.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  saleData.item_sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  saleData.document_value?.includes(searchTerm)
-                : true;
+            const lowerCaseTerm = searchTerm.toLowerCase();
+
+            const searchMatch = Object.values(saleData).some(val => 
+                String(val).toLowerCase().includes(lowerCaseTerm)
+            );
 
             const marketplaceMatch = marketplaceFilter === 'all' || (saleData.marketplace_name || 'N/A').toLowerCase() === marketplaceFilter.toLowerCase();
             const stateMatch = stateFilter === 'all' || (saleData.state_name || 'N/A') === stateFilter;
@@ -106,6 +105,11 @@ export default function MemoryPage() {
             return 'Data inválida';
         }
     };
+    
+    const formatCurrency = (value: number | undefined) => {
+        if (value === undefined || isNaN(value)) return 'R$ 0,00';
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
 
     return (
         <div className="flex flex-col gap-8">
@@ -121,7 +125,7 @@ export default function MemoryPage() {
                         <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Buscar por Pedido, Cliente, SKU ou Documento..."
+                                placeholder="Buscar por qualquer informação do pedido..."
                                 className="pl-9"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -163,31 +167,97 @@ export default function MemoryPage() {
                             <p>Carregando memória de vendas...</p>
                          </div>
                     ) : (
-                        <div className="rounded-md border">
+                        <div className="rounded-md border max-h-[60vh] overflow-x-auto">
                             <Table>
-                                <TableHeader>
+                                <TableHeader className="sticky top-0 bg-card z-10">
                                     <TableRow>
-                                        <TableHead>Data</TableHead>
-                                        <TableHead>Pedido</TableHead>
-                                        <TableHead>SKU</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead>Marketplace</TableHead>
+                                        <TableHead>ID Pedido</TableHead>
+                                        <TableHead>Cód. Pedido</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Data Pagamento</TableHead>
+                                        <TableHead>Data Envio</TableHead>
+                                        <TableHead>Marketplace</TableHead>
+                                        <TableHead>Conta</TableHead>
+                                        <TableHead>Nome Cliente</TableHead>
+                                        <TableHead>Sobrenome</TableHead>
+                                        <TableHead>Apelido</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Tipo Doc.</TableHead>
+                                        <TableHead>Documento</TableHead>
+                                        <TableHead>DDD</TableHead>
+                                        <TableHead>Telefone</TableHead>
+                                        <TableHead>Destinatário</TableHead>
+                                        <TableHead>Tel. Destinatário</TableHead>
+                                        <TableHead>Endereço</TableHead>
+                                        <TableHead>Rua</TableHead>
+                                        <TableHead>Número</TableHead>
+                                        <TableHead>Bairro</TableHead>
+                                        <TableHead>Cidade</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead>Sigla Estado</TableHead>
+                                        <TableHead>País</TableHead>
+                                        <TableHead>CEP</TableHead>
+                                        <TableHead>Comentário Endereço</TableHead>
+                                        <TableHead>SKU</TableHead>
+                                        <TableHead>Produto</TableHead>
+                                        <TableHead>Qtd.</TableHead>
+                                        <TableHead>Rastreio</TableHead>
+                                        <TableHead>Valor com Frete</TableHead>
+                                        <TableHead>Valor Pago</TableHead>
+                                        <TableHead>Taxa Frete</TableHead>
+                                        <TableHead>Comissão</TableHead>
+                                        <TableHead>Líquido</TableHead>
+                                        <TableHead>Sobra (Lucro)</TableHead>
+                                        <TableHead>Desconto</TableHead>
+                                        <TableHead>Desconto Mkt</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedData.length > 0 ? paginatedData.map((item) => (
                                         <TableRow key={(item as any).id}>
-                                            <TableCell className="font-medium">{formatDate((item as any).payment_approved_date)}</TableCell>
+                                            <TableCell>{(item as any).order_id}</TableCell>
                                             <TableCell className="font-mono text-xs">{(item as any).order_code}</TableCell>
-                                            <TableCell className="font-mono text-xs">{(item as any).item_sku}</TableCell>
-                                            <TableCell>{(item as any).customer_name}</TableCell>
-                                            <TableCell><Badge variant="outline">{(item as any).marketplace_name}</Badge></TableCell>
                                             <TableCell><Badge variant="secondary">{(item as any).status}</Badge></TableCell>
+                                            <TableCell>{formatDate((item as any).payment_approved_date)}</TableCell>
+                                            <TableCell>{formatDate((item as any).sent_date)}</TableCell>
+                                            <TableCell><Badge variant="outline">{(item as any).marketplace_name}</Badge></TableCell>
+                                            <TableCell>{(item as any).auth_name}</TableCell>
+                                            <TableCell>{(item as any).customer_name}</TableCell>
+                                            <TableCell>{(item as any).customerLastName}</TableCell>
+                                            <TableCell>{(item as any).customerNickname}</TableCell>
+                                            <TableCell>{(item as any).customerEmail}</TableCell>
+                                            <TableCell>{(item as any).documentType}</TableCell>
+                                            <TableCell className="font-mono text-xs">{(item as any).document_value}</TableCell>
+                                            <TableCell>{(item as any).phoneAreaCode}</TableCell>
+                                            <TableCell>{(item as any).phoneNumber}</TableCell>
+                                            <TableCell>{(item as any).addressReceiverName}</TableCell>
+                                            <TableCell>{(item as any).addressReceiverPhone}</TableCell>
+                                            <TableCell>{(item as any).address_line}</TableCell>
+                                            <TableCell>{(item as any).addressStreet}</TableCell>
+                                            <TableCell>{(item as any).addressNumber}</TableCell>
+                                            <TableCell>{(item as any).address_district}</TableCell>
+                                            <TableCell>{(item as any).address_city}</TableCell>
+                                            <TableCell>{(item as any).state_name}</TableCell>
+                                            <TableCell>{(item as any).stateAbbreviation}</TableCell>
+                                            <TableCell>{(item as any).countryName}</TableCell>
+                                            <TableCell className="font-mono text-xs">{(item as any).address_zip_code}</TableCell>
+                                            <TableCell>{(item as any).addressComment}</TableCell>
+                                            <TableCell className="font-mono text-xs">{(item as any).item_sku}</TableCell>
+                                            <TableCell>{(item as any).item_title}</TableCell>
+                                            <TableCell className="text-center font-bold">{(item as any).item_quantity}</TableCell>
+                                            <TableCell className="font-mono text-xs">{(item as any).deliveryTrackingCode}</TableCell>
+                                            <TableCell className="text-right font-semibold">{formatCurrency((item as any).value_with_shipping)}</TableCell>
+                                            <TableCell className="text-right font-semibold">{formatCurrency((item as any).paid_amount)}</TableCell>
+                                            <TableCell className="text-right text-destructive">{formatCurrency((item as any).fee_shipment)}</TableCell>
+                                            <TableCell className="text-right text-destructive">{formatCurrency((item as any).fee_order)}</TableCell>
+                                            <TableCell className="text-right text-blue-600 font-semibold">{formatCurrency((item as any).net_amount)}</TableCell>
+                                            <TableCell className="text-right text-green-600 font-bold">{formatCurrency((item as any).left_over)}</TableCell>
+                                            <TableCell className="text-right text-destructive">{formatCurrency((item as any).discount)}</TableCell>
+                                            <TableCell className="text-right text-destructive">{formatCurrency((item as any).discount_marketplace)}</TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-24 text-center">
+                                            <TableCell colSpan={38} className="h-24 text-center">
                                                 Nenhum registro encontrado com os filtros atuais.
                                             </TableCell>
                                         </TableRow>
