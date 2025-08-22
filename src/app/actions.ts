@@ -9,6 +9,7 @@ import {standardizeList, type StandardizeListOutput, type StandardizeListInput} 
 import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
 import { saveAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
+import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -179,16 +180,15 @@ export async function analyzeFeedAction(
     }
   
     try {
-      // This is a placeholder for the actual AI analysis call
-      await new Promise(res => setTimeout(res, 2000));
       const parsedFeed = JSON.parse(feedData);
-      const analysis = parsedFeed.map((product: any) => ({
-          sku: product.sku,
-          status: 'PRECO_OK',
-          justification: 'Este é um placeholder de análise.'
-      }));
+      const input: AnalyzeFeedInput = {
+        products: parsedFeed,
+        apiKey: apiKey,
+        modelName: modelName
+      }
+      const result = await analyzeFeed(input);
 
-      return {result: { analysis }, error: null};
+      return {result: { analysis: result.analysis }, error: null};
     } catch (e: any) {
       console.error('Error in analyzeFeedAction:', e);
       return {result: null, error: e.message || 'Ocorreu um erro desconhecido durante a análise.'};

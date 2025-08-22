@@ -6,3 +6,4 @@ import '@/ai/flows/process-list-flow.ts';
 import '@/ai/flows/organize-list.ts';
 import '@/ai/flows/standardize-list.ts';
 import '@/ai/flows/lookup-products.ts';
+import '@/ai/flows/analyze-feed-flow.ts';
