@@ -16,6 +16,7 @@ import { Button } from './ui/button';
 import { Download, Search, PackageCheck, PackageX, ArrowUpDown } from 'lucide-react';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import * as XLSX from 'xlsx';
 
 interface ProductTableProps {
   products: ProductDetail[];
@@ -97,11 +98,42 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
       return products.filter(p => p.sku !== 'SEM CÓDIGO').length;
   }, [products]);
   
-  const formatCurrency = (value: string | undefined): string => {
+  const formatCurrencyForTable = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
     const numericValue = parseFloat(String(value).replace(".", "").replace(",", "."));
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
+  };
+  
+  const handleExportXLSX = () => {
+    const dataToExport = filteredAndSortedProducts.map(p => ({
+      'SKU': p.sku,
+      'Nome do Produto': p.name,
+      'Preço de Custo': p.costPrice ? parseFloat(String(p.costPrice).replace(',', '.')) : 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 15 }, // SKU
+      { wch: 70 }, // Nome do Produto
+      { wch: 20 }, // Preço de Custo
+    ];
+    
+    // Format currency column
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        const cell_address = { c: 2, r: R }; // C é a coluna do preço
+        const cell = XLSX.utils.encode_cell(cell_address);
+        if (ws[cell]) {
+            ws[cell].z = 'R$ #,##0.00';
+        }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+    XLSX.writeFile(wb, 'lista_de_produtos.xlsx');
   };
 
   return (
@@ -150,9 +182,9 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportXLSX}>
             <Download className="mr-2 h-4 w-4" />
-            Exportar CSV
+            Exportar XLSX
           </Button>
         </div>
       </CardHeader>
@@ -177,7 +209,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
                     <TableRow key={index}>
                     <TableCell className="font-mono">{product.sku}</TableCell>
                     <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(product.costPrice)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrencyForTable(product.costPrice)}</TableCell>
                     </TableRow>
                 ))
                 ) : (
