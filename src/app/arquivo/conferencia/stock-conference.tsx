@@ -174,28 +174,7 @@ export function StockConference() {
 
   return (
     <div className="space-y-8">
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold">Resumo do Estoque de Hoje</h2>
-                    <p className="text-muted-foreground">Visão geral da movimentação de estoque no dia atual.</p>
-                </div>
-                <Button variant="outline" onClick={fetchData} disabled={isLoading}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Atualizar
-                </Button>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatsCard title="Entradas (Novo)" value={stats.entriesToday} icon={ArrowDownToDot} />
-                <StatsCard title="Retornos (Lacrado/Seminovo/Usado)" value={stats.returnedToday} icon={Undo} />
-                <StatsCard title="Saidas do dia (TOTAL)" value={stats.exitsToday} icon={ArrowUpFromDot} />
-                <StatsCard title="Estoque atual (TOTAL)" value={stats.currentStock} icon={Boxes} />
-            </div>
-        </div>
-        
-        <Separator />
-        
-        <DetailedEntryHistory /> 
+      <DetailedEntryHistory />
     </div>
   );
 }
