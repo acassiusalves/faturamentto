@@ -14,38 +14,36 @@ import { DetailedEntryHistory } from "./detailed-entry-history";
 import type { InventoryItem, PickedItemLog } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
-interface DailyStats {
-  initialStock: number;
-  entriesToday: number;
-  exitsToday: number;
-  currentStock: number;
-  returnedToday: number;
+interface Stats {
+    entries: Record<string, number>;
+    exits: Record<string, number>;
+    currentStock: Record<string, number>;
 }
 
-interface DailyHistoryRow {
-    date: string;
-    initialStock: number;
-    entries: number;
-    returns: number;
-    exits: number;
-    finalStock: number;
-}
-
-const StatsCard = ({ title, value, icon: Icon }: { title: string; value: number; icon: React.ElementType }) => (
+const SummaryCard = ({ title, data }: { title: string, data: Record<string, number> }) => (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
+        <CardHeader>
+            <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+            {Object.keys(data).length > 0 ? (
+                 <ul className="space-y-2">
+                    {Object.entries(data).map(([condition, count]) => (
+                        <li key={condition} className="flex justify-between items-center text-lg">
+                            <span className="font-medium text-muted-foreground">{condition}</span>
+                            <span className="font-bold text-primary">{count}</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-muted-foreground text-center text-sm py-4">Nenhum item hoje.</p>
+            )}
+        </CardContent>
     </Card>
 );
 
 export function StockConference() {
-  const [stats, setStats] = useState<DailyStats | null>(null);
-  const [dailyHistory, setDailyHistory] = useState<DailyHistoryRow[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -56,104 +54,37 @@ export function StockConference() {
       loadAllPickingLogs(),
       loadInventoryItems() 
     ]);
-    
-    const currentStock = currentInventory.length;
-
-    // --- History Calculation (from current stock backwards) ---
-    const history: DailyHistoryRow[] = [];
-    let rollingStock = currentStock;
-
-    // Calculate for the last 7 days, starting from yesterday (i=1) up to 7 days ago
-    for (let i = 1; i <= 7; i++) {
-        const date = subDays(new Date(), i);
-        const dayStart = startOfDay(date);
-        const dayEnd = endOfDay(date);
-        
-        const newEntriesOnDate = entryLogs.filter(item => {
-            if (!item.createdAt) return false;
-            const itemDate = parseISO(item.createdAt);
-            const condition = item.condition || 'Novo';
-            return itemDate >= dayStart && itemDate <= dayEnd && condition === 'Novo';
-        }).length;
-        
-        const returnsOnDate = entryLogs.filter(item => {
-            if (!item.createdAt) return false;
-            const itemDate = parseISO(item.createdAt);
-            const condition = item.condition;
-            return itemDate >= dayStart && itemDate <= dayEnd && condition !== 'Novo';
-        }).length;
-
-        const exitsOnDate = pickingLogs.filter(log => {
-            if (!log.pickedAt) return false;
-            const logDate = parseISO(log.pickedAt);
-            return logDate >= dayStart && logDate <= dayEnd;
-        }).length;
-        
-        const finalStock = rollingStock;
-        const totalEntriesOnDate = newEntriesOnDate + returnsOnDate;
-        const initialStock = finalStock - totalEntriesOnDate + exitsOnDate;
-        
-        history.push({
-            date: format(date, "dd/MM/yyyy"),
-            initialStock,
-            entries: newEntriesOnDate,
-            returns: returnsOnDate,
-            exits: exitsOnDate,
-            finalStock,
-        });
-
-        rollingStock = initialStock;
-    }
-    
-    const finalHistory = history.reverse();
-    
-    // --- Daily Stats Calculation ---
-    const yesterdayHistory = finalHistory.find(h => h.date === format(subDays(new Date(), 1), "dd/MM/yyyy"));
-    const initialStockForToday = yesterdayHistory ? yesterdayHistory.finalStock : (currentStock - (entryLogs.filter(item => isToday(parseISO(item.createdAt))).length - pickingLogs.filter(log => isToday(parseISO(log.pickedAt))).length));
-
 
     const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
 
-    const entriesToday = entryLogs.filter(item => {
-        if (!item.createdAt) return false;
-        const itemDate = parseISO(item.createdAt);
+    const entriesToday = entryLogs
+      .filter(item => item.createdAt && new Date(item.createdAt) >= todayStart)
+      .reduce((acc, item) => {
         const condition = item.condition || 'Novo';
-        return itemDate >= todayStart && itemDate <= todayEnd && condition === 'Novo';
-    }).length;
+        acc[condition] = (acc[condition] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+    const exitsToday = pickingLogs
+      .filter(log => log.pickedAt && new Date(log.pickedAt) >= todayStart)
+      .reduce((acc, log) => {
+          // Assume 'Novo' if condition is missing, which is common for older picked items.
+          const condition = log.condition || 'Novo';
+          acc[condition] = (acc[condition] || 0) + 1;
+          return acc;
+      }, {} as Record<string, number>);
 
-    const returnedToday = entryLogs.filter(item => {
-        if (!item.createdAt) return false;
-        const itemDate = parseISO(item.createdAt);
-        const condition = item.condition;
-        return itemDate >= todayStart && itemDate <= todayEnd && condition !== 'Novo';
-    }).length;
-    
-    const exitsToday = pickingLogs.filter(log => {
-        if (!log.pickedAt) return false;
-        const logDate = parseISO(log.pickedAt);
-        return logDate >= todayStart && logDate <= todayEnd;
-    }).length;
+    const currentStockSummary = currentInventory.reduce((acc, item) => {
+      const condition = item.condition || 'Novo';
+      acc[condition] = (acc[condition] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
-    const todayFinalStock = initialStockForToday + entriesToday + returnedToday - exitsToday;
-
-    const todayHistoryEntry: DailyHistoryRow = {
-        date: format(new Date(), "dd/MM/yyyy"),
-        initialStock: initialStockForToday,
-        entries: entriesToday,
-        returns: returnedToday,
-        exits: exitsToday,
-        finalStock: todayFinalStock,
-    };
-    
-    setDailyHistory([...finalHistory, todayHistoryEntry].slice(-7));
     
     setStats({
-      initialStock: initialStockForToday,
-      entriesToday: entriesToday,
-      returnedToday: returnedToday,
-      exitsToday: exitsToday,
-      currentStock: currentStock, // This remains the real-time count
+      entries: entriesToday,
+      exits: exitsToday,
+      currentStock: currentStockSummary,
     });
     
     setIsLoading(false);
@@ -174,6 +105,21 @@ export function StockConference() {
 
   return (
     <div className="space-y-8">
+        <div>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold font-headline">Resumo do Estoque de Hoje</h2>
+                <Button onClick={fetchData} variant="outline" disabled={isLoading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Atualizar
+                </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <SummaryCard title="Entradas" data={stats.entries} />
+                <SummaryCard title="Saídas" data={stats.exits} />
+                <SummaryCard title="Estoque Atual" data={stats.currentStock} />
+            </div>
+        </div>
+
       <DetailedEntryHistory />
     </div>
   );
