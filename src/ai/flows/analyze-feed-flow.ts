@@ -23,7 +23,7 @@ const ProductInputSchema = z.object({
   prices: z.record(z.number().nullable()), // Record<storeName, price>
 });
 
-export const AnalyzeFeedInputSchema = z.object({
+const AnalyzeFeedInputSchema = z.object({
   products: z.array(ProductInputSchema),
   apiKey: z.string().optional(),
   modelName: z.string().optional(),
