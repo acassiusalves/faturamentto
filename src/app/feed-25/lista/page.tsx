@@ -29,7 +29,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
-import { loadAllFeedEntries, deleteFeedEntry } from '@/services/firestore';
+import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry } from '@/services/firestore';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -341,6 +341,26 @@ export default function FeedListPage() {
         }
     };
 
+    const handleDeleteStoreData = async (storeName: string) => {
+        if (!selectedDate) return;
+        const entryId = `${storeName}-${format(selectedDate, 'yyyy-MM-dd')}`;
+        try {
+            await deleteFeedEntry(entryId);
+            await fetchFeedData();
+            toast({
+                title: "Lista Removida!",
+                description: `A lista de preços da loja ${storeName} foi removida com sucesso.`,
+            });
+        } catch(error) {
+            console.error("Error deleting feed entry:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Apagar',
+                description: 'Não foi possível apagar a lista da loja.',
+            });
+        }
+    }
+
     const formatCurrency = (value: number | null) => {
         if (value === null || isNaN(value)) return '-';
         return new Intl.NumberFormat('pt-BR', {
@@ -489,7 +509,30 @@ export default function FeedListPage() {
                                             <TableHead className="text-right min-w-[120px] font-bold bg-muted/50">Média</TableHead>
                                             <TableHead className="text-center min-w-[150px]">Status</TableHead>
                                             {uniqueStores.map(store => (
-                                                <TableHead key={store} className="text-right min-w-[150px]">{store}</TableHead>
+                                                <TableHead key={store} className="text-right min-w-[150px]">
+                                                   <div className="flex items-center justify-end gap-1">
+                                                        {store}
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive">
+                                                                    <Trash2 className="h-3 w-3"/>
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Apagar lista da loja "{store}"?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        Esta ação removerá permanentemente todos os dados de preço desta loja para o dia selecionado.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteStoreData(store)}>Sim, Apagar</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                </TableHead>
                                             ))}
                                         </TableRow>
                                     </TableHeader>
