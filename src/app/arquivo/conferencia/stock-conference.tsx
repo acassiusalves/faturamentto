@@ -20,27 +20,34 @@ interface Stats {
     currentStock: Record<string, number>;
 }
 
-const SummaryCard = ({ title, data }: { title: string, data: Record<string, number> }) => (
-    <Card>
-        <CardHeader>
-            <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-            {Object.keys(data).length > 0 ? (
-                 <ul className="space-y-2">
-                    {Object.entries(data).map(([condition, count]) => (
-                        <li key={condition} className="flex justify-between items-center text-lg">
-                            <span className="font-medium text-muted-foreground">{condition}</span>
-                            <span className="font-bold text-primary">{count}</span>
-                        </li>
-                    ))}
-                </ul>
-            ) : (
-                <p className="text-muted-foreground text-center text-sm py-4">Nenhum item hoje.</p>
-            )}
-        </CardContent>
-    </Card>
-);
+const SummaryCard = ({ title, data }: { title: string, data: Record<string, number> }) => {
+    const total = useMemo(() => Object.values(data).reduce((acc, count) => acc + count, 0), [data]);
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between">
+                <CardTitle>{title}</CardTitle>
+                <div className="text-sm font-semibold text-muted-foreground">
+                    Total {total}
+                </div>
+            </CardHeader>
+            <CardContent>
+                {Object.keys(data).length > 0 ? (
+                    <ul className="space-y-2">
+                        {Object.entries(data).map(([condition, count]) => (
+                            <li key={condition} className="flex justify-between items-center text-lg">
+                                <span className="font-medium text-muted-foreground">{condition}</span>
+                                <span className="font-bold text-primary">{count}</span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-muted-foreground text-center text-sm py-4">Nenhum item hoje.</p>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
 
 export function StockConference() {
   const [stats, setStats] = useState<Stats | null>(null);
