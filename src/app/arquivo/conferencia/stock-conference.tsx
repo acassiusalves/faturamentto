@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus, Undo } from "lucide-react";
-import { loadInventoryItems, loadAllPickingLogs, loadEntryLogs } from "@/services/firestore";
+import { ArrowDownToDot, ArrowUpFromDot, Boxes, Warehouse, Loader2, RefreshCw, CalendarDays, Plus, Minus, Undo, AlertTriangle } from "lucide-react";
+import { loadInventoryItems, loadAllPickingLogs, loadEntryLogs, loadInitialStockForToday } from "@/services/firestore";
 import { startOfDay, endOfDay, format, parseISO, isToday, subDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ interface Stats {
     entries: Record<string, number>;
     exits: Record<string, number>;
     currentStock: Record<string, number>;
+    initialStock: number;
 }
 
 const SummaryCard = ({ title, data }: { title: string, data: Record<string, number> }) => {
@@ -56,10 +57,11 @@ export function StockConference() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     
-    const [entryLogs, pickingLogs, currentInventory] = await Promise.all([
+    const [entryLogs, pickingLogs, currentInventory, initialStock] = await Promise.all([
       loadEntryLogs(),
       loadAllPickingLogs(),
-      loadInventoryItems() 
+      loadInventoryItems(),
+      loadInitialStockForToday(),
     ]);
 
     const todayStart = startOfDay(new Date());
@@ -92,6 +94,7 @@ export function StockConference() {
       entries: entriesToday,
       exits: exitsToday,
       currentStock: currentStockSummary,
+      initialStock,
     });
     
     setIsLoading(false);
@@ -115,10 +118,16 @@ export function StockConference() {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold font-headline">Resumo do Estoque de Hoje</h2>
-                <Button onClick={fetchData} variant="outline" disabled={isLoading}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Atualizar
-                </Button>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 font-semibold text-muted-foreground bg-muted/50 p-2 rounded-md">
+                        <AlertTriangle className="h-5 w-5 text-amber-500"/>
+                        Estoque Inicial {stats.initialStock}
+                    </div>
+                    <Button onClick={fetchData} variant="outline" disabled={isLoading}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Atualizar
+                    </Button>
+                </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <SummaryCard title="Entradas" data={stats.entries} />

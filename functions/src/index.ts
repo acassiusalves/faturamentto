@@ -4,18 +4,22 @@ import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onSchedule} from "firebase-functions/v2/scheduler";
+import {AuthError} from "firebase-admin/auth";
 
 initializeApp();
 
 const db = getFirestore();
 const auth = getAuth();
 
+const DEFAULT_USER_ID = "default-user"; // Placeholder until proper auth is added
+
 export const inviteUser = onCall(async (request) => {
   // 1. Authentication Check: Ensure the user is authenticated.
   if (!request.auth) {
     throw new HttpsError(
       "unauthenticated",
-      "Você deve estar logado para convidar usuários."
+      "Você deve estar logado para convidar usuários.",
     );
   }
 
@@ -26,7 +30,7 @@ export const inviteUser = onCall(async (request) => {
     if (!callerDoc.exists || callerDoc.data()?.role !== "admin") {
       throw new HttpsError(
         "permission-denied",
-        "Você precisa ser um administrador para executar esta ação."
+        "Você precisa ser um administrador para executar esta ação.",
       );
     }
   } catch (error) {
@@ -40,7 +44,7 @@ export const inviteUser = onCall(async (request) => {
   if (!email || !role) {
     throw new HttpsError(
       "invalid-argument",
-      "O email e a função (role) são obrigatórios."
+      "O email e a função (role) são obrigatórios.",
     );
   }
 
@@ -49,16 +53,17 @@ export const inviteUser = onCall(async (request) => {
     logger.info(`Criando usuário para o email: ${email}`);
     const userRecord = await auth.createUser({
       email,
-      emailVerified: false,
-      password: "123456", // Default temporary password
-      displayName: email.split("@")[0],
+      emailVerified: false, // User will verify their email
+      // Generate a random password. The user will reset it.
+      password: "123456",
+      displayName: email.split("@")[0], // A sensible default
     });
     logger.info(`Usuário ${userRecord.uid} criado com sucesso.`);
 
     // 5. Set Custom Claims (for role-based access control)
     await auth.setCustomUserClaims(userRecord.uid, {role});
     logger.info(
-      `Claim de função "${role}" definida para o usuário ${userRecord.uid}.`
+      `Claim de função "${role}" definida para o usuário ${userRecord.uid}.`,
     );
 
     // 6. Create User Document in Firestore
@@ -67,27 +72,55 @@ export const inviteUser = onCall(async (request) => {
       role: role,
     });
     logger.info(
-      `Documento do usuário criado no Firestore para ${userRecord.uid}.`
+      `Documento do usuário criado no Firestore para ${userRecord.uid}.`,
     );
 
-    return {
-      result: `Usuário ${email} convidado com a função ${role}.`,
-    };
+    // You would typically send a welcome/password reset email here.
+    // For this example, we'll just return a success message.
+
+    return {result: `Usuário ${email} convidado com a função ${role}.`};
   } catch (error) {
     logger.error("Falha ao criar usuário:", error);
-    // CORREÇÃO: Verifica o erro de forma segura, sem importações.
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "auth/email-already-exists"
-    ) {
+    const authError = error as AuthError;
+    if (authError.code === "auth/email-already-exists") {
       throw new HttpsError(
         "already-exists",
-        "Este email já está em uso por outro usuário."
+        "Este email já está em uso por outro usuário.",
       );
     }
-
     throw new HttpsError("internal", "Erro interno ao criar o usuário.");
+  }
+});
+
+// Scheduled function to record the initial stock count for the day.
+export const recordInitialStock = onSchedule("every day 05:00", async () => {
+  logger.info("Executando a função agendada: recordInitialStock");
+
+  try {
+    // Get a reference to the inventory collection for the default user
+    const inventoryCol = db.collection("users").doc(DEFAULT_USER_ID).collection("inventory");
+
+    // Get the total count of items in the inventory
+    const snapshot = await inventoryCol.count().get();
+    const totalStock = snapshot.data().count;
+
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date();
+    today.setHours(today.getHours() - 3); // Adjust for timezone if needed (e.g., UTC-3)
+    const dateKey = today.toISOString().split("T")[0];
+
+    // Get a reference to the daily summaries collection
+    const summaryDocRef = db.collection("daily-summaries").doc(dateKey);
+
+    // Save the initial stock for the day
+    await summaryDocRef.set({
+      date: dateKey,
+      initialStock: totalStock,
+      recordedAt: new Date(),
+    });
+
+    logger.info(`Estoque inicial de ${totalStock} itens registrado para ${dateKey}.`);
+  } catch (error) {
+    logger.error("Erro ao registrar o estoque inicial:", error);
   }
 });

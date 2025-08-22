@@ -696,3 +696,22 @@ export const deleteFeedEntry = async (id: string): Promise<void> => {
     const docRef = doc(db, "feed_entries", id);
     await deleteDoc(docRef);
 };
+
+// --- DAILY SUMMARY ---
+export const loadInitialStockForToday = async (): Promise<number> => {
+    const today = new Date();
+    today.setHours(today.getHours() - 3); // Adjust for timezone if needed (e.g., UTC-3)
+    const dateKey = today.toISOString().split("T")[0];
+
+    const docRef = doc(db, "daily-summaries", dateKey);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+        return docSnap.data().initialStock || 0;
+    }
+    
+    // Fallback if the scheduled function hasn't run yet for today
+    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+    const snapshot = await getCountFromServer(inventoryCol);
+    return snapshot.data().count;
+};
