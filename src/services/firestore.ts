@@ -134,8 +134,17 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
 };
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
-  const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', itemId);
-  await deleteDoc(docRef);
+  const batch = writeBatch(db);
+
+  // Reference to the item in the inventory
+  const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', itemId);
+  batch.delete(inventoryDocRef);
+
+  // Reference to the item in the entry log (assuming the ID is the same)
+  const entryLogDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log', itemId);
+  batch.delete(entryLogDocRef);
+  
+  await batch.commit();
 };
 
 export const findInventoryItemBySN = async (serialNumber: string): Promise<InventoryItem | undefined> => {
