@@ -68,7 +68,7 @@ const AccountCard = ({ data }: { data: AccountAnalysis }) => (
                                     data-ai-hint="product image"
                                 />
                             </div>
-                            <div className="flex-grow">
+                            <div className="flex-grow min-w-0">
                                 <p className="font-semibold text-sm leading-tight truncate" title={product.name}>{product.name}</p>
                                 <p className="text-xs text-muted-foreground">{product.sku}</p>
                             </div>
