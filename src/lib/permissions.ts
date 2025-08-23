@@ -11,13 +11,14 @@ export const availableRoles = [
 ];
 
 export const navLinks = [
-    { 
-      href: "/", 
-      label: "Vendas", 
+    {
+      href: "/",
+      label: "Vendas",
       icon: LayoutDashboard,
       subItems: [
           { href: "/", label: "Dashboard", icon: LayoutDashboard },
-          { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart }
+          { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart },
+          { href: "/sac", label: "SAC", icon: Headset },
       ]
     },
     { href: "/produtos", label: "Produtos", icon: PackagePlus },
@@ -25,8 +26,8 @@ export const navLinks = [
     { href: "/picking", label: "Picking", icon: PackageCheck },
     { href: "/conciliacao", label: "Conciliação", icon: FilePieChart },
     { href: "/compras", label: "Compras", icon: ShoppingCart },
-    { 
-      label: "Arquivo", 
+    {
+      label: "Arquivo",
       icon: Archive,
       subItems: [
         { href: "/arquivo", label: "Históricos de Atividades", icon: FileText },
@@ -35,7 +36,6 @@ export const navLinks = [
     },
     { href: "/dre", label: "DRE", icon: BarChart3 },
     { href: "/custos-geral", label: "Custos", icon: DollarSign },
-    { href: "/sac", label: "SAC", icon: Headset },
     { href: "/memoria", label: "Memória", icon: BrainCircuit },
     { href: "/mapeamento", label: "Mapeamento", icon: Map },
     { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
