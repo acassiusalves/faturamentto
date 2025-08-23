@@ -1,18 +1,26 @@
 
 "use client"
 import Link from "next/link";
-import { LogOut } from 'lucide-react';
+import { LogOut, ChevronDown } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
 import { navLinks, settingsLinks } from "@/lib/permissions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils";
 
 export function Header() {
     const { user, logout, pagePermissions, inactivePages } = useAuth();
 
     if (!user) return null;
 
-    const hasAccess = (href: string) => {
+    const hasAccess = (href?: string) => {
+        if (!href) return false;
         if (inactivePages.includes(href)) return false; // Hide if page is inactive
         const allowedRoles = pagePermissions[href];
         if (!allowedRoles) return false; // Default to deny if page not in config
@@ -30,14 +38,39 @@ export function Header() {
             </Link>
             
             <nav className="ml-auto flex items-center gap-2">
-                {navLinks.filter(link => hasAccess(link.href)).map(link => (
-                    <Button asChild variant="ghost" size="sm" key={link.href}>
-                        <Link href={link.href}>
-                            <link.icon className="mr-2" />
-                            {link.label}
-                        </Link>
-                    </Button>
-                ))}
+                {navLinks.filter(link => hasAccess(link.href) || link.subItems?.some(sub => hasAccess(sub.href))).map(link => {
+                    if (link.subItems) {
+                        return (
+                            <DropdownMenu key={link.href}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                        <link.icon className="mr-2" />
+                                        {link.label}
+                                        <ChevronDown className="ml-1 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    {link.subItems.filter(sub => hasAccess(sub.href)).map(subItem => (
+                                        <DropdownMenuItem key={subItem.href} asChild>
+                                            <Link href={subItem.href}>
+                                                <subItem.icon className="mr-2" />
+                                                {subItem.label}
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )
+                    }
+                    return (
+                        <Button asChild variant="ghost" size="sm" key={link.href}>
+                            <Link href={link.href!}>
+                                <link.icon className="mr-2" />
+                                {link.label}
+                            </Link>
+                        </Button>
+                    )
+                })}
                 
                 <div className="flex items-center gap-1 border-l ml-2 pl-2">
                     {settingsLinks.filter(link => hasAccess(link.href)).map(link => (

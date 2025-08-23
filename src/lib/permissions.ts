@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -11,7 +11,15 @@ export const availableRoles = [
 ];
 
 export const navLinks = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { 
+      href: "/", 
+      label: "Dashboard", 
+      icon: LayoutDashboard,
+      subItems: [
+          { href: "/", label: "Painel Principal", icon: LayoutDashboard },
+          { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart }
+      ]
+    },
     { href: "/produtos", label: "Produtos", icon: PackagePlus },
     { href: "/estoque", label: "Estoque", icon: Warehouse },
     { href: "/picking", label: "Picking", icon: PackageCheck },
@@ -37,6 +45,7 @@ export const settingsLinks = [
 export const pagePermissions: Record<string, string[]> = {
     // Page route: Allowed roles
     '/': ['admin', 'financeiro', 'expedicao', 'sac'],
+    '/analise-por-conta': ['admin', 'financeiro'],
     '/produtos': ['admin', 'expedicao'],
     '/estoque': ['admin', 'expedicao'],
     '/picking': ['admin', 'expedicao'],
