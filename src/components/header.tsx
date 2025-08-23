@@ -45,7 +45,7 @@ export function Header() {
                         if (!canAccessSubItems) return null;
 
                         return (
-                            <DropdownMenu key={link.href}>
+                            <DropdownMenu key={link.label}>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm">
                                         <link.icon className="mr-2" />
