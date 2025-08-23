@@ -19,6 +19,7 @@ export const navLinks = [
           { href: "/", label: "Dashboard", icon: LayoutDashboard },
           { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart },
           { href: "/sac", label: "SAC", icon: Headset },
+          { href: "/conciliacao", label: "Conciliação", icon: FilePieChart },
       ]
     },
     {
@@ -31,7 +32,6 @@ export const navLinks = [
     },
     { href: "/estoque", label: "Estoque", icon: Warehouse },
     { href: "/picking", label: "Picking", icon: PackageCheck },
-    { href: "/conciliacao", label: "Conciliação", icon: FilePieChart },
     { href: "/compras", label: "Compras", icon: ShoppingCart },
     {
       label: "Arquivo",
