@@ -11,6 +11,7 @@ import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
@@ -419,7 +420,7 @@ export default function FeedListPage() {
                                         disabled={!selectedDate}
                                         >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? format(selectedDate, "PPP", {}) : <span>Escolha uma data</span>}
+                                        {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0">
@@ -428,6 +429,7 @@ export default function FeedListPage() {
                                         selected={selectedDate}
                                         onSelect={setSelectedDate}
                                         initialFocus
+                                        locale={ptBR}
                                         />
                                     </PopoverContent>
                                 </Popover>
