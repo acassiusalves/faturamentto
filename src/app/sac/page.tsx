@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock, ListChecks, SearchCheck, Ticket } from 'lucide-react';
+import { Loader2, Search, FileText, Package, User, MapPin, RefreshCw, Database, Truck, CalendarClock, SearchCheck, Ticket } from 'lucide-react';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findSaleByOrderNumber, saveSales, loadAppSettings } from '@/services/firestore';
@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrackingTab } from './tracking-tab';
 import { TicketTab } from './ticket-tab';
 
 
@@ -116,14 +115,10 @@ export default function SacPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="search">
                         <SearchCheck className="mr-2"/>
                         Buscar Pedido
-                    </TabsTrigger>
-                    <TabsTrigger value="tracking">
-                        <ListChecks className="mr-2"/>
-                        Acompanhamento
                     </TabsTrigger>
                      <TabsTrigger value="ticket">
                         <Ticket className="mr-2"/>
@@ -171,57 +166,65 @@ export default function SacPage() {
                         )}
 
                         {foundSale && !isUpdating && (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <Card className="lg:col-span-1">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2"><FileText/> Detalhes da Venda</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3 text-sm">
-                                        <div className="flex justify-between"><span>ID do Pedido:</span> <span className="font-semibold">{(foundSale as any).order_id}</span></div>
-                                        <div className="flex justify-between"><span>Código:</span> <span className="font-mono">{(foundSale as any).order_code}</span></div>
-                                        <div className="flex justify-between"><span>Data da Venda:</span> <span className="font-semibold">{formatDate((foundSale as any).payment_approved_date)}</span></div>
-                                        <div className="flex justify-between items-center"><span>Marketplace:</span> <Badge variant="secondary">{(foundSale as any).marketplace_name}</Badge></div>
-                                        <div className="flex justify-between items-center"><span>Conta:</span> <Badge variant="outline">{(foundSale as any).auth_name}</Badge></div>
-                                        <div className="flex justify-between items-center"><span>Status:</span> <Badge>{(foundSale as any).status}</Badge></div>
-                                        <div className="flex justify-between">
-                                            <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4"/> Data de Envio:</span> 
-                                            <span className="font-semibold">{formatDate((foundSale as any).sent_date)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="flex items-center gap-1.5"><Truck className="h-4 w-4"/> Rastreio:</span> 
-                                            <span className="font-mono">{(foundSale as any).deliveryTrackingCode || 'N/A'}</span>
-                                        </div>
-                                        <div className="flex justify-between"><span>Valor Pago:</span> <span className="font-bold text-primary">{formatCurrency((foundSale as any).paid_amount)}</span></div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="lg:col-span-1">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2"><Package/> Produto Vendido</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3 text-sm">
-                                        <p className="font-semibold text-base leading-tight">{(foundSale as any).item_title}</p>
-                                        <div className="flex justify-between"><span>SKU:</span> <span className="font-mono">{(foundSale as any).item_sku}</span></div>
-                                        <div className="flex justify-between"><span>Quantidade:</span> <span className="font-semibold">{(foundSale as any).item_quantity}</span></div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="lg:col-span-1">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2"><User/> Cliente e Entrega</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-3 text-sm">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <span>Nome:</span> 
-                                            <span className="font-semibold text-right">{(foundSale as any).customer_name} {(foundSale as any).customerLastName}</span>
-                                        </div>
-                                        <div className="flex justify-between"><span>Documento:</span> <span className="font-semibold">{(foundSale as any).document_value}</span></div>
-                                        <div className="flex justify-between items-start gap-2">
-                                            <span className="whitespace-nowrap flex items-center gap-1.5"><MapPin className="h-4 w-4"/> Endereço:</span> 
-                                            <span className="font-semibold text-right">
-                                                {(foundSale as any).address_line}, {(foundSale as any).address_district} - {(foundSale as any).address_city}, {(foundSale as any).state_name} - CEP: {(foundSale as any).address_zip_code}
-                                            </span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                             <div className="flex flex-col gap-4">
+                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <Card className="lg:col-span-1">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2"><FileText/> Detalhes da Venda</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3 text-sm">
+                                            <div className="flex justify-between"><span>ID do Pedido:</span> <span className="font-semibold">{(foundSale as any).order_id}</span></div>
+                                            <div className="flex justify-between"><span>Código:</span> <span className="font-mono">{(foundSale as any).order_code}</span></div>
+                                            <div className="flex justify-between"><span>Data da Venda:</span> <span className="font-semibold">{formatDate((foundSale as any).payment_approved_date)}</span></div>
+                                            <div className="flex justify-between items-center"><span>Marketplace:</span> <Badge variant="secondary">{(foundSale as any).marketplace_name}</Badge></div>
+                                            <div className="flex justify-between items-center"><span>Conta:</span> <Badge variant="outline">{(foundSale as any).auth_name}</Badge></div>
+                                            <div className="flex justify-between items-center"><span>Status:</span> <Badge>{(foundSale as any).status}</Badge></div>
+                                            <div className="flex justify-between">
+                                                <span className="flex items-center gap-1.5"><CalendarClock className="h-4 w-4"/> Data de Envio:</span> 
+                                                <span className="font-semibold">{formatDate((foundSale as any).sent_date)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4"/> Rastreio:</span> 
+                                                <span className="font-mono">{(foundSale as any).deliveryTrackingCode || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between"><span>Valor Pago:</span> <span className="font-bold text-primary">{formatCurrency((foundSale as any).paid_amount)}</span></div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="lg:col-span-1">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2"><Package/> Produto Vendido</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3 text-sm">
+                                            <p className="font-semibold text-base leading-tight">{(foundSale as any).item_title}</p>
+                                            <div className="flex justify-between"><span>SKU:</span> <span className="font-mono">{(foundSale as any).item_sku}</span></div>
+                                            <div className="flex justify-between"><span>Quantidade:</span> <span className="font-semibold">{(foundSale as any).item_quantity}</span></div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="lg:col-span-1">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2"><User/> Cliente e Entrega</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3 text-sm">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <span>Nome:</span> 
+                                                <span className="font-semibold text-right">{(foundSale as any).customer_name} {(foundSale as any).customerLastName}</span>
+                                            </div>
+                                            <div className="flex justify-between"><span>Documento:</span> <span className="font-semibold">{(foundSale as any).document_value}</span></div>
+                                            <div className="flex justify-between items-start gap-2">
+                                                <span className="whitespace-nowrap flex items-center gap-1.5"><MapPin className="h-4 w-4"/> Endereço:</span> 
+                                                <span className="font-semibold text-right">
+                                                    {(foundSale as any).address_line}, {(foundSale as any).address_district} - {(foundSale as any).address_city}, {(foundSale as any).state_name} - CEP: {(foundSale as any).address_zip_code}
+                                                </span>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                                <div className="flex justify-end">
+                                    <Button onClick={() => handleOpenTicketForOrder(foundSale)}>
+                                        <Ticket className="mr-2" />
+                                        Abrir Ticket para este Pedido
+                                    </Button>
+                                </div>
                                 {rawApiResponse && (
                                     <Card className="lg:col-span-3">
                                         <CardHeader>
@@ -240,9 +243,6 @@ export default function SacPage() {
                             </div>
                         )}
                     </div>
-                </TabsContent>
-                <TabsContent value="tracking" className="mt-6">
-                    <TrackingTab onOpenTicket={handleOpenTicketForOrder} />
                 </TabsContent>
                 <TabsContent value="ticket" className="mt-6">
                     <TicketTab order={ticketOrder} />
