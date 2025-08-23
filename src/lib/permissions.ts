@@ -26,6 +26,7 @@ export const navLinks = [
       icon: PackagePlus,
       subItems: [
         { href: "/produtos", label: "Produtos", icon: ShoppingCart },
+        { href: "/avisos", label: "Avisos", icon: Megaphone },
       ]
     },
     { href: "/estoque", label: "Estoque", icon: Warehouse },
@@ -46,7 +47,6 @@ export const navLinks = [
     { href: "/mapeamento", label: "Mapeamento", icon: Map },
     { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
     { href: "/feed-25", label: "Feed 25", icon: Sparkles },
-    { href: "/avisos", label: "Avisos", icon: Megaphone },
 ];
 
 export const settingsLinks = [
