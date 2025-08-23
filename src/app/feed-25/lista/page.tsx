@@ -29,7 +29,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
-import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry } from '@/services/firestore';
+import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings } from '@/services/firestore';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -86,7 +86,7 @@ export default function FeedListPage() {
     const [filter, setFilter] = useState('');
     const [selectedDate, setSelectedDate] = useState<Date | undefined>();
     const [apiKey, setApiKey] = useState('');
-    const [modelName, setModelName] = useState('');
+    const [modelName, setModelName] = useState('gemini-1.5-flash-latest');
     const [progress, setProgress] = useState(0);
     const { toast } = useToast();
 
@@ -116,20 +116,21 @@ export default function FeedListPage() {
         setSelectedDate(new Date());
         fetchFeedData();
 
-        try {
-            const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-            if (savedApiKey) setApiKey(savedApiKey);
-
-            const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-            if (savedModel) setModelName(savedModel);
-
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Carregar Configurações',
-                description: 'Não foi possível carregar as configurações de API do navegador.',
-            });
+        async function loadApiSettings() {
+            try {
+                const settings = await loadAppSettings();
+                if (settings?.geminiApiKey) {
+                    setApiKey(settings.geminiApiKey);
+                }
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Erro ao Carregar Configurações',
+                    description: 'Não foi possível carregar as configurações de API do sistema.',
+                });
+            }
         }
+        loadApiSettings();
     }, [toast]);
     
     useEffect(() => {
