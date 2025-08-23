@@ -12,6 +12,7 @@ import { Loader2, PlusCircle, Ticket, FileText, Package, User, MapPin, CalendarC
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Label } from '@/components/ui/label';
 
 interface TicketTabProps {
   order: Sale | null;
@@ -108,7 +109,46 @@ export function TicketTab({ order }: TicketTabProps) {
                             </CardContent>
                         </Card>
                     </div>
-                     <p className="text-muted-foreground text-center">Funcionalidade de criação de ticket em desenvolvimento.</p>
+                     
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Dados do Atendimento</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                    <Label htmlFor="devolucao-status">Status da devolução</Label>
+                                     <Select>
+                                        <SelectTrigger id="devolucao-status">
+                                            <SelectValue placeholder="Selecione um status..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="aguardando-envio">Aguardando envio do cliente</SelectItem>
+                                            <SelectItem value="em-transito">Em trânsito para o centro</SelectItem>
+                                            <SelectItem value="recebido">Recebido</SelectItem>
+                                            <SelectItem value="em-analise">Em análise</SelectItem>
+                                            <SelectItem value="finalizado">Finalizado</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                               </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="chamado">Chamado</Label>
+                                    <Input id="chamado" placeholder="Insira o nº do chamado" />
+                               </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="observacoes">Observações</Label>
+                                <Textarea id="observacoes" placeholder="Adicione notas sobre o atendimento..." rows={4} />
+                            </div>
+                            <div className="flex justify-end">
+                                <Button disabled>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Criar Ticket
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                 </CardContent>
             </Card>
         </div>
