@@ -83,13 +83,43 @@ export function Header() {
                 })}
                 
                 <div className="flex items-center gap-1 border-l ml-2 pl-2">
-                    {settingsLinks.filter(link => hasAccess(link.href)).map(link => (
-                         <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
-                            <Link href={link.href}>
-                                <link.icon />
-                            </Link>
-                        </Button>
-                    ))}
+                    {settingsLinks.map(link => {
+                         if (link.subItems) {
+                            const canAccessSubItems = link.subItems.some(sub => hasAccess(sub.href));
+                            if (!canAccessSubItems) return null;
+                            
+                            return (
+                                <DropdownMenu key={link.title}>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" title={link.title}>
+                                            <link.icon />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        {link.subItems.filter(sub => hasAccess(sub.href)).map(subItem => (
+                                            <DropdownMenuItem key={subItem.href} asChild>
+                                                <Link href={subItem.href}>
+                                                    <subItem.icon className="mr-2" />
+                                                    {subItem.label}
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            );
+                        }
+
+                        if(hasAccess(link.href)) {
+                            return (
+                                <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
+                                    <Link href={link.href!}>
+                                        <link.icon />
+                                    </Link>
+                                </Button>
+                            )
+                        }
+                        return null;
+                    })}
 
                      <Button onClick={logout} variant="ghost" size="icon" title="Sair" className="text-destructive hover:text-destructive">
                         <LogOut />

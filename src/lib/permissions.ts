@@ -44,13 +44,19 @@ export const navLinks = [
     { href: "/dre", label: "DRE", icon: BarChart3 },
     { href: "/custos-geral", label: "Custos", icon: DollarSign },
     { href: "/memoria", label: "Memória", icon: BrainCircuit },
-    { href: "/mapeamento", label: "Mapeamento", icon: Map },
     { href: "/aprovacoes", label: "Aprovações", icon: CheckSquare },
     { href: "/feed-25", label: "Feed 25", icon: Sparkles },
 ];
 
 export const settingsLinks = [
-    { href: "/configuracoes", title: "Configurações", icon: Settings },
+    { 
+      title: "Configurações", 
+      icon: Settings,
+      subItems: [
+          { href: "/configuracoes", label: "Permissões", icon: Settings },
+          { href: "/mapeamento", label: "Mapeamento", icon: Map },
+      ]
+    },
     { href: "/perfil", title: "Perfil", icon: User },
 ];
 
