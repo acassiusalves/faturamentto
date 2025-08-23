@@ -13,10 +13,10 @@ export const availableRoles = [
 export const navLinks = [
     { 
       href: "/", 
-      label: "Dashboard", 
+      label: "Vendas", 
       icon: LayoutDashboard,
       subItems: [
-          { href: "/", label: "Painel Principal", icon: LayoutDashboard },
+          { href: "/", label: "Dashboard", icon: LayoutDashboard },
           { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart }
       ]
     },
