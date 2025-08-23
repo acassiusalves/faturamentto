@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -56,7 +57,6 @@ const dashboardColumns = [
     { key: 'marketplace_name', label: 'Nome do Marketplace' },
     { key: 'payment_approved_date', label: 'Data de Aprovação (Pagamento)' },
     { key: 'state_name', label: 'Estado' },
-    { key: 'status', label: 'Status' },
     { key: 'item_sku', label: 'SKU (Item)' },
 ];
 
@@ -463,16 +463,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                 <CardTitle className="text-lg">Detalhes das Vendas</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-                {isDashboard && (
-                    <Button
-                        variant="outline"
-                        onClick={handleQueueRefresh}
-                        disabled={isQueueRefreshing || isLoading || currentSales.length === 0}
-                    >
-                        {isQueueRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
-                        Atualizar Todos ({currentSales.length})
-                    </Button>
-                )}
                  {!isDashboard && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -577,7 +567,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
                             if (isDateColumn) {
                                 cellContent = formatDate(cellContent);
-                            } else if (isStatusColumn) {
+                            } else if (isStatusColumn && !isDashboard) {
                                 cellContent = (
                                     <div className="flex items-center gap-2 justify-start">
                                         {cellContent ? <Badge variant="secondary">{cellContent}</Badge> : 'N/A'}
