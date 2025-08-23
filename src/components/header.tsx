@@ -38,8 +38,12 @@ export function Header() {
             </Link>
             
             <nav className="ml-auto flex items-center gap-2">
-                {navLinks.filter(link => hasAccess(link.href) || link.subItems?.some(sub => hasAccess(sub.href))).map(link => {
+                {navLinks.map(link => {
                     if (link.subItems) {
+                        // Render dropdown if there are sub-items and user has access to at least one
+                        const canAccessSubItems = link.subItems.some(sub => hasAccess(sub.href));
+                        if (!canAccessSubItems) return null;
+
                         return (
                             <DropdownMenu key={link.href}>
                                 <DropdownMenuTrigger asChild>
@@ -62,14 +66,20 @@ export function Header() {
                             </DropdownMenu>
                         )
                     }
-                    return (
-                        <Button asChild variant="ghost" size="sm" key={link.href}>
-                            <Link href={link.href!}>
-                                <link.icon className="mr-2" />
-                                {link.label}
-                            </Link>
-                        </Button>
-                    )
+                    
+                    // Render a normal link if it has access
+                    if (hasAccess(link.href)) {
+                        return (
+                            <Button asChild variant="ghost" size="sm" key={link.href}>
+                                <Link href={link.href!}>
+                                    <link.icon className="mr-2" />
+                                    {link.label}
+                                </Link>
+                            </Button>
+                        )
+                    }
+                    
+                    return null;
                 })}
                 
                 <div className="flex items-center gap-1 border-l ml-2 pl-2">
