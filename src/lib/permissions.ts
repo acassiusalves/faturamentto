@@ -21,7 +21,13 @@ export const navLinks = [
           { href: "/sac", label: "SAC", icon: Headset },
       ]
     },
-    { href: "/produtos", label: "Produtos", icon: PackagePlus },
+    {
+      label: "Cadastro",
+      icon: PackagePlus,
+      subItems: [
+        { href: "/produtos", label: "Produtos", icon: ShoppingCart },
+      ]
+    },
     { href: "/estoque", label: "Estoque", icon: Warehouse },
     { href: "/picking", label: "Picking", icon: PackageCheck },
     { href: "/conciliacao", label: "Conciliação", icon: FilePieChart },
