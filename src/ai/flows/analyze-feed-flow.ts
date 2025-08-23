@@ -23,13 +23,6 @@ const ProductInputSchema = z.object({
   prices: z.record(z.number().nullable()), // Record<storeName, price>
 });
 
-const AnalyzeFeedInputSchema = z.object({
-  products: z.array(ProductInputSchema),
-  apiKey: z.string().optional(),
-  modelName: z.string().optional(),
-});
-export type AnalyzeFeedInput = z.infer<typeof AnalyzeFeedInputSchema>;
-
 const ProductAnalysisSchema = z.object({
   sku: z.string().describe('The SKU of the product being analyzed.'),
   status: z
@@ -48,7 +41,6 @@ const AnalyzeFeedOutputSchema = z.object({
 
 export type AnalyzeFeedOutput = z.infer<typeof AnalyzeFeedOutputSchema>;
 
-
 const DEFAULT_ANALYZE_PROMPT = `
 Você é um analista de e-commerce especialista em comparar preços de produtos de diferentes fornecedores. Sua tarefa é analisar uma lista de produtos e seus preços para identificar anomalias, oportunidades e consistências.
 
@@ -61,17 +53,16 @@ Você é um analista de e-commerce especialista em comparar preços de produtos 
 
 Para cada produto na lista, você deve fazer uma análise e retornar um dos seguintes status:
 
-1.  **OPORTUNIDADE**:
-    *   **Critério Principal:** O preço MÍNIMO de um produto está **significativamente abaixo** do seu preço MÉDIO. Uma diferença de 10% ou mais é um forte indicador.
-    *   **Justificativa:** Indique qual loja tem o preço mais baixo e por que é uma boa oportunidade (ex: "Loja X com preço 15% abaixo da média. Excelente oportunidade de compra para margem de lucro.").
+1.  **ATENCAO**:
+    *   **Critério Principal:** O preço de um produto em uma loja (MÍNIMO ou MÁXIMO) está **muito distante** da MÉDIA de preços. Uma diferença de 20% ou mais (para cima ou para baixo) é um forte sinal de alerta. Isso provavelmente indica um erro de digitação na lista de preços do fornecedor.
+    *   **Justificativa:** Indique a loja com o preço discrepante e o motivo da suspeita. (ex: "Loja X com preço 30% abaixo da média. Provavelmente um erro de digitação na lista.") ou (ex: "Loja Y com preço 25% acima da média. Verificar se o produto é o mesmo ou se há erro.").
 
-2.  **ATENCAO**:
-    *   **Critério Principal:** O preço MÁXIMO de um produto está **significativamente acima** do seu preço MÉDIO. Uma diferença de 15% ou mais é um sinal de alerta.
-    *   **Critério Secundário:** Existe uma **grande variação** entre o preço MÍNIMO e MÁXIMO, mesmo que nenhum extremo seja tão acentuado.
-    *   **Justificativa:** Aponte a discrepância e qual loja está com o preço mais alto. (ex: "Loja Y com preço 20% acima da média. Verificar se o produto é o mesmo ou se há erro.").
+2.  **OPORTUNIDADE**:
+    *   **Critério Principal:** O preço MÍNIMO de um produto está **moderadamente abaixo** do seu preço MÉDIO. Uma diferença entre 5% e 15% é um indicador realista de oportunidade.
+    *   **Justificativa:** Indique qual loja tem o preço mais baixo e por que é uma boa oportunidade (ex: "Loja X com preço 10% abaixo da média. Boa oportunidade de compra para margem de lucro.").
 
 3.  **PRECO_OK**:
-    *   **Critério Principal:** Os preços em todas as lojas estão **próximos** uns dos outros e da MÉDIA. Variações pequenas (menos de 5-10%) são consideradas normais.
+    *   **Critério Principal:** Os preços em todas as lojas estão **próximos** uns dos outros e da MÉDIA. Variações pequenas (menos de 5%) são consideradas normais.
     *   **Justificativa:** Uma breve confirmação de que os preços estão alinhados. (ex: "Preços consistentes entre as lojas.").
 
 
@@ -85,7 +76,14 @@ Analise cada produto da lista de entrada e gere o JSON de saída completo.
 `;
 
 
-export async function analyzeFeed(input: AnalyzeFeedInput): Promise<AnalyzeFeedOutput> {
+export async function analyzeFeed(input: any): Promise<AnalyzeFeedOutput> {
+  // Move schema definition inside the function
+  const AnalyzeFeedInputSchema = z.object({
+    products: z.array(ProductInputSchema),
+    apiKey: z.string().optional(),
+    modelName: z.string().optional(),
+  });
+  
   const ai = getAi(input.apiKey);
   const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
 

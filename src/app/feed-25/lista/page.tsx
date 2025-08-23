@@ -236,7 +236,7 @@ export default function FeedListPage() {
         const incorrectOffers: IncorrectOffer[] = [];
         comparisonData.forEach(product => {
             if(product.analysis?.status === 'ATENCAO') {
-                const DEVIATION_THRESHOLD = 0.3; // 30%
+                const DEVIATION_THRESHOLD = 0.20; // 20%
                 Object.entries(product.prices).forEach(([storeName, price]) => {
                     if (price !== null && product.averagePrice > 0) {
                         const deviation = Math.abs(price - product.averagePrice) / product.averagePrice;
