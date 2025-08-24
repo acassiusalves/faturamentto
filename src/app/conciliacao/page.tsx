@@ -161,7 +161,7 @@ export default function ConciliationPage() {
     const loadSupportDataForMonth = useCallback(async () => {
         const monthYear = getMonthYearKey();
         if (monthYear) {
-            const data = await loadMonthlySupportData(monthYear);
+            const data = await loadMonthlySupportData(monthYearKey);
             setSupportData(data);
         }
     }, [getMonthYearKey]);
@@ -329,26 +329,19 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
-            // Esta é a nossa função de conversão final e mais confiável.
+            // Use o mesmo parser robusto do motor de cálculo
             const parseSheetValue = (value: any): any => {
-                if (typeof value !== 'string') {
-                    return value;
-                }
-                const trimmedValue = value.trim();
-                
-                // Se não tiver vírgula, não é um número BRL que precisa de tratamento especial.
-                if (!trimmedValue.includes(',')) {
-                    // Tenta converter para número caso seja algo como "123" ou "123.45"
-                    const regularNum = parseFloat(trimmedValue);
-                    return isNaN(regularNum) ? trimmedValue : regularNum;
-                }
+              // Se já é número finito, mantém
+              if (typeof value === 'number' && Number.isFinite(value)) return value;
 
-                // Lógica para converter o formato BRL "1.234,56" para o número 1234.56
-                const cleanedForParsing = trimmedValue.replace(/\./g, '').replace(',', '.');
-                const number = parseFloat(cleanedForParsing);
-                
-                // Se a conversão falhar, retorna o texto original. Senão, o número.
-                return isNaN(number) ? trimmedValue : number;
+              // Se é string, tenta converter pt-BR/en-US, removendo "R$", espaços, etc.
+              if (typeof value === 'string') {
+                const n = parseBrNumber(value); // a helper que você já declarou acima
+                if (n != null) return n;
+              }
+
+              // Caso não seja número, devolve como veio (texto, data, etc.)
+              return value;
             };
 
             const supportDataMap = new Map<string, Record<string, any>>();
