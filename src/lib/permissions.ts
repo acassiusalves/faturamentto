@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -20,6 +20,7 @@ export const navLinks = [
           { href: "/analise-por-conta", label: "Análise por Conta", icon: LineChart },
           { href: "/sac", label: "SAC", icon: Headset },
           { href: "/conciliacao", label: "Conciliação", icon: FilePieChart },
+          { href: "/etiquetas", label: "Etiquetas", icon: Tags },
       ]
     },
     {
@@ -84,5 +85,6 @@ export const pagePermissions: Record<string, string[]> = {
     '/feed-25': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/avisos': ['admin'],
     '/anuncios': ['admin'],
+    '/etiquetas': ['admin'],
     '/login': [], // Public page, no roles required
 };
