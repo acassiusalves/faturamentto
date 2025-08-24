@@ -409,6 +409,30 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
     }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]);
     
+    const summaryStats = useMemo(() => {
+        let faturamento = 0;
+        let custoProduto = 0;
+        let lucroLiquido = 0;
+
+        filteredSales.forEach(sale => {
+            faturamento += getNumericField(sale, 'value_with_shipping');
+            custoProduto += getNumericField(sale, 'product_cost');
+            // Assuming 'lucro_liquido_real' is a custom column you have. 
+            // If not, you should adjust this key to the actual final profit column key.
+            lucroLiquido += getNumericField(sale, 'custom_lucro_liquido_real_1720549929555');
+        });
+        
+        const margemContribuicao = faturamento > 0 ? (lucroLiquido / faturamento) * 100 : 0;
+        
+        return {
+            faturamento,
+            custoProduto,
+            lucroLiquido,
+            margemContribuicao,
+        }
+    }, [filteredSales]);
+
+
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
             .filter(f => f.key.toLowerCase().includes('value') || f.key.toLowerCase().includes('amount') || f.key.toLowerCase().includes('fee') || f.key.toLowerCase().includes('cost') || f.key.toLowerCase().includes('discount') || f.key.toLowerCase().includes('left_over'))
@@ -559,6 +583,30 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
             <Card>
                 <CardHeader>
+                    <CardTitle>Resumo do Período</CardTitle>
+                </CardHeader>
+                <CardContent className="flex justify-around items-center p-6 text-center">
+                    <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Lucro Líquido</p>
+                        <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryStats.lucroLiquido)}</p>
+                    </div>
+                     <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Custo Produto</p>
+                        <p className="text-2xl font-bold text-destructive">{formatCurrency(summaryStats.custoProduto)}</p>
+                    </div>
+                     <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">M.C. %</p>
+                        <p className="text-2xl font-bold">{summaryStats.margemContribuicao.toFixed(2)}%</p>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Faturamento</p>
+                        <p className="text-2xl font-bold text-primary">{formatCurrency(summaryStats.faturamento)}</p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
                     <div className="flex items-center gap-2">
                         <Filter className="h-5 w-5" />
                         <CardTitle className="text-lg">Filtros Adicionais</CardTitle>
@@ -647,4 +695,5 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
+
 
