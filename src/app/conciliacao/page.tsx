@@ -29,7 +29,18 @@ const getMonths = () => {
     }));
 };
 
-const defaultCalculations: CustomCalculation[] = [];
+const defaultCalculations: CustomCalculation[] = [
+    {
+        id: 'custom_lucro_liquido_real_1720549929555',
+        name: 'Lucro Líquido Real',
+        formula: [
+            { type: 'column', value: 'left_over', label: 'Lucro (sobra)' },
+            { type: 'operator', value: '-', label: '-' },
+            { type: 'column', value: 'product_cost', label: 'Custo do Produto' },
+        ],
+        isPercentage: false,
+    },
+];
 
 // ----------------------------------------------------------------------------------
 // INÍCIO DA SEÇÃO DE CÓDIGO CORRIGIDO
@@ -695,5 +706,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
+
 
 
