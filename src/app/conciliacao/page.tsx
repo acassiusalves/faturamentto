@@ -35,8 +35,6 @@ const defaultCalculations: CustomCalculation[] = [];
 // INÍCIO DA SEÇÃO DE CÓDIGO CORRIGIDO
 // ----------------------------------------------------------------------------------
 
-// PASSO 1: Mova a função de ordenação para FORA do componente.
-// Coloque este bloco de código ANTES de 'export default function ConciliationPage() ...'
 const sortCalculationsByDependency = (calculations: CustomCalculation[]): CustomCalculation[] => {
     const graph: { [key: string]: string[] } = {};
     const inDegree: { [key: string]: number } = {};
@@ -182,7 +180,6 @@ export default function ConciliationPage() {
         return map;
     }, [pickingLogs]);
     
-    // PASSO 2: Envolva a função 'applyCustomCalculations' com o hook 'useCallback'
     const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const saleWithCost = {
             ...sale,
@@ -192,12 +189,10 @@ export default function ConciliationPage() {
 
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
 
-        // CORREÇÃO: Unificamos tudo em uma única passagem (loop).
         sortedCalculations.forEach(calc => {
-            // Parte 1: Calcula o valor base da coluna atual
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
                 (saleWithCost.customData as any)[calc.id] = NaN;
-                return; // Pula para o próximo cálculo
+                return;
             }
             try {
                 const values: number[] = [];
@@ -257,9 +252,8 @@ export default function ConciliationPage() {
         }
 
         return saleWithCost;
-    }, [pickingLogsMap, customCalculations]); // <- Dependências da função
+    }, [pickingLogsMap, customCalculations]);
 
-    // PASSO 3: Atualize a lista de dependências do useMemo 'filteredSales'
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
         let processedSales = sales.filter(sale => {
@@ -285,9 +279,24 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-            // CORREÇÃO: Reintroduz uma função de normalização robusta que remove
-            // caracteres não numéricos para garantir a correspondência.
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
+
+            // CORREÇÃO: Adiciona uma função para converter números no formato BRL para o formato JS.
+            const parseBRLNumber = (value: any): number | string => {
+                if (typeof value !== 'string') return value;
+                
+                // Verifica se o valor parece ser um número no formato BRL (contém vírgula)
+                if (value.includes(',') && /[0-9]/.test(value)) {
+                    const cleanedValue = value.replace(/\./g, '').replace(',', '.');
+                    const number = parseFloat(cleanedValue);
+                    // Se a conversão for bem-sucedida, retorna o número.
+                    if (!isNaN(number)) {
+                        return number;
+                    }
+                }
+                // Se não for um número BRL ou a conversão falhar, retorna o valor original.
+                return value;
+            };
 
             const supportDataMap = new Map<string, Record<string, any>>();
             const allFiles = Object.values(supportData.files).flat();
@@ -299,7 +308,7 @@ export default function ConciliationPage() {
                     try {
                         const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
                         parsedData.data.forEach((row: any) => {
-                           const key = normalizeKey(row[file.associationKey]); // Usa a nova função
+                           const key = normalizeKey(row[file.associationKey]);
                            if(key) {
                                if (!supportDataMap.has(key)) {
                                    supportDataMap.set(key, {});
@@ -309,7 +318,8 @@ export default function ConciliationPage() {
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
-                                       existingData[friendlyName] = row[header];
+                                       // CORREÇÃO: Aplica a conversão em cada valor da planilha.
+                                       existingData[friendlyName] = parseBRLNumber(row[header]);
                                    }
                                }
                            }
@@ -320,7 +330,7 @@ export default function ConciliationPage() {
                  });
                  
                  processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeKey((sale as any).order_code); // Usa a nova função
+                     const saleKey = normalizeKey((sale as any).order_code);
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
@@ -337,7 +347,7 @@ export default function ConciliationPage() {
         
         return processedSales.map(applyCustomCalculations);
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]); // <- A dependência agora é a própria função
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]);
     
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
@@ -577,5 +587,6 @@ export default function ConciliationPage() {
         </>
     );
 }
+
 
 
