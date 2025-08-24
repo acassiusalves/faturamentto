@@ -60,22 +60,30 @@ export default function AnunciosPage() {
                 const productSheet = workbook.Sheets['Produto'];
                 const stockSheet = workbook.Sheets['Estoque'];
                 const priceSheet = workbook.Sheets['Preço'];
+                const policySheet = workbook.Sheets['Politicas e Relevância'];
 
-                if (!productSheet || !stockSheet || !priceSheet) {
-                    throw new Error("O arquivo XLSX deve conter as abas 'Produto', 'Estoque' e 'Preço'.");
+
+                if (!productSheet || !stockSheet || !priceSheet || !policySheet) {
+                    throw new Error("O arquivo XLSX deve conter as abas 'Produto', 'Estoque', 'Preço' e 'Politicas e Relevância'.");
                 }
                 
                 const productData = XLSX.utils.sheet_to_json(productSheet);
                 const stockData = XLSX.utils.sheet_to_json(stockSheet);
                 const priceData = XLSX.utils.sheet_to_json(priceSheet);
+                const policyData = XLSX.utils.sheet_to_json(policySheet);
+
 
                 const stockMap = new Map(stockData.map((item: any) => [item.SKU, item]));
                 const priceMap = new Map(priceData.map((item: any) => [item.SKU, item]));
+                const policyMap = new Map(policyData.map((item: any) => [item.SKU, item]));
+
 
                 const mergedData = productData.map((product: any) => {
                     const stockInfo = stockMap.get(product.SKU) || {};
                     const priceInfo = priceMap.get(product.SKU) || {};
-                    return { ...product, ...stockInfo, ...priceInfo };
+                    const policyInfo = policyMap.get(product.SKU) || {};
+
+                    return { ...product, ...stockInfo, ...priceInfo, ...policyInfo };
                 });
                 
                 parsedData = mergedData;
