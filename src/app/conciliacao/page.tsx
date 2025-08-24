@@ -190,9 +190,10 @@ export default function ConciliationPage() {
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
 
         sortedCalculations.forEach(calc => {
+            // Parte 1: Calcula o valor base da coluna atual
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
                 (saleWithCost.customData as any)[calc.id] = NaN;
-                return;
+                return; // Pula para o próximo cálculo
             }
             try {
                 const values: number[] = [];
@@ -281,27 +282,25 @@ export default function ConciliationPage() {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
-            // CORREÇÃO: Versão mais robusta da função de conversão de moeda.
             const parseBRLNumber = (value: any): number | string => {
-                // Se o valor for nulo ou indefinido, retorna como está.
                 if (value === null || value === undefined) return value;
-            
-                // Garante que estamos trabalhando com uma string e remove espaços.
                 const strValue = String(value).trim();
-            
-                // Se for uma string vazia, retorna como está.
                 if (strValue === '') return strValue;
 
-                // Tenta converter o formato BRL (ex: "R$ 1.156,62") para um número JS (1156.62)
                 const cleanedValue = strValue
-                    .replace(/R\$\s?/, '') // Remove "R$" e um espaço opcional
-                    .replace(/\./g, '')    // Remove todos os pontos (separador de milhar)
-                    .replace(',', '.');    // Troca a vírgula (decimal) por um ponto
+                    .replace(/R\$\s?/, '')
+                    .replace(/\./g, '')
+                    .replace(',', '.');
             
                 const number = parseFloat(cleanedValue);
+
+                // --- INÍCIO DA DEPURAÇÃO ---
+                // Se o valor original tinha uma vírgula, vamos registrá-lo no console.
+                if (strValue.includes(',')) {
+                    console.log(`[Depuração Planilha] Original: "${strValue}", Limpo: "${cleanedValue}", Resultado Numérico:`, number);
+                }
+                // --- FIM DA DEPURAÇÃO ---
             
-                // Se o resultado for um número válido, retorna o número.
-                // Senão, retorna a string original que foi lida da planilha.
                 return isNaN(number) ? strValue : number;
             };
 
@@ -593,4 +592,5 @@ export default function ConciliationPage() {
         </>
     );
 }
+
 
