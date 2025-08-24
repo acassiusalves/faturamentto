@@ -172,6 +172,8 @@ export default function ConciliationPage() {
                 for (const item of calc.formula) {
                     if (item.type === 'column') {
                         values.push((saleWithCost as any)[item.value] || 0);
+                    } else if (item.type === 'number') {
+                        values.push(parseFloat(item.value));
                     } else if (item.value === '(') {
                         ops.push(item.value);
                     } else if (item.value === ')') {

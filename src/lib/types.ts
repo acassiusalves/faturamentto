@@ -17,6 +17,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -263,7 +264,7 @@ export interface SupportData {
 }
 
 // -- Custom Calculation Types --
-export type FormulaItem = { type: 'column' | 'operator'; value: string; label: string };
+export type FormulaItem = { type: 'column' | 'operator' | 'number'; value: string; label: string };
 
 export interface CustomCalculation {
     id: string; // e.g. 'custom_162987...
