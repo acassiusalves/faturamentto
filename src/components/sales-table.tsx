@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -143,6 +144,8 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
     const settings = await loadAppSettings();
     const friendlyNames = settings?.friendlyFieldNames || {};
+    const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
 
     const iderisCols = iderisFields
         .filter(field => field.key !== 'status') // Remove o status daqui para adicionarmos com o botão
@@ -182,7 +185,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
             Object.values(file.friendlyNames).forEach(name => allFriendlyNames.add(name));
         });
         allFriendlyNames.forEach(name => {
-             sheetCols.push({ key: name, label: name, isCustom: true, group: 'Planilha' });
+             sheetCols.push({ key: normalizeLabel(name), label: name, isCustom: true, group: 'Planilha' });
         });
     }
 
@@ -568,7 +571,8 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                             {columnsToRender.map(field => {
                             let cellContent: any;
                             let isPercentage = field.isPercentage || false;
-                            
+                             const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+
                             if (field.group === 'Sistema') {
                                 if(field.key === 'product_cost') {
                                     cellContent = productCostSource.get((sale as any).order_code);
@@ -576,7 +580,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                     cellContent = sale.customData?.[field.key];
                                 }
                             } else if (field.group === 'Planilha') {
-                                cellContent = sale.sheetData?.[field.key];
+                                cellContent = sale.sheetData?.[normalizeLabel(field.label)];
                             } else if (field.key === 'item_title') {
                                 // Use system product name if available, otherwise fallback to ad name
                                 cellContent = productSkuMap.get((sale as any).item_sku) || (sale as any).item_title;

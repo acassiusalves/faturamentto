@@ -329,6 +329,14 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
+            const normalizeLabel = (s: string): string =>
+                String(s || '')
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
+                    .replace(/[_-]+/g, ' ')                           // "_" ou "-" -> espaço
+                    .replace(/\s+/g, ' ')                             // colapsa espaços
+                    .trim()
+                    .toLowerCase();
+
             // Use o mesmo parser robusto do motor de cálculo
             const parseSheetValue = (value: any): any => {
               // Se já é número finito, mantém
@@ -352,13 +360,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                     if (!file.fileContent || !file.associationKey) return;
                     
                     try {
-                        // 1. Lemos a planilha como texto puro, sem nenhuma transformação automática.
                         const parsedData = Papa.parse(file.fileContent, { 
                             header: true, 
                             skipEmptyLines: true,
                         });
 
-                        // 2. Agora, nós mesmos iteramos e convertemos cada valor.
                         parsedData.data.forEach((row: any) => {
                            const key = normalizeKey(row[file.associationKey]);
                            if(key) {
@@ -368,11 +374,13 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                                const existingData = supportDataMap.get(key)!;
                                
                                for(const header in row) {
-                                   const friendlyName = file.friendlyNames[header] || header;
-                                   if (friendlyName) {
-                                       // Aplicamos nossa conversão segura aqui.
-                                       existingData[friendlyName] = parseSheetValue(row[header]);
-                                   }
+                                   const raw = row[header];
+                                   const friendlyName = file.friendlyNames?.[header] || header;
+
+                                   const parsed = parseSheetValue(raw);
+
+                                   const normKey = normalizeLabel(friendlyName);
+                                   existingData[normKey] = parsed;
                                }
                            }
                         });
@@ -639,3 +647,4 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
+
