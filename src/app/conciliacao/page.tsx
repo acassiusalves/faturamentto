@@ -19,6 +19,7 @@ import { CalculationDialog } from '@/components/calculation-dialog';
 import type { DateRange } from "react-day-picker";
 import { iderisFields } from '@/lib/ideris-fields';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { TicketDialog } from '@/components/ticket-dialog';
 
 
 // Helper to generate months
@@ -120,6 +121,8 @@ export default function ConciliationPage() {
     });
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
     const [isCalculationOpen, setIsCalculationOpen] = useState(false);
+    const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
+    const [selectedSaleForTicket, setSelectedSaleForTicket] = useState<Sale | null>(null);
     
     // New filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -543,6 +546,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const calcsToSave = newCalculations.filter(c => !defaultCalculations.some(dc => dc.id === c.id));
         await saveAppSettings({ customCalculations: calcsToSave });
     };
+    
+    const handleOpenTicketDialog = (sale: Sale) => {
+        setSelectedSaleForTicket(sale);
+        setIsTicketDialogOpen(true);
+    };
 
     // Options for filters
     const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
@@ -681,6 +689,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               isLoading={isLoading}
               productCostSource={pickingLogsMap}
               customCalculations={customCalculations}
+              onOpenTicket={handleOpenTicketDialog}
             />
 
         </div>
@@ -703,9 +712,18 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             availableColumns={availableFormulaColumns}
             customCalculations={customCalculations}
         />
+        
+        {selectedSaleForTicket && (
+            <TicketDialog
+                isOpen={isTicketDialogOpen}
+                onClose={() => {
+                    setIsTicketDialogOpen(false);
+                    setSelectedSaleForTicket(null);
+                }}
+                order={selectedSaleForTicket}
+            />
+        )}
         </>
     );
 }
-
-
 

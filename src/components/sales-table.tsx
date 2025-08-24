@@ -48,6 +48,7 @@ interface SalesTableProps {
   productCostSource?: Map<string, number>;
   customCalculations?: CustomCalculation[];
   isDashboard?: boolean;
+  onOpenTicket: (sale: Sale) => void;
 }
 
 const dashboardColumns = [
@@ -88,7 +89,7 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
-export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
+export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false, onOpenTicket }: SalesTableProps) {
   const router = useRouter();
   const [currentSales, setCurrentSales] = useState<Sale[]>(data);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -653,7 +654,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => router.push(`/sac?orderId=${(sale as any).order_code}`)}
+                                  onClick={() => onOpenTicket(sale)}
                                 >
                                   <Ticket className="mr-2 h-4 w-4" />
                                   Abrir Ticket
