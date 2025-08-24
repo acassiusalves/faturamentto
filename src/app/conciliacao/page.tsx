@@ -146,72 +146,73 @@ export default function ConciliationPage() {
             product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
         };
         
-        const customData: Record<string, number> = {};
+        let customData: Record<string, number> = {};
 
+        // First pass: Calculate all initial values
         customCalculations.forEach(calc => {
-             // If a target marketplace is set and it doesn't match the sale's marketplace, skip this calculation.
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
-                customData[calc.id] = NaN; // Or null/undefined, to indicate it's not applicable
+                customData[calc.id] = NaN;
                 return;
             }
 
-             try {
-                // Basic shunting-yard logic for formula evaluation
+            try {
                 const values: number[] = [];
                 const ops: string[] = [];
-                const precedence = (op: string) => {
-                    if (op === '+' || op === '-') return 1;
-                    if (op === '*' || op === '/') return 2;
-                    return 0;
-                };
+                const precedence = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
 
                 const applyOp = () => {
                     const op = ops.pop()!;
                     const right = values.pop()!;
                     const left = values.pop()!;
-                    switch (op) {
-                        case '+': values.push(left + right); break;
-                        case '-': values.push(left - right); break;
-                        case '*': values.push(left * right); break;
-                        case '/': values.push(right !== 0 ? left / right : 0); break;
-                    }
+                    if (op === '+') values.push(left + right);
+                    else if (op === '-') values.push(left - right);
+                    else if (op === '*') values.push(left * right);
+                    else if (op === '/') values.push(right !== 0 ? left / right : 0);
                 };
 
                 for (const item of calc.formula) {
                     if (item.type === 'column') {
-                        values.push((saleWithCost as any)[item.value] || 0);
+                        // Use already computed customData if available
+                        const value = customData[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
+                        values.push(value);
                     } else if (item.type === 'number') {
                         values.push(parseFloat(item.value));
                     } else if (item.value === '(') {
                         ops.push(item.value);
                     } else if (item.value === ')') {
-                        while (ops.length && ops[ops.length - 1] !== '(') {
-                            applyOp();
-                        }
+                        while (ops.length && ops[ops.length - 1] !== '(') applyOp();
                         ops.pop(); // Pop '('
                     } else { // Operator
-                        while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) {
-                           applyOp();
-                        }
+                        while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) applyOp();
                         ops.push(item.value);
                     }
                 }
-                 while (ops.length > 0) {
-                    applyOp();
-                }
+                while (ops.length > 0) applyOp();
                 
                 let result = values[0];
-                if (calc.isPercentage) {
-                    result = result * 100;
-                }
-
+                if (calc.isPercentage) result *= 100;
                 customData[calc.id] = result;
 
             } catch (e) {
                 console.error(`Error calculating formula for ${calc.name}:`, e);
-                customData[calc.id] = NaN; // Indicate an error
+                customData[calc.id] = NaN;
             }
         });
+
+        // Second pass: Apply interactions
+        customCalculations.forEach(calc => {
+            if (calc.interaction && customData[calc.id] !== undefined) {
+                const targetCol = calc.interaction.targetColumn;
+                const operator = calc.interaction.operator;
+                const valueToApply = customData[calc.id];
+
+                if (customData[targetCol] !== undefined) {
+                    if (operator === '+') customData[targetCol] += valueToApply;
+                    else if (operator === '-') customData[targetCol] -= valueToApply;
+                }
+            }
+        });
+
 
         return { ...sale, customData };
     };

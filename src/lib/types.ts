@@ -1,4 +1,5 @@
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -253,6 +254,10 @@ export interface CustomCalculation {
     formula: FormulaItem[];
     isPercentage?: boolean;
     targetMarketplace?: string;
+    interaction?: {
+        targetColumn: string;
+        operator: '+' | '-';
+    };
 }
 
 // -- Approval Request Types --

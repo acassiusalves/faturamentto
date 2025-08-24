@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calculator, Sparkles, Plus, Minus, X, Divide, Sigma, Trash2, Hash, Edit } from 'lucide-react';
+import { Calculator, Sparkles, Plus, Minus, X, Divide, Sigma, Trash2, Hash, Edit, Zap } from 'lucide-react';
 import type { FormulaItem, CustomCalculation } from '@/lib/types';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -39,6 +39,11 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
   const [targetMarketplace, setTargetMarketplace] = useState<string>("all");
   const [numberValue, setNumberValue] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // State for interaction
+  const [interactionTarget, setInteractionTarget] = useState<string>('none');
+  const [interactionOperator, setInteractionOperator] = useState<'+' | '-'>('-');
+  
   const { toast } = useToast();
   
   const userMadeCalculations = useMemo(() => {
@@ -52,6 +57,8 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
     setTargetMarketplace("all");
     setNumberValue('');
     setEditingId(null);
+    setInteractionTarget('none');
+    setInteractionOperator('-');
   };
 
   const handleItemClick = (item: FormulaItem) => {
@@ -97,6 +104,10 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
           formula: formula,
           isPercentage: isPercentage,
           targetMarketplace: targetMarketplace === 'all' ? undefined : targetMarketplace,
+          interaction: interactionTarget !== 'none' ? {
+              targetColumn: interactionTarget,
+              operator: interactionOperator,
+          } : undefined,
       };
 
       await onSave(newCalculation);
@@ -111,6 +122,8 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
     setFormula(calc.formula);
     setIsPercentage(calc.isPercentage || false);
     setTargetMarketplace(calc.targetMarketplace || 'all');
+    setInteractionTarget(calc.interaction?.targetColumn || 'none');
+    setInteractionOperator(calc.interaction?.operator || '-');
   };
   
   const handleDeleteClick = async (calcId: string) => {
@@ -236,6 +249,42 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
                         </div>
                     </div>
                 </div>
+
+                <div className="space-y-2 pt-4">
+                    <Label className="font-semibold flex items-center gap-2"><Zap className="text-amber-500" /> 3. Interação (Opcional)</Label>
+                     <p className="text-xs text-muted-foreground">
+                       Faça esta nova coluna interagir com uma coluna existente. O resultado da fórmula acima será usado na operação.
+                    </p>
+                    <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+                        <Select value={interactionTarget} onValueChange={setInteractionTarget}>
+                            <SelectTrigger className="w-[200px] bg-white">
+                                <SelectValue placeholder="Selecione a coluna alvo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Nenhuma Interação</SelectItem>
+                                {availableColumns.map(col => (
+                                    <SelectItem key={col.key} value={col.key}>{col.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={interactionOperator} onValueChange={(v) => setInteractionOperator(v as any)}>
+                             <SelectTrigger className="w-[80px] bg-white">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="-">- (Subtrair)</SelectItem>
+                                <SelectItem value="+">+ (Adicionar)</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <div className="px-3 py-2 rounded-md bg-primary/10 text-primary font-bold text-sm h-10 flex items-center">
+                            {columnName || "Nova Coluna"}
+                        </div>
+                    </div>
+                </div>
+
+
             </div>
             <div className="md:col-span-1 space-y-2">
                 <Label>Colunas Personalizadas Existentes</Label>
