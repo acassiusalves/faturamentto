@@ -122,85 +122,138 @@ export default function ConciliationPage() {
         return map;
     }, [pickingLogs]);
     
-    const applyCustomCalculations = (sale: Sale): Sale => {
-        const saleWithCost = {
-            ...sale,
-            product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
-            customData: { ...(sale.customData || {}) }
-        };
-    
-        // Pass 1: Calculate all base custom column values.
-        customCalculations.forEach(calc => {
-            if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
-                (saleWithCost.customData as any)[calc.id] = NaN;
-                return;
-            }
-    
-            try {
-                const values: number[] = [];
-                const ops: string[] = [];
-                const precedence = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
-    
-                const applyOp = () => {
-                    const op = ops.pop()!;
-                    const right = values.pop()!;
-                    const left = values.pop()!;
-                    if (op === '+') values.push(left + right);
-                    else if (op === '-') values.push(left - right);
-                    else if (op === '*') values.push(left * right);
-                    else if (op === '/') values.push(right !== 0 ? left / right : 0);
-                };
-    
-                for (const item of calc.formula) {
-                    if (item.type === 'column') {
-                        // Use already calculated customData first, then saleData
-                        const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
-                        values.push(value);
-                    } else if (item.type === 'number') {
-                        values.push(parseFloat(item.value));
-                    } else if (item.value === '(') {
-                        ops.push(item.value);
-                    } else if (item.value === ')') {
-                        while (ops.length && ops[ops.length - 1] !== '(') applyOp();
-                        ops.pop(); // Pop '('
-                    } else { // Operator
-                        while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) applyOp();
-                        ops.push(item.value);
-                    }
-                }
-                while (ops.length > 0) applyOp();
-                
-                let result = values[0];
-                if (calc.isPercentage) result *= 100;
-                (saleWithCost.customData as any)[calc.id] = result;
-    
-            } catch (e) {
-                console.error(`Error calculating formula for ${calc.name}:`, e);
-                (saleWithCost.customData as any)[calc.id] = NaN;
-            }
-        });
-    
-        // Pass 2: Apply interactions. This ensures all base values are calculated before interactions happen.
-        customCalculations.forEach(calc => {
-            if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
-                const targetCol = calc.interaction.targetColumn;
-                const operator = calc.interaction.operator;
-                const valueToApply = (saleWithCost.customData as any)[calc.id];
-    
-                if ((saleWithCost.customData as any)[targetCol] !== undefined) {
-                    if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
-                    else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
-                }
-            }
-        });
+// FUNÇÃO AUXILIAR PARA ORDENAR CÁLCULOS
+const sortCalculationsByDependency = (calculations: CustomCalculation[]): CustomCalculation[] => {
+    const graph: { [key: string]: string[] } = {};
+    const inDegree: { [key: string]: number } = {};
+    const calcMap = new Map(calculations.map(c => [c.id, c]));
+    const calcIds = new Set(calcMap.keys());
 
-        // Ensure product_cost is part of customData so it can be referenced by key
-        if (!(saleWithCost.customData as any)?.product_cost) {
-          (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
+    // 1. Inicializa o grafo e o "grau de entrada" de cada cálculo
+    for (const id of calcIds) {
+        graph[id] = [];
+        inDegree[id] = 0;
+    }
+
+    // 2. Constrói o grafo de dependências
+    for (const calc of calculations) {
+        for (const item of calc.formula) {
+            if (item.type === 'column' && calcIds.has(item.value)) {
+                graph[item.value].push(calc.id);
+                inDegree[calc.id]++;
+            }
         }
-    
-        return saleWithCost;
+    }
+
+    // 3. Algoritmo de Kahn (Ordenação Topológica)
+    const queue: string[] = [];
+    for (const id in inDegree) {
+        if (inDegree[id] === 0) {
+            queue.push(id);
+        }
+    }
+
+    const sorted: CustomCalculation[] = [];
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        sorted.push(calcMap.get(currentId)!);
+
+        for (const neighborId of graph[currentId]) {
+            inDegree[neighborId]--;
+            if (inDegree[neighborId] === 0) {
+                queue.push(neighborId);
+            }
+        }
+    }
+
+    // 4. Verifica por dependências circulares
+    if (sorted.length !== calculations.length) {
+        console.error("Dependência circular detectada nos cálculos personalizados. Os resultados podem estar incorretos.");
+        return calculations;
+    }
+
+    return sorted;
+};
+const applyCustomCalculations = (sale: Sale): Sale => {
+    const saleWithCost = {
+        ...sale,
+        product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
+        customData: { ...(sale.customData || {}) }
     };
+
+    // Ordena os cálculos para garantir a ordem correta de execução
+    const sortedCalculations = sortCalculationsByDependency(customCalculations);
+
+    // Pass 1: Calcula todas as colunas personalizadas na ordem de dependência correta.
+    sortedCalculations.forEach(calc => {
+        if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
+            (saleWithCost.customData as any)[calc.id] = NaN;
+            return;
+        }
+
+        try {
+            const values: number[] = [];
+            const ops: string[] = [];
+            const precedence = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
+
+            const applyOp = () => {
+                const op = ops.pop()!;
+                const right = values.pop()!;
+                const left = values.pop()!;
+                if (op === '+') values.push(left + right);
+                else if (op === '-') values.push(left - right);
+                else if (op === '*') values.push(left * right);
+                else if (op === '/') values.push(right !== 0 ? left / right : 0);
+            };
+
+            for (const item of calc.formula) {
+                if (item.type === 'column') {
+                    const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
+                    values.push(value);
+                } else if (item.type === 'number') {
+                    values.push(parseFloat(item.value));
+                } else if (item.value === '(') {
+                    ops.push(item.value);
+                } else if (item.value === ')') {
+                    while (ops.length && ops[ops.length - 1] !== '(') applyOp();
+                    ops.pop();
+                } else {
+                    while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) applyOp();
+                    ops.push(item.value);
+                }
+            }
+            while (ops.length > 0) applyOp();
+            
+            let result = values[0];
+            if (calc.isPercentage) result *= 100;
+            (saleWithCost.customData as any)[calc.id] = result;
+
+        } catch (e) {
+            console.error(`Error calculating formula for ${calc.name}:`, e);
+            (saleWithCost.customData as any)[calc.id] = NaN;
+        }
+    });
+
+    // Pass 2: Aplica interações.
+    sortedCalculations.forEach(calc => {
+        if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
+            const targetCol = calc.interaction.targetColumn;
+            const operator = calc.interaction.operator;
+            const valueToApply = (saleWithCost.customData as any)[calc.id];
+
+            if ((saleWithCost.customData as any)[targetCol] !== undefined) {
+                if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
+                else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
+            }
+        }
+    });
+    
+    if (!(saleWithCost.customData as any)?.product_cost) {
+      (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
+    }
+
+    return saleWithCost;
+};
 
 
     const filteredSales = useMemo(() => {
