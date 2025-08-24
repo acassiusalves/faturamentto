@@ -23,7 +23,6 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "fee_shipment", label: "Taxa de Frete", path: "feeShipment" },
     { key: "fee_order", label: "Taxa do Pedido (Comissão)", path: "feeOrder" },
     { key: "net_amount", label: "Valor Líquido", path: "netAmount" },
-    { key: "left_over", label: "Lucro (sobra)", path: "leftOver" },
     { key: "discount", label: "Desconto", path: "discount" },
     { key: "discount_marketplace", label: "Desconto do Marketplace", path: "discountMarketplace" },
     
