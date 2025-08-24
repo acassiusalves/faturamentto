@@ -37,16 +37,6 @@ const defaultCalculations: CustomCalculation[] = [
             { type: 'operator', value: '-', label: '-' },
             { type: 'column', value: 'product_cost', label: 'Custo do Produto' }
         ]
-    },
-    {
-        id: 'margem_contribuicao_percent',
-        name: 'M.C. %',
-        formula: [
-            { type: 'column', value: 'lucro_liquido', label: 'Lucro Líquido' },
-            { type: 'operator', value: '/', label: '÷' },
-            { type: 'column', value: 'value_with_shipping', label: 'Venda Bruta' },
-        ],
-        isPercentage: true,
     }
 ];
 
