@@ -57,14 +57,36 @@ export default function AnunciosPage() {
 
             } else if (file.name.endsWith('.xlsx')) {
                 const workbook = XLSX.read(fileContent, { type: 'binary' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                if (jsonData.length > 0) {
-                    parsedHeaders = jsonData[0] as string[];
-                    parsedData = XLSX.utils.sheet_to_json(worksheet);
+                const productSheet = workbook.Sheets['Produto'];
+                const stockSheet = workbook.Sheets['Estoque'];
+                const priceSheet = workbook.Sheets['Preço'];
+
+                if (!productSheet || !stockSheet || !priceSheet) {
+                    throw new Error("O arquivo XLSX deve conter as abas 'Produto', 'Estoque' e 'Preço'.");
                 }
+                
+                const productData = XLSX.utils.sheet_to_json(productSheet);
+                const stockData = XLSX.utils.sheet_to_json(stockSheet);
+                const priceData = XLSX.utils.sheet_to_json(priceSheet);
+
+                const stockMap = new Map(stockData.map((item: any) => [item.SKU, item]));
+                const priceMap = new Map(priceData.map((item: any) => [item.SKU, item]));
+
+                const mergedData = productData.map((product: any) => {
+                    const stockInfo = stockMap.get(product.SKU) || {};
+                    const priceInfo = priceMap.get(product.SKU) || {};
+                    return { ...product, ...stockInfo, ...priceInfo };
+                });
+                
+                parsedData = mergedData;
+                
+                // Get all unique headers from the merged data
+                const allHeaders = new Set<string>();
+                mergedData.forEach(row => {
+                    Object.keys(row).forEach(key => allHeaders.add(key));
+                });
+                parsedHeaders = Array.from(allHeaders);
+                
             } else {
                  throw new Error('Formato de arquivo não suportado. Por favor, use .csv ou .xlsx');
             }
