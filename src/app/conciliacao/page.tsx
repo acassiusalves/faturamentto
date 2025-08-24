@@ -180,79 +180,127 @@ export default function ConciliationPage() {
         return map;
     }, [pickingLogs]);
     
-    const applyCustomCalculations = useCallback((sale: Sale): Sale => {
-        const saleWithCost = {
-            ...sale,
-            product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
-            customData: { ...(sale.customData || {}) }
-        };
-    
-        const sortedCalculations = sortCalculationsByDependency(customCalculations);
-    
-        sortedCalculations.forEach(calc => {
-            if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
-                (saleWithCost.customData as any)[calc.id] = NaN;
-                return;
-            }
-            try {
-                const values: number[] = [];
-                const ops: string[] = [];
-                const precedence = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
-                const applyOp = () => {
-                    const op = ops.pop()!;
-                    const right = values.pop()!;
-                    const left = values.pop()!;
-                    if (op === '+') values.push(left + right);
-                    else if (op === '-') values.push(left - right);
-                    else if (op === '*') values.push(left * right);
-                    else if (op === '/') values.push(right !== 0 ? left / right : 0);
-                };
-                for (const item of calc.formula) {
-                    if (item.type === 'column') {
-                        // --- ESTA É A LINHA CORRIGIDA ---
-                        // Agora ele procura o valor em customData, no objeto principal da venda, E TAMBÉM nos dados da planilha (sheetData).
-                        const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? (saleWithCost.sheetData as any)?.[item.value] ?? 0;
-                        values.push(value);
-                    } else if (item.type === 'number') {
-                        values.push(parseFloat(item.value));
-                    } else if (item.value === '(') {
-                        ops.push(item.value);
-                    } else if (item.value === ')') {
-                        while (ops.length && ops[ops.length - 1] !== '(') applyOp();
-                        ops.pop();
-                    } else {
-                        while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) applyOp();
-                        ops.push(item.value);
-                    }
-                }
-                while (ops.length > 0) applyOp();
-                let result = values[0];
-                if (calc.isPercentage) result *= 100;
-                (saleWithCost.customData as any)[calc.id] = result;
-    
-                if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
-                    const targetCol = calc.interaction.targetColumn;
-                    const operator = calc.interaction.operator;
-                    const valueToApply = (saleWithCost.customData as any)[calc.id];
-    
-                    if (typeof (saleWithCost.customData as any)[targetCol] === 'number') {
-                        if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
-                        else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
-                    }
-                }
-    
-            } catch (e) {
-                console.error(`Error calculating formula for ${calc.name}:`, e);
-                (saleWithCost.customData as any)[calc.id] = NaN;
-            }
-        });
-        
-        if (!(saleWithCost.customData as any)?.product_cost) {
-          (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
+// === Helpers: cole acima do applyCustomCalculations ===
+const parseBrNumber = (raw: unknown): number | null => {
+  if (raw == null) return null;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw !== 'string') return null;
+
+  // Remove qualquer coisa que não seja dígito, ponto, vírgula ou sinal negativo
+  const s0 = raw.trim().replace(/[^\d.,-]/g, '');
+  if (!s0) return null;
+
+  // Se tiver vírgula, assume decimal pt-BR (milhar '.')
+  if (s0.includes(',')) {
+    const normalized = s0.replace(/\./g, '').replace(',', '.');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Sem vírgula: assume decimal en-US (ponto)
+  const n = Number(s0);
+  return Number.isFinite(n) ? n : null;
+};
+
+const getNumericField = (saleWithCost: any, key: string): number => {
+  const candidates = [
+    saleWithCost?.customData?.[key],
+    saleWithCost?.sheetData?.[key],
+    saleWithCost?.[key],
+  ];
+  for (const c of candidates) {
+    const n = parseBrNumber(c);
+    if (n != null) return n;
+  }
+  return 0;
+};
+
+const pushValue = (values: number[], v: number) => {
+  values.push(Number.isFinite(v) ? v : 0);
+};
+// === SUBSTITUA sua applyCustomCalculations por esta versão ===
+const applyCustomCalculations = useCallback((sale: Sale): Sale => {
+  const saleWithCost: any = {
+    ...sale,
+    product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
+    customData: { ...(sale as any).customData || {} },
+  };
+
+  const sortedCalculations = sortCalculationsByDependency(customCalculations);
+
+  sortedCalculations.forEach((calc) => {
+    // Se o cálculo for para um marketplace específico e não bater, grava 0 (neutro)
+    if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
+      saleWithCost.customData[calc.id] = 0;
+      return;
+    }
+
+    try {
+      const values: number[] = [];
+      const ops: string[] = [];
+      const prec = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
+
+      const applyOp = () => {
+        const op = ops.pop()!;
+        const r = values.pop()!;
+        const l = values.pop()!;
+        if (op === '+') pushValue(values, l + r);
+        else if (op === '-') pushValue(values, l - r);
+        else if (op === '*') pushValue(values, l * r);
+        else if (op === '/') pushValue(values, r !== 0 ? l / r : 0);
+      };
+
+      for (const item of calc.formula) {
+        if (item.type === 'column') {
+          const n = getNumericField(saleWithCost, item.value);
+          pushValue(values, n);
+        } else if (item.type === 'number') {
+          const n = parseBrNumber(item.value);
+          pushValue(values, n ?? 0);
+        } else if (item.value === '(') {
+          ops.push('(');
+        } else if (item.value === ')') {
+          while (ops.length && ops[ops.length - 1] !== '(') applyOp();
+          ops.pop();
+        } else {
+          while (ops.length && prec(ops[ops.length - 1]) >= prec(item.value)) applyOp();
+          ops.push(item.value);
         }
-    
-        return saleWithCost;
-    }, [pickingLogsMap, customCalculations]);
+      }
+      while (ops.length) applyOp();
+
+      let result = values[0] ?? 0;
+      if (!Number.isFinite(result)) result = 0;
+      if (calc.isPercentage) result = result * 100;
+
+      saleWithCost.customData[calc.id] = result;
+
+      // Interaction segura
+      if (calc.interaction) {
+        const targetCol = calc.interaction.targetColumn;
+        const operator = calc.interaction.operator;
+        const base = getNumericField(saleWithCost, targetCol);
+        const valueToApply = saleWithCost.customData[calc.id];
+
+        let out = base;
+        if (operator === '+') out = base + valueToApply;
+        else if (operator === '-') out = base - valueToApply;
+
+        saleWithCost.customData[targetCol] = Number.isFinite(out) ? out : 0;
+      }
+    } catch (e) {
+      console.error(`Error calculating formula for ${calc.name}:`, e);
+      saleWithCost.customData[calc.id] = 0; // fallback absoluto
+    }
+  });
+
+  // Garante custo do produto
+  if (!parseBrNumber(saleWithCost.customData?.product_cost)) {
+    saleWithCost.customData.product_cost = saleWithCost.product_cost || 0;
+  }
+
+  return saleWithCost as Sale;
+}, [pickingLogsMap, customCalculations]);
 
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
@@ -281,20 +329,25 @@ export default function ConciliationPage() {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
+            // Esta é a nossa função de conversão final e mais confiável.
             const parseSheetValue = (value: any): any => {
                 if (typeof value !== 'string') {
                     return value;
                 }
                 const trimmedValue = value.trim();
                 
+                // Se não tiver vírgula, não é um número BRL que precisa de tratamento especial.
                 if (!trimmedValue.includes(',')) {
+                    // Tenta converter para número caso seja algo como "123" ou "123.45"
                     const regularNum = parseFloat(trimmedValue);
                     return isNaN(regularNum) ? trimmedValue : regularNum;
                 }
 
+                // Lógica para converter o formato BRL "1.234,56" para o número 1234.56
                 const cleanedForParsing = trimmedValue.replace(/\./g, '').replace(',', '.');
                 const number = parseFloat(cleanedForParsing);
                 
+                // Se a conversão falhar, retorna o texto original. Senão, o número.
                 return isNaN(number) ? trimmedValue : number;
             };
 
@@ -306,11 +359,13 @@ export default function ConciliationPage() {
                     if (!file.fileContent || !file.associationKey) return;
                     
                     try {
+                        // 1. Lemos a planilha como texto puro, sem nenhuma transformação automática.
                         const parsedData = Papa.parse(file.fileContent, { 
                             header: true, 
                             skipEmptyLines: true,
                         });
 
+                        // 2. Agora, nós mesmos iteramos e convertemos cada valor.
                         parsedData.data.forEach((row: any) => {
                            const key = normalizeKey(row[file.associationKey]);
                            if(key) {
@@ -322,6 +377,7 @@ export default function ConciliationPage() {
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
+                                       // Aplicamos nossa conversão segura aqui.
                                        existingData[friendlyName] = parseSheetValue(row[header]);
                                    }
                                }
