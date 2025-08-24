@@ -57,14 +57,14 @@ export default function AnunciosPage() {
 
             } else if (file.name.endsWith('.xlsx')) {
                 const workbook = XLSX.read(fileContent, { type: 'binary' });
-                const productSheet = workbook.Sheets['Produto'];
-                const stockSheet = workbook.Sheets['Estoque'];
-                const priceSheet = workbook.Sheets['Preço'];
-                const policySheet = workbook.Sheets['Politicas e Relevância'];
+                const productSheet = workbook.Sheets['PRODUTO'];
+                const stockSheet = workbook.Sheets['ESTOQUE'];
+                const priceSheet = workbook.Sheets['PREÇO'];
+                const policySheet = workbook.Sheets['Políticas e Relevância'];
 
 
                 if (!productSheet || !stockSheet || !priceSheet || !policySheet) {
-                    throw new Error("O arquivo XLSX deve conter as abas 'Produto', 'Estoque', 'Preço' e 'Politicas e Relevância'.");
+                    throw new Error("O arquivo XLSX deve conter as abas 'PRODUTO', 'ESTOQUE', 'PREÇO' e 'Políticas e Relevância'.");
                 }
                 
                 const productData = XLSX.utils.sheet_to_json(productSheet);
