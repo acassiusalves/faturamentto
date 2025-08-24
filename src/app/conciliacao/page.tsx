@@ -190,10 +190,9 @@ export default function ConciliationPage() {
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
     
         sortedCalculations.forEach(calc => {
-            // Parte 1: Calcula o valor base da coluna atual
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
                 (saleWithCost.customData as any)[calc.id] = NaN;
-                return; // Pula para o próximo cálculo
+                return;
             }
             try {
                 const values: number[] = [];
@@ -210,7 +209,9 @@ export default function ConciliationPage() {
                 };
                 for (const item of calc.formula) {
                     if (item.type === 'column') {
-                        const value = (saleWithCost.customData as any)?.[item.value] ?? (sale as any)[item.value] ?? (sale.sheetData as any)?.[item.value] ?? 0;
+                        // --- ESTA É A LINHA CORRIGIDA ---
+                        // Agora ele procura o valor em customData, no objeto principal da venda, E TAMBÉM nos dados da planilha (sheetData).
+                        const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? (saleWithCost.sheetData as any)?.[item.value] ?? 0;
                         values.push(value);
                     } else if (item.type === 'number') {
                         values.push(parseFloat(item.value));
@@ -229,13 +230,11 @@ export default function ConciliationPage() {
                 if (calc.isPercentage) result *= 100;
                 (saleWithCost.customData as any)[calc.id] = result;
     
-                // Parte 2: Se a coluna atual tiver uma interação, aplica-a IMEDIATAMENTE.
                 if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
                     const targetCol = calc.interaction.targetColumn;
                     const operator = calc.interaction.operator;
                     const valueToApply = (saleWithCost.customData as any)[calc.id];
     
-                    // Garante que o valor da coluna alvo já foi calculado e é um número
                     if (typeof (saleWithCost.customData as any)[targetCol] === 'number') {
                         if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
                         else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
@@ -593,4 +592,5 @@ export default function ConciliationPage() {
         </>
     );
 }
+
 
