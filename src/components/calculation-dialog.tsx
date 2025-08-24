@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -19,11 +18,13 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from './ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface CalculationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (calculation: CustomCalculation) => Promise<void>;
+  marketplaces: string[];
 }
 
 const availableColumns: { key: string; label: string }[] = [
@@ -34,10 +35,11 @@ const availableColumns: { key: string; label: string }[] = [
     { key: 'left_over', label: 'Lucro (Ideris)' },
 ];
 
-export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialogProps) {
+export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: CalculationDialogProps) {
   const [formula, setFormula] = useState<FormulaItem[]>([]);
   const [columnName, setColumnName] = useState("");
   const [isPercentage, setIsPercentage] = useState(false);
+  const [targetMarketplace, setTargetMarketplace] = useState<string>("");
   const { toast } = useToast();
 
   const handleItemClick = (item: FormulaItem) => {
@@ -54,6 +56,7 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
     setFormula([]);
     setColumnName("");
     setIsPercentage(false);
+    setTargetMarketplace("");
   };
 
   const handleBackspace = () => {
@@ -75,6 +78,7 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
           name: columnName,
           formula: formula,
           isPercentage: isPercentage,
+          targetMarketplace: targetMarketplace || undefined,
       };
 
       await onSave(newCalculation);
@@ -97,8 +101,8 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
         </DialogHeader>
 
         <div className="py-4 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2 lg:col-span-1">
                 <Label htmlFor="column-name">1. Nome da Nova Coluna</Label>
                 <Input 
                   id="column-name"
@@ -107,11 +111,25 @@ export function CalculationDialog({ isOpen, onClose, onSave }: CalculationDialog
                   placeholder="Ex: Lucro Líquido Real"
                 />
               </div>
-               <div className="flex flex-row items-center justify-between rounded-lg border p-3 mt-auto">
+              <div className="space-y-2 lg:col-span-1">
+                 <Label htmlFor="target-marketplace">Canal de Venda (Opcional)</Label>
+                 <Select value={targetMarketplace} onValueChange={setTargetMarketplace}>
+                    <SelectTrigger id="target-marketplace">
+                        <SelectValue placeholder="Aplicar a todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">Aplicar a todos</SelectItem>
+                        {marketplaces.map(mp => (
+                            <SelectItem key={mp} value={mp}>{mp}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </div>
+               <div className="flex flex-row items-center justify-between rounded-lg border p-3 mt-auto lg:col-span-1">
                     <div className="space-y-0.5">
                         <Label>É porcentagem?</Label>
                         <p className="text-xs text-muted-foreground">
-                            O resultado final será multiplicado por 100.
+                            O resultado final será x100.
                         </p>
                     </div>
                     <Switch

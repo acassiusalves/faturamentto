@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -148,6 +147,12 @@ export default function ConciliationPage() {
         const customData: Record<string, number> = {};
 
         customCalculations.forEach(calc => {
+             // If a target marketplace is set and it doesn't match the sale's marketplace, skip this calculation.
+            if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
+                customData[calc.id] = NaN; // Or null/undefined, to indicate it's not applicable
+                return;
+            }
+
              try {
                 // Basic shunting-yard logic for formula evaluation
                 const values: number[] = [];
@@ -461,6 +466,7 @@ export default function ConciliationPage() {
             isOpen={isCalculationOpen}
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
+            marketplaces={marketplaces.filter(m => m !== 'all')}
         />
         </>
     );

@@ -16,6 +16,7 @@
 
 
 
+
 export interface Cost {
   id: string;
   type: string;
@@ -269,6 +270,7 @@ export interface CustomCalculation {
     name: string; // e.g. "Lucro Real"
     formula: FormulaItem[];
     isPercentage?: boolean;
+    targetMarketplace?: string; // e.g., 'Mercado Livre'
 }
 
 // -- Approval Request Types --
