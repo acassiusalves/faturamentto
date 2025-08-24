@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -28,18 +29,14 @@ const getMonths = () => {
     }));
 };
 
-const defaultCalculations: CustomCalculation[] = [
-    {
-        id: 'lucro_liquido',
-        name: 'Lucro Líquido',
-        formula: [
-            { type: 'column', value: 'left_over', label: 'Lucro (Ideris)' },
-            { type: 'operator', value: '-', label: '-' },
-            { type: 'column', value: 'product_cost', label: 'Custo do Produto' }
-        ]
-    },
-];
+const defaultCalculations: CustomCalculation[] = [];
 
+// ----------------------------------------------------------------------------------
+// INÍCIO DA SEÇÃO DE CÓDIGO CORRIGIDO
+// ----------------------------------------------------------------------------------
+
+// PASSO 1: Mova a função de ordenação para FORA do componente.
+// Coloque este bloco de código ANTES de 'export default function ConciliationPage() ...'
 const sortCalculationsByDependency = (calculations: CustomCalculation[]): CustomCalculation[] => {
     const graph: { [key: string]: string[] } = {};
     const inDegree: { [key: string]: number } = {};
@@ -185,6 +182,7 @@ export default function ConciliationPage() {
         return map;
     }, [pickingLogs]);
     
+    // PASSO 2: Envolva a função 'applyCustomCalculations' com o hook 'useCallback'
     const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const saleWithCost = {
             ...sale,
@@ -192,7 +190,6 @@ export default function ConciliationPage() {
             customData: { ...(sale.customData || {}) }
         };
 
-        // O organizador agora entende as interações e cria a ordem de cálculo perfeita.
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
 
         // CORREÇÃO: Unificamos tudo em uma única passagem (loop).
@@ -254,14 +251,15 @@ export default function ConciliationPage() {
                 (saleWithCost.customData as any)[calc.id] = NaN;
             }
         });
-
+        
         if (!(saleWithCost.customData as any)?.product_cost) {
           (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
         }
 
         return saleWithCost;
-    }, [pickingLogsMap, customCalculations]);
+    }, [pickingLogsMap, customCalculations]); // <- Dependências da função
 
+    // PASSO 3: Atualize a lista de dependências do useMemo 'filteredSales'
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
         let processedSales = sales.filter(sale => {
@@ -287,14 +285,8 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-            const normalizeSystemKey = (key: string) => String(key || '').replace(/\D/g, '');
-            const normalizeSheetKey = (key: string) => {
-                const strKey = String(key || '');
-                if (strKey.toUpperCase().startsWith('LU-')) {
-                    return strKey.substring(3).replace(/\D/g, '');
-                }
-                return strKey.replace(/\D/g, '');
-            };
+            const normalizeKey = (key: string) => String(key || '').trim();
+            
             const supportDataMap = new Map<string, Record<string, any>>();
             const allFiles = Object.values(supportData.files).flat();
             if (allFiles.length > 0) {
@@ -303,7 +295,7 @@ export default function ConciliationPage() {
                     try {
                         const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
                         parsedData.data.forEach((row: any) => {
-                           const key = normalizeSheetKey(row[file.associationKey]);
+                           const key = normalizeKey(row[file.associationKey]);
                            if(key) {
                                if (!supportDataMap.has(key)) {
                                    supportDataMap.set(key, {});
@@ -322,7 +314,7 @@ export default function ConciliationPage() {
                     }
                  });
                  processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeSystemKey((sale as any).order_code);
+                     const saleKey = normalizeKey((sale as any).order_code);
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
@@ -339,7 +331,7 @@ export default function ConciliationPage() {
         
         return processedSales.map(applyCustomCalculations);
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]);
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]); // <- A dependência agora é a própria função
     
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
@@ -575,3 +567,4 @@ export default function ConciliationPage() {
         </>
     );
 }
+

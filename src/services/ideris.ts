@@ -55,6 +55,12 @@ export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
     iderisFields.forEach(iderisField => {
         (mappedSale as any)[iderisField.key] = getValueFromPath(iderisOrder, iderisField.path);
     });
+    
+    // Explicitly add order_code if it's not already mapped by another field
+    if (!('order_code' in mappedSale) && iderisOrder.code) {
+        (mappedSale as any).order_code = iderisOrder.code;
+    }
+
     let cleanedSale: any = { ...mappedSale };
     for (const key in cleanedSale) {
         if (Object.prototype.hasOwnProperty.call(cleanedSale, key)) {

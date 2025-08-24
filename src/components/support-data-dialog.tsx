@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -84,7 +85,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
     if (!allSales || allSales.length === 0) return stats;
     
-    const saleKeys = new Set(allSales.map(s => s.order_code));
+    const saleKeys = new Set(allSales.map(s => s.order_code.trim()));
 
     for (const channelId in supportData.files) {
       for (const file of supportData.files[channelId]) {
