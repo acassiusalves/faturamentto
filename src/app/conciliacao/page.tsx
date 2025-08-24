@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3 } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket } from 'lucide-react';
 import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -95,7 +95,7 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
         for (const neighborId of graph[currentId]) {
             inDegree[neighborId]--;
             if (inDegree[neighborId] === 0) {
-                queue.push(id);
+                queue.push(neighborId);
             }
         }
     }
