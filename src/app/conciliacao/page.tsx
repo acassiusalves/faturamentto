@@ -285,22 +285,27 @@ export default function ConciliationPage() {
         });
 
         if (supportData && supportData.files) {
-            const normalizeKey = (key: string) => String(key || '').trim();
-            
+            // CORREÇÃO: Reintroduz uma função de normalização robusta que remove
+            // caracteres não numéricos para garantir a correspondência.
+            const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
+
             const supportDataMap = new Map<string, Record<string, any>>();
             const allFiles = Object.values(supportData.files).flat();
+
             if (allFiles.length > 0) {
                  allFiles.forEach(file => {
                     if (!file.fileContent || !file.associationKey) return;
+                    
                     try {
                         const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
                         parsedData.data.forEach((row: any) => {
-                           const key = normalizeKey(row[file.associationKey]);
+                           const key = normalizeKey(row[file.associationKey]); // Usa a nova função
                            if(key) {
                                if (!supportDataMap.has(key)) {
                                    supportDataMap.set(key, {});
                                }
                                const existingData = supportDataMap.get(key)!;
+                               
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
@@ -313,8 +318,9 @@ export default function ConciliationPage() {
                          console.error("Error parsing support file", e);
                     }
                  });
+                 
                  processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeKey((sale as any).order_code);
+                     const saleKey = normalizeKey((sale as any).order_code); // Usa a nova função
                      if(saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
@@ -403,10 +409,14 @@ export default function ConciliationPage() {
     const handleSaveCustomCalculation = async (calculation: Omit<CustomCalculation, 'id'> & { id?: string }) => {
         let newCalculations: CustomCalculation[];
         
-        // Sanitize interaction data before saving
         const finalCalculation = { ...calculation };
+        // Do not save interaction property if target is 'none'
         if (finalCalculation.interaction && finalCalculation.interaction.targetColumn === 'none') {
             delete finalCalculation.interaction;
+        }
+        // Do not save targetMarketplace property if it is 'all'
+        if (finalCalculation.targetMarketplace === 'all') {
+            delete finalCalculation.targetMarketplace;
         }
 
         if (finalCalculation.id) { // Editing existing
@@ -567,4 +577,5 @@ export default function ConciliationPage() {
         </>
     );
 }
+
 

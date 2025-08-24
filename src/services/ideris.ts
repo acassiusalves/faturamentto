@@ -269,62 +269,26 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     const token = await getValidAccessToken(privateKey);
     const url = `https://apiv3.ideris.com.br/order/${orderId}`;
     try {
-        return await fetchWithToken<any>(url, token);
+        const result = await fetchWithToken<any>(url, token);
+        // Ensure the order code is present in the final object
+        if (result && result.obj && !result.obj.code) {
+            result.obj.code = result.obj.id; // Fallback to id if code is missing
+        }
+        return result;
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
             inMemoryToken = null; // Forçar a regeneração do token
             const newToken = await getValidAccessToken(privateKey);
-            return await fetchWithToken<any>(url, newToken);
+            const result = await fetchWithToken<any>(url, newToken);
+             if (result && result.obj && !result.obj.code) {
+                result.obj.code = result.obj.id;
+            }
+            return result;
         }
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;
     }
-}
-
-export async function fetchOrdersStatus(privateKey: string, dateRange: DateRange, onProgress?: ProgressCallback, expectedTotal?: number): Promise<any[]> {
-    const token = await getValidAccessToken(privateKey);
-    const initialDate = formatDateForApi(dateRange.from!);
-    const finalDate = formatDateForApi(dateRange.to!);
-
-    let allStatuses: any[] = [];
-    let currentOffset = 0;
-    const limitPerPage = 50;
-    let hasMorePages = true;
-    let currentPage = 0;
-    const maxPages = 100; // Safety break
-    let totalItems = expectedTotal ?? -1;
-
-    while (hasMorePages && currentPage < maxPages) {
-        const searchUrl = `https://apiv3.ideris.com.br/order/status/search?startDate=${initialDate}&endDate=${finalDate}&limit=${limitPerPage}&offset=${currentOffset}`;
-        try {
-            const result = await fetchWithToken<{ obj?: any[], total?: number }>(searchUrl, token);
-            
-            if (totalItems === -1 && result.total !== undefined) {
-                totalItems = result.total;
-            }
-            
-            if (result.obj && result.obj.length > 0) {
-                allStatuses = allStatuses.concat(result.obj);
-                currentOffset += result.obj.length;
-                if (onProgress) {
-                    onProgress(currentOffset, totalItems > 0 ? totalItems : allStatuses.length);
-                }
-            } else {
-                hasMorePages = false;
-            }
-        } catch (error) {
-            console.error(`Falha ao buscar página ${currentPage + 1} de status de pedidos:`, error);
-            hasMorePages = false;
-        }
-        currentPage++;
-    }
-
-    if (currentPage >= maxPages) {
-        console.warn("Atingido o limite máximo de páginas na busca de status da Ideris.");
-    }
-    
-    return allStatuses;
 }
 
 export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string }> {
