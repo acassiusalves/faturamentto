@@ -42,15 +42,7 @@ const defaultCalculations: CustomCalculation[] = [
         id: 'margem_contribuicao_percent',
         name: 'M.C. %',
         formula: [
-            { type: 'operator', value: '(', label: '('},
-            { type: 'column', value: 'value_with_shipping', label: 'Venda Bruta' },
-            { type: 'operator', value: '-', label: '-' },
-            { type: 'column', value: 'fee_order', label: 'Comissão' },
-            { type: 'operator', value: '-', label: '-' },
-            { type: 'column', value: 'fee_shipment', label: 'Frete' },
-             { type: 'operator', value: '-', label: '-' },
-            { type: 'column', value: 'product_cost', label: 'Custo do Produto' },
-            { type: 'operator', value: ')', label: ')'},
+            { type: 'column', value: 'lucro_liquido', label: 'Lucro Líquido' },
             { type: 'operator', value: '/', label: '÷' },
             { type: 'column', value: 'value_with_shipping', label: 'Venda Bruta' },
         ],
@@ -525,3 +517,4 @@ export default function ConciliationPage() {
         </>
     );
 }
+
