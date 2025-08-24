@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot, Search as SearchIcon } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { saveAppSettings, loadAppSettings, saveSales } from "@/services/firestore";
 import { fetchOrderById } from "@/services/ideris";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "./ui/input";
 
 
 interface SalesTableProps {
@@ -103,6 +104,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const [allAvailableColumns, setAllAvailableColumns] = useState<any[]>([]);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [settingsVersion, setSettingsVersion] = useState(0);
+  const [columnSearchTerm, setColumnSearchTerm] = useState("");
 
    useEffect(() => {
         setCurrentSales(data);
@@ -318,17 +320,25 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   };
 
   const getColumnGroups = () => {
-      const groups: Record<string, any[]> = {
-          'Ideris': [],
-          'Sistema': [],
-          'Planilha': []
-      };
-      allAvailableColumns.forEach(col => {
-          if(groups[col.group]) {
-              groups[col.group].push(col);
-          }
-      });
-      return groups;
+    const groups: Record<string, any[]> = {
+        'Ideris': [],
+        'Sistema': [],
+        'Planilha': []
+    };
+    
+    // Filter columns based on search term before grouping
+    const lowerSearchTerm = columnSearchTerm.toLowerCase();
+    const filteredColumns = columnSearchTerm
+      ? allAvailableColumns.filter(col => col.label.toLowerCase().includes(lowerSearchTerm))
+      : allAvailableColumns;
+
+    filteredColumns.forEach(col => {
+        if(groups[col.group]) {
+            groups[col.group].push(col);
+        }
+    });
+
+    return groups;
   }
   
   const columnGroups = getColumnGroups();
@@ -472,25 +482,38 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-64" align="end">
-                           <ScrollArea className="h-72 rounded-md border p-4">
-                               <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
-                               <DropdownMenuSeparator />
-                               {Object.entries(columnGroups).map(([groupName, columns]) => (
-                                   columns.length > 0 && (
-                                       <DropdownMenuGroup key={groupName}>
-                                           <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
-                                            {columns.map(col => (
-                                                <DropdownMenuCheckboxItem
-                                                    key={col.key}
-                                                    checked={visibleColumns[col.key]}
-                                                    onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
-                                                >
-                                                    {col.label}
-                                                </DropdownMenuCheckboxItem>
-                                            ))}
-                                       </DropdownMenuGroup>
-                                   )
-                               ))}
+                            <div className="p-2">
+                               <div className="relative">
+                                    <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar coluna..."
+                                        value={columnSearchTerm}
+                                        onChange={(e) => setColumnSearchTerm(e.target.value)}
+                                        className="pl-9 h-9"
+                                    />
+                                </div>
+                            </div>
+                           <ScrollArea className="h-72">
+                                <div className="p-2 pt-0">
+                                   <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
+                                   <DropdownMenuSeparator />
+                                   {Object.entries(columnGroups).map(([groupName, columns]) => (
+                                       columns.length > 0 && (
+                                           <DropdownMenuGroup key={groupName}>
+                                               <DropdownMenuLabel className="text-muted-foreground font-semibold text-xs">{groupName}</DropdownMenuLabel>
+                                                {columns.map(col => (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={col.key}
+                                                        checked={visibleColumns[col.key]}
+                                                        onCheckedChange={(checked) => handleVisibleChange(col.key, !!checked)}
+                                                    >
+                                                        {col.label}
+                                                    </DropdownMenuCheckboxItem>
+                                                ))}
+                                           </DropdownMenuGroup>
+                                       )
+                                   ))}
+                               </div>
                            </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
