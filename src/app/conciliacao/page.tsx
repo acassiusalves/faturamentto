@@ -206,7 +206,7 @@ export default function ConciliationPage() {
         });
 
 
-        return { ...sale, customData };
+        return { ...saleWithCost, customData };
     };
 
 
@@ -363,20 +363,26 @@ export default function ConciliationPage() {
         }
     };
 
-    const handleSaveCustomCalculation = async (calculation: CustomCalculation) => {
-        const newCalculations = customCalculations.map(c => c.id === calculation.id ? calculation : c);
-        if (!newCalculations.find(c => c.id === calculation.id)) {
-            const newId = `custom_${calculation.name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`;
-            newCalculations.push({ ...calculation, id: newId });
+    const handleSaveCustomCalculation = async (calculation: Omit<CustomCalculation, 'id'> & { id?: string }) => {
+        let newCalculations: CustomCalculation[];
+        if (calculation.id) { // Editing existing
+            newCalculations = customCalculations.map(c => c.id === calculation.id ? { ...c, ...calculation } : c);
+        } else { // Adding new
+            const newId = `custom_${calculation.name.toLowerCase().replace(/[\s\W]/g, '_')}_${Date.now()}`;
+            newCalculations = [...customCalculations, { ...calculation, id: newId }];
         }
+        
         setCustomCalculations(newCalculations);
-        await saveAppSettings({ customCalculations: newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id)) });
+        // Filter out default calculations before saving to Firestore
+        const calcsToSave = newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id));
+        await saveAppSettings({ customCalculations: calcsToSave });
     };
 
     const handleDeleteCustomCalculation = async (calculationId: string) => {
         const newCalculations = customCalculations.filter(c => c.id !== calculationId);
         setCustomCalculations(newCalculations);
-        await saveAppSettings({ customCalculations: newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id)) });
+        const calcsToSave = newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id));
+        await saveAppSettings({ customCalculations: calcsToSave });
     };
 
     // Options for filters
