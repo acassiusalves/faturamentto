@@ -161,7 +161,7 @@ export default function ConciliationPage() {
     const loadSupportDataForMonth = useCallback(async () => {
         const monthYear = getMonthYearKey();
         if (monthYear) {
-            const data = await loadMonthlySupportData(monthYearKey);
+            const data = await loadMonthlySupportData(monthYear);
             setSupportData(data);
         }
     }, [getMonthYearKey]);
