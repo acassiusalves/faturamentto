@@ -41,12 +41,6 @@ const defaultCalculations: CustomCalculation[] = [
 ];
 
 
-// ----------------------------------------------------------------------------------
-// INÍCIO DA SEÇÃO DE CÓDIGO CORRIGIDO
-// ----------------------------------------------------------------------------------
-
-// PASSO 1: Mova a função de ordenação para FORA do componente.
-// Coloque este bloco de código ANTES de 'export default function ConciliationPage() ...'
 const sortCalculationsByDependency = (calculations: CustomCalculation[]): CustomCalculation[] => {
     const graph: { [key: string]: string[] } = {};
     const inDegree: { [key: string]: number } = {};
@@ -57,20 +51,36 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
         graph[id] = [];
         inDegree[id] = 0;
     }
+
     for (const calc of calculations) {
+        // Dependências da fórmula (como antes)
         for (const item of calc.formula) {
             if (item.type === 'column' && calcIds.has(item.value)) {
                 graph[item.value].push(calc.id);
                 inDegree[calc.id]++;
             }
         }
+
+        // CORREÇÃO: Adiciona dependências de interação
+        // Se a coluna 'calc' interage com uma 'targetColumn',
+        // então a 'targetColumn' depende de 'calc'.
+        if (calc.interaction) {
+            const sourceId = calc.id;
+            const targetId = calc.interaction.targetColumn;
+            if (calcIds.has(targetId)) {
+                graph[sourceId].push(targetId);
+                inDegree[targetId]++;
+            }
+        }
     }
+
     const queue: string[] = [];
     for (const id in inDegree) {
         if (inDegree[id] === 0) {
             queue.push(id);
         }
     }
+
     const sorted: CustomCalculation[] = [];
     while (queue.length > 0) {
         const currentId = queue.shift()!;
@@ -82,10 +92,14 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
             }
         }
     }
+
     if (sorted.length !== calculations.length) {
         console.error("Dependência circular detectada nos cálculos personalizados.");
+        // Retorna a lista original como fallback para evitar que a página quebre
+        // Isso pode acontecer se, por exemplo, Coluna A interage com B e Coluna B interage com A.
         return calculations;
     }
+
     return sorted;
 };
 
@@ -173,7 +187,6 @@ export default function ConciliationPage() {
         return map;
     }, [pickingLogs]);
     
-    // PASSO 2: Envolva a função 'applyCustomCalculations' com o hook 'useCallback'
     const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const saleWithCost = {
             ...sale,
@@ -181,12 +194,15 @@ export default function ConciliationPage() {
             customData: { ...(sale.customData || {}) }
         };
 
+        // O organizador agora entende as interações e cria a ordem de cálculo perfeita.
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
 
+        // CORREÇÃO: Unificamos tudo em uma única passagem (loop).
         sortedCalculations.forEach(calc => {
+            // Parte 1: Calcula o valor base da coluna atual
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
                 (saleWithCost.customData as any)[calc.id] = NaN;
-                return;
+                return; // Pula para o próximo cálculo
             }
             try {
                 const values: number[] = [];
@@ -221,32 +237,33 @@ export default function ConciliationPage() {
                 let result = values[0];
                 if (calc.isPercentage) result *= 100;
                 (saleWithCost.customData as any)[calc.id] = result;
+
+                // Parte 2: Se a coluna atual tiver uma interação, aplica-a IMEDIATAMENTE.
+                if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
+                    const targetCol = calc.interaction.targetColumn;
+                    const operator = calc.interaction.operator;
+                    const valueToApply = (saleWithCost.customData as any)[calc.id];
+
+                    // Garante que o valor da coluna alvo já foi calculado e é um número
+                    if (typeof (saleWithCost.customData as any)[targetCol] === 'number') {
+                        if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
+                        else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
+                    }
+                }
+
             } catch (e) {
                 console.error(`Error calculating formula for ${calc.name}:`, e);
                 (saleWithCost.customData as any)[calc.id] = NaN;
             }
         });
 
-        sortedCalculations.forEach(calc => {
-            if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
-                const targetCol = calc.interaction.targetColumn;
-                const operator = calc.interaction.operator;
-                const valueToApply = (saleWithCost.customData as any)[calc.id];
-                if ((saleWithCost.customData as any)[targetCol] !== undefined) {
-                    if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
-                    else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
-                }
-            }
-        });
-        
         if (!(saleWithCost.customData as any)?.product_cost) {
           (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
         }
 
         return saleWithCost;
-    }, [pickingLogsMap, customCalculations]); // <- Dependências da função
+    }, [pickingLogsMap, customCalculations]);
 
-    // PASSO 3: Atualize a lista de dependências do useMemo 'filteredSales'
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
         let processedSales = sales.filter(sale => {
@@ -324,7 +341,7 @@ export default function ConciliationPage() {
         
         return processedSales.map(applyCustomCalculations);
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]); // <- A dependência agora é a própria função
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]);
     
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
