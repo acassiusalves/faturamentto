@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -39,7 +40,7 @@ export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: Cal
   const [formula, setFormula] = useState<FormulaItem[]>([]);
   const [columnName, setColumnName] = useState("");
   const [isPercentage, setIsPercentage] = useState(false);
-  const [targetMarketplace, setTargetMarketplace] = useState<string>("");
+  const [targetMarketplace, setTargetMarketplace] = useState<string>("all");
   const { toast } = useToast();
 
   const handleItemClick = (item: FormulaItem) => {
@@ -56,7 +57,7 @@ export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: Cal
     setFormula([]);
     setColumnName("");
     setIsPercentage(false);
-    setTargetMarketplace("");
+    setTargetMarketplace("all");
   };
 
   const handleBackspace = () => {
@@ -78,7 +79,7 @@ export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: Cal
           name: columnName,
           formula: formula,
           isPercentage: isPercentage,
-          targetMarketplace: targetMarketplace || undefined,
+          targetMarketplace: targetMarketplace === 'all' ? undefined : targetMarketplace,
       };
 
       await onSave(newCalculation);
@@ -118,7 +119,7 @@ export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: Cal
                         <SelectValue placeholder="Aplicar a todos" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">Aplicar a todos</SelectItem>
+                        <SelectItem value="all">Aplicar a todos</SelectItem>
                         {marketplaces.map(mp => (
                             <SelectItem key={mp} value={mp}>{mp}</SelectItem>
                         ))}
