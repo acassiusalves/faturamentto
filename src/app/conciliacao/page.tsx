@@ -166,8 +166,9 @@ export default function ConciliationPage() {
     const pickingLogsMap = useMemo(() => {
         const map = new Map<string, number>();
         pickingLogs.forEach(log => {
-            const currentCost = map.get((log as any).order_code) || 0;
-            map.set((log as any).order_code, currentCost + log.costPrice);
+            // CORREÇÃO: A chave no objeto 'log' é 'orderNumber'
+            const currentCost = map.get(log.orderNumber) || 0;
+            map.set(log.orderNumber, currentCost + log.costPrice);
         });
         return map;
     }, [pickingLogs]);
