@@ -281,21 +281,28 @@ export default function ConciliationPage() {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
-            // CORREÇÃO: Adiciona uma função para converter números no formato BRL para o formato JS.
+            // CORREÇÃO: Versão mais robusta da função de conversão de moeda.
             const parseBRLNumber = (value: any): number | string => {
-                if (typeof value !== 'string') return value;
-                
-                // Verifica se o valor parece ser um número no formato BRL (contém vírgula)
-                if (value.includes(',') && /[0-9]/.test(value)) {
-                    const cleanedValue = value.replace(/\./g, '').replace(',', '.');
-                    const number = parseFloat(cleanedValue);
-                    // Se a conversão for bem-sucedida, retorna o número.
-                    if (!isNaN(number)) {
-                        return number;
-                    }
-                }
-                // Se não for um número BRL ou a conversão falhar, retorna o valor original.
-                return value;
+                // Se o valor for nulo ou indefinido, retorna como está.
+                if (value === null || value === undefined) return value;
+            
+                // Garante que estamos trabalhando com uma string e remove espaços.
+                const strValue = String(value).trim();
+            
+                // Se for uma string vazia, retorna como está.
+                if (strValue === '') return strValue;
+
+                // Tenta converter o formato BRL (ex: "R$ 1.156,62") para um número JS (1156.62)
+                const cleanedValue = strValue
+                    .replace(/R\$\s?/, '') // Remove "R$" e um espaço opcional
+                    .replace(/\./g, '')    // Remove todos os pontos (separador de milhar)
+                    .replace(',', '.');    // Troca a vírgula (decimal) por um ponto
+            
+                const number = parseFloat(cleanedValue);
+            
+                // Se o resultado for um número válido, retorna o número.
+                // Senão, retorna a string original que foi lida da planilha.
+                return isNaN(number) ? strValue : number;
             };
 
             const supportDataMap = new Map<string, Record<string, any>>();
@@ -318,7 +325,6 @@ export default function ConciliationPage() {
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
-                                       // CORREÇÃO: Aplica a conversão em cada valor da planilha.
                                        existingData[friendlyName] = parseBRLNumber(row[header]);
                                    }
                                }
@@ -587,6 +593,4 @@ export default function ConciliationPage() {
         </>
     );
 }
-
-
 
