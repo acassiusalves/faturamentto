@@ -281,18 +281,21 @@ export default function ConciliationPage() {
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
 
-            const parseBRLNumber = (value: any): number | string => {
-                if (value === null || value === undefined) return value;
-                const strValue = String(value).trim();
-                if (strValue === '') return strValue;
+            const parseSheetValue = (value: any): any => {
+                if (typeof value !== 'string') {
+                    return value;
+                }
+                const trimmedValue = value.trim();
+                
+                if (!trimmedValue.includes(',')) {
+                    const regularNum = parseFloat(trimmedValue);
+                    return isNaN(regularNum) ? trimmedValue : regularNum;
+                }
 
-                const cleanedValue = strValue
-                    .replace(/R\$\s?/, '')
-                    .replace(/\./g, '')
-                    .replace(',', '.');
-            
-                const number = parseFloat(cleanedValue);
-                return isNaN(number) ? strValue : number;
+                const cleanedForParsing = trimmedValue.replace(/\./g, '').replace(',', '.');
+                const number = parseFloat(cleanedForParsing);
+                
+                return isNaN(number) ? trimmedValue : number;
             };
 
             const supportDataMap = new Map<string, Record<string, any>>();
@@ -303,12 +306,9 @@ export default function ConciliationPage() {
                     if (!file.fileContent || !file.associationKey) return;
                     
                     try {
-                        // CORREÇÃO: Usamos a opção 'transform' do Papa.parse para converter os
-                        // valores diretamente durante a leitura do arquivo.
                         const parsedData = Papa.parse(file.fileContent, { 
                             header: true, 
                             skipEmptyLines: true,
-                            transform: (value) => parseBRLNumber(value) // <-- A MÁGICA ACONTECE AQUI
                         });
 
                         parsedData.data.forEach((row: any) => {
@@ -319,11 +319,10 @@ export default function ConciliationPage() {
                                }
                                const existingData = supportDataMap.get(key)!;
                                
-                               // O loop agora só precisa copiar os valores já convertidos.
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
-                                       existingData[friendlyName] = row[header];
+                                       existingData[friendlyName] = parseSheetValue(row[header]);
                                    }
                                }
                            }
@@ -333,7 +332,6 @@ export default function ConciliationPage() {
                     }
                  });
                  
-                 // A lógica abaixo permanece como estava na penúltima versão (com 'sheetData').
                  processedSales = processedSales.map(sale => {
                      const saleKey = normalizeKey((sale as any).order_code);
                      if (saleKey && supportDataMap.has(saleKey)) {
@@ -592,5 +590,3 @@ export default function ConciliationPage() {
         </>
     );
 }
-
-
