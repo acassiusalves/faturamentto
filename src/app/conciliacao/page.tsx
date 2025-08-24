@@ -210,7 +210,7 @@ export default function ConciliationPage() {
                 };
                 for (const item of calc.formula) {
                     if (item.type === 'column') {
-                        const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
+                        const value = (saleWithCost.customData as any)?.[item.value] ?? (sale as any)[item.value] ?? (sale.sheetData as any)?.[item.value] ?? 0;
                         values.push(value);
                     } else if (item.type === 'number') {
                         values.push(parseFloat(item.value));
@@ -293,11 +293,6 @@ export default function ConciliationPage() {
                     .replace(',', '.');
             
                 const number = parseFloat(cleanedValue);
-
-                if (strValue.includes(',')) {
-                    console.log(`[Depuração Planilha] Original: "${strValue}", Limpo: "${cleanedValue}", Resultado Numérico:`, number);
-                }
-            
                 return isNaN(number) ? strValue : number;
             };
 
@@ -309,7 +304,14 @@ export default function ConciliationPage() {
                     if (!file.fileContent || !file.associationKey) return;
                     
                     try {
-                        const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
+                        // CORREÇÃO: Usamos a opção 'transform' do Papa.parse para converter os
+                        // valores diretamente durante a leitura do arquivo.
+                        const parsedData = Papa.parse(file.fileContent, { 
+                            header: true, 
+                            skipEmptyLines: true,
+                            transform: (value) => parseBRLNumber(value) // <-- A MÁGICA ACONTECE AQUI
+                        });
+
                         parsedData.data.forEach((row: any) => {
                            const key = normalizeKey(row[file.associationKey]);
                            if(key) {
@@ -318,10 +320,11 @@ export default function ConciliationPage() {
                                }
                                const existingData = supportDataMap.get(key)!;
                                
+                               // O loop agora só precisa copiar os valores já convertidos.
                                for(const header in row) {
                                    const friendlyName = file.friendlyNames[header] || header;
                                    if (friendlyName) {
-                                       existingData[friendlyName] = parseBRLNumber(row[header]);
+                                       existingData[friendlyName] = row[header];
                                    }
                                }
                            }
@@ -331,12 +334,16 @@ export default function ConciliationPage() {
                     }
                  });
                  
+                 // A lógica abaixo permanece como estava na penúltima versão (com 'sheetData').
                  processedSales = processedSales.map(sale => {
                      const saleKey = normalizeKey((sale as any).order_code);
                      if (saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
-                             ...supportDataMap.get(saleKey)
+                             sheetData: {
+                                 ...(sale.sheetData || {}),
+                                 ...supportDataMap.get(saleKey),
+                             }
                          };
                      }
                      return sale;
@@ -586,6 +593,4 @@ export default function ConciliationPage() {
         </>
     );
 }
-
-
 
