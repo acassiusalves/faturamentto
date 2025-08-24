@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +15,6 @@ import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
 import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
 import { iderisFields } from '@/lib/ideris-fields';
 
@@ -158,6 +158,12 @@ export default function ConciliationPage() {
                 // Basic shunting-yard logic for formula evaluation
                 const values: number[] = [];
                 const ops: string[] = [];
+                const precedence = (op: string) => {
+                    if (op === '+' || op === '-') return 1;
+                    if (op === '*' || op === '/') return 2;
+                    return 0;
+                };
+
                 const applyOp = () => {
                     const op = ops.pop()!;
                     const right = values.pop()!;
@@ -183,7 +189,7 @@ export default function ConciliationPage() {
                         }
                         ops.pop(); // Pop '('
                     } else { // Operator
-                        while (ops.length && ops[ops.length - 1] !== '(') {
+                        while (ops.length && precedence(ops[ops.length - 1]) >= precedence(item.value)) {
                            applyOp();
                         }
                         ops.push(item.value);
@@ -364,9 +370,33 @@ export default function ConciliationPage() {
     };
 
     const handleSaveCustomCalculation = async (calculation: CustomCalculation) => {
-        const newCalculations = [...customCalculations.filter(c => c.id !== calculation.id), calculation];
+        let newCalculations: CustomCalculation[];
+        if (calculation.id && defaultCalculations.find(c => c.id === calculation.id)) {
+             // It's a default one, so we just update or add
+            const existingIndex = customCalculations.findIndex(c => c.id === calculation.id);
+            if(existingIndex > -1) {
+                newCalculations = [...customCalculations];
+                newCalculations[existingIndex] = calculation;
+            } else {
+                newCalculations = [...customCalculations, calculation];
+            }
+        } else if (calculation.id) {
+            // It's an existing custom one, update it
+            newCalculations = customCalculations.map(c => c.id === calculation.id ? calculation : c);
+        } else {
+            // It's a new custom one
+            const newId = `custom_${calculation.name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`;
+            newCalculations = [...customCalculations, { ...calculation, id: newId }];
+        }
+
         setCustomCalculations(newCalculations);
-        await saveAppSettings({ customCalculations: newCalculations });
+        await saveAppSettings({ customCalculations: newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id)) });
+    };
+
+    const handleDeleteCustomCalculation = async (calculationId: string) => {
+        const newCalculations = customCalculations.filter(c => c.id !== calculationId);
+        setCustomCalculations(newCalculations);
+        await saveAppSettings({ customCalculations: newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id)) });
     };
 
     // Options for filters
@@ -496,8 +526,10 @@ export default function ConciliationPage() {
             isOpen={isCalculationOpen}
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
+            onDelete={handleDeleteCustomCalculation}
             marketplaces={marketplaces.filter(m => m !== 'all')}
             availableColumns={availableFormulaColumns}
+            customCalculations={customCalculations}
         />
         </>
     );

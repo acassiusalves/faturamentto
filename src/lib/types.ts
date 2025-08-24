@@ -1,23 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export interface Cost {
   id: string;
   type: string;
@@ -267,11 +248,11 @@ export interface SupportData {
 export type FormulaItem = { type: 'column' | 'operator' | 'number'; value: string; label: string };
 
 export interface CustomCalculation {
-    id: string; // e.g. 'custom_162987...
-    name: string; // e.g. "Lucro Real"
+    id: string;
+    name: string;
     formula: FormulaItem[];
     isPercentage?: boolean;
-    targetMarketplace?: string; // e.g., 'Mercado Livre'
+    targetMarketplace?: string;
 }
 
 // -- Approval Request Types --
