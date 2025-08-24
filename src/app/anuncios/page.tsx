@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Upload, Loader2, FileText, BadgeCheck } from 'lucide-react';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AnunciosPage() {
@@ -24,36 +25,80 @@ export default function AnunciosPage() {
 
     setIsLoading(true);
     setFileName(file.name);
+    
+    const reader = new FileReader();
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors.length > 0) {
-          toast({
-            variant: 'destructive',
-            title: 'Erro ao processar o arquivo',
-            description: 'Verifique se o formato do CSV está correto.',
-          });
-          console.error("CSV Errors:", results.errors);
+    reader.onload = (e) => {
+        const fileContent = e.target?.result;
+        if (!fileContent) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao ler o arquivo',
+                description: 'Não foi possível ler o conteúdo do arquivo.',
+            });
+            setIsLoading(false);
+            return;
         }
-        setHeaders(results.meta.fields || []);
-        setData(results.data);
-        setIsLoading(false);
-        toast({
-            title: 'Arquivo Processado!',
-            description: `${results.data.length} anúncios foram carregados de ${file.name}.`
-        })
-      },
-      error: (error) => {
+
+        try {
+            let parsedData: any[] = [];
+            let parsedHeaders: string[] = [];
+
+            if (file.name.endsWith('.csv')) {
+                const result = Papa.parse(fileContent as string, {
+                    header: true,
+                    skipEmptyLines: true,
+                });
+                 if (result.errors.length > 0) {
+                    throw new Error('Erro ao processar o arquivo CSV.');
+                }
+                parsedData = result.data;
+                parsedHeaders = result.meta.fields || [];
+
+            } else if (file.name.endsWith('.xlsx')) {
+                const workbook = XLSX.read(fileContent, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (jsonData.length > 0) {
+                    parsedHeaders = jsonData[0] as string[];
+                    parsedData = XLSX.utils.sheet_to_json(worksheet);
+                }
+            } else {
+                 throw new Error('Formato de arquivo não suportado. Por favor, use .csv ou .xlsx');
+            }
+            
+            setHeaders(parsedHeaders);
+            setData(parsedData);
+            toast({
+                title: 'Arquivo Processado!',
+                description: `${parsedData.length} anúncios foram carregados de ${file.name}.`
+            });
+
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Falha no Upload',
+                description: error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    if (file.name.endsWith('.csv')) {
+        reader.readAsText(file);
+    } else if (file.name.endsWith('.xlsx')) {
+        reader.readAsBinaryString(file);
+    } else {
         toast({
             variant: 'destructive',
-            title: 'Falha no Upload',
-            description: error.message
+            title: 'Formato Inválido',
+            description: 'Por favor, selecione um arquivo .csv ou .xlsx.',
         });
         setIsLoading(false);
-      }
-    });
+    }
   };
 
   return (
@@ -71,7 +116,7 @@ export default function AnunciosPage() {
                 <CardHeader>
                 <CardTitle>Importar Planilha</CardTitle>
                 <CardDescription>
-                    Selecione o arquivo CSV de anúncios exportado do seu marketplace.
+                    Selecione o arquivo CSV ou XLSX de anúncios exportado do seu marketplace.
                 </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -84,7 +129,7 @@ export default function AnunciosPage() {
                                     ) : (
                                         <Upload className="mr-2 h-4 w-4" />
                                     )}
-                                    {isLoading ? 'Processando...' : (fileName ? 'Trocar Arquivo' : 'Escolher Arquivo CSV')}
+                                    {isLoading ? 'Processando...' : (fileName ? 'Trocar Arquivo' : 'Escolher Arquivo')}
                                 </div>
                             </Button>
                         </Label>
@@ -92,7 +137,7 @@ export default function AnunciosPage() {
                             id="csv-upload"
                             type="file"
                             className="hidden"
-                            accept=".csv"
+                            accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                             onChange={handleFileUpload}
                             disabled={isLoading}
                         />
