@@ -40,7 +40,6 @@ const defaultCalculations: CustomCalculation[] = [
     },
 ];
 
-
 const sortCalculationsByDependency = (calculations: CustomCalculation[]): CustomCalculation[] => {
     const graph: { [key: string]: string[] } = {};
     const inDegree: { [key: string]: number } = {};
@@ -61,15 +60,16 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
             }
         }
 
-        // CORREÇÃO: Adiciona dependências de interação
-        // Se a coluna 'calc' interage com uma 'targetColumn',
-        // então a 'targetColumn' depende de 'calc'.
+        // CORREÇÃO FINAL: Inverte a lógica da dependência de interação.
+        // Se a coluna 'calc' (source) interage com uma 'targetColumn',
+        // então a 'source' depende que a 'target' seja calculada primeiro.
         if (calc.interaction) {
             const sourceId = calc.id;
             const targetId = calc.interaction.targetColumn;
             if (calcIds.has(targetId)) {
-                graph[sourceId].push(targetId);
-                inDegree[targetId]++;
+                // A seta de dependência vai do ALVO para a ORIGEM da interação.
+                graph[targetId].push(sourceId);
+                inDegree[sourceId]++;
             }
         }
     }
@@ -95,8 +95,6 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
 
     if (sorted.length !== calculations.length) {
         console.error("Dependência circular detectada nos cálculos personalizados.");
-        // Retorna a lista original como fallback para evitar que a página quebre
-        // Isso pode acontecer se, por exemplo, Coluna A interage com B e Coluna B interage com A.
         return calculations;
     }
 
@@ -415,7 +413,7 @@ export default function ConciliationPage() {
         
         // Sanitize interaction data before saving
         const finalCalculation = { ...calculation };
-        if (finalCalculation.interaction?.targetColumn === 'none') {
+        if (finalCalculation.interaction && finalCalculation.interaction.targetColumn === 'none') {
             delete finalCalculation.interaction;
         }
 
