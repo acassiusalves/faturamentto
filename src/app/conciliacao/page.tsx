@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
 import type { DateRange } from "react-day-picker";
 import { iderisFields } from '@/lib/ideris-fields';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 // Helper to generate months
@@ -370,25 +371,11 @@ export default function ConciliationPage() {
     };
 
     const handleSaveCustomCalculation = async (calculation: CustomCalculation) => {
-        let newCalculations: CustomCalculation[];
-        if (calculation.id && defaultCalculations.find(c => c.id === calculation.id)) {
-             // It's a default one, so we just update or add
-            const existingIndex = customCalculations.findIndex(c => c.id === calculation.id);
-            if(existingIndex > -1) {
-                newCalculations = [...customCalculations];
-                newCalculations[existingIndex] = calculation;
-            } else {
-                newCalculations = [...customCalculations, calculation];
-            }
-        } else if (calculation.id) {
-            // It's an existing custom one, update it
-            newCalculations = customCalculations.map(c => c.id === calculation.id ? calculation : c);
-        } else {
-            // It's a new custom one
+        const newCalculations = customCalculations.map(c => c.id === calculation.id ? calculation : c);
+        if (!newCalculations.find(c => c.id === calculation.id)) {
             const newId = `custom_${calculation.name.toLowerCase().replace(/\s/g, '_')}_${Date.now()}`;
-            newCalculations = [...customCalculations, { ...calculation, id: newId }];
+            newCalculations.push({ ...calculation, id: newId });
         }
-
         setCustomCalculations(newCalculations);
         await saveAppSettings({ customCalculations: newCalculations.filter(c => !defaultCalculations.find(dc => dc.id === c.id)) });
     };
@@ -470,8 +457,9 @@ export default function ConciliationPage() {
                             <SelectValue placeholder="Filtrar por Marketplace" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">Todos os Marketplaces</SelectItem>
                             {marketplaces.map(mp => (
-                                <SelectItem key={mp} value={mp}>{mp === 'all' ? 'Todos os Marketplaces' : mp}</SelectItem>
+                                <SelectItem key={mp} value={mp}>{mp}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -480,8 +468,9 @@ export default function ConciliationPage() {
                             <SelectValue placeholder="Filtrar por Estado" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">Todos os Estados</SelectItem>
                             {states.map(s => (
-                                <SelectItem key={s} value={s}>{s === 'all' ? 'Todos os Estados' : s}</SelectItem>
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -490,8 +479,9 @@ export default function ConciliationPage() {
                             <SelectValue placeholder="Filtrar por Conta" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">Todas as Contas</SelectItem>
                             {accounts.map(acc => (
-                                <SelectItem key={acc} value={acc}>{acc === 'all' ? 'Todas as Contas' : acc}</SelectItem>
+                                <SelectItem key={acc} value={acc}>{acc}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
