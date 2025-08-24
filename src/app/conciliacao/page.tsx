@@ -211,7 +211,7 @@ const parseBrNumber = (raw: unknown): number | null => {
     return Number.isFinite(n) ? n : null;
   }
 
-  // Sem vírgula: assume decimal en-US (ponto)
+  // Sem vírgula, assume decimal en-US (ponto)
   const n = Number(s0);
   return Number.isFinite(n) ? n : null;
 };
@@ -342,14 +342,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
         if (supportData && supportData.files) {
             const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
-
-            const normalizeLabel = (s: string): string =>
-                String(s || '')
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
-                    .replace(/[_-]+/g, ' ')                           // "_" ou "-" -> espaço
-                    .replace(/\s+/g, ' ')                             // colapsa espaços
-                    .trim()
-                    .toLowerCase();
+            const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
             // Use o mesmo parser robusto do motor de cálculo
             const parseSheetValue = (value: any): any => {
@@ -392,7 +385,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                                    const friendlyName = file.friendlyNames?.[header] || header;
 
                                    const parsed = parseSheetValue(raw);
-
                                    const normKey = normalizeLabel(friendlyName);
                                    existingData[normKey] = parsed;
                                }
@@ -405,14 +397,27 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                  
                  processedSales = processedSales.map(sale => {
                      const saleKey = normalizeKey((sale as any).order_code);
-                     if (saleKey && supportDataMap.has(saleKey)) {
-                         return {
+                     const sheetValues = supportDataMap.get(saleKey);
+
+                     if (sheetValues) {
+                         // A nova lógica entra aqui.
+                         // Se a planilha tem uma coluna "status", ela substitui o status original.
+                         const sheetStatus = sheetValues['status'] || sheetValues['Status']; // Tenta encontrar a coluna de status
+                         
+                         const mergedSale = {
                              ...sale,
+                             // Se o status da planilha existir e não for vazio, use-o. Senão, mantenha o da Ideris.
+                             status: sheetStatus ? String(sheetStatus) : sale.status,
                              sheetData: {
                                  ...(sale.sheetData || {}),
-                                 ...supportDataMap.get(saleKey),
+                                 ...sheetValues,
                              }
                          };
+                         // Remove a propriedade de status da planilha para não ficar duplicado.
+                         delete mergedSale.sheetData['status'];
+                         delete mergedSale.sheetData['Status'];
+
+                         return mergedSale;
                      }
                      return sale;
                  });
@@ -726,4 +731,5 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
+
 
