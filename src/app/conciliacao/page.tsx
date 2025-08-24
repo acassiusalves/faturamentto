@@ -95,7 +95,7 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
         for (const neighborId of graph[currentId]) {
             inDegree[neighborId]--;
             if (inDegree[neighborId] === 0) {
-                queue.push(neighborId);
+                queue.push(id);
             }
         }
     }
@@ -187,7 +187,6 @@ export default function ConciliationPage() {
     const pickingLogsMap = useMemo(() => {
         const map = new Map<string, number>();
         pickingLogs.forEach(log => {
-            // CORREÇÃO: A chave no objeto 'log' é 'orderNumber'
             const currentCost = map.get(log.orderNumber) || 0;
             map.set(log.orderNumber, currentCost + log.costPrice);
         });
@@ -547,9 +546,9 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
     };
 
     // Options for filters
-    const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
-    const states = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean)))], [sales]);
-    const accounts = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).auth_name).filter(Boolean)))], [sales]);
+    const marketplaces = useMemo(() => Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
+    const states = useMemo(() => Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
+    const accounts = useMemo(() => Array.from(new Set(sales.map(s => (s as any).auth_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
     
     if (isLoading) {
         return (
@@ -702,7 +701,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
             onDelete={handleDeleteCustomCalculation}
-            marketplaces={marketplaces.filter(m => m !== 'all')}
+            marketplaces={marketplaces}
             availableColumns={availableFormulaColumns}
             customCalculations={customCalculations}
         />
