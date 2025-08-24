@@ -186,9 +186,9 @@ export default function ConciliationPage() {
             product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
             customData: { ...(sale.customData || {}) }
         };
-
+    
         const sortedCalculations = sortCalculationsByDependency(customCalculations);
-
+    
         sortedCalculations.forEach(calc => {
             // Parte 1: Calcula o valor base da coluna atual
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
@@ -228,20 +228,20 @@ export default function ConciliationPage() {
                 let result = values[0];
                 if (calc.isPercentage) result *= 100;
                 (saleWithCost.customData as any)[calc.id] = result;
-
+    
                 // Parte 2: Se a coluna atual tiver uma interação, aplica-a IMEDIATAMENTE.
                 if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
                     const targetCol = calc.interaction.targetColumn;
                     const operator = calc.interaction.operator;
                     const valueToApply = (saleWithCost.customData as any)[calc.id];
-
+    
                     // Garante que o valor da coluna alvo já foi calculado e é um número
                     if (typeof (saleWithCost.customData as any)[targetCol] === 'number') {
                         if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
                         else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
                     }
                 }
-
+    
             } catch (e) {
                 console.error(`Error calculating formula for ${calc.name}:`, e);
                 (saleWithCost.customData as any)[calc.id] = NaN;
@@ -251,7 +251,7 @@ export default function ConciliationPage() {
         if (!(saleWithCost.customData as any)?.product_cost) {
           (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
         }
-
+    
         return saleWithCost;
     }, [pickingLogsMap, customCalculations]);
 
@@ -294,12 +294,9 @@ export default function ConciliationPage() {
             
                 const number = parseFloat(cleanedValue);
 
-                // --- INÍCIO DA DEPURAÇÃO ---
-                // Se o valor original tinha uma vírgula, vamos registrá-lo no console.
                 if (strValue.includes(',')) {
                     console.log(`[Depuração Planilha] Original: "${strValue}", Limpo: "${cleanedValue}", Resultado Numérico:`, number);
                 }
-                // --- FIM DA DEPURAÇÃO ---
             
                 return isNaN(number) ? strValue : number;
             };
@@ -336,17 +333,14 @@ export default function ConciliationPage() {
                  
                  processedSales = processedSales.map(sale => {
                      const saleKey = normalizeKey((sale as any).order_code);
-                     if(saleKey && supportDataMap.has(saleKey)) {
+                     if (saleKey && supportDataMap.has(saleKey)) {
                          return {
                              ...sale,
-                             sheetData: {
-                                 ...(sale.sheetData || {}),
-                                 ...supportDataMap.get(saleKey),
-                             }
-                         }
+                             ...supportDataMap.get(saleKey)
+                         };
                      }
                      return sale;
-                 })
+                 });
             }
         }
         
@@ -592,5 +586,6 @@ export default function ConciliationPage() {
         </>
     );
 }
+
 
 
