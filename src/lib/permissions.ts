@@ -27,6 +27,7 @@ export const navLinks = [
       icon: PackagePlus,
       subItems: [
         { href: "/produtos", label: "Produtos", icon: ShoppingCart },
+        { href: "/anuncios", label: "Anúncios", icon: Megaphone },
         { href: "/avisos", label: "Avisos", icon: Megaphone },
       ]
     },
@@ -82,5 +83,6 @@ export const pagePermissions: Record<string, string[]> = {
     '/perfil': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/feed-25': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/avisos': ['admin'],
+    '/anuncios': ['admin'],
     '/login': [], // Public page, no roles required
 };
