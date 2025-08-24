@@ -17,7 +17,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot, Search as SearchIcon } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot, Search as SearchIcon, Ticket } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -33,6 +33,7 @@ import { saveAppSettings, loadAppSettings, saveSales } from "@/services/firestor
 import { fetchOrderById } from "@/services/ideris";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "./ui/input";
+import { useRouter } from 'next/navigation';
 
 
 interface SalesTableProps {
@@ -88,6 +89,7 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
 };
 
 export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false }: SalesTableProps) {
+  const router = useRouter();
   const [currentSales, setCurrentSales] = useState<Sale[]>(data);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -648,8 +650,13 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
                             {!isDashboard && (
                             <TableCell className="text-center whitespace-nowrap space-x-2">
-                                <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
-                                Gerenciar Custos
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/sac?orderId=${(sale as any).order_code}`)}
+                                >
+                                  <Ticket className="mr-2 h-4 w-4" />
+                                  Abrir Ticket
                                 </Button>
                             </TableCell>
                             )}
