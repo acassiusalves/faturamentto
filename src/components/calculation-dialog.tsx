@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -26,17 +25,10 @@ interface CalculationDialogProps {
   onClose: () => void;
   onSave: (calculation: CustomCalculation) => Promise<void>;
   marketplaces: string[];
+  availableColumns: { key: string; label: string }[];
 }
 
-const availableColumns: { key: string; label: string }[] = [
-    { key: 'value_with_shipping', label: 'Venda Bruta' },
-    { key: 'fee_order', label: 'Comissão' },
-    { key: 'fee_shipment', label: 'Frete' },
-    { key: 'product_cost', label: 'Custo do Produto' },
-    { key: 'left_over', label: 'Lucro (Ideris)' },
-];
-
-export function CalculationDialog({ isOpen, onClose, onSave, marketplaces }: CalculationDialogProps) {
+export function CalculationDialog({ isOpen, onClose, onSave, marketplaces, availableColumns }: CalculationDialogProps) {
   const [formula, setFormula] = useState<FormulaItem[]>([]);
   const [columnName, setColumnName] = useState("");
   const [isPercentage, setIsPercentage] = useState(false);

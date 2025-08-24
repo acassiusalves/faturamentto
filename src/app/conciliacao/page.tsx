@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
+import { iderisFields } from '@/lib/ideris-fields';
 
 
 // Helper to generate months
@@ -294,6 +295,33 @@ export default function ConciliationPage() {
         return processedSales.map(applyCustomCalculations);
 
     }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, customCalculations, pickingLogsMap]);
+    
+    const availableFormulaColumns = useMemo(() => {
+        const numericIderis = iderisFields
+            .filter(f => f.key.toLowerCase().includes('value') || f.key.toLowerCase().includes('amount') || f.key.toLowerCase().includes('fee') || f.key.toLowerCase().includes('cost') || f.key.toLowerCase().includes('discount') || f.key.toLowerCase().includes('left_over'))
+            .map(f => ({ key: f.key, label: f.label }));
+        
+        const systemCols = [
+            { key: 'product_cost', label: 'Custo do Produto' },
+        ];
+
+        const customCols = customCalculations.map(c => ({ key: c.id, label: c.name }));
+
+        const sheetCols: { key: string, label: string }[] = [];
+        if (supportData && supportData.files) {
+            const allFriendlyNames = new Set<string>();
+            Object.values(supportData.files).flat().forEach(file => {
+                Object.values(file.friendlyNames).forEach(name => allFriendlyNames.add(name));
+            });
+            allFriendlyNames.forEach(name => sheetCols.push({ key: name, label: name }));
+        }
+        
+        // This can be expanded to check for actual numeric values in sheetData if needed
+        const allCols = [...numericIderis, ...systemCols, ...customCols, ...sheetCols];
+        // Remove duplicates by key
+        return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
+    }, [customCalculations, supportData]);
+
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -469,6 +497,7 @@ export default function ConciliationPage() {
             onClose={() => setIsCalculationOpen(false)}
             onSave={handleSaveCustomCalculation}
             marketplaces={marketplaces.filter(m => m !== 'all')}
+            availableColumns={availableFormulaColumns}
         />
         </>
     );
