@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3 } from 'lucide-react';
 import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -385,6 +385,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                                    const friendlyName = file.friendlyNames?.[header] || header;
 
                                    const parsed = parseSheetValue(raw);
+                                   
                                    const normKey = normalizeLabel(friendlyName);
                                    existingData[normKey] = parsed;
                                }
@@ -400,20 +401,16 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                      const sheetValues = supportDataMap.get(saleKey);
 
                      if (sheetValues) {
-                         // A nova lógica entra aqui.
-                         // Se a planilha tem uma coluna "status", ela substitui o status original.
-                         const sheetStatus = sheetValues['status'] || sheetValues['Status']; // Tenta encontrar a coluna de status
+                         const sheetStatus = sheetValues['status'] || sheetValues['Status'];
                          
                          const mergedSale = {
                              ...sale,
-                             // Se o status da planilha existir e não for vazio, use-o. Senão, mantenha o da Ideris.
                              status: sheetStatus ? String(sheetStatus) : sale.status,
                              sheetData: {
                                  ...(sale.sheetData || {}),
                                  ...sheetValues,
                              }
                          };
-                         // Remove a propriedade de status da planilha para não ficar duplicado.
                          delete mergedSale.sheetData['status'];
                          delete mergedSale.sheetData['Status'];
 
@@ -436,8 +433,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         filteredSales.forEach(sale => {
             faturamento += getNumericField(sale, 'value_with_shipping');
             custoProduto += getNumericField(sale, 'product_cost');
-            // Assuming 'lucro_liquido_real' is a custom column you have. 
-            // If not, you should adjust this key to the actual final profit column key.
             lucroLiquido += getNumericField(sale, 'custom_lucro_liquido_real_1720549929555');
         });
         
@@ -454,7 +449,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
-            .filter(f => f.key.toLowerCase().includes('value') || f.key.toLowerCase().includes('amount') || f.key.toLowerCase().includes('fee') || f.key.toLowerCase().includes('cost') || f.key.toLowerCase().includes('discount') || f.key.toLowerCase().includes('left_over'))
+            .filter(f => f.key.toLowerCase().includes('value') || f.key.toLowerCase().includes('amount') || f.key.toLowerCase().includes('fee') || f.key.toLowerCase().includes('cost') || f.key.toLowerCase().includes('discount'))
             .map(f => ({ key: f.key, label: f.label }));
         
         const systemCols = [
@@ -469,12 +464,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             Object.values(supportData.files).flat().forEach(file => {
                 Object.values(file.friendlyNames).forEach(name => allFriendlyNames.add(name));
             });
-            allFriendlyNames.forEach(name => sheetCols.push({ key: name, label: name }));
+            const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            allFriendlyNames.forEach(name => sheetCols.push({ key: normalizeLabel(name), label: name }));
         }
         
-        // This can be expanded to check for actual numeric values in sheetData if needed
         const allCols = [...numericIderis, ...systemCols, ...customCols, ...sheetCols];
-        // Remove duplicates by key
         return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
     }, [customCalculations, supportData]);
 
@@ -497,8 +491,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const baseProfit = (sale as any).left_over || 0;
         const totalAddedCosts = calculateTotalCost(sale);
         
-        // The base profit from Ideris already discounts commission and shipping.
-        // We need to discount the product cost (from picking) and manual costs.
         const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
         const manualCosts = totalAddedCosts - productCost;
 
@@ -523,11 +515,9 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         let newCalculations: CustomCalculation[];
         
         const finalCalculation = { ...calculation };
-        // Do not save interaction property if target is 'none'
         if (finalCalculation.interaction && finalCalculation.interaction.targetColumn === 'none') {
             delete finalCalculation.interaction;
         }
-        // Do not save targetMarketplace property if it is 'all'
         if (finalCalculation.targetMarketplace === 'all') {
             delete finalCalculation.targetMarketplace;
         }
@@ -540,7 +530,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         }
         
         setCustomCalculations(newCalculations);
-        // Filter out default calculations before saving to Firestore
         const calcsToSave = newCalculations.filter(c => !defaultCalculations.some(dc => dc.id === c.id));
         await saveAppSettings({ customCalculations: calcsToSave });
     };
@@ -609,22 +598,22 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                 <CardHeader>
                     <CardTitle>Resumo do Período</CardTitle>
                 </CardHeader>
-                <CardContent className="flex justify-around items-center p-6 text-center">
-                    <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-                        <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryStats.lucroLiquido)}</p>
+                <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                     <div className="p-4 bg-background rounded-lg border">
+                        <p className="text-sm text-muted-foreground">Faturamento Bruto</p>
+                        <p className="text-2xl font-bold text-primary">{formatCurrency(summaryStats.faturamento)}</p>
                     </div>
-                     <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Custo Produto</p>
+                    <div className="p-4 bg-background rounded-lg border">
+                        <p className="text-sm text-muted-foreground">Custo do Produto (CMV)</p>
                         <p className="text-2xl font-bold text-destructive">{formatCurrency(summaryStats.custoProduto)}</p>
                     </div>
-                     <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">M.C. %</p>
+                    <div className="p-4 bg-background rounded-lg border">
+                        <p className="text-sm text-muted-foreground">Margem de Contribuição</p>
                         <p className="text-2xl font-bold">{summaryStats.margemContribuicao.toFixed(2)}%</p>
                     </div>
-                    <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">Faturamento</p>
-                        <p className="text-2xl font-bold text-primary">{formatCurrency(summaryStats.faturamento)}</p>
+                    <div className="p-4 bg-background rounded-lg border">
+                        <p className="text-sm text-muted-foreground">Lucro Líquido Real</p>
+                        <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryStats.lucroLiquido)}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -731,5 +720,3 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
-
-
