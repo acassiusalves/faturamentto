@@ -37,7 +37,7 @@ const defaultCalculations: CustomCalculation[] = [
             { type: 'operator', value: '-', label: '-' },
             { type: 'column', value: 'product_cost', label: 'Custo do Produto' }
         ]
-    }
+    },
 ];
 
 export default function ConciliationPage() {
@@ -126,22 +126,21 @@ export default function ConciliationPage() {
         const saleWithCost = {
             ...sale,
             product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
+            customData: { ...(sale.customData || {}) }
         };
         
-        let customData: Record<string, number> = {};
-
-        // First pass: Calculate all initial values
+        // First Pass: Calculate all base custom columns
         customCalculations.forEach(calc => {
             if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
-                customData[calc.id] = NaN;
+                (saleWithCost.customData as any)[calc.id] = NaN;
                 return;
             }
-
+    
             try {
                 const values: number[] = [];
                 const ops: string[] = [];
                 const precedence = (op: string) => (op === '+' || op === '-') ? 1 : (op === '*' || op === '/') ? 2 : 0;
-
+    
                 const applyOp = () => {
                     const op = ops.pop()!;
                     const right = values.pop()!;
@@ -151,11 +150,10 @@ export default function ConciliationPage() {
                     else if (op === '*') values.push(left * right);
                     else if (op === '/') values.push(right !== 0 ? left / right : 0);
                 };
-
+    
                 for (const item of calc.formula) {
                     if (item.type === 'column') {
-                        // Use already computed customData if available
-                        const value = customData[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
+                        const value = (saleWithCost.customData as any)?.[item.value] ?? (saleWithCost as any)[item.value] ?? 0;
                         values.push(value);
                     } else if (item.type === 'number') {
                         values.push(parseFloat(item.value));
@@ -173,30 +171,34 @@ export default function ConciliationPage() {
                 
                 let result = values[0];
                 if (calc.isPercentage) result *= 100;
-                customData[calc.id] = result;
-
+                (saleWithCost.customData as any)[calc.id] = result;
+    
             } catch (e) {
                 console.error(`Error calculating formula for ${calc.name}:`, e);
-                customData[calc.id] = NaN;
+                (saleWithCost.customData as any)[calc.id] = NaN;
             }
         });
-
-        // Second pass: Apply interactions
+    
+        // Second Pass: Apply interactions. This ensures all base values are calculated before interactions happen.
         customCalculations.forEach(calc => {
-            if (calc.interaction && customData[calc.id] !== undefined) {
+            if (calc.interaction && (saleWithCost.customData as any)[calc.id] !== undefined) {
                 const targetCol = calc.interaction.targetColumn;
                 const operator = calc.interaction.operator;
-                const valueToApply = customData[calc.id];
-
-                if (customData[targetCol] !== undefined) {
-                    if (operator === '+') customData[targetCol] += valueToApply;
-                    else if (operator === '-') customData[targetCol] -= valueToApply;
+                const valueToApply = (saleWithCost.customData as any)[calc.id];
+    
+                if ((saleWithCost.customData as any)[targetCol] !== undefined) {
+                    if (operator === '+') (saleWithCost.customData as any)[targetCol] += valueToApply;
+                    else if (operator === '-') (saleWithCost.customData as any)[targetCol] -= valueToApply;
                 }
             }
         });
 
-
-        return { ...saleWithCost, customData };
+        // Ensure product_cost is part of customData so it can be referenced by key
+        if (!(saleWithCost.customData as any)?.product_cost) {
+          (saleWithCost.customData as any).product_cost = saleWithCost.product_cost;
+        }
+    
+        return saleWithCost;
     };
 
 
@@ -355,11 +357,18 @@ export default function ConciliationPage() {
 
     const handleSaveCustomCalculation = async (calculation: Omit<CustomCalculation, 'id'> & { id?: string }) => {
         let newCalculations: CustomCalculation[];
-        if (calculation.id) { // Editing existing
-            newCalculations = customCalculations.map(c => c.id === calculation.id ? { ...c, ...calculation } : c);
+        
+        // Sanitize interaction data before saving
+        const finalCalculation = { ...calculation };
+        if (finalCalculation.interaction?.targetColumn === 'none') {
+            delete finalCalculation.interaction;
+        }
+
+        if (finalCalculation.id) { // Editing existing
+            newCalculations = customCalculations.map(c => c.id === finalCalculation.id ? { ...c, ...finalCalculation } : c);
         } else { // Adding new
-            const newId = `custom_${calculation.name.toLowerCase().replace(/[\s\W]/g, '_')}_${Date.now()}`;
-            newCalculations = [...customCalculations, { ...calculation, id: newId }];
+            const newId = `custom_${finalCalculation.name.toLowerCase().replace(/[\s\W]/g, '_')}_${Date.now()}`;
+            newCalculations = [...customCalculations, { ...finalCalculation, id: newId }];
         }
         
         setCustomCalculations(newCalculations);
