@@ -103,11 +103,13 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
           name: columnName,
           formula: formula,
           isPercentage: isPercentage,
-          targetMarketplace: targetMarketplace === 'all' ? undefined : targetMarketplace,
-          interaction: interactionTarget !== 'none' ? {
-              targetColumn: interactionTarget,
-              operator: interactionOperator,
-          } : undefined,
+          ...(targetMarketplace !== 'all' && { targetMarketplace: targetMarketplace }),
+          ...(interactionTarget !== 'none' && {
+              interaction: {
+                  targetColumn: interactionTarget,
+                  operator: interactionOperator,
+              }
+          }),
       };
 
       await onSave(newCalculation);
