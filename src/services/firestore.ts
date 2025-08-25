@@ -51,27 +51,27 @@ const fromFirestore = (docData) => {
 
 // --- ENTRY LOG ---
 const migrateInventoryToEntryLog = async (): Promise<void> => {
-    console.log("Iniciando migração de dados do inventário para o log de entradas...");
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
-    
     const inventorySnapshot = await getDocs(inventoryCol);
-    if (inventorySnapshot.empty) {
-        console.log("Nenhum item no inventário para migrar.");
-        return;
-    }
+    if (inventorySnapshot.empty) return;
 
     const batch = writeBatch(db);
-    let count = 0;
+
     inventorySnapshot.forEach(docSnapshot => {
-        const item = fromFirestore({ ...docSnapshot.data(), id: docSnapshot.id }) as InventoryItem;
-        const logDocRef = doc(logCol, item.id);
-        batch.set(logDocRef, toFirestore(item));
-        count++;
+        const raw = docSnapshot.data();
+        const createdAt =
+        raw.createdAt instanceof Timestamp ? raw.createdAt.toDate()
+        : typeof raw.createdAt === 'string' ? new Date(raw.createdAt)
+        : new Date();
+        const item: any = { ...raw, id: docSnapshot.id, createdAt };
+
+        // opcional: id próprio do log (evita overwrite)
+        const logRef = doc(logCol, docSnapshot.id + '-migrate');
+        batch.set(logRef, toFirestore(item));
     });
 
     await batch.commit();
-    console.log(`${count} itens migrados com sucesso para o log de entradas.`);
 };
 
 
@@ -329,23 +329,36 @@ export const findPickLogBySN = async (serialNumber: string): Promise<PickedItemL
 
 
 export const revertPickingAction = async (pickLog: PickedItemLog) => {
-    const batch = writeBatch(db);
-    
-    // 1. Delete the log entry
-    const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log', pickLog.logId);
-    batch.delete(logDocRef);
+  const batch = writeBatch(db);
+  const now = new Date();
 
-    // 2. If it's not a manual item, add it back to inventory
-    if (!pickLog.id.startsWith('manual-')) {
-        const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
-        const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
-        // Ensure createdAt is a Date object for toFirestore
-        const itemWithDate = { ...itemToAddBack, createdAt: new Date(itemToAddBack.createdAt) };
-        batch.set(inventoryDocRef, toFirestore(itemWithDate));
-    }
-    
-    await batch.commit();
-}
+  // 1) Apaga o log de saída
+  const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log', pickLog.logId);
+  batch.delete(logDocRef);
+
+  // 2) Se não for manual, recoloca no inventory
+  if (!pickLog.id.startsWith('manual-')) {
+    const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
+    const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
+
+    // createdAt novo para a reentrada (evento de volta ao estoque)
+    const itemWithDate = { ...itemToAddBack, createdAt: now };
+    batch.set(inventoryDocRef, toFirestore(itemWithDate));
+
+    // 3) **LOG DE ENTRADA** da reversão
+    const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    const entryLogRef = doc(entryLogCol, pickLog.id + '-revert-' + now.getTime()); // id único p/ não sobrescrever
+    const entryLogPayload: InventoryItem = {
+      ...(fromFirestore(itemWithDate) as any),
+      id: entryLogRef.id,           // id do log ≠ id do inventory (evita overwrite)
+      origin: pickLog.origin ?? 'Reversão de Picking',
+      createdAt: now.toISOString(), // salva como ISO; toFirestore converte p/ Timestamp
+    };
+    batch.set(entryLogRef, toFirestore({ ...entryLogPayload, createdAt: now }));
+  }
+
+  await batch.commit();
+};
 
 export const clearTodaysPickingLog = async (): Promise<void> => {
     const todayStart = startOfDay(new Date());
@@ -756,3 +769,4 @@ export const loadInitialStockForToday = async (): Promise<number> => {
     const snapshot = await getCountFromServer(inventoryCol);
     return snapshot.data().count;
 };
+
