@@ -60,21 +60,22 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
     }
 
     for (const calc of calculations) {
-        // Dependências da fórmula (como antes)
+        // Dependências da fórmula
         for (const item of calc.formula) {
             if (item.type === 'column' && calcIds.has(item.value)) {
+                // Se a fórmula de 'calc' usa 'item.value', então 'item.value' deve ser calculado primeiro.
+                // A seta de dependência vai de 'item.value' para 'calc.id'.
                 graph[item.value].push(calc.id);
                 inDegree[calc.id]++;
             }
         }
 
-        // CORREÇÃO FINAL: Inverte a lógica da dependência de interação.
-        // Se a coluna 'calc' (source) interage com uma 'targetColumn',
-        // então a 'source' depende que a 'target' seja calculada primeiro.
+        // Dependências de interação
         if (calc.interaction) {
             const sourceId = calc.id;
             const targetId = calc.interaction.targetColumn;
             if (calcIds.has(targetId)) {
+                // Se 'calc' (source) interage com 'target', então 'target' deve ser calculado primeiro.
                 // A seta de dependência vai do ALVO para a ORIGEM da interação.
                 graph[targetId].push(sourceId);
                 inDegree[sourceId]++;
@@ -93,16 +94,21 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
     while (queue.length > 0) {
         const currentId = queue.shift()!;
         sorted.push(calcMap.get(currentId)!);
-        for (const neighborId of graph[currentId]) {
-            inDegree[neighborId]--;
-            if (inDegree[neighborId] === 0) {
-                queue.push(id);
+        
+        // CORREÇÃO: Verifica se 'graph[currentId]' existe antes de iterar
+        if (graph[currentId]) {
+            for (const neighborId of graph[currentId]) {
+                inDegree[neighborId]--;
+                if (inDegree[neighborId] === 0) {
+                    queue.push(neighborId); // CORREÇÃO: Enfileira o 'neighborId', não o 'id' original.
+                }
             }
         }
     }
 
     if (sorted.length !== calculations.length) {
-        console.error("Dependência circular detectada nos cálculos personalizados.");
+        console.error("Dependência circular detectada nos cálculos personalizados. A ordem pode estar incorreta.");
+        // Retorna a lista original como fallback para evitar que a aplicação quebre completamente.
         return calculations;
     }
 
