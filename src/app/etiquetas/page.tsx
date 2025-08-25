@@ -11,7 +11,7 @@ import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wa
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import type { AnalyzeLabelOutput, RemixZplDataOutput } from "@/app/actions";
+import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/app/actions";
 import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
@@ -38,14 +38,13 @@ const remixZplInitialState = {
   error: null as string | null,
 };
 
-type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'invoiceNumber' | 'trackingNumber' | 'senderName' | 'senderAddress'>;
 
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
   const [remixState, remixFormAction, isRemixingData] = useActionState(remixLabelDataAction, remixInitialState);
-  const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixInitialState);
+  const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
   const { toast } = useToast();
@@ -221,10 +220,12 @@ export default function EtiquetasPage() {
   const handleRemixField = (field: RemixableField) => {
     if (!analysisResult) return;
     setRemixingField(field);
-    const formData = new FormData();
-    formData.append('originalData', JSON.stringify(analysisResult));
-    formData.append('fieldToRemix', field);
-    remixFormAction(formData);
+    startTransition(() => {
+        const formData = new FormData();
+        formData.append('originalData', JSON.stringify(analysisResult));
+        formData.append('fieldToRemix', field);
+        remixFormAction(formData);
+    });
   };
 
   const handleRemoveField = (field: RemixableField) => {
