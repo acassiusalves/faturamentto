@@ -396,7 +396,11 @@ function ensureCI28(zpl: string) {
 
 // --- DETECÇÃO DO TEMPLATE MAGALU ---
 function isMagaluTemplate(zpl: string) {
-  return /\^BQN,2,4/i.test(zpl) && /DESTINAT[ÁA]RIO/i.test(zpl) && /REMETENTE/i.test(zpl);
+  // Tem QR do Magalu e os blocos nas coordenadas típicas
+  const hasQR = /\^BQN\s*,\s*2\s*,\s*4/i.test(zpl);
+  const hasRecipientLine = /\^(FO|FT)\s*370\s*,\s*736\b/i.test(zpl); // linha do nome do destinatário
+  const hasSenderLine    = /\^(FO|FT)\s*370\s*,\s*992\b/i.test(zpl); // linha do nome do remetente
+  return hasQR && hasRecipientLine && hasSenderLine;
 }
 
 // --- ÂNCORAS FIXAS DO MAGALU ---
@@ -622,3 +626,5 @@ export async function remixZplDataAction(
     return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
   }
 }
+
+    
