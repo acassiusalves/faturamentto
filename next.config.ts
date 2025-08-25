@@ -4,6 +4,18 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  webpack(config) {
+    // Carrega o 'worker' do pdfjs-dist
+    config.module.rules.push({
+      test: /pdf\.worker\.mjs/,
+      type: "asset/resource",
+      generator: {
+        filename: "static/chunks/[hash].worker.mjs",
+      },
+    });
+
+    return config;
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -37,7 +49,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
+        protocol: 'https',
         hostname: 'api.labelary.com',
         port: '',
         pathname: '/**',
