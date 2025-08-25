@@ -16,6 +16,10 @@ import * as pdfjs from 'pdfjs-dist';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  (pdfjs as any).GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${(pdfjs as any).version}/pdf.worker.min.js`;
+}
 
 const fetchInitialState = {
   labelUrl: null as string | null,
@@ -73,7 +77,7 @@ export default function EtiquetasPage() {
       });
   };
   
-  const generatePreview = async (zpl: string) => {
+const generatePreview = async (zpl: string) => {
     if (!zpl.trim()) {
         setPreviewUrl(null);
         return;
@@ -104,6 +108,7 @@ export default function EtiquetasPage() {
         setIsPreviewLoading(false);
     }
 };
+
 
   const debouncedPreview = useCallback(debounce(generatePreview, 1000), []);
 
