@@ -12,7 +12,18 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { AnalyzeLabelOutput } from './analyze-label-flow';
-import { AnalyzeLabelOutputSchema } from './analyze-label-flow';
+
+const AnalyzeLabelOutputSchema = z.object({
+  recipientName: z.string().describe('The name of the recipient (DESTINATÁRIO).'),
+  streetAddress: z.string().describe('The full street address of the recipient, including number and any complements.'),
+  city: z.string().describe('The city of the recipient.'),
+  state: z.string().describe('The state (UF) of the recipient.'),
+  zipCode: z.string().describe('The ZIP code (CEP) of the recipient.'),
+  orderNumber: z.string().describe('The order number (Pedido).'),
+  invoiceNumber: z.string().describe('The invoice number (Nota Fiscal).'),
+  senderName: z.string().describe('The name of the sender (REMETENTE).'),
+  senderAddress: z.string().describe('The full address of the sender.'),
+});
 
 const AnalyzeZplInputSchema = z.object({
   zplContent: z
