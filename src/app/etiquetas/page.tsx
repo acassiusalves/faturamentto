@@ -11,7 +11,7 @@ import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wa
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/app/actions";
+import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/lib/types";
 import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
@@ -43,6 +43,8 @@ const remixZplInitialState = {
   error: null as string | null,
 };
 
+const sanitizeZpl = (z: string) =>
+  z.replace(/```(?:zpl)?/g, '').trim();
 
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
@@ -67,10 +69,10 @@ export default function EtiquetasPage() {
   // Prévia ZPL (imagem)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-
+  
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
-  
+
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
     if (!zpl.trim()) { setPreviewUrl(null); return; }
   
@@ -147,6 +149,9 @@ export default function EtiquetasPage() {
     if (fetchState.zplContent) {
       setOriginalZpl(fetchState.zplContent);
       setZplEditorContent(fetchState.zplContent);
+      
+      setBaselineAnalysis(null);
+
       startTransition(() => {
         const fd = new FormData();
         fd.append("zplContent", fetchState.zplContent!);
@@ -169,9 +174,11 @@ export default function EtiquetasPage() {
       toast({ variant: "destructive", title: "Erro ao analisar ZPL", description: analyzeZplState.error });
     } else if (analyzeZplState.analysis) {
       setAnalysisResult(analyzeZplState.analysis);
-      setBaselineAnalysis(prev => prev ?? analyzeZplState.analysis);
+      if (!baselineAnalysis) {
+        setBaselineAnalysis(analyzeZplState.analysis); 
+      }
     }
-  }, [analyzeZplState, toast]);
+  }, [analyzeZplState, toast, baselineAnalysis]);
 
   useEffect(() => {
     if (remixState.error) {
@@ -184,15 +191,24 @@ export default function EtiquetasPage() {
 
   useEffect(() => {
     if (remixZplState.error) {
-        toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
+      toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
     } else if (remixZplState.result?.modifiedZpl) {
-        const newZpl = remixZplState.result.modifiedZpl.replace(/```(?:zpl)?/g, '').trim();
-        setZplEditorContent(newZpl);
-        setOriginalZpl(newZpl);
-        generatePreviewImmediate(newZpl);
-        toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
+      const newZpl = sanitizeZpl(remixZplState.result.modifiedZpl);
+      setZplEditorContent(newZpl);
+      setOriginalZpl(newZpl);
+      generatePreviewImmediate(newZpl);
+      
+      if (analysisResult) setBaselineAnalysis(analysisResult);
+      
+      startTransition(() => {
+        const fd = new FormData();
+        fd.append('zplContent', newZpl);
+        analyzeZplFormAction(fd);
+      });
+
+      toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
     }
-  }, [remixZplState, generatePreviewImmediate, toast]);
+  }, [remixZplState, toast, generatePreviewImmediate, analyzeZplFormAction, analysisResult]);
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -465,7 +481,7 @@ export default function EtiquetasPage() {
                     </div>
                     <form action={remixZplFormAction}>
                         <input type="hidden" name="originalZpl" value={originalZpl} />
-                        <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis || {})} />
+                        <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                         <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
                         <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
                             {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}

@@ -14,7 +14,7 @@ import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
-import type { RemixZplDataInput, RemixZplDataOutput } from '@/lib/types';
+import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput } from '@/lib/types';
 
 
 // This is the main server action that will be called from the frontend.
@@ -260,20 +260,6 @@ export async function fetchLabelAction(
   }
 }
 
-export type AnalyzeLabelOutput = {
-  recipientName: string;
-  streetAddress: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  orderNumber: string;
-  invoiceNumber: string;
-  trackingNumber: string;
-  senderName: string;
-  senderAddress: string;
-  estimatedDeliveryDate?: string;
-};
-
 export async function analyzeLabelAction(
     prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
     formData: FormData
@@ -311,17 +297,6 @@ export async function analyzeZplAction(
         return { analysis: null, error: e.message || 'Ocorreu um erro ao analisar a etiqueta ZPL.' };
     }
 }
-
-export type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'invoiceNumber' | 'trackingNumber' | 'senderName' | 'senderAddress'>;
-
-export type RemixLabelDataInput = {
-    fieldToRemix: RemixableField;
-    originalValue: string;
-};
-
-export type RemixLabelDataOutput = {
-    newValue: string;
-};
 
 export async function remixLabelDataAction(
     prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
