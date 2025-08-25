@@ -59,6 +59,30 @@ interface SupportDataDialogProps {
   monthYearKey: string;
 }
 
+const sanitizeHeaders = (arr: any[]): string[] => {
+  const cleaned = arr
+    .map(h => removeAccents(String(h ?? '').trim()))
+    .filter(h => h.length > 0); // remove cabeçalhos vazios
+  return Array.from(new Set(cleaned)); // deduplica
+};
+
+const sanitizeForFirestore = (value: any): any => {
+  if (Array.isArray(value)) return value.map(sanitizeForFirestore);
+  if (value && typeof value === 'object') {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value)) {
+      const key = String(k || '').trim();
+      if (!key) continue; // não permite chave vazia
+      if (v === undefined) continue; // Firestore não aceita undefined
+      if (typeof v === 'number' && !Number.isFinite(v)) continue; // NaN/Infinity fora
+      out[key] = sanitizeForFirestore(v);
+    }
+    return out;
+  }
+  return value;
+};
+
+
 export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportDataDialogProps) {
   const [supportData, setSupportData] = useState<SupportData>({ files: {} });
   const [allSales, setAllSales] = useState<{ id: string; order_code: string; }[]>([]);
@@ -133,11 +157,10 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
               parsedHeaders = parsedResult.meta.fields || [];
             }
 
-            // 👇 esta linha faz TODA a diferença
             const assocHeader = resolveAssociationHeader(parsedHeaders, file);
 
             parsedRows.forEach((row: any) => {
-              const rawKey = row[assocHeader]; // agora bate com "Número do pedido"
+              const rawKey = row[assocHeader];
               const keyToCompare = normalizeKey(rawKey);
               if (!keyToCompare) return;
               if (saleKeys.has(keyToCompare)) associated++;
@@ -184,7 +207,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                       toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
                       return;
                     }
-                    headers = (papaResults.data[0] as string[]).map((h) => removeAccents(h.trim()));
+                    headers = sanitizeHeaders((papaResults.data[0] as string[]) ?? []);
                     updateFileState(contentForStorage, headers);
                 },
             });
@@ -193,7 +216,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
-            headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
+            headers = sanitizeHeaders((json[0] as any[]) ?? []);
             
             contentForStorage = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
@@ -295,12 +318,12 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                 dataToSave.files[channelId] = processedFiles;
             }
         }
+        
+        const cleanData = sanitizeForFirestore(dataToSave);
 
-        // Firestore does not allow saving empty objects.
-        if (Object.keys(dataToSave.files).length > 0) {
-            await saveMonthlySupportData(monthYearKey, dataToSave);
+        if (Object.keys(cleanData.files).length > 0) {
+            await saveMonthlySupportData(monthYearKey, cleanData as SupportData);
         } else {
-            // If there are no files to save, delete the document for that month.
             await deleteMonthlySupportData(monthYearKey);
         }
 
