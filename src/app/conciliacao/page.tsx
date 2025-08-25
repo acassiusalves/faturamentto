@@ -192,6 +192,29 @@ const resolveAssociationHeader = (headers: string[], file: any): string => {
   return file.associationKey;
 };
 
+// Detecta se o header parece ser de data/hora
+const isDateHeader = (label: string) =>
+  /\b(data|date|hora|time|emissao|in[ií]cio|final)\b/i.test(label);
+
+// dd/mm/yyyy [hh:mm[:ss]] -> ISO
+const parseBRDateToISO = (s: string): string | null => {
+  const m = s.trim().replace(/\./g, '/').match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!m) return null;
+  const [, dd, mm, yyyy, HH='00', MM='00', SS='00'] = m;
+  const d = new Date(Number(yyyy), Number(mm)-1, Number(dd), Number(HH), Number(MM), Number(SS));
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+// Excel serial -> ISO (respeita fração do dia)
+const excelSerialToISO = (n: number): string | null => {
+  if (!Number.isFinite(n)) return null;
+  // 25569 = 1970-01-01 no calendário do Excel (com bug de 1900 já embutido)
+  const ms = Math.round((n - 25569) * 86400 * 1000);
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
@@ -448,13 +471,26 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                     const friendlyName = (file.friendlyNames?.[header] as string) || header;
                     const normKey = normalizeLabel(friendlyName);
         
-                    // aproveita teu parse numerico robusto:
-                    const parsed =
-                      typeof raw === "number" ? raw :
-                      typeof raw === "string" ? (parseBrNumber(raw) ?? raw) :
-                      raw;
-        
-                    existing[normKey] = parsed;
+                    let out: any = raw;
+
+                    // 1) Se for Date nativo, torna ISO
+                    if (raw instanceof Date) {
+                      out = raw.toISOString();
+                  
+                    // 2) Se é número e o header parece de data, tente Excel serial
+                    } else if (typeof raw === 'number' && isDateHeader(friendlyName)) {
+                      out = excelSerialToISO(raw) ?? raw;
+                  
+                    // 3) Se é string e parece data BR, converte pra ISO.
+                    } else if (typeof raw === 'string' && isDateHeader(friendlyName)) {
+                      const iso = parseBRDateToISO(raw);
+                      out = iso ?? raw;
+                  
+                    // 4) Caso contrário: **não** converta aqui.
+                    // Números/valores monetários serão parseados depois pelo getNumericField().
+                    }
+
+                    existing[normKey] = out;
                   });
                 });
               } catch (e) {
