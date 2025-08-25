@@ -1,3 +1,4 @@
+
 import 'pdfjs-dist/build/pdf.worker.mjs';
 import type {NextConfig} from 'next';
 
@@ -32,6 +33,12 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: 'http2.mlstatic.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'api.labelary.com',
         port: '',
         pathname: '/**',
       }
