@@ -22,8 +22,10 @@ export function DetailedEntryHistory() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [originFilter, setOriginFilter] = useState("all");
+  const [conditionFilter, setConditionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
+  const [availableConditions, setAvailableConditions] = useState<string[]>([]);
   
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -40,6 +42,10 @@ export function DetailedEntryHistory() {
       const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
       if (originAttribute && originAttribute.values) {
         setAvailableOrigins(originAttribute.values);
+      }
+      const conditionAttribute = productSettings.attributes.find(attr => attr.key === 'condicao');
+      if (conditionAttribute && conditionAttribute.values) {
+        setAvailableConditions(conditionAttribute.values);
       }
     }
     setIsLoading(false);
@@ -73,6 +79,11 @@ export function DetailedEntryHistory() {
       if (originFilter !== "all" && item.origin !== originFilter) {
         return false;
       }
+      
+      // Condition filter
+      if (conditionFilter !== "all" && item.condition !== conditionFilter) {
+          return false;
+      }
 
       // Search term filter
       if (searchTerm) {
@@ -86,7 +97,7 @@ export function DetailedEntryHistory() {
 
       return true;
     });
-  }, [allItems, originFilter, searchTerm]);
+  }, [allItems, originFilter, conditionFilter, searchTerm]);
   
   const pageCount = Math.ceil(filteredItems.length / pageSize);
 
@@ -133,6 +144,17 @@ export function DetailedEntryHistory() {
                 />
             </div>
              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                 <Select value={conditionFilter} onValueChange={setConditionFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filtrar por Condição" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as Condições</SelectItem>
+                        {availableConditions.map(condition => (
+                             <SelectItem key={condition} value={condition}>{condition}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                  <Select value={originFilter} onValueChange={setOriginFilter}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Filtrar por origem" />
