@@ -100,7 +100,7 @@ export default function EtiquetasPage() {
     return canvas.toDataURL('image/png');
   };
   
-  const handleAnalyzeClick = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAnalyzeClick = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!labelFile) {
         toast({
