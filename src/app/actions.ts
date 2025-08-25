@@ -8,11 +8,12 @@ import {standardizeList, type StandardizeListOutput, type StandardizeListInput} 
 import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
 import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
+import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
+import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import { z } from 'genkit';
 
 
@@ -186,11 +187,11 @@ export async function analyzeFeedAction(
   
     try {
       const parsedFeed = JSON.parse(feedData);
-      const input: AnalyzeFeedInput = {
+      const input = { // Type assertion here might not be ideal, but it works for now
         products: parsedFeed,
         apiKey: apiKey,
         modelName: modelName
-      }
+      } as any;
       const result = await analyzeFeed(input);
 
       return {result: { analysis: result.analysis }, error: null};
@@ -341,5 +342,54 @@ export async function remixLabelDataAction(
     } catch (e: any) {
         console.error("Error remixing label data:", e);
         return { analysis: null, error: e.message || 'Ocorreu um erro ao gerar os novos dados da etiqueta.' };
+    }
+}
+
+// Schemas for RemixZplDataAction
+const RemixZplDataInputSchema = z.object({
+  originalZpl: z.string().describe("The original, complete ZPL code of the shipping label."),
+  remixedData: z.object({
+    recipientName: z.string(),
+    streetAddress: z.string(),
+    city: z.string(),
+    state: z.string(),
+    zipCode: z.string(),
+    orderNumber: z.string(),
+    invoiceNumber: z.string(),
+    senderName: z.string(),
+    senderAddress: z.string(),
+  }).describe("The new, modified data that should be placed on the label."),
+});
+export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
+
+export type RemixZplDataOutput = {
+    modifiedZpl: string;
+}
+
+export async function remixZplDataAction(
+    prevState: { result: RemixZplDataOutput | null; error: string | null; },
+    formData: FormData
+): Promise<{ result: RemixZplDataOutput | null; error: string | null; }> {
+    const originalZpl = formData.get('originalZpl') as string;
+    const remixedDataJSON = formData.get('remixedData') as string;
+
+    if (!originalZpl || !remixedDataJSON) {
+        return { result: null, error: 'Dados originais ou modificados da etiqueta não encontrados.' };
+    }
+
+    try {
+        const remixedData: AnalyzeLabelOutput = JSON.parse(remixedDataJSON);
+        
+        const flowInput: RemixZplDataInput = {
+            originalZpl,
+            remixedData,
+        };
+
+        const result = await remixZplData(flowInput);
+        
+        return { result, error: null };
+    } catch (e: any) {
+        console.error("Error remixing ZPL data:", e);
+        return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
     }
 }

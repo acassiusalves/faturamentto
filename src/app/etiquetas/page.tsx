@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check, Wand2 } from 'lucide-react';
-import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction } from '@/app/actions';
+import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer } from 'lucide-react';
+import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
@@ -33,12 +33,18 @@ const remixInitialState = {
     error: null as string | null,
 }
 
+const remixZplInitialState = {
+    result: null as { modifiedZpl: string } | null,
+    error: null as string | null,
+}
+
 
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
   const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixInitialState);
+  const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
   const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
@@ -48,12 +54,14 @@ export default function EtiquetasPage() {
   const [hasCopied, setHasCopied] = useState(false);
   
   const [analysisResult, setAnalysisResult] = useState<AnalyzeLabelOutput | null>(null);
+  const [originalZpl, setOriginalZpl] = useState<string>('');
 
   useEffect(() => {
     if (fetchState.error) {
       toast({ variant: 'destructive', title: 'Erro ao buscar etiqueta', description: fetchState.error });
     }
     if(fetchState.zplContent) {
+        setOriginalZpl(fetchState.zplContent);
         setZplEditorContent(fetchState.zplContent);
         startTransition(() => {
             const formData = new FormData();
@@ -86,6 +94,15 @@ export default function EtiquetasPage() {
         setAnalysisResult(remixState.analysis);
     }
   }, [remixState, toast]);
+  
+  useEffect(() => {
+    if (remixZplState.error) {
+        toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
+    } else if (remixZplState.result) {
+        setZplEditorContent(remixZplState.result.modifiedZpl);
+        toast({ title: 'Sucesso!', description: 'O código ZPL foi atualizado com os novos dados.' });
+    }
+  }, [remixZplState, toast]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -152,7 +169,7 @@ export default function EtiquetasPage() {
   }
 
   const isPreparingFile = isTransitioning && !isAnalyzing;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
 
 
@@ -180,7 +197,7 @@ export default function EtiquetasPage() {
 
                   <div className="grid w-full max-w-[180px] items-center gap-1.5">
                     <Label htmlFor="format" className="font-semibold">Formato</Label>
-                    <Select name="format" defaultValue="PDF">
+                    <Select name="format" defaultValue="ZPL">
                       <SelectTrigger id="format"><SelectValue placeholder="Selecione o formato" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PDF">PDF</SelectItem>
@@ -281,7 +298,7 @@ export default function EtiquetasPage() {
             {isAnyAnalysisRunning ? (
                 <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
                     <Loader2 className="animate-spin text-primary mr-4" size={32}/>
-                    <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : isRemixing ? 'Gerando novos dados...' : 'Analisando etiqueta...'}</p>
+                    <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : isRemixing ? 'Gerando novos dados...' : isRemixingZpl ? 'Gerando novo ZPL...' : 'Analisando etiqueta...'}</p>
                 </div>
             ) : null}
             {analysisResult && !isAnyAnalysisRunning && (
@@ -291,12 +308,21 @@ export default function EtiquetasPage() {
                             <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
                             <CardDescription>Resultado da análise da IA.</CardDescription>
                         </div>
-                        <form action={remixFormAction}>
-                            <input type="hidden" name="originalData" value={JSON.stringify(analysisResult)} />
-                            <Button type="submit" variant="ghost" size="icon" disabled={isRemixing}>
-                                {isRemixing ? <Loader2 className="animate-spin" /> : <Wand2 className="text-primary" />}
-                            </Button>
-                        </form>
+                        <div className="flex items-center gap-2">
+                             <form action={remixFormAction}>
+                                <input type="hidden" name="originalData" value={JSON.stringify(analysisResult)} />
+                                <Button type="submit" variant="ghost" size="icon" disabled={isRemixing} title="Modificar dados com IA">
+                                    {isRemixing ? <Loader2 className="animate-spin" /> : <Wand2 className="text-primary" />}
+                                </Button>
+                            </form>
+                             <form action={remixZplFormAction}>
+                                <input type="hidden" name="originalZpl" value={originalZpl} />
+                                <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                                <Button type="submit" variant="default" size="icon" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
+                                    {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="text-primary-foreground" />}
+                                </Button>
+                            </form>
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm">
                         <div className="p-3 border rounded-md bg-muted/50 space-y-2">
