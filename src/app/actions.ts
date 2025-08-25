@@ -7,9 +7,10 @@ import type {PipelineResult} from '@/lib/types';
 import {organizeList, type OrganizeResult, type OrganizeListInput} from '@/ai/flows/organize-list';
 import {standardizeList, type StandardizeListOutput, type StandardizeListInput} from '@/ai/flows/standardize-list';
 import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
-import { saveAppSettings } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
+import { fetchOrderLabel } from '@/services/ideris';
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -194,3 +195,30 @@ export async function analyzeFeedAction(
       return {result: null, error: e.message || 'Ocorreu um erro desconhecido durante a análise.'};
     }
   }
+
+export async function fetchLabelAction(prevState: any, formData: FormData) {
+  const orderId = formData.get('orderId') as string;
+  const format = (formData.get('format') as 'PDF' | 'ZPL') || 'PDF';
+
+  if (!orderId) {
+    return { rawResponse: null, error: 'O ID do pedido é obrigatório.' };
+  }
+
+  try {
+    const settings = await loadAppSettings();
+    if (!settings?.iderisPrivateKey) {
+      return { rawResponse: null, error: 'A chave da API da Ideris não está configurada.' };
+    }
+
+    const response = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
+    
+    if (response.error) {
+      return { rawResponse: response.rawError || null, error: response.error };
+    }
+
+    return { rawResponse: response.data, error: null };
+
+  } catch (e: any) {
+    return { rawResponse: null, error: e.message || 'Um erro inesperado ocorreu.' };
+  }
+}

@@ -96,29 +96,50 @@ function formatDateForApi(date: Date): string {
     return date.toISOString().split('T')[0];
 }
 
-async function fetchWithToken<T>(url: string, accessToken: string, options: RequestInit = {}): Promise<T> {
-    const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', ...options.headers };
-    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
-     if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Ideris API error for URL ${url}:`, errorText);
-        try {
-            const errorData = JSON.parse(errorText);
-            if (response.status === 401 || errorData?.message?.includes("Authorization has been denied for this request")) {
-                throw new Error("Token de acesso expirado ou inválido.");
-            }
-            throw new Error(`Erro na API Ideris: ${errorData.message || response.statusText}`);
-        } catch (e) {
-             if (e instanceof Error && e.message.includes("Token de acesso expirado")) throw e;
-             throw new Error(`Erro na API Ideris: ${response.statusText} - ${errorText || "Resposta vazia."}`);
-        }
-    }
-    const responseText = await response.text();
-    if (!responseText) {
-        // CORREÇÃO: Retorna um objeto vazio em vez de lançar um erro.
-        return JSON.parse('{}');
-    }
-    return JSON.parse(responseText);
+async function fetchWithToken<T>(
+  url: string,
+  accessToken: string,
+  options: RequestInit = {}
+): Promise<{ ok: boolean; statusText: string; data: T; errorBody?: string }> {
+  const method = (options.method || 'GET').toUpperCase();
+
+  // headers base
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: 'application/json',
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  // 👇 SÓ seta Content-Type quando realmente tem corpo
+  if (options.body != null && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+  const text = await response.text();
+
+  if (!response.ok) {
+    let message = `Erro na API Ideris: ${response.statusText}`;
+    try {
+      const json = JSON.parse(text);
+      if (response.status === 401 || json?.message?.includes('Authorization has been denied')) {
+        message = 'Token de acesso expirado ou inválido.';
+      } else if (json?.message) {
+        message = `Erro na API Ideris: ${json.message}`;
+      }
+    } catch {}
+    console.error(`Ideris API error for URL ${url} [${method}]:`, text);
+    return { ok: false, statusText: message, data: null as T, errorBody: text };
+  }
+
+  // tenta parsear JSON; se não for, retorna objeto vazio
+  let data: T;
+  try {
+    data = text ? (JSON.parse(text) as T) : ({} as T);
+  } catch {
+    data = {} as T;
+  }
+  return { ok: true, statusText: 'OK', data };
 }
 
 type ProgressCallback = (current: number, total: number) => void;
@@ -299,4 +320,21 @@ export async function testIderisConnection(privateKey: string): Promise<{ succes
         const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido";
         return { success: false, message: `Falha na conexão: ${errorMessage}` };
     }
+}
+
+export async function fetchOrderLabel(
+  privateKey: string,
+  orderId: string,
+  format: 'PDF' | 'ZPL'
+): Promise<{ data: any; error?: string; rawError?: string }> {
+  const token = await getValidAccessToken(privateKey);
+  const url = `https://apiv3.ideris.com.br/order/label?orderId=${orderId}&pdfOrZpl=${format}`;
+  
+  const response = await fetchWithToken<any>(url, token);
+
+  if (!response.ok) {
+    return { data: null, error: response.statusText, rawError: response.errorBody };
+  }
+
+  return { data: response.data };
 }
