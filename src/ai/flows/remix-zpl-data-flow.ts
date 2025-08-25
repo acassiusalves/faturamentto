@@ -20,10 +20,11 @@ const RemixZplDataInputSchema = z.object({
     zipCode: z.string(),
     orderNumber: z.string(),
     invoiceNumber: z.string(),
-    estimatedDeliveryDate: z.string(),
     trackingNumber: z.string(),
     senderName: z.string(),
     senderAddress: z.string(),
+    // Novo campo como OPCIONAL
+    estimatedDeliveryDate: z.string().optional().default(''),
   }).describe("The new, modified data that should be placed on the label."),
 });
 
@@ -51,6 +52,7 @@ const prompt = ai.definePrompt({
   3.  **If a field in \`remixedData\` is an empty string, you must remove the corresponding \`^FD\` command AND its associated positioning command (\`^FO...\`) and font command (\`^A0N,...\` or similar) from the ZPL entirely.** A field is typically represented by a block of commands like \`^FOx,y^A0N,h,w^FDtext^FS\`. The entire block for that field must be removed.
   4.  All other ZPL commands for lines (\`^GB\`), etc., must be kept exactly as they are in the original ZPL.
   5.  The output must be a single, complete, and valid ZPL string.
+  6.  If 'estimatedDeliveryDate' is an empty string, do nothing for this field. If it has a value but the original ZPL doesn't contain this field, insert a new text block at the bottom left: ^FO40,730^A0N,24,24^FDEntrega prev.: {estimatedDeliveryDate}^FS
 
   **Original ZPL Code:**
   \`\`\`zpl

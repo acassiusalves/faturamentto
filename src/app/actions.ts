@@ -350,10 +350,10 @@ const RemixZplDataInputSchema = z.object({
     zipCode: z.string(),
     orderNumber: z.string(),
     invoiceNumber: z.string(),
-    estimatedDeliveryDate: z.string(),
     trackingNumber: z.string(),
     senderName: z.string(),
     senderAddress: z.string(),
+    estimatedDeliveryDate: z.string().optional().default(''),
   }).describe("The new, modified data that should be placed on the label."),
 });
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
@@ -375,6 +375,10 @@ export async function remixZplDataAction(
 
     try {
         const remixedData: AnalyzeLabelOutput = JSON.parse(remixedDataJSON);
+        
+        if (remixedData.estimatedDeliveryDate == null) {
+            remixedData.estimatedDeliveryDate = '';
+        }
         
         const flowInput: RemixZplDataInput = {
             originalZpl,

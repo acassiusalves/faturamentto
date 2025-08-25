@@ -48,7 +48,7 @@ export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
-  const [remixState, remixFormAction, isRemixingData] = useActionState(remixLabelDataAction, remixInitialState);
+  const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixInitialState);
   const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
@@ -67,24 +67,19 @@ export default function EtiquetasPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
-  // Helpers novos (no componente)
-  const sanitizeZpl = (z: string) =>
-    z.replace(/```(?:zpl)?/g, '').trim();
-
-  // controla corrida entre requisições
+  const sanitizeZpl = (z: string) => z.replace(/```(?:zpl)?/g, '').trim();
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
-
+  
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
     if (!zpl.trim()) { setPreviewUrl(null); return; }
-
-    // aborta a requisição anterior
+  
     previewCtrlRef.current?.abort();
     const ctrl = new AbortController();
     previewCtrlRef.current = ctrl;
-
+  
     const myId = ++previewReqIdRef.current;
-
+  
     setIsPreviewLoading(true);
     try {
       const res = await fetch('/api/zpl-preview', {
@@ -94,31 +89,40 @@ export default function EtiquetasPage() {
         signal: ctrl.signal,
         cache: 'no-store',
       });
-
+  
       if (!res.ok) {
-        console.error('Preview API error:', await res.text());
-        if (myId === previewReqIdRef.current) setPreviewUrl(null);
+        const errText = await res.text();
+        console.error('Preview API error:', errText);
+        if (myId === previewReqIdRef.current) {
+          toast({
+            variant: 'destructive',
+            title: 'Erro ao gerar prévia ZPL',
+            description: errText.slice(0, 300),
+          });
+          setPreviewUrl(null);
+        }
         return;
       }
-
+  
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
-        // só aplica se ainda for a requisição mais recente
         if (myId === previewReqIdRef.current) {
           setPreviewUrl(reader.result as string);
         }
       };
       reader.readAsDataURL(blob);
     } catch (e: any) {
-      if (e?.name !== 'AbortError') console.error('Preview fetch failed:', e);
+      if (e?.name !== 'AbortError') {
+        console.error('Preview fetch failed:', e);
+        toast({ variant: 'destructive', title: 'Falha na prévia', description: String(e) });
+      }
       if (myId === previewReqIdRef.current) setPreviewUrl(null);
     } finally {
       if (myId === previewReqIdRef.current) setIsPreviewLoading(false);
     }
-  }, []);
-
-  // Debounce passa a usar a função “imediata”
+  }, [toast]);
+  
   const debounce = <F extends (...args: any[]) => any>(fn: F, ms: number) => {
     let t: any;
     return (...args: Parameters<F>) => {
@@ -135,7 +139,6 @@ export default function EtiquetasPage() {
   useEffect(() => {
     debouncedPreview(zplEditorContent);
   }, [zplEditorContent, debouncedPreview]);
-
 
   useEffect(() => {
     if (fetchState.error) {
@@ -182,14 +185,9 @@ export default function EtiquetasPage() {
       toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
     } else if (remixZplState.result?.modifiedZpl) {
       const newZpl = sanitizeZpl(remixZplState.result.modifiedZpl);
-
-      // atualiza editor E base para futuras gerações
       setZplEditorContent(newZpl);
       setOriginalZpl(newZpl);
-
-      // força a prévia agora (sem esperar o debounce)
       generatePreviewImmediate(newZpl);
-
       toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
     }
   }, [remixZplState, toast, generatePreviewImmediate]);
@@ -278,11 +276,11 @@ export default function EtiquetasPage() {
   };
 
   const isPreparingFile = isTransitioning && !isAnalyzing;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixingData || isRemixingZpl;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
   
   const DataRow = ({ label, value, field }: { label: string; value: string; field?: RemixableField }) => {
-    const isRemixingThis = isRemixingData && remixingField === field;
+    const isRemixingThis = isRemixing && remixingField === field;
     return (
         <div className="flex items-center justify-between text-sm">
             <p><strong className="text-muted-foreground">{label}:</strong> {value}</p>
@@ -291,7 +289,7 @@ export default function EtiquetasPage() {
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => handleRemixField(field)} disabled={isRemixingThis} title={`Remixar ${label}`}>
                         {isRemixingThis ? <Loader2 className="animate-spin"/> : <Wand2 />}
                     </Button>
-                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveField(field)} disabled={isRemixingData} title={`Remover ${label}`}>
+                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveField(field)} disabled={isRemixing} title={`Remover ${label}`}>
                         <Trash2 />
                     </Button>
                 </div>
@@ -447,7 +445,7 @@ export default function EtiquetasPage() {
               <Loader2 className="animate-spin text-primary mr-4" size={32} />
               <p className="text-muted-foreground">
                 {isPreparingFile ? "Processando ficheiro..." :
-                 isRemixingData ? "Gerando novos dados..." :
+                 isRemixing ? "Gerando novos dados..." :
                  isRemixingZpl ? "Gerando novo ZPL..." :
                  "Analisando etiqueta..."}
               </p>
