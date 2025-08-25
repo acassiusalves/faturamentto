@@ -192,28 +192,54 @@ const resolveAssociationHeader = (headers: string[], file: any): string => {
   return file.associationKey;
 };
 
-// Detecta se o header parece ser de data/hora
+
+// detecta headers de data/hora
 const isDateHeader = (label: string) =>
-  /\b(data|date|hora|time|emissao|in[ií]cio|final)\b/i.test(label);
+  /\b(data|date|hora|time|emissao|in[ií]cio|final|relat[oó]rio)\b/i.test(label);
 
 // dd/mm/yyyy [hh:mm[:ss]] -> ISO
 const parseBRDateToISO = (s: string): string | null => {
-  const m = s.trim().replace(/\./g, '/').match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  const m = s.trim().replace(/\./g, '/')
+    .match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
   if (!m) return null;
   const [, dd, mm, yyyy, HH='00', MM='00', SS='00'] = m;
   const d = new Date(Number(yyyy), Number(mm)-1, Number(dd), Number(HH), Number(MM), Number(SS));
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
-// Excel serial -> ISO (respeita fração do dia)
+// Excel serial -> ISO
 const excelSerialToISO = (n: number): string | null => {
   if (!Number.isFinite(n)) return null;
-  // 25569 = 1970-01-01 no calendário do Excel (com bug de 1900 já embutido)
-  const ms = Math.round((n - 25569) * 86400 * 1000);
+  const ms = Math.round((n - 25569) * 86400 * 1000); // 25569 = 1970-01-01
   const d = new Date(ms);
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
 
+// trata casos estranhos tipo "31/12/45808"
+const brMaskWithSerialToISO = (s: string): string | null => {
+  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{5})$/);
+  if (!m) return null;
+  const serial = Number(m[3]);
+  return excelSerialToISO(serial);
+};
+
+// normaliza qualquer valor de data para ISO
+const coerceAnyDateToISO = (raw: any): string | null => {
+  if (raw instanceof Date) return raw.toISOString();
+  if (typeof raw === 'number') return excelSerialToISO(raw);
+  if (typeof raw === 'string') {
+    return (
+      parseBRDateToISO(raw) ||
+      brMaskWithSerialToISO(raw) ||
+      (/^\d{4}-\d{2}-\d{2}T/.test(raw) ? raw : null)
+    );
+  }
+  return null;
+};
+
+// formata ISO -> string pt-BR (só data)
+const isoToBRDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR');
 
 
 export default function ConciliationPage() {
@@ -459,38 +485,32 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                 const assocHeader = resolveAssociationHeader(headers, file);
         
                 rows.forEach((row: any) => {
-                  const keyVal = row[assocHeader];
-                  const key = normalizeAssocKey(keyVal);
+                  const key = normalizeAssocKey(row[assocHeader]);
                   if (!key) return;
         
                   if (!supportDataMap.has(key)) supportDataMap.set(key, {});
                   const existing = supportDataMap.get(key)!;
         
                   headers.forEach((header) => {
-                    const raw = row[header];
-                    const friendlyName = (file.friendlyNames?.[header] as string) || header;
-                    const normKey = normalizeLabel(friendlyName);
-        
-                    let out: any = raw;
+                      let out: any = row[header];
+                      const friendlyName = (file.friendlyNames?.[header] as string) || header;
+                      const normKey = normalizeLabel(friendlyName);
 
-                    // 1) Se for Date nativo, torna ISO
-                    if (raw instanceof Date) {
-                      out = raw.toISOString();
-                  
-                    // 2) Se é número e o header parece de data, tente Excel serial
-                    } else if (typeof raw === 'number' && isDateHeader(friendlyName)) {
-                      out = excelSerialToISO(raw) ?? raw;
-                  
-                    // 3) Se é string e parece data BR, converte pra ISO.
-                    } else if (typeof raw === 'string' && isDateHeader(friendlyName)) {
-                      const iso = parseBRDateToISO(raw);
-                      out = iso ?? raw;
-                  
-                    // 4) Caso contrário: **não** converta aqui.
-                    // Números/valores monetários serão parseados depois pelo getNumericField().
-                    }
-
-                    existing[normKey] = out;
+                      if (isDateHeader(friendlyName)) {
+                        const iso = coerceAnyDateToISO(row[header]);
+                        // salve já pronto pra exibição; se preferir guardar ISO, troque para `out = iso`
+                        out = iso ? isoToBRDate(iso) : row[header];
+                      } else {
+                        // NÃO mexa em números aqui; deixamos para o getNumericField()
+                        if (typeof row[header] === 'number') {
+                          out = row[header];
+                        } else if (typeof row[header] === 'string') {
+                          // mantém string original (moeda, etc.)
+                          out = row[header];
+                        }
+                      }
+                      
+                      existing[normKey] = out;
                   });
                 });
               } catch (e) {
@@ -498,7 +518,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               }
             });
         
-            // merge por pedido
             processedSales = processedSales.map((sale) => {
               const saleKey = normalizeAssocKey((sale as any).order_code);
               const sheetValues = supportDataMap.get(saleKey);
