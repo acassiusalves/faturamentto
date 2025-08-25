@@ -1,10 +1,18 @@
 
 "use client";
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Search } from 'lucide-react';
 
 export default function EtiquetasPage() {
+  const [orderId, setOrderId] = useState('');
+  const [format, setFormat] = useState('PDF');
+
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
       <div>
@@ -15,13 +23,37 @@ export default function EtiquetasPage() {
       </div>
       <Card>
         <CardHeader>
-            <CardTitle>Etiquetas</CardTitle>
-            <CardDescription>Esta página está em construção.</CardDescription>
+            <CardTitle>Buscar Etiqueta por Pedido</CardTitle>
+            <CardDescription>Insira o ID do pedido e selecione o formato desejado.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground border-2 border-dashed rounded-lg">
-                <FileText className="h-16 w-16 mb-4" />
-                <p>A funcionalidade de geração de etiquetas será implementada aqui.</p>
+            <div className="flex flex-col sm:flex-row items-end gap-4">
+              <div className="grid w-full max-w-sm items-center gap-1.5">
+                  <Label htmlFor="order-id" className="font-semibold">ID</Label>
+                  <Input 
+                    type="text" 
+                    id="order-id" 
+                    placeholder="Insira o ID do pedido" 
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                  />
+              </div>
+              <div className="grid w-full max-w-[180px] items-center gap-1.5">
+                  <Label htmlFor="format" className="font-semibold">Formato</Label>
+                   <Select value={format} onValueChange={setFormat}>
+                      <SelectTrigger id="format">
+                          <SelectValue placeholder="Selecione o formato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="PDF">PDF</SelectItem>
+                          <SelectItem value="ZPL">ZPL</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+              <Button>
+                <Search className="mr-2 h-4 w-4" />
+                Buscar
+              </Button>
             </div>
         </CardContent>
       </Card>
