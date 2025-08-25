@@ -31,7 +31,7 @@ export default function EtiquetasPage() {
   const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
-  const [labelImage, setLabelImage] = useState<File | null>(null);
+  const [labelFile, setLabelFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (fetchState.error) {
@@ -55,22 +55,22 @@ export default function EtiquetasPage() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setLabelImage(event.target.files[0]);
+      setLabelFile(event.target.files[0]);
     }
   };
   
   const handleAnalyzeClick = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!labelImage) {
+    if (!labelFile) {
         toast({
             variant: "destructive",
-            title: "Nenhuma imagem selecionada",
-            description: "Por favor, selecione uma imagem da etiqueta para analisar.",
+            title: "Nenhum arquivo selecionado",
+            description: "Por favor, selecione uma imagem ou PDF da etiqueta para analisar.",
         });
         return;
     }
     const formData = new FormData();
-    formData.append('labelImage', labelImage);
+    formData.append('labelFile', labelFile);
     startTransition(() => {
         analyzeFormAction(formData);
     });
@@ -123,15 +123,15 @@ export default function EtiquetasPage() {
           <Card>
             <CardHeader>
                 <CardTitle>2. Analisar Etiqueta com IA</CardTitle>
-                <CardDescription>Faça o upload de uma imagem (print) da etiqueta para extrair os dados completos.</CardDescription>
+                <CardDescription>Faça o upload do PDF da etiqueta para extrair os dados completos.</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleAnalyzeClick} className="flex flex-col sm:flex-row items-end gap-4">
                     <div className="grid w-full items-center gap-1.5">
-                         <Label htmlFor="label-image" className="font-semibold">Imagem da Etiqueta</Label>
-                        <Input id="label-image" type="file" accept="image/*" onChange={handleFileChange} />
+                         <Label htmlFor="label-file" className="font-semibold">Ficheiro da Etiqueta (PDF/Imagem)</Label>
+                        <Input id="label-file" type="file" accept="image/*,application/pdf" onChange={handleFileChange} />
                     </div>
-                    <Button type="submit" disabled={isActuallyAnalyzing || !labelImage}>
+                    <Button type="submit" disabled={isActuallyAnalyzing || !labelFile}>
                         {isActuallyAnalyzing ? <Loader2 className="animate-spin"/> : <Bot />}
                         Analisar
                     </Button>
@@ -146,7 +146,7 @@ export default function EtiquetasPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Etiqueta</CardTitle>
-                        <CardDescription>Visualização do PDF retornado pela Ideris. Tire um print para analisar.</CardDescription>
+                        <CardDescription>Visualização do PDF retornado pela Ideris. Faça o download para analisar.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="flex gap-2 mb-3">

@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 'use server';
 
@@ -12,6 +11,8 @@ import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
+import { fromBuffer } from 'pdf-poppler';
+import path from 'path';
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -237,24 +238,62 @@ export async function fetchLabelAction(
   }
 }
 
+// Converts a file to a data URI
 async function fileToDataURI(file: File) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     return `data:${file.type};base64,${buffer.toString('base64')}`;
 }
 
+// Converts a PDF file buffer to a PNG data URI
+async function pdfToPngDataURI(pdfBuffer: Buffer): Promise<string> {
+  const opts = {
+    format: 'png',
+    out_dir: path.dirname(process.cwd()), // Use a temporary directory
+    out_prefix: 'label',
+    page: 1
+  };
+
+  try {
+    const result = await fromBuffer(pdfBuffer, opts);
+    if (!result.length || !result[0].path) {
+        throw new Error('A conversão do PDF para PNG não retornou um ficheiro.');
+    }
+    const imageBuffer = await require('fs').promises.readFile(result[0].path);
+    require('fs').promises.unlink(result[0].path); // Clean up the temp file
+    return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+  } catch (error) {
+    console.error('Falha na conversão de PDF para PNG:', error);
+    // You might need to install poppler-utils on your system:
+    // Linux (Ubuntu): sudo apt-get install poppler-utils
+    // Mac: brew install poppler
+    // Windows: Download from a trusted source and add to PATH.
+    throw new Error('Falha ao converter PDF. Verifique se as ferramentas "poppler" estão instaladas no servidor.');
+  }
+}
+
 export async function analyzeLabelAction(
     prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
     formData: FormData
 ): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
-    const labelImage = formData.get('labelImage') as File;
+    const labelFile = formData.get('labelFile') as File;
 
-    if (!labelImage) {
-        return { analysis: null, error: 'Nenhum arquivo de imagem enviado.' };
+    if (!labelFile) {
+        return { analysis: null, error: 'Nenhum arquivo enviado.' };
     }
 
     try {
-        const photoDataUri = await fileToDataURI(labelImage);
+        let photoDataUri = '';
+        if (labelFile.type === 'application/pdf') {
+            const arrayBuffer = await labelFile.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            photoDataUri = await pdfToPngDataURI(buffer);
+        } else if (labelFile.type.startsWith('image/')) {
+            photoDataUri = await fileToDataURI(labelFile);
+        } else {
+             return { analysis: null, error: 'Formato de ficheiro não suportado. Por favor, envie uma imagem ou PDF.' };
+        }
+
         const result = await analyzeLabel({ photoDataUri });
         return { analysis: result, error: null };
     } catch (e: any) {
