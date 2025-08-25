@@ -566,6 +566,12 @@ export const saveMonthlySupportData = async (monthYearKey: string, data: Support
     await setDoc(docRef, toFirestore(data), { merge: true });
 };
 
+export const deleteMonthlySupportData = async (monthYearKey: string): Promise<void> => {
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'support-data', monthYearKey);
+    await deleteDoc(docRef);
+}
+
+
 // --- APPROVALS ---
 export const createApprovalRequest = async (request: Omit<ApprovalRequest, 'id'>): Promise<void> => {
     const requestsCol = collection(db, 'approval-requests');
@@ -792,4 +798,3 @@ export const loadInitialStockForToday = async (): Promise<number> => {
     const snapshot = await getCountFromServer(inventoryCol);
     return snapshot.data().count;
 };
-

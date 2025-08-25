@@ -23,7 +23,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile, Sale } from "@/lib/types";
-import { loadMonthlySupportData, saveMonthlySupportData, loadSalesIdsAndOrderCodes } from "@/services/firestore";
+import { loadMonthlySupportData, saveMonthlySupportData, loadSalesIdsAndOrderCodes, deleteMonthlySupportData } from "@/services/firestore";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
@@ -279,37 +279,40 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
   };
   
   const handleSave = async () => {
-      setIsSaving(true);
-      try {
-          const dataToSave: SupportData = { files: {} };
-          for (const channelId in supportData.files) {
-              const validFiles = supportData.files[channelId].filter(f => f.fileName && f.fileContent);
-              if (validFiles.length > 0) {
-                  const processedFiles = validFiles.map(file => {
-                      const finalFriendlyNames: Record<string, string> = {};
-                      // Ensure all headers are processed
-                      file.headers.forEach(header => {
-                          // If a friendly name exists and is not empty, use it. Otherwise, use the original header.
-                          finalFriendlyNames[header] = file.friendlyNames[header]?.trim() || header;
-                      });
-                      return { ...file, friendlyNames: finalFriendlyNames };
-                  }).filter(f => f.associationKey); // Finally, ensure the file has an association key
-                  
-                  if (processedFiles.length > 0) {
-                      dataToSave.files[channelId] = processedFiles;
-                  }
-              }
-          }
-          await saveMonthlySupportData(monthYearKey, dataToSave);
-          toast({ title: "Sucesso!", description: "Os dados de apoio para este mês foram salvos."});
-          onClose();
-      } catch (error) {
-          console.error(error);
-          toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar os dados de apoio."});
-      } finally {
-          setIsSaving(false);
-      }
-  }
+    setIsSaving(true);
+    try {
+        const dataToSave: SupportData = { files: {} };
+        for (const channelId in supportData.files) {
+            const validFiles = supportData.files[channelId].filter(f => f.fileName && f.fileContent && f.associationKey);
+            if (validFiles.length > 0) {
+                const processedFiles = validFiles.map(file => {
+                    const finalFriendlyNames: Record<string, string> = {};
+                    file.headers.forEach(header => {
+                        finalFriendlyNames[header] = file.friendlyNames[header]?.trim() || header;
+                    });
+                    return { ...file, friendlyNames: finalFriendlyNames };
+                });
+                dataToSave.files[channelId] = processedFiles;
+            }
+        }
+
+        // Firestore does not allow saving empty objects.
+        if (Object.keys(dataToSave.files).length > 0) {
+            await saveMonthlySupportData(monthYearKey, dataToSave);
+        } else {
+            // If there are no files to save, delete the document for that month.
+            await deleteMonthlySupportData(monthYearKey);
+        }
+
+        toast({ title: "Sucesso!", description: "Os dados de apoio para este mês foram salvos." });
+        onClose();
+    } catch (error) {
+        console.error(error);
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar os dados de apoio." });
+    } finally {
+        setIsSaving(false);
+    }
+  };
   
   const formatDate = (dateString: string) => {
       if (!dateString) return "Não carregado";
