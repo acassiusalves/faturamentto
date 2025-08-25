@@ -328,17 +328,19 @@ export async function remixLabelDataAction(
     }
 }
 
+// === utils: parser de blocos ZPL, âncoras e replace determinístico ===
 type ZplBlock = {
-  start: number;
-  end: number;
-  x?: number;
-  y?: number;
-  fdText: string;
-  isBarcode: boolean;
+  start: number;          // índice da linha inicial do bloco
+  end: number;            // índice da linha final (^FS)
+  x?: number;             // FO/FT X
+  y?: number;             // FO/FT Y
+  fdText: string;         // conteúdo original do ^FD (sem ^FD/^FS)
+  isBarcode: boolean;     // há ^B* no bloco?
 };
 
 const TOLERANCE_PX = 12;
-const BARCODE_LEFT_SAFE_X = 160;
+// Evita a faixa do código de barras à esquerda – aumentei para 220px
+const BARCODE_LEFT_SAFE_X = 220;
 
 function normalize(s: string) {
   return (s || "")
@@ -355,6 +357,7 @@ function parseZplBlocks(zpl: string): ZplBlock[] {
   let i = 0;
 
   while (i < lines.length) {
+    // procura início por ^FO ou ^FT
     const m = lines[i].match(/^\^(FO|FT)\s*(\d+),\s*(\d+)/i);
     if (!m) { i++; continue; }
 
@@ -364,12 +367,14 @@ function parseZplBlocks(zpl: string): ZplBlock[] {
     let fdText = "";
     let end = i;
 
+    // varre até encontrar ^FS do bloco do ^FD correspondente
     i++;
     for (; i < lines.length; i++) {
       const L = lines[i];
 
       if (/^\^B[A-Z]/i.test(L)) isBarcode = true;
 
+      // ^FD pode vir no meio de uma linha com outras coisas
       const fdMatch = L.match(/\^FD([\s\S]*?)\^FS/);
       if (fdMatch) {
         fdText = fdMatch[1];
@@ -377,15 +382,17 @@ function parseZplBlocks(zpl: string): ZplBlock[] {
         break;
       }
 
+      // ^FD numa linha e ^FS em outra
       const onlyFd = L.match(/^\^FD(.*)$/);
       if (onlyFd) {
         fdText = onlyFd[1];
+        // continuar até achar ^FS
         let j = i + 1;
         for (; j < lines.length; j++) {
           const L2 = lines[j];
           if (/^\^B[A-Z]/i.test(L2)) isBarcode = true;
           const fsHere = L2.includes("^FS");
-          fdText += "\n" + L2.replace(/\^FS.*/, "");
+          fdText += "\n" + L2.replace(/\^FS.*/, ""); // acumula
           if (fsHere) { end = j; i = j; break; }
         }
         break;
@@ -408,6 +415,18 @@ function ensureCI28(zpl: string) {
 
 type BaselinePositions = Partial<Record<keyof AnalyzeLabelOutput, {x:number,y:number}>>;
 
+function containsNormalized(haystack: string, needle: string) {
+  const H = normalize(haystack);
+  const N = normalize(needle);
+  return H.includes(N);
+}
+
+/**
+ * Localiza coordenadas dos campos procurando:
+ *  1) match exato (normalizado) do valor no ^FD
+ *  2) se não achar, aceita substring (normalizada) dentro do ^FD
+ * Sempre ignora blocos com ^B* e qualquer FO/FT com x < BARCODE_LEFT_SAFE_X.
+ */
 function buildBaselinePositions(originalZpl: string, baseline: AnalyzeLabelOutput): BaselinePositions {
   const blocks = parseZplBlocks(originalZpl);
   const pos: BaselinePositions = {};
@@ -420,21 +439,35 @@ function buildBaselinePositions(originalZpl: string, baseline: AnalyzeLabelOutpu
     const val = (baseline[f] || "").trim();
     if (!val) continue;
 
-    const nval = normalize(val);
-    const hit = blocks.find(b =>
+    // 1) match exato
+    let hit = blocks.find(b =>
       !b.isBarcode &&
-      typeof b.x === "number" &&
-      typeof b.y === "number" &&
-      normalize(b.fdText) === nval
+      (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&
+      typeof b.x === "number" && typeof b.y === "number" &&
+      normalize(b.fdText) === normalize(val)
     );
 
-    if (hit) {
-      pos[f] = { x: hit.x!, y: hit.y! };
+    // 2) fallback: substring (única) dentro do ^FD
+    if (!hit) {
+      const candidates = blocks.filter(b =>
+        !b.isBarcode &&
+        (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&
+        typeof b.x === "number" && typeof b.y === "number" &&
+        containsNormalized(b.fdText, val)
+      );
+      if (candidates.length === 1) {
+        hit = candidates[0];
+      }
     }
+
+    if (hit) pos[f] = { x: hit.x!, y: hit.y! };
   }
+
   return pos;
 }
 
+
+// faz replace apenas no bloco ancorado por coordenadas (±tolerância), fora da área de barcode
 function applyAnchoredReplacements(originalZpl: string, pos: BaselinePositions, baseline: AnalyzeLabelOutput, remixed: AnalyzeLabelOutput) {
   const lines = originalZpl.split(/\r?\n/);
   const blocks = parseZplBlocks(originalZpl);
@@ -453,11 +486,12 @@ function applyAnchoredReplacements(originalZpl: string, pos: BaselinePositions, 
   for (const f of fields) {
     const target = (remixed[f] ?? "").toString();
     const basePos = pos[f];
-    if (!basePos) continue;
+    if (!basePos) continue; // sem âncora -> não mexe
 
+    // encontra bloco pela âncora de coordenadas
     const blk = blocks.find(b =>
       !b.isBarcode &&
-      (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&
+      (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&           // evita coluna do código de barras
       distanceOK(b.x, basePos.x) && distanceOK(b.y, basePos.y)
     );
 
@@ -466,11 +500,13 @@ function applyAnchoredReplacements(originalZpl: string, pos: BaselinePositions, 
     const rngLines = lines.slice(blk.start, blk.end + 1).join("\n");
 
     if (target === "") {
+      // remover bloco inteiro
       for (let i = blk.start; i <= blk.end; i++) lines[i] = "";
       changed = true;
       continue;
     }
 
+    // substituir ^FD...^FS dentro do bloco, preservando prefixos (^FH, etc.)
     const replaced = rngLines.replace(/\^FD[\s\S]*?\^FS/, `^FD${target}^FS`);
     if (replaced !== rngLines) {
       const newChunk = replaced.split("\n");
@@ -491,7 +527,6 @@ export async function remixZplDataAction(
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
   const remixedDataJSON  = formData.get('remixedData') as string;
-  const matchMode = (formData.get('matchMode') as 'strict' | 'relaxed') ?? 'strict';
 
   if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
     return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
@@ -511,28 +546,31 @@ export async function remixZplDataAction(
       if (remixed[k]  == null) remixed[k]  = '';
     }
 
+    // 1) determinístico com âncora (sem LLM)
     const baselinePositions = buildBaselinePositions(originalZpl, baseline);
-    const { out, changed } = applyAnchoredReplacements(originalZpl, baselinePositions, baseline, remixed);
+    let { out, changed } = applyAnchoredReplacements(originalZpl, baselinePositions, baseline, remixed);
 
-    if (changed) {
-      return { result: { modifiedZpl: out }, error: null };
+    // 2) inserção opcional da Data Estimada caso NÃO exista ainda
+    if (!changed) {
+      const wantsDate = !!remixed.estimatedDeliveryDate && !baseline.estimatedDeliveryDate;
+      if (wantsDate) {
+        // posição segura à direita, fora da coluna de barras
+        const INSERT = `^FO260,730^A0N,24,24^FDEntrega prev.: ${remixed.estimatedDeliveryDate}^FS`;
+        out = ensureCI28(originalZpl).replace(/\^XZ\s*$/m, `${INSERT}\n^XZ`);
+        changed = out !== originalZpl;
+      }
     }
 
-    const flowInput: RemixZplDataInput = {
-      originalZpl,
-      baselineData: baseline,
-      remixedData: remixed,
-      // @ts-ignore
-      matchMode,
-      // @ts-ignore
-      baselinePositions
-    };
-    const llm = await remixZplData(flowInput);
-    const sanitized = (llm.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
-    return { result: { modifiedZpl: sanitized }, error: null };
+    if (!changed) {
+      // Nada alterado com segurança – devolve original intacto
+      return { result: { modifiedZpl: originalZpl }, error: null };
+    }
 
+    return { result: { modifiedZpl: out }, error: null };
   } catch (e: any) {
     console.error('Error remixing ZPL data:', e);
     return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
   }
 }
+
+    

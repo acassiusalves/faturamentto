@@ -181,18 +181,11 @@ export default function EtiquetasPage() {
     }
     if (analyzeZplState.analysis) {
       setAnalysisResult(analyzeZplState.analysis);
-      setBaselineAnalysis(prev => prev ?? analyzeZplState.analysis);
+      if (!baselineAnalysis) {
+        setBaselineAnalysis(analyzeZplState.analysis); 
+      }
     }
-  }, [analyzeZplState.error, analyzeZplState.analysis, toast]);
-
-  useEffect(() => {
-    if (remixState.error) {
-      toast({ variant: "destructive", title: "Erro ao Modificar Dados", description: remixState.error });
-    } else if (remixState.analysis) {
-      setAnalysisResult(remixState.analysis);
-    }
-    setRemixingField(null); // Stop loading indicator regardless of outcome
-  }, [remixState.analysis, remixState.error, toast]);
+  }, [analyzeZplState.error, analyzeZplState.analysis, toast, baselineAnalysis]);
 
   useEffect(() => {
     const raw = remixZplState.result?.modifiedZpl;
@@ -550,3 +543,5 @@ export default function EtiquetasPage() {
     </div>
   );
 }
+
+    
