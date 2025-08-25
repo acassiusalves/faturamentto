@@ -408,6 +408,7 @@ export const RemixZplDataInputSchema = z.object({
   originalZpl: z.string().describe('Original ZPL code of the label.'),
   baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
   remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
+  matchMode: z.enum(['strict','relaxed']).default('strict'),
 });
 
 export const RemixZplDataOutputSchema = z.object({

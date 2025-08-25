@@ -335,32 +335,30 @@ export async function remixZplDataAction(
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
   const remixedDataJSON  = formData.get('remixedData') as string;
+  const matchMode = (formData.get('matchMode') as 'strict' | 'relaxed') ?? 'strict';
 
   if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
     return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
   }
 
   try {
-    const baselineData = JSON.parse(baselineDataJSON || '{}') as AnalyzeLabelOutput;
-    const remixedData  = JSON.parse(remixedDataJSON  || '{}') as AnalyzeLabelOutput;
+    const baselineData = JSON.parse(baselineDataJSON || '{}');
+    const remixedData  = JSON.parse(remixedDataJSON  || '{}');
 
-    // defaults defensivos
-    for (const k of [
-      'recipientName','streetAddress','city','state','zipCode',
-      'orderNumber','invoiceNumber','trackingNumber','senderName',
-      'senderAddress','estimatedDeliveryDate'
-    ] as (keyof AnalyzeLabelOutput)[]) {
-      // @ts-ignore
+    for (const k of ['recipientName','streetAddress','city','state','zipCode',
+      'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress','estimatedDeliveryDate'] as const) {
       if (baselineData[k] == null) baselineData[k] = '';
-      // @ts-ignore
       if (remixedData[k]  == null) remixedData[k]  = '';
     }
 
-    const flowInput: RemixZplDataInput = { originalZpl, baselineData, remixedData };
+    const flowInput = { originalZpl, baselineData, remixedData, matchMode } as RemixZplDataInput;
     const result = await remixZplData(flowInput);
-
-    // remove acidental ``` do modelo
     const sanitized = (result.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
+
+    if (sanitized === originalZpl) {
+      console.warn('RemixZPL: sem alterações aplicadas (provável mismatch de âncoras).');
+    }
+
     return { result: { modifiedZpl: sanitized }, error: null };
   } catch (e: any) {
     console.error('Error remixing ZPL data:', e);

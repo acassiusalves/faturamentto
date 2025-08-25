@@ -73,6 +73,8 @@ export default function EtiquetasPage() {
   const lastAppliedZplRef = useRef<string | null>(null);
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
+  const [flexMode, setFlexMode] = useState(false);
+
 
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
     if (!zpl.trim()) { setPreviewUrl(null); return; }
@@ -196,16 +198,24 @@ export default function EtiquetasPage() {
   useEffect(() => {
     const raw = remixZplState.result?.modifiedZpl;
     if (!raw) return;
-
+  
     const newZpl = sanitizeZpl(raw);
-
+  
+    if (newZpl === originalZpl) {
+      toast({
+        title: 'Sem alterações',
+        description: 'Não consegui localizar os campos no ZPL usando as âncoras. Tente o modo flexível.',
+      });
+      return;
+    }
+  
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
-
+  
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
-
+  
     if (analysisResult) setBaselineAnalysis(analysisResult);
     
     startTransition(() => {
@@ -213,9 +223,9 @@ export default function EtiquetasPage() {
       fd.append('zplContent', newZpl);
       analyzeZplFormAction(fd);
     });
-
+  
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-  }, [remixZplState.result?.modifiedZpl, generatePreviewImmediate, toast, analysisResult, analyzeZplFormAction]);
+  }, [remixZplState.result?.modifiedZpl, originalZpl, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -491,6 +501,15 @@ export default function EtiquetasPage() {
                         <input type="hidden" name="originalZpl" value={originalZpl} />
                         <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                         <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                        <input type="hidden" name="matchMode" value={flexMode ? 'relaxed' : 'strict'} />
+                        
+                        <div className="flex items-center gap-3 mb-2">
+                            <input id="flex-mode" type="checkbox" checked={flexMode} onChange={e => setFlexMode(e.target.checked)} />
+                            <label htmlFor="flex-mode" className="text-sm text-muted-foreground">
+                                Modo flexível (match normalizado/aproximação)
+                            </label>
+                        </div>
+                        
                         <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
                             {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
                             Gerar ZPL
@@ -532,4 +551,3 @@ export default function EtiquetasPage() {
     </div>
   );
 }
-
