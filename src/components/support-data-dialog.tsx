@@ -80,15 +80,19 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
       loadInitialData();
     }
   }, [isOpen, monthYearKey]);
+  
+  const normalizeKey = (key: unknown): string => {
+    const raw = String(key ?? "").trim();
+    const onlyDigits = raw.replace(/\D/g, "");
+    if (onlyDigits.length >= 4) return onlyDigits;
+    return raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase().replace(/\W/g, "");
+  };
+
 
   const associationStats = useMemo(() => {
     const stats: Record<string, { associated: number, notAssociated: number }> = {};
     if (!allSales || allSales.length === 0) return stats;
 
-    // CORREÇÃO: Adiciona a mesma função de normalização aqui.
-    const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
-    
-    // Aplica a normalização aos pedidos do sistema.
     const saleKeys = new Set(allSales.map(s => normalizeKey(s.order_code)));
 
     for (const channelId in supportData.files) {
@@ -97,10 +101,19 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         let notAssociated = 0;
         if (file.fileContent && file.associationKey) {
           try {
-            const parsedData = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
-            parsedData.data.forEach((row: any) => {
+            // Updated to handle both CSV and XLSX from base64
+            let parsedRows;
+            if (file.fileName.toLowerCase().endsWith('.xlsx') || file.fileContent.startsWith('UEsDB')) {
+                const wb = XLSX.read(file.fileContent, { type: 'base64' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                parsedRows = XLSX.utils.sheet_to_json(ws);
+            } else {
+                const parsedResult = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
+                parsedRows = parsedResult.data;
+            }
+
+            parsedRows.forEach((row: any) => {
               const rawKey = row[file.associationKey];
-              // Aplica a normalização à chave da planilha antes de comparar.
               const keyToCompare = normalizeKey(rawKey);
 
               if (keyToCompare) {
@@ -136,7 +149,43 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     const reader = new FileReader();
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
-    const processFileContent = (content: string, headers: string[]) => {
+    reader.onload = (e) => {
+        const result = e.target?.result;
+        let contentForStorage: string = "";
+        let headers: string[] = [];
+
+        if (fileExtension === 'csv') {
+            contentForStorage = result as string;
+            Papa.parse(contentForStorage, {
+                preview: 1,
+                skipEmptyLines: true,
+                complete: (papaResults) => {
+                    if(!papaResults.data || !Array.isArray(papaResults.data[0])) {
+                      toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
+                      return;
+                    }
+                    headers = (papaResults.data[0] as string[]).map((h) => removeAccents(h.trim()));
+                    updateFileState(contentForStorage, headers);
+                },
+            });
+        } else if (fileExtension === 'xlsx') {
+            const workbook = XLSX.read(result, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
+            
+            // Convert to base64 for storage
+            const binaryString = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+            contentForStorage = btoa(binaryString);
+
+            updateFileState(contentForStorage, headers);
+        } else {
+            toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
+        }
+    };
+    
+    const updateFileState = (content: string, headers: string[]) => {
         const fileList = supportData.files[channelId] || [];
         const initialFriendlyNames: Record<string, string> = {};
         headers.forEach(h => { initialFriendlyNames[h] = ""; });
@@ -159,37 +208,8 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         toast({ title: `Arquivo ${file.name} lido com sucesso!` });
     };
 
-    reader.onload = (e) => {
-        const result = e.target?.result;
-        if (fileExtension === 'csv') {
-            const content = result as string;
-            Papa.parse(content, {
-                preview: 1,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    if(!results.data || !Array.isArray(results.data[0])) {
-                      toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
-                      return;
-                    }
-                    const headers = (results.data[0] as string[]).map((h) => removeAccents(h.trim()));
-                    processFileContent(content, headers);
-                },
-            });
-        } else if (fileExtension === 'xlsx') {
-            const workbook = XLSX.read(result, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            const headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
-            const csvContent = XLSX.utils.sheet_to_csv(worksheet);
-            processFileContent(csvContent, headers);
-        } else {
-            toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
-        }
-    };
-
     if (fileExtension === 'csv') {
-        reader.readAsText(file);
+        reader.readAsText(file, 'ISO-8859-1'); // Or another appropriate encoding
     } else if (fileExtension === 'xlsx') {
         reader.readAsArrayBuffer(file);
     } else {
