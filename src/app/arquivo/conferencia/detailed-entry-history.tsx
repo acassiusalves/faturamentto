@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -30,8 +31,8 @@ export function DetailedEntryHistory() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     const [items, productSettings] = await Promise.all([
-      loadEntryLogs(), // Changed to load from the entry log
-      loadProductSettings('celular') // Assuming 'celular' is the category
+      loadEntryLogs(dateRange),
+      loadProductSettings('celular')
     ]);
     setAllItems(items);
     if (productSettings) {
@@ -41,7 +42,7 @@ export function DetailedEntryHistory() {
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchData();
@@ -49,20 +50,7 @@ export function DetailedEntryHistory() {
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
-      // Date range filter
-      if (dateRange?.from) {
-        try {
-          const itemDate = new Date(item.createdAt);
-          if (itemDate < dateRange.from) return false;
-        } catch { return false; }
-      }
-      if (dateRange?.to) {
-        try {
-          const itemDate = new Date(item.createdAt);
-          const toDate = endOfDay(dateRange.to);
-          if (itemDate > toDate) return false;
-        } catch { return false; }
-      }
+      // Date range filter is now handled by the backend query
 
       // Origin filter
       if (originFilter !== "all" && item.origin !== originFilter) {
@@ -81,7 +69,7 @@ export function DetailedEntryHistory() {
 
       return true;
     });
-  }, [allItems, dateRange, originFilter, searchTerm]);
+  }, [allItems, originFilter, searchTerm]);
   
   const pageCount = Math.ceil(filteredItems.length / pageSize);
 

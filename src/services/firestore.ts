@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -20,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, ApprovalRequest } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 const USERS_COLLECTION = 'users';
 const DEFAULT_USER_ID = 'default-user'; // Placeholder until proper auth is added
@@ -73,7 +75,7 @@ const migrateInventoryToEntryLog = async (): Promise<void> => {
 };
 
 
-export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
+export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryItem[]> => {
   const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
   
   // Verifica se o log de entradas está vazio para executar a migração uma única vez.
@@ -85,7 +87,17 @@ export const loadEntryLogs = async (): Promise<InventoryItem[]> => {
       }
   }
 
-  const snapshot = await getDocs(query(logCol, orderBy('createdAt', 'desc')));
+  const queryConstraints = [orderBy('createdAt', 'desc')];
+  if (dateRange?.from) {
+      queryConstraints.push(where('createdAt', '>=', startOfDay(dateRange.from).toISOString()));
+  }
+   if (dateRange?.to) {
+      queryConstraints.push(where('createdAt', '<=', endOfDay(dateRange.to).toISOString()));
+  }
+
+
+  const finalQuery = query(logCol, ...queryConstraints);
+  const snapshot = await getDocs(finalQuery);
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
 };
 
