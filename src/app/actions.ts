@@ -11,8 +11,9 @@ import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
-import { fromBuffer } from 'pdf-poppler';
-import path from 'path';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.js';
+import { createCanvas } from 'canvas';
+
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -245,31 +246,24 @@ async function fileToDataURI(file: File) {
     return `data:${file.type};base64,${buffer.toString('base64')}`;
 }
 
-// Converts a PDF file buffer to a PNG data URI
 async function pdfToPngDataURI(pdfBuffer: Buffer): Promise<string> {
-  const opts = {
-    format: 'png',
-    out_dir: path.dirname(process.cwd()), // Use a temporary directory
-    out_prefix: 'label',
-    page: 1
-  };
+    const data = new Uint8Array(pdfBuffer);
+    const doc = await pdfjs.getDocument({ data }).promise;
+    const page = await doc.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 }); // Increase scale for better resolution
+    
+    // The library `canvas` is required for Node.js environment
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const context = canvas.getContext('2d');
 
-  try {
-    const result = await fromBuffer(pdfBuffer, opts);
-    if (!result.length || !result[0].path) {
-        throw new Error('A conversão do PDF para PNG não retornou um ficheiro.');
-    }
-    const imageBuffer = await require('fs').promises.readFile(result[0].path);
-    require('fs').promises.unlink(result[0].path); // Clean up the temp file
-    return `data:image/png;base64,${imageBuffer.toString('base64')}`;
-  } catch (error) {
-    console.error('Falha na conversão de PDF para PNG:', error);
-    // You might need to install poppler-utils on your system:
-    // Linux (Ubuntu): sudo apt-get install poppler-utils
-    // Mac: brew install poppler
-    // Windows: Download from a trusted source and add to PATH.
-    throw new Error('Falha ao converter PDF. Verifique se as ferramentas "poppler" estão instaladas no servidor.');
-  }
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport,
+    };
+
+    await page.render(renderContext).promise;
+    
+    return canvas.toDataURL('image/png');
 }
 
 export async function analyzeLabelAction(
