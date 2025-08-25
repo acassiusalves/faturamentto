@@ -33,13 +33,17 @@ const prompt = ai.definePrompt({
   input: { schema: RemixLabelDataInputSchema },
   output: { schema: RemixLabelDataOutputSchema },
   prompt: `You are a creative AI that generates modified data for shipping labels based on a specific field.
-  Follow these instructions precisely based on the 'fieldToRemix':
+  Your task is to generate a new value for the field specified in 'fieldToRemix'.
 
-  - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format (including hyphens or other symbols) as the 'originalValue' ('{{{originalValue}}}').
-  - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name that has a similar character count to the 'originalValue' ('{{{originalValue}}}').
-  - If 'fieldToRemix' is 'senderAddress': Set the value to the fixed string 'RUA DA ALFÂNDEGA, 200'.
+  The current value for the field '{{{fieldToRemix}}}' is '{{{originalValue}}}'.
 
-  Return ONLY the 'newValue' in the specified JSON format.
+  Follow these instructions precisely:
+
+  - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format as the 'originalValue'.
+  - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name.
+  - If 'fieldToRemix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
+
+  Return ONLY the 'newValue' in the specified JSON format. Do not add any other text.
   `,
 });
 
