@@ -464,13 +464,13 @@ export default function EtiquetasPage() {
                     <CardDescription>Resultado da análise da IA.</CardDescription>
                     </div>
                     <form action={remixZplFormAction}>
-                    <input type="hidden" name="originalZpl" value={originalZpl} />
-                    <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis || {})} />
-                    <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                    <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
-                        {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
-                        Gerar ZPL
-                    </Button>
+                        <input type="hidden" name="originalZpl" value={originalZpl} />
+                        <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis || {})} />
+                        <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                        <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
+                            {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
+                            Gerar ZPL
+                        </Button>
                     </form>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">

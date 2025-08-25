@@ -13,7 +13,7 @@ import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
-import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
+import { remixZplData, type RemixZplDataInput, type RemixZplDataOutput } from '@/ai/flows/remix-zpl-data-flow';
 import { z } from 'genkit';
 
 
@@ -353,70 +353,42 @@ export async function remixLabelDataAction(
     }
 }
 
-
-const PersonAddrSchema = z.object({
-  recipientName: z.string().optional().default(''),
-  streetAddress: z.string().optional().default(''),
-  city: z.string().optional().default(''),
-  state: z.string().optional().default(''),
-  zipCode: z.string().optional().default(''),
-  orderNumber: z.string().optional().default(''),
-  invoiceNumber: z.string().optional().default(''),
-  trackingNumber: z.string().optional().default(''),
-  senderName: z.string().optional().default(''),
-  senderAddress: z.string().optional().default(''),
-  estimatedDeliveryDate: z.string().optional().default(''),
-});
-
-const RemixZplDataInputSchema = z.object({
-  originalZpl: z.string().describe('Original ZPL code of the label.'),
-  baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
-  remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
-});
-
-export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
-
-export type RemixZplDataOutput = {
-    modifiedZpl: string;
-};
-
-
 export async function remixZplDataAction(
-    prevState: { result: RemixZplDataOutput | null; error: string | null; },
-    formData: FormData
-): Promise<{ result: RemixZplDataOutput | null; error: string | null; }> {
-    const originalZpl = formData.get('originalZpl') as string;
-    const baselineDataJSON = formData.get('baselineData') as string;
-    const remixedDataJSON  = formData.get('remixedData') as string;
+  prevState: { result: RemixZplDataOutput | null; error: string | null },
+  formData: FormData
+): Promise<{ result: RemixZplDataOutput | null; error: string | null }> {
+  const originalZpl = formData.get('originalZpl') as string;
+  const baselineDataJSON = formData.get('baselineData') as string;
+  const remixedDataJSON  = formData.get('remixedData') as string;
 
-    if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
-        return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
+  if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
+    return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
+  }
+
+  try {
+    const baselineData = JSON.parse(baselineDataJSON || '{}') as AnalyzeLabelOutput;
+    const remixedData  = JSON.parse(remixedDataJSON  || '{}') as AnalyzeLabelOutput;
+
+    // defaults defensivos
+    for (const k of [
+      'recipientName','streetAddress','city','state','zipCode',
+      'orderNumber','invoiceNumber','trackingNumber','senderName',
+      'senderAddress','estimatedDeliveryDate'
+    ] as (keyof AnalyzeLabelOutput)[]) {
+      // @ts-ignore
+      if (baselineData[k] == null) baselineData[k] = '';
+      // @ts-ignore
+      if (remixedData[k]  == null) remixedData[k]  = '';
     }
 
-    try {
-        const baselineData = JSON.parse(baselineDataJSON || '{}') as AnalyzeLabelOutput;
-        const remixedData  = JSON.parse(remixedDataJSON  || '{}') as AnalyzeLabelOutput;
+    const flowInput: RemixZplDataInput = { originalZpl, baselineData, remixedData };
+    const result = await remixZplData(flowInput);
 
-        // defaults defensivos
-        for (const k of [
-        'recipientName','streetAddress','city','state','zipCode',
-        'orderNumber','invoiceNumber','trackingNumber','senderName',
-        'senderAddress','estimatedDeliveryDate'
-        ] as (keyof AnalyzeLabelOutput)[]) {
-        // @ts-ignore
-        if (baselineData[k] == null) baselineData[k] = '';
-        // @ts-ignore
-        if (remixedData[k]  == null) remixedData[k]  = '';
-        }
-
-        const flowInput: RemixZplDataInput = { originalZpl, baselineData, remixedData };
-        const result = await remixZplData(flowInput);
-
-        // remove acidental ``` do modelo
-        const sanitized = (result.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
-        return { result: { modifiedZpl: sanitized }, error: null };
-    } catch (e: any) {
-        console.error('Error remixing ZPL data:', e);
-        return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
-    }
+    // remove acidental ``` do modelo
+    const sanitized = (result.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
+    return { result: { modifiedZpl: sanitized }, error: null };
+  } catch (e: any) {
+    console.error('Error remixing ZPL data:', e);
+    return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
+  }
 }
