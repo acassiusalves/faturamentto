@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -8,8 +7,6 @@ import { loadEntryLogs, loadProductSettings } from "@/services/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import type { DateRange } from "react-day-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { format, endOfDay, startOfDay } from "date-fns";
@@ -20,10 +17,6 @@ import { Badge } from "@/components/ui/badge";
 export function DetailedEntryHistory() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfDay(new Date(Date.now() - 29 * 24 * 3600 * 1000)),
-    to: endOfDay(new Date()),
-  });
   const [originFilter, setOriginFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
@@ -33,8 +26,9 @@ export function DetailedEntryHistory() {
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
+    const todayRange = { from: startOfDay(new Date()), to: endOfDay(new Date()) };
     const [items, productSettings] = await Promise.all([
-      loadEntryLogs(dateRange),
+      loadEntryLogs(todayRange),
       loadProductSettings('celular')
     ]);
     setAllItems(items);
@@ -45,7 +39,7 @@ export function DetailedEntryHistory() {
       }
     }
     setIsLoading(false);
-  }, [dateRange]);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -53,8 +47,6 @@ export function DetailedEntryHistory() {
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
-      // Date range filter is now handled by the backend query
-
       // Origin filter
       if (originFilter !== "all" && item.origin !== originFilter) {
         return false;
@@ -101,8 +93,8 @@ export function DetailedEntryHistory() {
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Arquivo de Entradas no Estoque</CardTitle>
-                 <CardDescription>Visualize o registo de todos os itens que foram adicionados ao inventário.</CardDescription>
+                 <CardTitle>Resumo de Entradas de Hoje</CardTitle>
+                 <CardDescription>Visualize o registo de todos os itens que foram adicionados ao inventário hoje.</CardDescription>
             </div>
             <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
                 {filteredItems.length} registros encontrados
@@ -130,7 +122,6 @@ export function DetailedEntryHistory() {
                         ))}
                     </SelectContent>
                 </Select>
-                <DateRangePicker date={dateRange} onDateChange={setDateRange} />
              </div>
         </div>
       </CardHeader>
@@ -176,8 +167,8 @@ export function DetailedEntryHistory() {
                   <TableCell colSpan={7} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <PackagePlus className="h-12 w-12 mb-4" />
-                        <p>Nenhuma entrada de estoque encontrada.</p>
-                        <p className="text-xs">Tente ajustar os filtros ou adicione novos itens na tela de Estoque.</p>
+                        <p>Nenhuma entrada de estoque encontrada hoje.</p>
+                        <p className="text-xs">Adicione novos itens na tela de Estoque para vê-los aqui.</p>
                     </div>
                   </TableCell>
                 </TableRow>
