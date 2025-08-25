@@ -11,6 +11,7 @@ import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
+import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -197,7 +198,7 @@ export async function analyzeFeedAction(
   }
 
 export async function fetchLabelAction(
-  prevState: { rawResponse: any; error: string | null; labelUrl?: string | null },
+  prevState: { rawResponse: any; error: string | null; labelUrl: string | null },
   formData: FormData
 ): Promise<{ rawResponse: any; error: string | null; labelUrl: string | null }> {
   const orderId = String(formData.get('orderId') || '').trim();
@@ -213,23 +214,40 @@ export async function fetchLabelAction(
   }
 
   try {
-    const { data, error, rawError } = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
-
+    const { url, error, rawError } = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
+    
     if (error) {
-      return { rawResponse: rawError ?? data ?? null, error, labelUrl: null };
+        return { rawResponse: rawError ?? null, error, labelUrl: null };
     }
 
-    const labelUrl = data?.obj?.[0]?.text ?? null;
-    if (!labelUrl) {
-      return {
-        rawResponse: data,
-        error: 'A Ideris respondeu, mas não veio o link em obj[0].text.',
-        labelUrl: null,
-      };
-    }
-
-    return { rawResponse: data, error: null, labelUrl };
+    return { rawResponse: null, error: null, labelUrl: url };
   } catch (e: any) {
     return { rawResponse: null, error: e.message || 'Erro inesperado.', labelUrl: null };
   }
+}
+
+async function fileToDataURI(file: File) {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return `data:${file.type};base64,${buffer.toString('base64')}`;
+}
+
+export async function analyzeLabelAction(
+    prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
+    formData: FormData
+): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
+    const labelImage = formData.get('labelImage') as File;
+
+    if (!labelImage) {
+        return { analysis: null, error: 'Nenhum arquivo de imagem enviado.' };
+    }
+
+    try {
+        const photoDataUri = await fileToDataURI(labelImage);
+        const result = await analyzeLabel({ photoDataUri });
+        return { analysis: result, error: null };
+    } catch (e: any) {
+        console.error("Error analyzing label:", e);
+        return { analysis: null, error: e.message || 'Ocorreu um erro ao analisar a etiqueta.' };
+    }
 }
