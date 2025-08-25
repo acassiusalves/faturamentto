@@ -1,5 +1,5 @@
 
-export const runtime = 'nodejs'; // garante fetch server-side
+export const runtime = 'nodejs'; // garante Node
 
 export async function POST(req: Request) {
   const zpl = await req.text();
@@ -18,18 +18,17 @@ export async function POST(req: Request) {
   );
 
   if (!upstream.ok) {
-    const textIfError = await upstream.text();
-    return new Response(
-      JSON.stringify({ error: textIfError || upstream.statusText }),
-      { status: upstream.status, headers: { 'content-type': 'application/json' } }
-    );
+    const text = await upstream.text();
+    return new Response(JSON.stringify({ error: text || upstream.statusText }), {
+      status: upstream.status,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
-  // reenvia a imagem para o cliente
-  const buf = Buffer.from(await upstream.arrayBuffer());
-  return new Response(buf, {
+  // Encaminha o stream direto para o cliente
+  return new Response(upstream.body, {
     headers: {
-      'content-type': 'image/png',
+      'content-type': upstream.headers.get('content-type') ?? 'image/png',
       'cache-control': 'no-store',
     },
   });
