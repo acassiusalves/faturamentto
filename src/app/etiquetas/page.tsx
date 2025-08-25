@@ -82,7 +82,10 @@ export default function EtiquetasPage() {
         try {
         const response = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: { 
+                'Accept': 'image/png', // Request PNG directly
+                'Content-Type': 'application/x-www-form-urlencoded' 
+            },
             body: zpl,
         });
         if (response.ok) {
