@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -61,6 +61,11 @@ export default function EstoquePage() {
   const [currentSN, setCurrentSN] = useState("");
   const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
+
+  // Pagination State
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
 
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventorySchema),
@@ -295,6 +300,22 @@ export default function EstoquePage() {
       
       return groupedArray;
   }, [inventory, isGrouped, sortConfig, searchTerm, selectedConditions]);
+
+  const pageCount = useMemo(() => Math.ceil(filteredAndSortedInventory.length / pageSize), [filteredAndSortedInventory.length, pageSize]);
+  
+  const paginatedItems = useMemo(() => {
+    const startIndex = pageIndex * pageSize;
+    return filteredAndSortedInventory.slice(startIndex, startIndex + pageSize);
+  }, [filteredAndSortedInventory, pageIndex, pageSize]);
+
+  useEffect(() => {
+    if (pageIndex >= pageCount && pageCount > 0) {
+        setPageIndex(pageCount - 1);
+    } else if (pageCount === 0) {
+        setPageIndex(0);
+    }
+  }, [filteredAndSortedInventory, pageIndex, pageCount]);
+
 
   const totals = useMemo(() => {
     const itemsToSum = selectedConditions.length > 0
@@ -605,8 +626,8 @@ export default function EstoquePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedInventory.length > 0 ? (
-                      filteredAndSortedInventory.map(item => {
+                    {paginatedItems.length > 0 ? (
+                      paginatedItems.map(item => {
                         const condition = item.condition || 'Novo';
                         const badgeStyle = getConditionBadgeVariant(condition);
                         return (
@@ -668,6 +689,43 @@ export default function EstoquePage() {
                 </Table>
               </div>
             </CardContent>
+             <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                <div className="text-sm text-muted-foreground">
+                    Total de {filteredAndSortedInventory.length} itens.
+                </div>
+                <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">Itens por página</p>
+                        <Select
+                            value={`${pageSize}`}
+                            onValueChange={(value) => {
+                                setPageSize(Number(value));
+                                setPageIndex(0);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={pageSize.toString()} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20, 50, 100].map((size) => (
+                                    <SelectItem key={size} value={`${size}`}>
+                                        {size}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="text-sm font-medium">
+                        Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                    </div>
+                </div>
+            </CardFooter>
           </Card>
         </div>
       </div>
