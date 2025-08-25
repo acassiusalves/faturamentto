@@ -11,6 +11,8 @@ import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
+import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
+
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -262,5 +264,24 @@ export async function analyzeLabelAction(
     } catch (e: any) {
         console.error("Error analyzing label:", e);
         return { analysis: null, error: e.message || 'Ocorreu um erro ao analisar a etiqueta.' };
+    }
+}
+
+export async function analyzeZplAction(
+    prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
+    formData: FormData
+): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
+    const zplContent = formData.get('zplContent') as string;
+
+    if (!zplContent) {
+        return { analysis: null, error: 'Nenhum conteúdo ZPL para analisar.' };
+    }
+
+    try {
+        const result = await analyzeZpl({ zplContent });
+        return { analysis: result, error: null };
+    } catch (e: any) {
+        console.error("Error analyzing ZPL:", e);
+        return { analysis: null, error: e.message || 'Ocorreu um erro ao analisar a etiqueta ZPL.' };
     }
 }

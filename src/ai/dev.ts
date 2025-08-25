@@ -8,3 +8,4 @@ import '@/ai/flows/standardize-list.ts';
 import '@/ai/flows/lookup-products.ts';
 import '@/ai/flows/analyze-feed-flow.ts';
 import '@/ai/flows/analyze-label-flow.ts';
+import '@/ai/flows/analyze-zpl-flow.ts';

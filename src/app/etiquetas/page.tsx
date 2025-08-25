@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check } from 'lucide-react';
-import { fetchLabelAction, analyzeLabelAction } from '@/app/actions';
+import { fetchLabelAction, analyzeLabelAction, analyzeZplAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
@@ -31,6 +31,7 @@ const analyzeInitialState = {
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
+  const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
   
   const { toast } = useToast();
   const [labelFile, setLabelFile] = useState<File | null>(null);
@@ -49,8 +50,12 @@ export default function EtiquetasPage() {
     }
     if(fetchState.zplContent) {
         setZplEditorContent(fetchState.zplContent);
+        // Automatically trigger ZPL analysis
+        const formData = new FormData();
+        formData.append('zplContent', fetchState.zplContent);
+        analyzeZplFormAction(formData);
     }
-  }, [fetchState, toast]);
+  }, [fetchState, toast, analyzeZplFormAction]);
   
    useEffect(() => {
     if (analyzeState.error) {
@@ -61,6 +66,16 @@ export default function EtiquetasPage() {
       });
     }
   }, [analyzeState, toast]);
+
+   useEffect(() => {
+    if (analyzeZplState.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao analisar ZPL',
+        description: analyzeZplState.error,
+      });
+    }
+  }, [analyzeZplState, toast]);
 
   const fileToDataURI = (file: File) => {
     return new Promise<string>((resolve, reject) => {
@@ -139,6 +154,8 @@ export default function EtiquetasPage() {
   }
 
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
+  const analysisResult = analyzeState.analysis || analyzeZplState.analysis;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isPreparingFile;
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -262,13 +279,13 @@ export default function EtiquetasPage() {
             )}
 
              {/* Resultados da Análise */}
-            {isAnalyzing || isPreparingFile ? (
+            {isAnyAnalysisRunning ? (
                 <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
                     <Loader2 className="animate-spin text-primary mr-4" size={32}/>
                     <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : 'Analisando etiqueta...'}</p>
                 </div>
             ) : null}
-            {analyzeState.analysis && (
+            {analysisResult && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
@@ -276,20 +293,20 @@ export default function EtiquetasPage() {
                     <CardContent className="space-y-4 text-sm">
                         <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                            <h3 className="font-semibold text-base flex items-center gap-2"><FileText/> Geral</h3>
-                           <p><strong className="text-muted-foreground">Pedido:</strong> {analyzeState.analysis.orderNumber}</p>
-                           <p><strong className="text-muted-foreground">Nota Fiscal:</strong> {analyzeState.analysis.invoiceNumber}</p>
+                           <p><strong className="text-muted-foreground">Pedido:</strong> {analysisResult.orderNumber}</p>
+                           <p><strong className="text-muted-foreground">Nota Fiscal:</strong> {analysisResult.invoiceNumber}</p>
                         </div>
                          <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                            <h3 className="font-semibold text-base flex items-center gap-2"><User/> Destinatário</h3>
-                           <p><strong className="text-muted-foreground">Nome:</strong> {analyzeState.analysis.recipientName}</p>
-                           <p><strong className="text-muted-foreground">Endereço:</strong> {analyzeState.analysis.streetAddress}</p>
-                           <p><strong className="text-muted-foreground">Cidade/UF:</strong> {analyzeState.analysis.city} - {analyzeState.analysis.state}</p>
-                           <p><strong className="text-muted-foreground">CEP:</strong> {analyzeState.analysis.zipCode}</p>
+                           <p><strong className="text-muted-foreground">Nome:</strong> {analysisResult.recipientName}</p>
+                           <p><strong className="text-muted-foreground">Endereço:</strong> {analysisResult.streetAddress}</p>
+                           <p><strong className="text-muted-foreground">Cidade/UF:</strong> {analysisResult.city} - {analysisResult.state}</p>
+                           <p><strong className="text-muted-foreground">CEP:</strong> {analysisResult.zipCode}</p>
                         </div>
                          <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                            <h3 className="font-semibold text-base flex items-center gap-2"><MapPin/> Remetente</h3>
-                           <p><strong className="text-muted-foreground">Nome:</strong> {analyzeState.analysis.senderName}</p>
-                           <p><strong className="text-muted-foreground">Endereço:</strong> {analyzeState.analysis.senderAddress}</p>
+                           <p><strong className="text-muted-foreground">Nome:</strong> {analysisResult.senderName}</p>
+                           <p><strong className="text-muted-foreground">Endereço:</strong> {analysisResult.senderAddress}</p>
                         </div>
                     </CardContent>
                 </Card>
