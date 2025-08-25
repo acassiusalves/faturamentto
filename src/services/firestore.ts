@@ -88,7 +88,7 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
   }
 
   // Fallback: últimos 30 dias se não vier range
-  const fromDate = dateRange?.from ?? startOfDay(new Date(Date.now() - 29 * 24 * 3600 * 1000));
+  const fromDate = dateRange?.from ?? startOfDay(new Date());
   const toDate   = dateRange?.to   ?? endOfDay(new Date());
 
   const fromTs = Timestamp.fromDate(new Date(startOfDay(fromDate)));
@@ -128,6 +128,29 @@ const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promis
     const itemWithDateObject = { ...item, createdAt: new Date(item.createdAt) };
     batch.set(logDocRef, toFirestore(itemWithDateObject));
 }
+
+export const revertEntryAction = async (entryLog: InventoryItem): Promise<void> => {
+    const batch = writeBatch(db);
+
+    // 1. Delete the entry log record
+    const entryLogDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log', entryLog.id);
+    batch.delete(entryLogDocRef);
+
+    // 2. Find and delete the corresponding item from inventory by its serial number
+    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+    const q = query(inventoryCol, where('serialNumber', '==', entryLog.serialNumber), limit(1));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+        const inventoryItemDocRef = snapshot.docs[0].ref;
+        batch.delete(inventoryItemDocRef);
+    } else {
+        // This case is unlikely if the data is consistent, but it's good to handle.
+        console.warn(`Could not find inventory item with SN ${entryLog.serialNumber} to revert.`);
+    }
+
+    await batch.commit();
+};
 
 
 // --- INVENTORY ---

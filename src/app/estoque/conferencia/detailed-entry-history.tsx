@@ -3,18 +3,22 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { InventoryItem } from "@/lib/types";
-import { loadEntryLogs, loadProductSettings } from "@/services/firestore";
+import { loadEntryLogs, loadProductSettings, revertEntryAction } from "@/services/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Loader2, PackagePlus, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, XCircle } from "lucide-react";
 import { format, endOfDay, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+
 
 export function DetailedEntryHistory() {
+  const { toast } = useToast();
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [originFilter, setOriginFilter] = useState("all");
@@ -44,6 +48,24 @@ export function DetailedEntryHistory() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  
+  const handleRevertEntry = async (entry: InventoryItem) => {
+    try {
+        await revertEntryAction(entry);
+        toast({
+            title: "Entrada Revertida!",
+            description: `O item ${entry.name} (SN: ${entry.serialNumber}) foi removido do estoque e do histórico de entradas.`,
+        });
+        fetchData(); // Refresh data
+    } catch(error) {
+        console.error("Error reverting entry:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro ao Reverter",
+            description: "Não foi possível desfazer a entrada do item.",
+        })
+    }
+  };
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
@@ -137,12 +159,13 @@ export function DetailedEntryHistory() {
                 <TableHead>Condição</TableHead>
                 <TableHead>Origem</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
+                <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     <Loader2 className="mx-auto animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -160,11 +183,32 @@ export function DetailedEntryHistory() {
                     </TableCell>
                     <TableCell>{item.origin}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice)}</TableCell>
+                    <TableCell className="text-center">
+                       <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                    <XCircle className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Reverter esta entrada?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta ação irá remover permanentemente o registo de entrada do item <strong>(SN: {item.serialNumber})</strong> e o item será excluído do estoque. Você tem certeza?
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleRevertEntry(item)}>Sim, Reverter Entrada</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <PackagePlus className="h-12 w-12 mb-4" />
                         <p>Nenhuma entrada de estoque encontrada hoje.</p>
