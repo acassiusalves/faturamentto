@@ -31,10 +31,11 @@ const analyzeInitialState = {
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
-  const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
   const [labelFile, setLabelFile] = useState<File | null>(null);
+  const [isPreparingFile, setIsPreparingFile] = useState(false);
+  const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
 
   useEffect(() => {
     if (fetchState.error) {
@@ -55,12 +56,6 @@ export default function EtiquetasPage() {
       });
     }
   }, [analyzeState, toast]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setLabelFile(event.target.files[0]);
-    }
-  };
 
   const fileToDataURI = (file: File) => {
     return new Promise<string>((resolve, reject) => {
@@ -100,41 +95,38 @@ export default function EtiquetasPage() {
     return canvas.toDataURL('image/png');
   };
   
-  const handleAnalyzeClick = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!labelFile) {
-        toast({
-            variant: "destructive",
-            title: "Nenhum arquivo selecionado",
-            description: "Por favor, selecione uma imagem ou PDF da etiqueta para analisar.",
-        });
-        return;
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setLabelFile(null);
+      setPhotoDataUri(null);
+      return;
     }
+    setLabelFile(file);
+    setIsPreparingFile(true);
     
-    startTransition(async () => {
-        try {
-            let photoDataUri = '';
-            if (labelFile.type === 'application/pdf') {
-                photoDataUri = await pdfToPngDataURI(labelFile);
-            } else if (labelFile.type.startsWith('image/')) {
-                photoDataUri = await fileToDataURI(labelFile);
-            } else {
-                toast({ variant: 'destructive', title: 'Formato de ficheiro não suportado', description: 'Por favor, envie uma imagem ou PDF.'});
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('photoDataUri', photoDataUri);
-            analyzeFormAction(formData);
-
-        } catch (error) {
-            console.error("Error processing file client-side:", error);
-            toast({ variant: "destructive", title: "Erro ao Processar Ficheiro", description: "Não foi possível converter o ficheiro para análise."});
+    try {
+        let dataUri = '';
+        if (file.type === 'application/pdf') {
+            dataUri = await pdfToPngDataURI(file);
+        } else if (file.type.startsWith('image/')) {
+            dataUri = await fileToDataURI(file);
+        } else {
+            toast({ variant: 'destructive', title: 'Formato de ficheiro não suportado', description: 'Por favor, envie uma imagem ou PDF.'});
+            setPhotoDataUri(null);
+            return;
         }
-    });
-  }
+        setPhotoDataUri(dataUri);
+    } catch (error) {
+        console.error("Error processing file client-side:", error);
+        toast({ variant: "destructive", title: "Erro ao Processar Ficheiro", description: "Não foi possível converter o ficheiro para análise."});
+        setPhotoDataUri(null);
+    } finally {
+        setIsPreparingFile(false);
+    }
+  };
 
-  const isActuallyAnalyzing = isAnalyzing || isTransitioning;
+  const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -184,15 +176,18 @@ export default function EtiquetasPage() {
                 <CardDescription>Faça o upload do PDF da etiqueta para extrair os dados completos.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleAnalyzeClick} className="flex flex-col sm:flex-row items-end gap-4">
-                    <div className="grid w-full items-center gap-1.5">
-                         <Label htmlFor="label-file" className="font-semibold">Ficheiro da Etiqueta (PDF/Imagem)</Label>
-                        <Input id="label-file" type="file" accept="image/*,application/pdf" onChange={handleFileChange} />
+                <form action={analyzeFormAction}>
+                    <div className="flex flex-col sm:flex-row items-end gap-4">
+                        <div className="grid w-full items-center gap-1.5">
+                             <Label htmlFor="label-file" className="font-semibold">Ficheiro da Etiqueta (PDF/Imagem)</Label>
+                            <Input id="label-file" type="file" accept="image/*,application/pdf" onChange={handleFileChange} />
+                        </div>
+                        <input type="hidden" name="photoDataUri" value={photoDataUri || ''} />
+                        <Button type="submit" disabled={isAnalyzeButtonDisabled}>
+                            {isAnalyzing || isPreparingFile ? <Loader2 className="animate-spin"/> : <Bot />}
+                            Analisar
+                        </Button>
                     </div>
-                    <Button type="submit" disabled={isActuallyAnalyzing || !labelFile}>
-                        {isActuallyAnalyzing ? <Loader2 className="animate-spin"/> : <Bot />}
-                        Analisar
-                    </Button>
                 </form>
             </CardContent>
           </Card>
@@ -235,12 +230,12 @@ export default function EtiquetasPage() {
             )}
 
              {/* Resultados da Análise */}
-            {isActuallyAnalyzing && (
+            {isAnalyzing || isPreparingFile ? (
                 <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
                     <Loader2 className="animate-spin text-primary mr-4" size={32}/>
-                    <p className="text-muted-foreground">Analisando etiqueta...</p>
+                    <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : 'Analisando etiqueta...'}</p>
                 </div>
-            )}
+            ) : null}
             {analyzeState.analysis && (
                 <Card>
                     <CardHeader>
