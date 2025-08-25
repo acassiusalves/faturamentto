@@ -96,7 +96,7 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
         for (const neighborId of graph[currentId]) {
             inDegree[neighborId]--;
             if (inDegree[neighborId] === 0) {
-                queue.push(neighborId);
+                queue.push(id);
             }
         }
     }

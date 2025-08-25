@@ -28,6 +28,24 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
+
+const normalizeLabel = (s: string) =>
+  String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/[_-]+/g," ").replace(/\s+/g," ").trim().toLowerCase();
+
+const guessDelimiter = (s: string) => {
+  const first = s.split(/\r?\n/)[0] ?? "";
+  return (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ";" : ",";
+};
+
+// mapeia o associationKey salvo (sem acento) para o header ORIGINAL da planilha
+const resolveAssociationHeader = (headers: string[] = [], file: SupportFile) => {
+  const headMap = new Map(headers.map(h => [normalizeLabel(h), h]));
+  const wanted = normalizeLabel(file.associationKey || "");
+  return headMap.get(wanted) || file.associationKey; // fallback
+};
+
+
 const marketplaces = [
   { id: "magalu", name: "Magalu" },
   { id: "mercado-livre", name: "Mercado Livre" },
@@ -101,28 +119,29 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
         let notAssociated = 0;
         if (file.fileContent && file.associationKey) {
           try {
-            // Updated to handle both CSV and XLSX from base64
-            let parsedRows;
-            if (file.fileName.toLowerCase().endsWith('.xlsx') || file.fileContent.startsWith('UEsDB')) {
-                const wb = XLSX.read(file.fileContent, { type: 'base64' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                parsedRows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
+            let parsedRows: any[] = [];
+            let parsedHeaders: string[] = [];
+
+            if (file.fileName.toLowerCase().endsWith(".xlsx") || file.fileContent.startsWith("UEsDB")) {
+              const wb = XLSX.read(file.fileContent, { type: "base64" });
+              const ws = wb.Sheets[wb.SheetNames[0]];
+              parsedRows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
+              parsedHeaders = parsedRows.length ? Object.keys(parsedRows[0]) : [];
             } else {
-                const parsedResult = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
-                parsedRows = parsedResult.data;
+              const parsedResult = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true, delimiter: guessDelimiter(file.fileContent) });
+              parsedRows = parsedResult.data as any[];
+              parsedHeaders = parsedResult.meta.fields || [];
             }
 
-            parsedRows.forEach((row: any) => {
-              const rawKey = row[file.associationKey];
-              const keyToCompare = normalizeKey(rawKey);
+            // 👇 esta linha faz TODA a diferença
+            const assocHeader = resolveAssociationHeader(parsedHeaders, file);
 
-              if (keyToCompare) {
-                if (saleKeys.has(keyToCompare)) {
-                  associated++;
-                } else {
-                  notAssociated++;
-                }
-              }
+            parsedRows.forEach((row: any) => {
+              const rawKey = row[assocHeader]; // agora bate com "Número do pedido"
+              const keyToCompare = normalizeKey(rawKey);
+              if (!keyToCompare) return;
+              if (saleKeys.has(keyToCompare)) associated++;
+              else notAssociated++;
             });
           } catch(e) {
             console.error("Error parsing file for stats", e);
@@ -159,6 +178,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             Papa.parse(contentForStorage, {
                 preview: 1,
                 skipEmptyLines: true,
+                delimiter: guessDelimiter(contentForStorage),
                 complete: (papaResults) => {
                     if(!papaResults.data || !Array.isArray(papaResults.data[0])) {
                       toast({variant: 'destructive', title: 'Erro ao Ler CSV', description: 'Não foi possível encontrar cabeçalhos no arquivo.'})
