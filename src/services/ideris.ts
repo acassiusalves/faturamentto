@@ -342,8 +342,17 @@ export async function fetchOrderLabel(
   }
   
   if (format === 'ZPL') {
-      // For ZPL, the raw text is the data. We need to wrap it to match the PDF structure.
-      return { data: { obj: [{ text: response.data }] } };
+      try {
+        // Tenta parsear como JSON primeiro, caso a API retorne um JSON mesmo para ZPL
+        const jsonData = JSON.parse(response.data);
+        const zplText = jsonData?.obj?.[0]?.text;
+        if(zplText) {
+            return { data: { obj: [{ text: zplText }] } };
+        }
+      } catch (e) {
+        // Se não for JSON, assume que é texto ZPL puro
+        return { data: { obj: [{ text: response.data }] } };
+      }
   }
 
   return { data: response.data };
