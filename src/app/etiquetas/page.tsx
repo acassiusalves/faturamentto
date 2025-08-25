@@ -1,19 +1,20 @@
 
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from 'react';
+import { useActionState, useEffect, useState, useTransition, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer } from 'lucide-react';
+import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye } from 'lucide-react';
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 import * as pdfjs from 'pdfjs-dist';
 import { Textarea } from '@/components/ui/textarea';
+import Image from 'next/image';
 
 
 const fetchInitialState = {
@@ -55,6 +56,56 @@ export default function EtiquetasPage() {
   
   const [analysisResult, setAnalysisResult] = useState<AnalyzeLabelOutput | null>(null);
   const [originalZpl, setOriginalZpl] = useState<string>('');
+  
+  // State for ZPL preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
+  // Debounce function
+  const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
+    let timeout: NodeJS.Timeout;
+    return (...args: Parameters<F>): Promise<ReturnType<F>> =>
+      new Promise(resolve => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        timeout = setTimeout(() => resolve(func(...args)), waitFor);
+      });
+  };
+
+  const generatePreview = async (zpl: string) => {
+    if (!zpl.trim()) {
+      setPreviewUrl(null);
+      return;
+    }
+    setIsPreviewLoading(true);
+    try {
+      const response = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: zpl,
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        setPreviewUrl(URL.createObjectURL(blob));
+      } else {
+        console.error('Labelary API error:', await response.text());
+        setPreviewUrl(null);
+      }
+    } catch (error) {
+      console.error('Error fetching ZPL preview:', error);
+      setPreviewUrl(null);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const debouncedPreview = useCallback(debounce(generatePreview, 1000), []);
+
+  useEffect(() => {
+    debouncedPreview(zplEditorContent);
+  }, [zplEditorContent, debouncedPreview]);
+
 
   useEffect(() => {
     if (fetchState.error) {
@@ -236,10 +287,52 @@ export default function EtiquetasPage() {
                 </form>
             </CardContent>
           </Card>
+
+            {fetchState.zplContent && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Editor ZPL</CardTitle>
+                        <CardDescription>O conteúdo ZPL da etiqueta é editável. Copie o resultado para impressão.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea 
+                            value={zplEditorContent}
+                            onChange={(e) => setZplEditorContent(e.target.value)}
+                            className="font-mono text-xs min-h-[300px] max-h-[60vh]"
+                        />
+                        <Button onClick={handleCopyToClipboard} className="mt-4 w-full">
+                            {hasCopied ? <Check className="mr-2" /> : <Copy className="mr-2" />}
+                            {hasCopied ? "Copiado!" : "Copiar Conteúdo ZPL"}
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
+
         </div>
         
         <div className="space-y-8">
             {/* Visualização da Etiqueta */}
+            {previewUrl && !isPreviewLoading && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Eye/> Pré-visualização da Etiqueta</CardTitle>
+                        <CardDescription>Esta é uma representação visual do código ZPL à esquerda.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-center p-2">
+                        <Image src={previewUrl} alt="Pré-visualização da etiqueta ZPL" width={400} height={600} className="border rounded-md" />
+                    </CardContent>
+                </Card>
+            )}
+            
+            {isPreviewLoading && (
+                 <Card className="h-96 flex items-center justify-center">
+                    <div className="text-center space-y-2">
+                        <Loader2 className="animate-spin text-primary mx-auto" size={32}/>
+                        <p className="text-muted-foreground">Gerando pré-visualização...</p>
+                    </div>
+                </Card>
+            )}
+
             {fetchState.labelUrl && (
                 <Card>
                     <CardHeader>
@@ -256,26 +349,6 @@ export default function EtiquetasPage() {
                         </Button>
                         </div>
                         <iframe src={fetchState.labelUrl} className="w-full h-[60vh] border rounded-md" title="Etiqueta PDF"/>
-                    </CardContent>
-                </Card>
-            )}
-
-             {fetchState.zplContent && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Editor ZPL</CardTitle>
-                        <CardDescription>O conteúdo ZPL da etiqueta é editável. Copie o resultado para impressão.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Textarea 
-                            value={zplEditorContent}
-                            onChange={(e) => setZplEditorContent(e.target.value)}
-                            className="font-mono text-xs min-h-[300px] max-h-[60vh]"
-                        />
-                        <Button onClick={handleCopyToClipboard} className="mt-4 w-full">
-                            {hasCopied ? <Check className="mr-2" /> : <Copy className="mr-2" />}
-                            {hasCopied ? "Copiado!" : "Copiar Conteúdo ZPL"}
-                        </Button>
                     </CardContent>
                 </Card>
             )}
