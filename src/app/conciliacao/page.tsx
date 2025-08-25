@@ -14,6 +14,7 @@ import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveA
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { Input } from '@/components/ui/input';
 import { CalculationDialog } from '@/components/calculation-dialog';
 import type { DateRange } from "react-day-picker";
@@ -106,6 +107,83 @@ const sortCalculationsByDependency = (calculations: CustomCalculation[]): Custom
     }
 
     return sorted;
+};
+
+// normaliza rótulos (usa em headers, friendlynames etc.)
+const normalizeLabel = (s: string): string =>
+  String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+// chave de associação mais esperta:
+// - se só dígitos der >=4, usa (bom p/ pedidos tipo "ABC-12345")
+// - senão, usa "raw normalizado" (sem acento/espaco/pontuação)
+const normalizeAssocKey = (val: unknown): string => {
+  const raw = String(val ?? "").trim();
+  const onlyDigits = raw.replace(/\D/g, "");
+  if (onlyDigits.length >= 4) return onlyDigits;
+  return normalizeLabel(raw).replace(/\W/g, "");
+};
+
+// tenta adivinhar delimiter do CSV ("," vs ";")
+const guessDelimiter = (s: string) => {
+  const firstLine = s.split(/\r?\n/)[0] ?? "";
+  return (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+};
+
+// detecta XLSX base64 (zip começa com "UEsDB")
+const looksLikeXlsxBase64 = (s: string) => /^UEsDB/.test(s.trim());
+
+// parser único p/ arquivo de apoio
+const parseSupportFile = (file: any): { rows: any[]; headers: string[] } => {
+  const content = String(file.fileContent || "");
+  const isXlsx = file.fileName?.toLowerCase?.().endsWith(".xlsx") || looksLikeXlsxBase64(content);
+
+  if (isXlsx) {
+    // Conteúdo base64 -> workbook
+    const wb = XLSX.read(content, { type: "base64" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
+    const headers = rows.length ? Object.keys(rows[0]) : [];
+    return { rows, headers };
+  } else {
+    // CSV
+    const parsed = Papa.parse(content, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: guessDelimiter(content),
+      transformHeader: (h) => h, // preserva exatamente como veio
+    });
+    return { rows: parsed.data as any[], headers: parsed.meta.fields || [] };
+  }
+};
+
+// acha o header real da coluna de associação, aceitando friendlyName ou header cru
+const resolveAssociationHeader = (headers: string[], file: any): string => {
+  const headMap = new Map(headers.map((h) => [normalizeLabel(h), h]));
+
+  // se veio um friendlyName, mapeia de volta pro header original
+  const friendlyToOriginal = new Map<string, string>();
+  if (file?.friendlyNames) {
+    // { headerOriginal: "Nome Amigável" }
+    for (const [orig, fr] of Object.entries(file.friendlyNames as Record<string,string>)) {
+      friendlyToOriginal.set(normalizeLabel(fr), orig);
+    }
+  }
+
+  const wanted = normalizeLabel(file.associationKey || "");
+  // tenta bater direto com header normalizado
+  if (headMap.has(wanted)) return headMap.get(wanted)!;
+
+  // tenta reverter friendlyName -> header original
+  const orig = friendlyToOriginal.get(wanted);
+  if (orig && headMap.has(normalizeLabel(orig))) return headMap.get(normalizeLabel(orig))!;
+
+  // último recurso: devolve o que veio
+  return file.associationKey;
 };
 
 
@@ -340,84 +418,65 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         });
 
         if (supportData && supportData.files) {
-            const normalizeKey = (key: string) => String(key || '').replace(/\D/g, '');
-            const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-
-            // Use o mesmo parser robusto do motor de cálculo
-            const parseSheetValue = (value: any): any => {
-              // Se já é número finito, mantém
-              if (typeof value === 'number' && Number.isFinite(value)) return value;
-
-              // Se é string, tenta converter pt-BR/en-US, removendo "R$", espaços, etc.
-              if (typeof value === 'string') {
-                const n = parseBrNumber(value); // a helper que você já declarou acima
-                if (n != null) return n;
+          const supportDataMap = new Map<string, Record<string, any>>();
+          const allFiles: any[] = Object.values(supportData.files).flat();
+        
+          if (allFiles.length > 0) {
+            allFiles.forEach((file) => {
+              if (!file?.fileContent || !file?.associationKey) return;
+        
+              try {
+                const { rows, headers } = parseSupportFile(file);
+                const assocHeader = resolveAssociationHeader(headers, file);
+        
+                rows.forEach((row: any) => {
+                  const keyVal = row[assocHeader];
+                  const key = normalizeAssocKey(keyVal);
+                  if (!key) return;
+        
+                  if (!supportDataMap.has(key)) supportDataMap.set(key, {});
+                  const existing = supportDataMap.get(key)!;
+        
+                  headers.forEach((header) => {
+                    const raw = row[header];
+                    const friendlyName = (file.friendlyNames?.[header] as string) || header;
+                    const normKey = normalizeLabel(friendlyName);
+        
+                    // aproveita teu parse numerico robusto:
+                    const parsed =
+                      typeof raw === "number" ? raw :
+                      typeof raw === "string" ? (parseBrNumber(raw) ?? raw) :
+                      raw;
+        
+                    existing[normKey] = parsed;
+                  });
+                });
+              } catch (e) {
+                console.error("Erro ao parsear arquivo de apoio:", file?.fileName || "", e);
               }
-
-              // Caso não seja número, devolve como veio (texto, data, etc.)
-              return value;
-            };
-
-            const supportDataMap = new Map<string, Record<string, any>>();
-            const allFiles = Object.values(supportData.files).flat();
-
-            if (allFiles.length > 0) {
-                 allFiles.forEach(file => {
-                    if (!file.fileContent || !file.associationKey) return;
-                    
-                    try {
-                        const parsedData = Papa.parse(file.fileContent, { 
-                            header: true, 
-                            skipEmptyLines: true,
-                        });
-
-                        parsedData.data.forEach((row: any) => {
-                           const key = normalizeKey(row[file.associationKey]);
-                           if(key) {
-                               if (!supportDataMap.has(key)) {
-                                   supportDataMap.set(key, {});
-                               }
-                               const existingData = supportDataMap.get(key)!;
-                               
-                               for(const header in row) {
-                                   const raw = row[header];
-                                   const friendlyName = file.friendlyNames?.[header] || header;
-
-                                   const parsed = parseSheetValue(raw);
-                                   
-                                   const normKey = normalizeLabel(friendlyName);
-                                   existingData[normKey] = parsed;
-                               }
-                           }
-                        });
-                    } catch (e) {
-                         console.error("Error parsing support file", e);
-                    }
-                 });
-                 
-                 processedSales = processedSales.map(sale => {
-                     const saleKey = normalizeKey((sale as any).order_code);
-                     const sheetValues = supportDataMap.get(saleKey);
-
-                     if (sheetValues) {
-                         const sheetStatus = sheetValues['status'] || sheetValues['Status'];
-                         
-                         const mergedSale = {
-                             ...sale,
-                             status: sheetStatus ? String(sheetStatus) : sale.status,
-                             sheetData: {
-                                 ...(sale.sheetData || {}),
-                                 ...sheetValues,
-                             }
-                         };
-                         delete mergedSale.sheetData['status'];
-                         delete mergedSale.sheetData['Status'];
-
-                         return mergedSale;
-                     }
-                     return sale;
-                 });
-            }
+            });
+        
+            // merge por pedido
+            processedSales = processedSales.map((sale) => {
+              const saleKey = normalizeAssocKey((sale as any).order_code);
+              const sheetValues = supportDataMap.get(saleKey);
+        
+              if (sheetValues) {
+                const merged = {
+                  ...sale,
+                  // status pode vir com qualquer capitalização no mapa
+                  status: (sheetValues["status"] ?? (sale as any).status) as any,
+                  sheetData: {
+                    ...(sale as any).sheetData,
+                    ...sheetValues,
+                  },
+                };
+                delete (merged as any).sheetData["status"];
+                return merged;
+              }
+              return sale;
+            });
+          }
         }
         
         return processedSales.map(applyCustomCalculations);
