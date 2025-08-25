@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -66,6 +66,16 @@ export default function EstoquePage() {
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
+  // Column Visibility State
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
+    product: true,
+    sku: true,
+    sn: true,
+    quantity: true,
+    costPrice: true,
+    totalCost: true,
+    actions: true,
+  });
 
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventorySchema),
@@ -578,6 +588,22 @@ export default function EstoquePage() {
                     <CardDescription>Lista de todos os produtos cadastrados no seu inventário.</CardDescription>
                   </div>
                   <div className="flex items-center gap-4">
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline"><View className="mr-2" />Exibir</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                          <DropdownMenuLabel>Exibir/Ocultar Colunas</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuCheckboxItem checked={columnVisibility.product} onCheckedChange={(c) => setColumnVisibility(p => ({...p, product: !!c}))}>Produto</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.sku} onCheckedChange={(c) => setColumnVisibility(p => ({...p, sku: !!c}))}>SKU</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.sn} onCheckedChange={(c) => setColumnVisibility(p => ({...p, sn: !!c}))}>SN</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.quantity} onCheckedChange={(c) => setColumnVisibility(p => ({...p, quantity: !!c}))}>Qtd.</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.costPrice} onCheckedChange={(c) => setColumnVisibility(p => ({...p, costPrice: !!c}))}>Custo Unit.</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.totalCost} onCheckedChange={(c) => setColumnVisibility(p => ({...p, totalCost: !!c}))}>Custo Total</DropdownMenuCheckboxItem>
+                          <DropdownMenuCheckboxItem checked={columnVisibility.actions} onCheckedChange={(c) => setColumnVisibility(p => ({...p, actions: !!c}))}>Ações</DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                     </DropdownMenu>
                      <Button asChild variant="outline">
                         <Link href="/estoque/conferencia">
                             <ScanSearch />
@@ -606,23 +632,27 @@ export default function EstoquePage() {
                 <Table>
                   <TableHeader className="sticky top-0 bg-card">
                     <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead>SKU</TableHead>
-                       {!isGrouped && <TableHead>SN</TableHead>}
-                      <TableHead className="text-right">
-                         <Button variant="ghost" onClick={() => isGrouped && handleSort('quantity')} disabled={!isGrouped}>
-                            Qtd.
-                            {isGrouped && <ArrowUpDown className="ml-2 h-4 w-4" />}
-                         </Button>
-                      </TableHead>
-                      <TableHead className="text-right">Custo Unit.</TableHead>
-                      <TableHead className="text-right">
-                         <Button variant="ghost" onClick={() => isGrouped && handleSort('totalCost')} disabled={!isGrouped}>
-                           Custo Total
-                           {isGrouped && <ArrowUpDown className="ml-2 h-4 w-4" />}
-                         </Button>
-                      </TableHead>
-                      <TableHead className="text-center">Ações</TableHead>
+                      {columnVisibility.product && <TableHead>Produto</TableHead>}
+                      {columnVisibility.sku && <TableHead>SKU</TableHead>}
+                      {columnVisibility.sn && !isGrouped && <TableHead>SN</TableHead>}
+                      {columnVisibility.quantity && (
+                        <TableHead className="text-right">
+                          <Button variant="ghost" onClick={() => isGrouped && handleSort('quantity')} disabled={!isGrouped}>
+                              Qtd.
+                              {isGrouped && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                          </Button>
+                        </TableHead>
+                      )}
+                      {columnVisibility.costPrice && <TableHead className="text-right">Custo Unit.</TableHead>}
+                      {columnVisibility.totalCost && (
+                         <TableHead className="text-right">
+                           <Button variant="ghost" onClick={() => isGrouped && handleSort('totalCost')} disabled={!isGrouped}>
+                             Custo Total
+                             {isGrouped && <ArrowUpDown className="ml-2 h-4 w-4" />}
+                           </Button>
+                        </TableHead>
+                      )}
+                      {columnVisibility.actions && <TableHead className="text-center">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -632,55 +662,59 @@ export default function EstoquePage() {
                         const badgeStyle = getConditionBadgeVariant(condition);
                         return (
                         <TableRow key={item.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex flex-col gap-1">
-                                <span>{item.name}</span>
-                                {!isGrouped && (
+                           {columnVisibility.product && (
+                              <TableCell className="font-medium">
+                                <div className="flex flex-col gap-1">
+                                    <span>{item.name}</span>
+                                    {!isGrouped && (
+                                        <>
+                                            <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
+                                            <Badge variant={badgeStyle.variant} className={cn('w-fit mt-1', badgeStyle.className)}>
+                                              {condition}
+                                            </Badge>
+                                        </>
+                                    )}
+                                </div>
+                              </TableCell>
+                           )}
+                           {columnVisibility.sku && <TableCell className="font-mono">{item.sku}</TableCell>}
+                           {columnVisibility.sn && !isGrouped && <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>}
+                           {columnVisibility.quantity && <TableCell className="text-right">{item.quantity}</TableCell>}
+                           {columnVisibility.costPrice && <TableCell className="text-right">{formatCurrency(item.costPrice)}</TableCell>}
+                           {columnVisibility.totalCost && <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice * item.quantity)}</TableCell>}
+                           {columnVisibility.actions && (
+                              <TableCell className="text-center space-x-1">
+                                {!isGrouped && (user?.role === 'admin' || user?.role === 'financeiro') && (
                                     <>
-                                        <span className="text-xs text-muted-foreground">Adicionado em: {formatDate(item.createdAt)}</span>
-                                        <Badge variant={badgeStyle.variant} className={cn('w-fit mt-1', badgeStyle.className)}>
-                                          {condition}
-                                        </Badge>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta ação não pode ser desfeita. Isso removerá permanentemente o item
+                                                    do seu estoque.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDelete(item.id)}>Continuar</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
                                     </>
                                 )}
-                            </div>
-                           </TableCell>
-                          <TableCell className="font-mono">{item.sku}</TableCell>
-                          {!isGrouped && <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>}
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(item.costPrice)}</TableCell>
-                          <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice * item.quantity)}</TableCell>
-                          <TableCell className="text-center space-x-1">
-                             {!isGrouped && (user?.role === 'admin' || user?.role === 'financeiro') && (
-                                <>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Esta ação não pode ser desfeita. Isso removerá permanentemente o item
-                                                do seu estoque.
-                                            </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDelete(item.id)}>Continuar</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </>
-                             )}
-                          </TableCell>
+                              </TableCell>
+                           )}
                         </TableRow>
                       )})
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={isGrouped ? 6 : 7} className="h-24 text-center">
+                        <TableCell colSpan={Object.values(columnVisibility).filter(v => v).length} className="h-24 text-center">
                           Nenhum produto encontrado.
                         </TableCell>
                       </TableRow>
