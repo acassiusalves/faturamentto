@@ -7,10 +7,10 @@ import type {PipelineResult} from '@/lib/types';
 import {organizeList, type OrganizeResult, type OrganizeListInput} from '@/ai/flows/organize-list';
 import {standardizeList, type StandardizeListOutput, type StandardizeListInput} from '@/ai/flows/standardize-list';
 import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
-import { saveAppSettings, loadAppSettings, generateAccessToken } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
-import { fetchOrderLabel, fetchOrderLabelWithToken } from '@/services/ideris';
+import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 
 // This is the main server action that will be called from the frontend.
@@ -214,31 +214,24 @@ export async function fetchLabelAction(
       return { labelUrl: null, error: 'A chave da API da Ideris não está configurada.', rawError: null };
     }
 
-    const token = await generateAccessToken(settings.iderisPrivateKey);
-    const decode = (t: string) => {
-      try {
-        const payload = JSON.parse(Buffer.from(t.split('.')[1], 'base64').toString('utf8'));
-        const { CustomerId, ApplicationId, MasterUserId, PrivateKeyId } = payload || {};
-        return { CustomerId, ApplicationId, MasterUserId, PrivateKeyId };
-      } catch { return null; }
-    };
-
-    const info = decode(token);
-    const resp = await fetchOrderLabelWithToken(token, orderId, format);
-
-    if (resp.url) {
-      return { labelUrl: resp.url, error: null, rawError: null };
+    const { data, error, rawError } = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
+    
+    if (error) {
+        return { labelUrl: null, error: error, rawError: rawError };
     }
 
-    return {
-      labelUrl: null,
-      error: resp.error || 'Erro ao buscar etiqueta.',
-      rawError: JSON.stringify({
-        requestUrl: resp.requestUrl,
-        apiResponse: resp.raw,
-        tokenInfo: info,
-      }, null, 2),
-    };
+    const labelUrl = data?.obj?.[0]?.text ?? null;
+
+    if (!labelUrl) {
+      return {
+        labelUrl: null,
+        error: 'A Ideris respondeu, mas não foi possível encontrar a URL da etiqueta na resposta.',
+        rawError: JSON.stringify(data, null, 2),
+      };
+    }
+
+    return { labelUrl: labelUrl, error: null, rawError: null };
+    
   } catch (e: any) {
     return { labelUrl: null, error: e.message || 'Ocorreu um erro inesperado.', rawError: e.stack || null };
   }
