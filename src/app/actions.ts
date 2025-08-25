@@ -1,4 +1,4 @@
-// @ts-nocheck
+{// @ts-nocheck
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
