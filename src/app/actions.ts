@@ -12,7 +12,8 @@ import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
-import { remixLabelData, type RemixLabelDataInput } from '@/ai/flows/remix-label-data-flow';
+import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
+import { z } from 'genkit';
 
 
 // This is the main server action that will be called from the frontend.
@@ -222,7 +223,16 @@ export async function fetchLabelAction(
         return { labelUrl: null, error: error, rawError: rawError, zplContent: null };
     }
 
-    const labelUrl = data?.obj?.[0]?.text ?? null;
+    let labelUrl: string | null = null;
+    try {
+      labelUrl = data?.obj?.[0]?.text ?? null;
+    } catch (e) {
+        // If data is just a string (for ZPL), handle it.
+        if (typeof data === 'string') {
+            labelUrl = data;
+        }
+    }
+    
     let zplContent: string | null = null;
     let pdfUrl: string | null = null;
     
@@ -287,10 +297,25 @@ export async function analyzeZplAction(
     }
 }
 
+// Schema definition for RemixLabelDataAction
+const RemixLabelDataInputSchema = z.object({
+  orderNumber: z.string(),
+  invoiceNumber: z.string(),
+  senderName: z.string(),
+});
+export type RemixLabelDataInput = z.infer<typeof RemixLabelDataInputSchema>;
+
+export type RemixLabelDataOutput = {
+  orderNumber: string;
+  invoiceNumber: string;
+  senderName: string;
+  senderAddress: string;
+}
+
 export async function remixLabelDataAction(
-    prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
+    prevState: { analysis: RemixLabelDataOutput | null; error: string | null; },
     formData: FormData
-): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
+): Promise<{ analysis: RemixLabelDataOutput | null; error: string | null; }> {
     const originalData = formData.get('originalData') as string;
 
     if (!originalData) {
@@ -298,10 +323,20 @@ export async function remixLabelDataAction(
     }
 
     try {
-        const parsedData: RemixLabelDataInput = JSON.parse(originalData);
-        const result = await remixLabelData(parsedData);
-        // We need to merge the result with the original data because the AI only returns the modified fields.
+        const parsedData: AnalyzeLabelOutput = JSON.parse(originalData);
+
+        // We only need specific fields for the AI flow
+        const flowInput: RemixLabelDataInput = {
+            orderNumber: parsedData.orderNumber,
+            invoiceNumber: parsedData.invoiceNumber,
+            senderName: parsedData.senderName,
+        };
+
+        const result = await remixLabelData(flowInput);
+        
+        // Merge the AI result with the original data, as the AI only returns modified fields
         const finalResult = { ...parsedData, ...result };
+
         return { analysis: finalResult, error: null };
     } catch (e: any) {
         console.error("Error remixing label data:", e);

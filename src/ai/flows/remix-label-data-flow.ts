@@ -5,29 +5,26 @@
  * @fileOverview An AI agent that modifies shipping label data.
  *
  * - remixLabelData - A function that takes original label data and returns modified data.
- * - RemixLabelDataInput - The input type for the remixLabelData function.
- * - RemixLabelDataOutput - The return type for the remixLabelData function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { AnalyzeLabelOutput } from './analyze-label-flow';
+import type { RemixLabelDataInput, RemixLabelDataOutput } from '@/app/actions';
 
-export const RemixLabelDataInputSchema = z.object({
+// Schemas will be defined in the action file to avoid exporting non-functions from a 'use server' file.
+// We still need to import the types for the function signature.
+const RemixLabelDataInputSchema = z.object({
   orderNumber: z.string(),
   invoiceNumber: z.string(),
   senderName: z.string(),
 });
-export type RemixLabelDataInput = z.infer<typeof RemixLabelDataInputSchema>;
 
-// The output will only contain the modified fields.
-export const RemixLabelDataOutputSchema = z.object({
+const RemixLabelDataOutputSchema = z.object({
   orderNumber: z.string().describe("A new, randomly generated number with the same character count as the original order number."),
   invoiceNumber: z.string().describe("A new, randomly generated number with the same character count as the original invoice number."),
-  senderName: z.string().describe("A new, randomly generated store name with the same character count as the original sender name."),
+  senderName: z.string().describe("A new, plausible, but fake store/company name that has the exact same number of characters as the original sender name."),
   senderAddress: z.string().describe("The fixed address 'RUA DA ALFÂNDEGA, 200'."),
 });
-export type RemixLabelDataOutput = z.infer<typeof RemixLabelDataOutputSchema>;
 
 
 export async function remixLabelData(
