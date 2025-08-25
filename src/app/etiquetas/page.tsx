@@ -32,10 +32,10 @@ export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
+  const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
   const [labelFile, setLabelFile] = useState<File | null>(null);
-  const [isPreparingFile, setIsPreparingFile] = useState(false);
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
   const [zplEditorContent, setZplEditorContent] = useState<string>('');
   const [hasCopied, setHasCopied] = useState(false);
@@ -50,10 +50,12 @@ export default function EtiquetasPage() {
     }
     if(fetchState.zplContent) {
         setZplEditorContent(fetchState.zplContent);
-        // Automatically trigger ZPL analysis
-        const formData = new FormData();
-        formData.append('zplContent', fetchState.zplContent);
-        analyzeZplFormAction(formData);
+        
+        startTransition(() => {
+            const formData = new FormData();
+            formData.append('zplContent', fetchState.zplContent!);
+            analyzeZplFormAction(formData);
+        });
     }
   }, [fetchState, toast, analyzeZplFormAction]);
   
@@ -76,23 +78,6 @@ export default function EtiquetasPage() {
       });
     }
   }, [analyzeZplState, toast]);
-
-  const fileToDataURI = (file: File) => {
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            if (event.target?.result) {
-                resolve(event.target.result as string);
-            } else {
-                reject(new Error("Failed to read file."));
-            }
-        };
-        reader.onerror = (error) => {
-            reject(error);
-        };
-        reader.readAsDataURL(file);
-    });
-  };
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -123,27 +108,31 @@ export default function EtiquetasPage() {
       return;
     }
     setLabelFile(file);
-    setIsPreparingFile(true);
-    
-    try {
-        let dataUri = '';
-        if (file.type === 'application/pdf') {
-            dataUri = await pdfToPngDataURI(file);
-        } else if (file.type.startsWith('image/')) {
-            dataUri = await fileToDataURI(file);
-        } else {
-            toast({ variant: 'destructive', title: 'Formato de ficheiro não suportado', description: 'Por favor, envie uma imagem ou PDF.'});
+    setPhotoDataUri(null); // Clear previous URI
+
+    startTransition(async () => {
+        try {
+            let dataUri = '';
+            if (file.type === 'application/pdf') {
+                dataUri = await pdfToPngDataURI(file);
+            } else if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                dataUri = await new Promise<string>((resolve, reject) => {
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.onerror = (err) => reject(err);
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Formato de ficheiro não suportado', description: 'Por favor, envie uma imagem ou PDF.'});
+                return;
+            }
+            setPhotoDataUri(dataUri);
+        } catch (error) {
+            console.error("Error processing file client-side:", error);
+            toast({ variant: "destructive", title: "Erro ao Processar Ficheiro", description: "Não foi possível converter o ficheiro para análise."});
             setPhotoDataUri(null);
-            return;
         }
-        setPhotoDataUri(dataUri);
-    } catch (error) {
-        console.error("Error processing file client-side:", error);
-        toast({ variant: "destructive", title: "Erro ao Processar Ficheiro", description: "Não foi possível converter o ficheiro para análise."});
-        setPhotoDataUri(null);
-    } finally {
-        setIsPreparingFile(false);
-    }
+    });
   };
   
   const handleCopyToClipboard = () => {
@@ -153,9 +142,11 @@ export default function EtiquetasPage() {
     setTimeout(() => setHasCopied(false), 2000);
   }
 
+  const isPreparingFile = isTransitioning && !isAnalyzing;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
   const analysisResult = analyzeState.analysis || analyzeZplState.analysis;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isPreparingFile;
+
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
