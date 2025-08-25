@@ -11,7 +11,7 @@ import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, C
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
+import type { AnalyzeLabelOutput, RemixZplDataOutput } from '@/app/actions';
 import * as pdfjs from 'pdfjs-dist';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
@@ -35,7 +35,7 @@ const remixInitialState = {
 }
 
 const remixZplInitialState = {
-    result: null as { modifiedZpl: string } | null,
+    result: null as RemixZplDataOutput | null,
     error: null as string | null,
 }
 
@@ -72,33 +72,37 @@ export default function EtiquetasPage() {
         timeout = setTimeout(() => resolve(func(...args)), waitFor);
       });
   };
-
-  const generatePreview = async (zpl: string) => {
-    if (!zpl.trim()) {
-      setPreviewUrl(null);
-      return;
-    }
-    setIsPreviewLoading(true);
-    try {
-      const response = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: zpl,
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        setPreviewUrl(URL.createObjectURL(blob));
-      } else {
-        console.error('Labelary API error:', await response.text());
+  
+    const generatePreview = async (zpl: string) => {
+        if (!zpl.trim()) {
         setPreviewUrl(null);
-      }
-    } catch (error) {
-      console.error('Error fetching ZPL preview:', error);
-      setPreviewUrl(null);
-    } finally {
-      setIsPreviewLoading(false);
-    }
-  };
+        return;
+        }
+        setIsPreviewLoading(true);
+        try {
+        const response = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: zpl,
+        });
+        if (response.ok) {
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => {
+                setPreviewUrl(reader.result as string);
+            };
+        } else {
+            console.error('Labelary API error:', await response.text());
+            setPreviewUrl(null);
+        }
+        } catch (error) {
+        console.error('Error fetching ZPL preview:', error);
+        setPreviewUrl(null);
+        } finally {
+        setIsPreviewLoading(false);
+        }
+    };
 
   const debouncedPreview = useCallback(debounce(generatePreview, 1000), []);
 
