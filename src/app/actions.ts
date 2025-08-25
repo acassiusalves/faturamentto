@@ -328,39 +328,161 @@ export async function remixLabelDataAction(
     }
 }
 
-function buildBaselinePositions(originalZpl: string, baseline: AnalyzeLabelOutput) {
+type ZplBlock = {
+  start: number;
+  end: number;
+  x?: number;
+  y?: number;
+  fdText: string;
+  isBarcode: boolean;
+};
+
+const TOLERANCE_PX = 12;
+const BARCODE_LEFT_SAFE_X = 160;
+
+function normalize(s: string) {
+  return (s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s\-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function parseZplBlocks(zpl: string): ZplBlock[] {
+  const lines = zpl.split(/\r?\n/);
+  const blocks: ZplBlock[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const m = lines[i].match(/^\^(FO|FT)\s*(\d+),\s*(\d+)/i);
+    if (!m) { i++; continue; }
+
+    const start = i;
+    const x = +m[2], y = +m[3];
+    let isBarcode = false;
+    let fdText = "";
+    let end = i;
+
+    i++;
+    for (; i < lines.length; i++) {
+      const L = lines[i];
+
+      if (/^\^B[A-Z]/i.test(L)) isBarcode = true;
+
+      const fdMatch = L.match(/\^FD([\s\S]*?)\^FS/);
+      if (fdMatch) {
+        fdText = fdMatch[1];
+        end = i;
+        break;
+      }
+
+      const onlyFd = L.match(/^\^FD(.*)$/);
+      if (onlyFd) {
+        fdText = onlyFd[1];
+        let j = i + 1;
+        for (; j < lines.length; j++) {
+          const L2 = lines[j];
+          if (/^\^B[A-Z]/i.test(L2)) isBarcode = true;
+          const fsHere = L2.includes("^FS");
+          fdText += "\n" + L2.replace(/\^FS.*/, "");
+          if (fsHere) { end = j; i = j; break; }
+        }
+        break;
+      }
+    }
+
+    blocks.push({ start, end, x, y, fdText, isBarcode });
+    i++;
+  }
+
+  return blocks;
+}
+
+function ensureCI28(zpl: string) {
+  if (!/\^XA\s*\^CI28/m.test(zpl)) {
+    return zpl.replace(/^(\^XA)/m, "$1\n^CI28");
+  }
+  return zpl;
+}
+
+type BaselinePositions = Partial<Record<keyof AnalyzeLabelOutput, {x:number,y:number}>>;
+
+function buildBaselinePositions(originalZpl: string, baseline: AnalyzeLabelOutput): BaselinePositions {
+  const blocks = parseZplBlocks(originalZpl);
+  const pos: BaselinePositions = {};
   const fields: (keyof AnalyzeLabelOutput)[] = [
-    'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress'
+    "orderNumber","invoiceNumber","trackingNumber","senderName","senderAddress",
+    "recipientName","streetAddress","city","state","zipCode"
   ];
-  const lines = originalZpl.split(/\r?\n/);
-  const pos: Record<string, {x:number,y:number}> = {};
 
   for (const f of fields) {
-    const val = (baseline as any)[f];
+    const val = (baseline[f] || "").trim();
     if (!val) continue;
 
-    // procura ^FD com o valor exato
-    const idx = lines.findIndex(l => /^\^FD/i.test(l) && l.includes(val));
-    if (idx === -1) continue;
+    const nval = normalize(val);
+    const hit = blocks.find(b =>
+      !b.isBarcode &&
+      typeof b.x === "number" &&
+      typeof b.y === "number" &&
+      normalize(b.fdText) === nval
+    );
 
-    // se houver um ^B* (barcode) poucas linhas acima, ignore
-    let isBarcode = false;
-    for (let k = idx; k >= 0 && k >= idx - 6; k--) {
-      if (/^\^B[A-Z]/i.test(lines[k])) { isBarcode = true; break; }
+    if (hit) {
+      pos[f] = { x: hit.x!, y: hit.y! };
     }
-    if (isBarcode) continue;
-
-    // sobe até achar ^FO ou ^FT para pegar as coordenadas
-    let x: number | undefined, y: number | undefined;
-    for (let k = idx; k >= 0 && k >= idx - 10; k--) {
-      const m = lines[k].match(/^\^(FO|FT)(\d+),(\d+)/i);
-      if (m) { x = +m[2]; y = +m[3]; break; }
-    }
-    if (x != null && y != null) pos[f] = { x, y };
   }
   return pos;
 }
 
+function applyAnchoredReplacements(originalZpl: string, pos: BaselinePositions, baseline: AnalyzeLabelOutput, remixed: AnalyzeLabelOutput) {
+  const lines = originalZpl.split(/\r?\n/);
+  const blocks = parseZplBlocks(originalZpl);
+
+  const fields: (keyof AnalyzeLabelOutput)[] = [
+    "orderNumber","invoiceNumber","trackingNumber","senderName","senderAddress",
+    "recipientName","streetAddress","city","state","zipCode"
+  ];
+
+  let changed = false;
+
+  function distanceOK(a?: number, b?: number) {
+    return typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= TOLERANCE_PX;
+  }
+
+  for (const f of fields) {
+    const target = (remixed[f] ?? "").toString();
+    const basePos = pos[f];
+    if (!basePos) continue;
+
+    const blk = blocks.find(b =>
+      !b.isBarcode &&
+      (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&
+      distanceOK(b.x, basePos.x) && distanceOK(b.y, basePos.y)
+    );
+
+    if (!blk) continue;
+
+    const rngLines = lines.slice(blk.start, blk.end + 1).join("\n");
+
+    if (target === "") {
+      for (let i = blk.start; i <= blk.end; i++) lines[i] = "";
+      changed = true;
+      continue;
+    }
+
+    const replaced = rngLines.replace(/\^FD[\s\S]*?\^FS/, `^FD${target}^FS`);
+    if (replaced !== rngLines) {
+      const newChunk = replaced.split("\n");
+      lines.splice(blk.start, blk.end - blk.start + 1, ...newChunk);
+      changed = true;
+    }
+  }
+
+  let out = lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  out = ensureCI28(out);
+  return { out, changed };
+}
 
 export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
@@ -376,28 +498,39 @@ export async function remixZplDataAction(
   }
 
   try {
-    const baselineData = JSON.parse(baselineDataJSON || '{}') as AnalyzeLabelOutput;
-    const remixedData  = JSON.parse(remixedDataJSON  || '{}') as AnalyzeLabelOutput;
+    const baseline = JSON.parse(baselineDataJSON) as AnalyzeLabelOutput;
+    const remixed  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
 
-    for (const k of ['recipientName','streetAddress','city','state','zipCode',
-      'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress','estimatedDeliveryDate'] as const) {
+    for (const k of [
+      'recipientName','streetAddress','city','state','zipCode',
+      'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress','estimatedDeliveryDate'
+    ] as (keyof AnalyzeLabelOutput)[]) {
       // @ts-ignore
-      if (baselineData[k] == null) baselineData[k] = '';
+      if (baseline[k] == null) baseline[k] = '';
       // @ts-ignore
-      if (remixedData[k]  == null) remixedData[k]  = '';
+      if (remixed[k]  == null) remixed[k]  = '';
     }
 
-    const baselinePositions = buildBaselinePositions(originalZpl, baselineData);
+    const baselinePositions = buildBaselinePositions(originalZpl, baseline);
+    const { out, changed } = applyAnchoredReplacements(originalZpl, baselinePositions, baseline, remixed);
 
-    const flowInput: RemixZplDataInput = { originalZpl, baselineData, remixedData, matchMode, baselinePositions };
-    const result = await remixZplData(flowInput);
-    const sanitized = (result.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
-
-    if (sanitized === originalZpl) {
-      console.warn('RemixZPL: sem alterações aplicadas (provável mismatch de âncoras).');
+    if (changed) {
+      return { result: { modifiedZpl: out }, error: null };
     }
 
+    const flowInput: RemixZplDataInput = {
+      originalZpl,
+      baselineData: baseline,
+      remixedData: remixed,
+      // @ts-ignore
+      matchMode,
+      // @ts-ignore
+      baselinePositions
+    };
+    const llm = await remixZplData(flowInput);
+    const sanitized = (llm.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
     return { result: { modifiedZpl: sanitized }, error: null };
+
   } catch (e: any) {
     console.error('Error remixing ZPL data:', e);
     return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };

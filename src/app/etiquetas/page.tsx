@@ -66,7 +66,6 @@ export default function EtiquetasPage() {
 
   const [remixingField, setRemixingField] = useState<RemixableField | null>(null);
 
-  // Prévia ZPL (imagem)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   
@@ -201,7 +200,7 @@ export default function EtiquetasPage() {
   
     const newZpl = sanitizeZpl(raw);
   
-    if (newZpl === originalZpl) {
+    if (newZpl.trim() === originalZpl.trim() && newZpl.trim() === zplEditorContent.trim()) {
       toast({
         title: 'Sem alterações',
         description: 'Não consegui localizar os campos no ZPL usando as âncoras. Tente o modo flexível.',
@@ -225,7 +224,7 @@ export default function EtiquetasPage() {
     });
   
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-  }, [remixZplState.result?.modifiedZpl, originalZpl, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
+  }, [remixZplState.result?.modifiedZpl, originalZpl, zplEditorContent, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {

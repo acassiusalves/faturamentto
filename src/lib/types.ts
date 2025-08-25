@@ -415,6 +415,12 @@ export const BaselinePositionsSchema = z.object({
   trackingNumber: ZplPointSchema.optional(),
   senderName: ZplPointSchema.optional(),
   senderAddress: ZplPointSchema.optional(),
+  recipientName: ZplPointSchema.optional(),
+  streetAddress: ZplPointSchema.optional(),
+  city: ZplPointSchema.optional(),
+  state: ZplPointSchema.optional(),
+  zipCode: ZplPointSchema.optional(),
+  estimatedDeliveryDate: ZplPointSchema.optional(),
 });
 
 
