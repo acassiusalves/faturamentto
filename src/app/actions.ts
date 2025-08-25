@@ -12,7 +12,6 @@ import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 
-
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
   prevState: {
@@ -198,42 +197,52 @@ export async function analyzeFeedAction(
   }
 
 export async function fetchLabelAction(
-  prevState: { labelUrl: string | null; error: string | null; rawError: string | null },
+  prevState: { labelUrl: string | null; error: string | null; rawError: string | null; zplContent: string | null; },
   formData: FormData
-): Promise<{ labelUrl: string | null; error: string | null; rawError: string | null }> {
+): Promise<{ labelUrl: string | null; error: string | null; rawError: string | null; zplContent: string | null; }> {
   const orderId = String(formData.get('orderId') || '').trim();
   const format = (String(formData.get('format') || 'PDF').toUpperCase()) === 'ZPL' ? 'ZPL' : 'PDF';
 
   if (!orderId) {
-    return { labelUrl: null, error: 'Informe o ID do pedido.', rawError: null };
+    return { labelUrl: null, error: 'Informe o ID do pedido.', rawError: null, zplContent: null };
   }
 
   try {
     const settings = await loadAppSettings();
     if (!settings?.iderisPrivateKey) {
-      return { labelUrl: null, error: 'A chave da API da Ideris não está configurada.', rawError: null };
+      return { labelUrl: null, error: 'A chave da API da Ideris não está configurada.', rawError: null, zplContent: null };
     }
 
     const { data, error, rawError } = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
     
     if (error) {
-        return { labelUrl: null, error: error, rawError: rawError };
+        return { labelUrl: null, error: error, rawError: rawError, zplContent: null };
     }
 
     const labelUrl = data?.obj?.[0]?.text ?? null;
-
+    let zplContent: string | null = null;
+    let pdfUrl: string | null = null;
+    
     if (!labelUrl) {
       return {
         labelUrl: null,
         error: 'A Ideris respondeu, mas não foi possível encontrar a URL da etiqueta na resposta.',
         rawError: JSON.stringify(data, null, 2),
+        zplContent: null,
       };
     }
 
-    return { labelUrl: labelUrl, error: null, rawError: null };
+    // Se for ZPL, o 'labelUrl' contém o conteúdo ZPL. Se for PDF, contém a URL.
+    if(format === 'ZPL') {
+      zplContent = labelUrl;
+    } else {
+      pdfUrl = labelUrl;
+    }
+
+    return { labelUrl: pdfUrl, zplContent: zplContent, error: null, rawError: null };
     
   } catch (e: any) {
-    return { labelUrl: null, error: e.message || 'Ocorreu um erro inesperado.', rawError: e.stack || null };
+    return { labelUrl: null, error: e.message || 'Ocorreu um erro inesperado.', rawError: e.stack || null, zplContent: null };
   }
 }
 

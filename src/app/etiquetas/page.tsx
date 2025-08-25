@@ -7,20 +7,20 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database } from 'lucide-react';
+import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check } from 'lucide-react';
 import { fetchLabelAction, analyzeLabelAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 import * as pdfjs from 'pdfjs-dist';
+import { Textarea } from '@/components/ui/textarea';
 
-// Configure the worker source for pdfjs
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
 
 const fetchInitialState = {
   labelUrl: null as string | null,
   error: null as string | null,
   rawError: null as string | null,
+  zplContent: null as string | null,
 };
 
 const analyzeInitialState = {
@@ -36,6 +36,8 @@ export default function EtiquetasPage() {
   const [labelFile, setLabelFile] = useState<File | null>(null);
   const [isPreparingFile, setIsPreparingFile] = useState(false);
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
+  const [zplEditorContent, setZplEditorContent] = useState<string>('');
+  const [hasCopied, setHasCopied] = useState(false);
 
   useEffect(() => {
     if (fetchState.error) {
@@ -44,6 +46,9 @@ export default function EtiquetasPage() {
         title: 'Erro ao buscar etiqueta',
         description: fetchState.error,
       });
+    }
+    if(fetchState.zplContent) {
+        setZplEditorContent(fetchState.zplContent);
     }
   }, [fetchState, toast]);
   
@@ -125,6 +130,13 @@ export default function EtiquetasPage() {
         setIsPreparingFile(false);
     }
   };
+  
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(zplEditorContent);
+    setHasCopied(true);
+    toast({ title: 'Copiado!', description: 'O conteúdo ZPL foi copiado para a área de transferência.' });
+    setTimeout(() => setHasCopied(false), 2000);
+  }
 
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
 
@@ -198,7 +210,7 @@ export default function EtiquetasPage() {
             {fetchState.labelUrl && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Etiqueta</CardTitle>
+                        <CardTitle>Etiqueta PDF</CardTitle>
                         <CardDescription>Visualização do PDF retornado pela Ideris. Faça o download para analisar.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -211,6 +223,26 @@ export default function EtiquetasPage() {
                         </Button>
                         </div>
                         <iframe src={fetchState.labelUrl} className="w-full h-[60vh] border rounded-md" title="Etiqueta PDF"/>
+                    </CardContent>
+                </Card>
+            )}
+
+             {fetchState.zplContent && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Editor ZPL</CardTitle>
+                        <CardDescription>O conteúdo ZPL da etiqueta é editável. Copie o resultado para impressão.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea 
+                            value={zplEditorContent}
+                            onChange={(e) => setZplEditorContent(e.target.value)}
+                            className="font-mono text-xs min-h-[300px] max-h-[60vh]"
+                        />
+                        <Button onClick={handleCopyToClipboard} className="mt-4 w-full">
+                            {hasCopied ? <Check className="mr-2" /> : <Copy className="mr-2" />}
+                            {hasCopied ? "Copiado!" : "Copiar Conteúdo ZPL"}
+                        </Button>
                     </CardContent>
                 </Card>
             )}

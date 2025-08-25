@@ -132,7 +132,11 @@ async function fetchWithToken<T>(
     return { ok: false, statusText: message, data: null as T, errorBody: text };
   }
 
-  // tenta parsear JSON; se não for, retorna objeto vazio
+  // Se for ZPL, o texto é o dado. Caso contrário, tenta JSON.
+  if (headers['Accept']?.includes('text/plain') || url.includes("pdfOrZpl=ZPL")) {
+      return { ok: true, statusText: 'OK', data: text as any };
+  }
+
   let data: T;
   try {
     data = text ? (JSON.parse(text) as T) : ({} as T);
@@ -292,20 +296,20 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     try {
         const result = await fetchWithToken<any>(url, token);
         // Ensure the order code is present in the final object
-        if (result && result.obj && !result.obj.code) {
-            result.obj.code = result.obj.id; // Fallback to id if code is missing
+        if (result && result.data && result.data.obj && !result.data.obj.code) {
+            result.data.obj.code = result.data.obj.id; // Fallback to id if code is missing
         }
-        return result;
+        return result.data;
     } catch (error) {
         if (error instanceof Error && error.message.includes("Token de acesso expirado")) {
             console.warn(`Token expirado para o pedido ${orderId}. Tentando novamente...`);
             inMemoryToken = null; // Forçar a regeneração do token
             const newToken = await getValidAccessToken(privateKey);
             const result = await fetchWithToken<any>(url, newToken);
-             if (result && result.obj && !result.obj.code) {
-                result.obj.code = result.obj.id;
+             if (result && result.data && result.data.obj && !result.data.obj.code) {
+                result.data.obj.code = result.data.obj.id;
             }
-            return result;
+            return result.data;
         }
         console.error(`Falha ao buscar detalhes do pedido ${orderId}:`, error);
         throw error;
@@ -330,11 +334,45 @@ export async function fetchOrderLabel(
   const token = await getValidAccessToken(privateKey);
   const url = `https://apiv3.ideris.com.br/order/label?orderId=${orderId}&pdfOrZpl=${format}`;
   
-  const response = await fetchWithToken<any>(url, token);
+  const headers = { 'Accept': format === 'ZPL' ? 'text/plain' : 'application/json' };
+  const response = await fetchWithToken<any>(url, token, { headers });
 
   if (!response.ok) {
     return { data: null, error: response.statusText, rawError: response.errorBody };
   }
+  
+  if (format === 'ZPL') {
+      // For ZPL, the raw text is the data. We need to wrap it to match the PDF structure.
+      return { data: { obj: [{ text: response.data }] } };
+  }
 
   return { data: response.data };
+}
+
+export async function fetchOrdersStatus(
+  privateKey: string,
+  dateRange: DateRange,
+  onProgress?: ProgressCallback,
+  totalToSync?: number
+): Promise<any[]> {
+    if (!dateRange.from || !dateRange.to) {
+        throw new Error("O período de datas é obrigatório para a busca de status.");
+    }
+    const token = await getValidAccessToken(privateKey);
+    const startDate = formatDateForApi(dateRange.from);
+    const endDate = formatDateForApi(dateRange.to);
+
+    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&limit=9999`;
+    
+    if (onProgress) onProgress(0, totalToSync || 1);
+    
+    const response = await fetchWithToken<{result?: { obj: any[]}}>(searchUrl, token);
+
+    if (onProgress) onProgress(totalToSync || 1, totalToSync || 1);
+
+    if (!response.ok) {
+        throw new Error(response.statusText);
+    }
+    
+    return response.data?.result?.obj || [];
 }
