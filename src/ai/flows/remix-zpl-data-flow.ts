@@ -46,16 +46,17 @@ const prompt = ai.definePrompt({
 
   **IMPORTANT RULES:**
   1.  You MUST identify and preserve the original QR code command block (\`^BQ,...\`) and its associated data (\`^FD...\`) completely untouched. The QR code data is critical and cannot be changed.
-  2.  For all other text fields (like recipient, sender, order number, invoice number, etc.), you must find their corresponding \`^FD\` commands and replace the text content with the new data provided in \`remixedData\`. If a field in \`remixedData\` is an empty string, you must remove the corresponding \`^FD\` command and its associated positioning \`^FO\` command from the ZPL.
-  3.  All other ZPL commands for positioning (\`^FO\`), fonts (\`^A0\`), lines (\`^GB\`), etc., must be kept exactly as they are in the original ZPL unless their associated data field is removed.
-  4.  The output must be a single, complete, and valid ZPL string.
+  2.  For all other text fields (like recipient, sender, order number, invoice number, etc.), you must find their corresponding \`^FD\` commands and replace the text content with the new data provided in \`remixedData\`.
+  3.  **If a field in \`remixedData\` is an empty string, you must remove the corresponding \`^FD\` command AND its associated positioning command (\`^FO...\`) and font command (\`^A0N,...\` or similar) from the ZPL entirely.** A field is typically represented by a block of commands like \`^FOx,y^A0N,h,w^FDtext^FS\`. The entire block for that field must be removed.
+  4.  All other ZPL commands for lines (\`^GB\`), etc., must be kept exactly as they are in the original ZPL.
+  5.  The output must be a single, complete, and valid ZPL string.
 
   **Original ZPL Code:**
   \`\`\`zpl
   {{{originalZpl}}}
   \`\`\`
 
-  **New Data to Insert (empty strings mean the field should be removed):**
+  **New Data to Insert (empty strings mean the field and its related commands should be removed):**
   \`\`\`json
   {{{json remixedData}}}
   \`\`\`
