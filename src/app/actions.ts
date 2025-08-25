@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.js';
+import * as pdfjs from 'pdfjs-dist';
 import { createCanvas } from 'canvas';
 
 

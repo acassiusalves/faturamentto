@@ -1,4 +1,4 @@
-
+import 'pdfjs-dist/build/pdf.worker.mjs';
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
