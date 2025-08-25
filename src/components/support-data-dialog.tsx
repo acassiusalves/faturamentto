@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2, XCircle, Upload, ArrowRight, Save, Settings, FileSpreadsheet, PlusCircle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Papa from "papaparse";
-import * as XLSX from "sheetjs-style";
+import * as XLSX from "xlsx";
 import { removeAccents } from "@/lib/utils";
 import type { SupportData, SupportFile, Sale } from "@/lib/types";
 import { loadMonthlySupportData, saveMonthlySupportData, loadSalesIdsAndOrderCodes } from "@/services/firestore";
@@ -106,7 +106,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             if (file.fileName.toLowerCase().endsWith('.xlsx') || file.fileContent.startsWith('UEsDB')) {
                 const wb = XLSX.read(file.fileContent, { type: 'base64' });
                 const ws = wb.Sheets[wb.SheetNames[0]];
-                parsedRows = XLSX.utils.sheet_to_json(ws);
+                parsedRows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
             } else {
                 const parsedResult = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true });
                 parsedRows = parsedResult.data;
@@ -172,12 +172,10 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             const workbook = XLSX.read(result, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
             headers = (json[0] || []).map(h => removeAccents(String(h).trim()));
             
-            // Convert to base64 for storage
-            const binaryString = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
-            contentForStorage = btoa(binaryString);
+            contentForStorage = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
             updateFileState(contentForStorage, headers);
         } else {
