@@ -28,6 +28,7 @@ const analyzeInitialState = {
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
+  const [isPending, startTransition] = useTransition();
   
   const { toast } = useToast();
   const [labelImage, setLabelImage] = useState<File | null>(null);
@@ -70,8 +71,12 @@ export default function EtiquetasPage() {
     }
     const formData = new FormData();
     formData.append('labelImage', labelImage);
-    analyzeFormAction(formData);
+    startTransition(() => {
+        analyzeFormAction(formData);
+    });
   }
+
+  const isActuallyAnalyzing = isAnalyzing || isPending;
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -126,8 +131,8 @@ export default function EtiquetasPage() {
                          <Label htmlFor="label-image" className="font-semibold">Imagem da Etiqueta</Label>
                         <Input id="label-image" type="file" accept="image/*" onChange={handleFileChange} />
                     </div>
-                    <Button type="submit" disabled={isAnalyzing || !labelImage}>
-                        {isAnalyzing ? <Loader2 className="animate-spin"/> : <Bot />}
+                    <Button type="submit" disabled={isActuallyAnalyzing || !labelImage}>
+                        {isActuallyAnalyzing ? <Loader2 className="animate-spin"/> : <Bot />}
                         Analisar
                     </Button>
                 </form>
@@ -158,7 +163,7 @@ export default function EtiquetasPage() {
             )}
 
              {/* Resultados da Análise */}
-            {isAnalyzing && (
+            {isActuallyAnalyzing && (
                 <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
                     <Loader2 className="animate-spin text-primary mr-4" size={32}/>
                     <p className="text-muted-foreground">Analisando etiqueta...</p>
