@@ -150,7 +150,7 @@ const parseSupportFile = (file: any): { rows: any[]; headers: string[] } => {
 
   if (isXlsx) {
     // Conteúdo base64 -> workbook
-    const wb = XLSX.read(content, { type: "base64" });
+    const wb = XLSX.read(content, { type: "base64", cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
     const headers = rows.length ? Object.keys(rows[0]) : [];
@@ -197,22 +197,24 @@ const resolveAssociationHeader = (headers: string[], file: any): string => {
 const isDateHeader = (label: string) =>
   /\b(data|date|hora|time|emissao|in[ií]cio|final|relat[oó]rio)\b/i.test(label);
 
-// dd/mm/yyyy [hh:mm[:ss]] -> ISO
+// dd/mm/yyyy [hh:mm[:ss]] -> ISO (UTC)
 const parseBRDateToISO = (s: string): string | null => {
   const m = s.trim().replace(/\./g, '/')
     .match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
   if (!m) return null;
   const [, dd, mm, yyyy, HH='00', MM='00', SS='00'] = m;
-  const d = new Date(Number(yyyy), Number(mm)-1, Number(dd), Number(HH), Number(MM), Number(SS));
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  // gera ISO sempre em UTC
+  return new Date(Date.UTC(Number(yyyy), Number(mm)-1, Number(dd), Number(HH), Number(MM), Number(SS))).toISOString();
 };
 
-// Excel serial -> ISO
+// Excel serial -> ISO (normalizado para UTC, sem shift de fuso)
 const excelSerialToISO = (n: number): string | null => {
   if (!Number.isFinite(n)) return null;
-  const ms = Math.round((n - 25569) * 86400 * 1000); // 25569 = 1970-01-01
+  // 25569 = 1970-01-01
+  const ms = Math.round((n - 25569) * 86400 * 1000);
   const d = new Date(ms);
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  // zera hora e fixa em UTC para evitar voltar 1 dia em TZ -03
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0)).toISOString();
 };
 
 // trata casos estranhos tipo "31/12/45808"
@@ -223,23 +225,40 @@ const brMaskWithSerialToISO = (s: string): string | null => {
   return excelSerialToISO(serial);
 };
 
+// reconhece valores que parecem datas (independe do header)
+const looksLikeDateValue = (v: any): boolean => {
+  if (v instanceof Date) return true;
+  if (typeof v === 'number' && v > 20000 && v < 80000) return true; // serial típico do Excel
+  if (typeof v === 'string') {
+    const s = v.trim();
+    return (
+      /^\d{1,2}\/\d{1,2}\/\d{5}$/.test(s) || // dd/mm/##### (serial disfarçado)
+      /^\d{1,2}\/\d{1,2}\/\d{4}(?:\s\d{2}:\d{2}(?::\d{2})?)?$/.test(s) || // dd/mm/yyyy...
+      /^\d{4}-\d{2}-\d{2}T/.test(s) // ISO
+    );
+  }
+  return false;
+};
+
 // normaliza qualquer valor de data para ISO
 const coerceAnyDateToISO = (raw: any): string | null => {
-  if (raw instanceof Date) return raw.toISOString();
+  if (raw instanceof Date) {
+    // já veio como Date -> gera ISO em UTC
+    return new Date(Date.UTC(
+      raw.getFullYear(), raw.getMonth(), raw.getDate(),
+      raw.getHours(), raw.getMinutes(), raw.getSeconds()
+    )).toISOString();
+  }
   if (typeof raw === 'number') return excelSerialToISO(raw);
   if (typeof raw === 'string') {
-    return (
-      parseBRDateToISO(raw) ||
-      brMaskWithSerialToISO(raw) ||
-      (/^\d{4}-\d{2}-\d{2}T/.test(raw) ? raw : null)
-    );
+    return parseBRDateToISO(raw) || brMaskWithSerialToISO(raw) || (/^\d{4}-\d{2}-\d{2}T/.test(raw) ? raw : null);
   }
   return null;
 };
 
-// formata ISO -> string pt-BR (só data)
+// ISO -> "dd/mm/yyyy" em UTC (evita variação de fuso)
 const isoToBRDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('pt-BR');
+  new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
 
 export default function ConciliationPage() {
@@ -492,24 +511,18 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                   const existing = supportDataMap.get(key)!;
         
                   headers.forEach((header) => {
-                      let out: any = row[header];
+                      const raw = row[header];
                       const friendlyName = (file.friendlyNames?.[header] as string) || header;
                       const normKey = normalizeLabel(friendlyName);
-
-                      if (isDateHeader(friendlyName)) {
-                        const iso = coerceAnyDateToISO(row[header]);
-                        // salve já pronto pra exibição; se preferir guardar ISO, troque para `out = iso`
-                        out = iso ? isoToBRDate(iso) : row[header];
-                      } else {
-                        // NÃO mexa em números aqui; deixamos para o getNumericField()
-                        if (typeof row[header] === 'number') {
-                          out = row[header];
-                        } else if (typeof row[header] === 'string') {
-                          // mantém string original (moeda, etc.)
-                          out = row[header];
-                        }
+                  
+                      let out: any = raw;
+                  
+                      // Converte se o header indica data OU se o valor "parece" uma data
+                      if (isDateHeader(friendlyName) || looksLikeDateValue(raw)) {
+                        const iso = coerceAnyDateToISO(raw);
+                        out = iso ? isoToBRDate(iso) : raw; // se preferir guardar ISO, troque por `out = iso ?? raw`
                       }
-                      
+                  
                       existing[normKey] = out;
                   });
                 });

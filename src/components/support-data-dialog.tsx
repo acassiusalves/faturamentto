@@ -212,7 +212,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                 },
             });
         } else if (fileExtension === 'xlsx') {
-            const workbook = XLSX.read(result, { type: 'array' });
+            const workbook = XLSX.read(result, { type: 'array', cellDates: true });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
@@ -222,7 +222,7 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
 
             updateFileState(contentForStorage, headers);
         } else {
-            toast({ variant: 'destructive', title: 'Tipo de Arquivo Inválido', description: 'Por favor, selecione um arquivo .csv ou .xlsx' });
+            toast({ variant: "destructive", title: "Tipo de Arquivo Inválido", description: "Por favor, selecione um arquivo .csv ou .xlsx" });
         }
     };
     
