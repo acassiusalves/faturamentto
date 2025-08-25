@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check } from 'lucide-react';
-import { fetchLabelAction, analyzeLabelAction, analyzeZplAction } from '@/app/actions';
+import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database, Copy, Check, Wand2 } from 'lucide-react';
+import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
@@ -28,10 +28,17 @@ const analyzeInitialState = {
     error: null as string | null,
 }
 
+const remixInitialState = {
+    analysis: null as AnalyzeLabelOutput | null,
+    error: null as string | null,
+}
+
+
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
+  const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixInitialState);
   const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
@@ -39,18 +46,15 @@ export default function EtiquetasPage() {
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
   const [zplEditorContent, setZplEditorContent] = useState<string>('');
   const [hasCopied, setHasCopied] = useState(false);
+  
+  const [analysisResult, setAnalysisResult] = useState<AnalyzeLabelOutput | null>(null);
 
   useEffect(() => {
     if (fetchState.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao buscar etiqueta',
-        description: fetchState.error,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao buscar etiqueta', description: fetchState.error });
     }
     if(fetchState.zplContent) {
         setZplEditorContent(fetchState.zplContent);
-        
         startTransition(() => {
             const formData = new FormData();
             formData.append('zplContent', fetchState.zplContent!);
@@ -61,23 +65,28 @@ export default function EtiquetasPage() {
   
    useEffect(() => {
     if (analyzeState.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao analisar etiqueta',
-        description: analyzeState.error,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao analisar etiqueta', description: analyzeState.error });
+    } else if (analyzeState.analysis) {
+      setAnalysisResult(analyzeState.analysis);
     }
   }, [analyzeState, toast]);
 
    useEffect(() => {
     if (analyzeZplState.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao analisar ZPL',
-        description: analyzeZplState.error,
-      });
+      toast({ variant: 'destructive', title: 'Erro ao analisar ZPL', description: analyzeZplState.error });
+    } else if (analyzeZplState.analysis) {
+        setAnalysisResult(analyzeZplState.analysis);
     }
   }, [analyzeZplState, toast]);
+
+  useEffect(() => {
+    if (remixState.error) {
+        toast({ variant: 'destructive', title: 'Erro ao Modificar Dados', description: remixState.error });
+    } else if (remixState.analysis) {
+        setAnalysisResult(remixState.analysis);
+    }
+  }, [remixState, toast]);
+
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -143,9 +152,8 @@ export default function EtiquetasPage() {
   }
 
   const isPreparingFile = isTransitioning && !isAnalyzing;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
-  const analysisResult = analyzeState.analysis || analyzeZplState.analysis;
 
 
   return (
@@ -273,13 +281,22 @@ export default function EtiquetasPage() {
             {isAnyAnalysisRunning ? (
                 <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
                     <Loader2 className="animate-spin text-primary mr-4" size={32}/>
-                    <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : 'Analisando etiqueta...'}</p>
+                    <p className="text-muted-foreground">{isPreparingFile ? 'Processando ficheiro...' : isRemixing ? 'Gerando novos dados...' : 'Analisando etiqueta...'}</p>
                 </div>
             ) : null}
-            {analysisResult && (
+            {analysisResult && !isAnyAnalysisRunning && (
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
+                    <CardHeader className="flex flex-row justify-between items-start">
+                        <div>
+                            <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
+                            <CardDescription>Resultado da análise da IA.</CardDescription>
+                        </div>
+                        <form action={remixFormAction}>
+                            <input type="hidden" name="originalData" value={JSON.stringify(analysisResult)} />
+                            <Button type="submit" variant="ghost" size="icon" disabled={isRemixing}>
+                                {isRemixing ? <Loader2 className="animate-spin" /> : <Wand2 className="text-primary" />}
+                            </Button>
+                        </form>
                     </CardHeader>
                     <CardContent className="space-y-4 text-sm">
                         <div className="p-3 border rounded-md bg-muted/50 space-y-2">

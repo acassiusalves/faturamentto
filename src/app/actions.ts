@@ -12,6 +12,7 @@ import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
+import { remixLabelData, type RemixLabelDataInput } from '@/ai/flows/remix-label-data-flow';
 
 
 // This is the main server action that will be called from the frontend.
@@ -283,5 +284,27 @@ export async function analyzeZplAction(
     } catch (e: any) {
         console.error("Error analyzing ZPL:", e);
         return { analysis: null, error: e.message || 'Ocorreu um erro ao analisar a etiqueta ZPL.' };
+    }
+}
+
+export async function remixLabelDataAction(
+    prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
+    formData: FormData
+): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
+    const originalData = formData.get('originalData') as string;
+
+    if (!originalData) {
+        return { analysis: null, error: 'Dados originais da etiqueta não encontrados.' };
+    }
+
+    try {
+        const parsedData: RemixLabelDataInput = JSON.parse(originalData);
+        const result = await remixLabelData(parsedData);
+        // We need to merge the result with the original data because the AI only returns the modified fields.
+        const finalResult = { ...parsedData, ...result };
+        return { analysis: finalResult, error: null };
+    } catch (e: any) {
+        console.error("Error remixing label data:", e);
+        return { analysis: null, error: e.message || 'Ocorreu um erro ao gerar os novos dados da etiqueta.' };
     }
 }
