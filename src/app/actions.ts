@@ -196,29 +196,40 @@ export async function analyzeFeedAction(
     }
   }
 
-export async function fetchLabelAction(prevState: any, formData: FormData) {
-  const orderId = formData.get('orderId') as string;
-  const format = (formData.get('format') as 'PDF' | 'ZPL') || 'PDF';
+export async function fetchLabelAction(
+  prevState: { rawResponse: any; error: string | null; labelUrl?: string | null },
+  formData: FormData
+): Promise<{ rawResponse: any; error: string | null; labelUrl: string | null }> {
+  const orderId = String(formData.get('orderId') || '').trim();
+  const format = String(formData.get('format') || 'PDF').toUpperCase() as 'PDF' | 'ZPL';
 
   if (!orderId) {
-    return { rawResponse: null, error: 'O ID do pedido é obrigatório.' };
+    return { rawResponse: null, error: 'Informe o ID do pedido.', labelUrl: null };
+  }
+
+  const settings = await loadAppSettings();
+  if (!settings?.iderisPrivateKey) {
+    return { rawResponse: null, error: 'A chave da API da Ideris não está configurada.', labelUrl: null };
   }
 
   try {
-    const settings = await loadAppSettings();
-    if (!settings?.iderisPrivateKey) {
-      return { rawResponse: null, error: 'A chave da API da Ideris não está configurada.' };
+    const { data, error, rawError } = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
+
+    if (error) {
+      return { rawResponse: rawError ?? data ?? null, error, labelUrl: null };
     }
 
-    const response = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
-    
-    if (response.error) {
-      return { rawResponse: response.rawError || null, error: response.error };
+    const labelUrl = data?.obj?.[0]?.text ?? null;
+    if (!labelUrl) {
+      return {
+        rawResponse: data,
+        error: 'A Ideris respondeu, mas não veio o link em obj[0].text.',
+        labelUrl: null,
+      };
     }
 
-    return { rawResponse: response.data, error: null };
-
+    return { rawResponse: data, error: null, labelUrl };
   } catch (e: any) {
-    return { rawResponse: null, error: e.message || 'Um erro inesperado ocorreu.' };
+    return { rawResponse: null, error: e.message || 'Erro inesperado.', labelUrl: null };
   }
 }
