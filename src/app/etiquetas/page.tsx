@@ -73,39 +73,37 @@ export default function EtiquetasPage() {
       });
   };
   
-    const generatePreview = async (zpl: string) => {
-        if (!zpl.trim()) {
+  const generatePreview = async (zpl: string) => {
+    if (!zpl.trim()) {
         setPreviewUrl(null);
         return;
-        }
-        setIsPreviewLoading(true);
-        try {
-        const response = await fetch('http://api.labelary.com/v1/printers/8dpmm/labels/4x6/0/', {
+    }
+    setIsPreviewLoading(true);
+    try {
+        const response = await fetch('/api/zpl-preview', {
             method: 'POST',
-            headers: { 
-                'Accept': 'image/png', // Request PNG directly
-                'Content-Type': 'application/x-www-form-urlencoded' 
-            },
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
             body: zpl,
         });
-        if (response.ok) {
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
-        } else {
-            console.error('Labelary API error:', await response.text());
+
+        if (!response.ok) {
+            console.error('Preview API error:', await response.text());
             setPreviewUrl(null);
+            return;
         }
-        } catch (error) {
-        console.error('Error fetching ZPL preview:', error);
+
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setPreviewUrl(reader.result as string);
+        reader.readAsDataURL(blob);
+
+    } catch (err) {
+        console.error('Error fetching ZPL preview:', err);
         setPreviewUrl(null);
-        } finally {
+    } finally {
         setIsPreviewLoading(false);
-        }
-    };
+    }
+};
 
   const debouncedPreview = useCallback(debounce(generatePreview, 1000), []);
 
@@ -326,7 +324,7 @@ export default function EtiquetasPage() {
                         <CardDescription>Esta é uma representação visual do código ZPL à esquerda.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex items-center justify-center p-2">
-                        <Image src={previewUrl} alt="Pré-visualização da etiqueta ZPL" width={400} height={600} className="border rounded-md" />
+                        <Image src={previewUrl} alt="Pré-visualização da etiqueta ZPL" width={400} height={600} unoptimized className="border rounded-md" />
                     </CardContent>
                 </Card>
             )}
