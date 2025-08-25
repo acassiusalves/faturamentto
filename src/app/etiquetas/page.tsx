@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, Bot, Loader2, Upload, FileText, User, MapPin } from 'lucide-react';
+import { Search, Bot, Loader2, Upload, FileText, User, MapPin, Database } from 'lucide-react';
 import { fetchLabelAction, analyzeLabelAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -15,9 +15,9 @@ import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
 
 
 const fetchInitialState = {
-  rawResponse: null as any,
-  error: null as string | null,
   labelUrl: null as string | null,
+  error: null as string | null,
+  rawError: null as string | null,
 };
 
 const analyzeInitialState = {
@@ -28,7 +28,7 @@ const analyzeInitialState = {
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
-  const [isPending, startTransition] = useTransition();
+  const [isTransitioning, startTransition] = useTransition();
   
   const { toast } = useToast();
   const [labelImage, setLabelImage] = useState<File | null>(null);
@@ -76,7 +76,7 @@ export default function EtiquetasPage() {
     });
   }
 
-  const isActuallyAnalyzing = isAnalyzing || isPending;
+  const isActuallyAnalyzing = isAnalyzing || isTransitioning;
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -161,6 +161,20 @@ export default function EtiquetasPage() {
                     </CardContent>
                 </Card>
             )}
+            
+            {fetchState.rawError && (
+                <Card className="border-destructive">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Database/> Resposta Bruta do Erro</CardTitle>
+                        <CardDescription>A API retornou um erro. Use estes dados para depuração.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs">
+                            <code>{fetchState.rawError}</code>
+                        </pre>
+                    </CardContent>
+                </Card>
+            )}
 
              {/* Resultados da Análise */}
             {isActuallyAnalyzing && (
@@ -199,7 +213,7 @@ export default function EtiquetasPage() {
         </div>
       </div>
       
-      {fetchState.error && !fetchState.rawResponse && (
+      {fetchState.error && !fetchState.rawError && (
         <Alert variant="destructive">
           <AlertTitle>Erro na Solicitação</AlertTitle>
           <AlertDescription>{fetchState.error}</AlertDescription>
