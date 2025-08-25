@@ -33,7 +33,7 @@ const analyzeInitialState = {
   error: null as string | null,
 };
 
-const remixInitialState = {
+const remixLabelInitialState = {
   analysis: null as AnalyzeLabelOutput | null,
   error: null as string | null,
 };
@@ -50,7 +50,7 @@ export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
-  const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixInitialState);
+  const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixLabelInitialState);
   const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
@@ -188,11 +188,21 @@ export default function EtiquetasPage() {
   }, [analyzeZplState.error, analyzeZplState.analysis, toast, baselineAnalysis]);
 
   useEffect(() => {
+    if (remixState.error) {
+      toast({ variant: 'destructive', title: 'Erro ao gerar dados', description: remixState.error });
+    } else if (remixState.analysis) {
+      setAnalysisResult(remixState.analysis);
+      toast({ title: 'Sucesso!', description: 'Os dados foram atualizados com IA.' });
+    }
+    setRemixingField(null);
+  }, [remixState, toast]);
+
+ useEffect(() => {
     const raw = remixZplState.result?.modifiedZpl;
     if (!raw) return;
-  
+
     const newZpl = sanitizeZpl(raw);
-  
+
     if (newZpl.trim() === originalZpl.trim() && newZpl.trim() === zplEditorContent.trim()) {
       toast({
         title: 'Sem alterações',
@@ -200,14 +210,14 @@ export default function EtiquetasPage() {
       });
       return;
     }
-  
+
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
-  
+
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
-  
+
     if (analysisResult) setBaselineAnalysis(analysisResult);
     
     startTransition(() => {
@@ -215,7 +225,7 @@ export default function EtiquetasPage() {
       fd.append('zplContent', newZpl);
       analyzeZplFormAction(fd);
     });
-  
+
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
   }, [remixZplState.result?.modifiedZpl, originalZpl, zplEditorContent, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
 
@@ -493,7 +503,6 @@ export default function EtiquetasPage() {
                         <input type="hidden" name="originalZpl" value={originalZpl} />
                         <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                         <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                        <input type="hidden" name="matchMode" value={flexMode ? 'relaxed' : 'strict'} />
                         
                         <div className="flex items-center gap-3 mb-2">
                             <input id="flex-mode" type="checkbox" checked={flexMode} onChange={e => setFlexMode(e.target.checked)} />
@@ -543,5 +552,3 @@ export default function EtiquetasPage() {
     </div>
   );
 }
-
-    

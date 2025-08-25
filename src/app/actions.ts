@@ -1,4 +1,3 @@
-
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -314,7 +313,7 @@ export async function remixLabelDataAction(
 
         const flowInput: RemixLabelDataInput = {
             fieldToRemix: fieldToRemix,
-            originalValue: originalData[fieldToRemix],
+            originalValue: originalData[fieldToRemix] as string,
         };
 
         const result = await remixLabelData(flowInput);
@@ -572,5 +571,3 @@ export async function remixZplDataAction(
     return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
   }
 }
-
-    
