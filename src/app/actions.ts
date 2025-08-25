@@ -351,9 +351,9 @@ const RemixZplDataInputSchema = z.object({
     orderNumber: z.string(),
     invoiceNumber: z.string(),
     estimatedDeliveryDate: z.string(),
+    trackingNumber: z.string(),
     senderName: z.string(),
     senderAddress: z.string(),
-    trackingNumber: z.string(),
   }).describe("The new, modified data that should be placed on the label."),
 });
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
