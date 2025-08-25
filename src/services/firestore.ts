@@ -76,29 +76,49 @@ const migrateInventoryToEntryLog = async (): Promise<void> => {
 
 
 export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryItem[]> => {
-  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
-  
-  // Verifica se o log de entradas está vazio para executar a migração uma única vez.
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, "entry-log");
+
+  // Migração: mantém
   const snapshotCount = await getCountFromServer(query(logCol, limit(1)));
   if (snapshotCount.data().count === 0) {
-      const inventorySnapshot = await getDocs(collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory'));
-      if (!inventorySnapshot.empty) {
-          await migrateInventoryToEntryLog();
-      }
+    const inventorySnapshot = await getDocs(collection(db, USERS_COLLECTION, DEFAULT_USER_ID, "inventory"));
+    if (!inventorySnapshot.empty) {
+      await migrateInventoryToEntryLog();
+    }
   }
 
-  const queryConstraints = [orderBy('createdAt', 'desc')];
-  if (dateRange?.from) {
-      queryConstraints.push(where('createdAt', '>=', startOfDay(dateRange.from).toISOString()));
-  }
-   if (dateRange?.to) {
-      queryConstraints.push(where('createdAt', '<=', endOfDay(dateRange.to).toISOString()));
-  }
+  // Fallback: últimos 30 dias se não vier range
+  const fromDate = dateRange?.from ?? startOfDay(new Date(Date.now() - 29 * 24 * 3600 * 1000));
+  const toDate   = dateRange?.to   ?? endOfDay(new Date());
 
+  const fromTs = Timestamp.fromDate(new Date(startOfDay(fromDate)));
+  // limite superior EXCLUSIVO: +1ms
+  const toTsExclusive = Timestamp.fromMillis(endOfDay(new Date(toDate)).getTime() + 1);
 
-  const finalQuery = query(logCol, ...queryConstraints);
-  const snapshot = await getDocs(finalQuery);
-  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
+  const q = query(
+    logCol,
+    where("createdAt", ">=", fromTs),
+    where("createdAt", "<", toTsExclusive),
+    orderBy("createdAt", "desc"),
+    // opcional: limit(2000)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const data: any = docSnap.data();
+    return {
+      id: docSnap.id,
+      // devolve ISO pro front (tua UI espera string)
+      createdAt: data.createdAt?.toDate?.() ? data.createdAt.toDate().toISOString() : data.createdAt ?? null,
+      name: data.name ?? data.productName ?? "",
+      sku: data.sku ?? "",
+      serialNumber: data.serialNumber ?? data.sn ?? "",
+      condition: data.condition ?? data.condicao ?? "",
+      origin: data.origin ?? data.origem ?? "",
+      costPrice: Number(data.costPrice ?? data.custo ?? 0),
+    } as InventoryItem;
+  });
 };
 
 const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {

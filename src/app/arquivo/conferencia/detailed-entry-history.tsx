@@ -21,7 +21,7 @@ export function DetailedEntryHistory() {
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfDay(new Date()),
+    from: startOfDay(new Date(Date.now() - 29 * 24 * 3600 * 1000)),
     to: endOfDay(new Date()),
   });
   const [originFilter, setOriginFilter] = useState("all");
