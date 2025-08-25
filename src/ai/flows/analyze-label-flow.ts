@@ -21,7 +21,7 @@ const AnalyzeLabelInputSchema = z.object({
 });
 export type AnalyzeLabelInput = z.infer<typeof AnalyzeLabelInputSchema>;
 
-const AnalyzeLabelOutputSchema = z.object({
+export const AnalyzeLabelOutputSchema = z.object({
   recipientName: z.string().describe('The name of the recipient (DESTINATÁRIO).'),
   streetAddress: z.string().describe('The full street address of the recipient, including number and any complements.'),
   city: z.string().describe('The city of the recipient.'),
