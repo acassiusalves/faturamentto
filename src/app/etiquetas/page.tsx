@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useActionState, useEffect, useState, useTransition, useCallback } from "react";
+import { useActionState, useEffect, useState, useTransition, useCallback, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,11 @@ import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/a
 import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url,
+).toString();
 
 const fetchInitialState = {
   labelUrl: null as string | null,
@@ -62,51 +67,75 @@ export default function EtiquetasPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
-  // debounce util
-  const debounce = <F extends (...args: any[]) => any>(func: F, waitFor: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: Parameters<F>): Promise<ReturnType<F>> =>
-      new Promise((resolve) => {
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(() => resolve(func(...args)), waitFor);
-      });
-  };
+  // Helpers novos (no componente)
+  const sanitizeZpl = (z: string) =>
+    z.replace(/```(?:zpl)?/g, '').trim();
 
-  const generatePreview = async (zpl: string) => {
-    if (!zpl.trim()) {
-      setPreviewUrl(null);
-      return;
-    }
+  // controla corrida entre requisições
+  const previewCtrlRef = useRef<AbortController | null>(null);
+  const previewReqIdRef = useRef(0);
+
+  const generatePreviewImmediate = useCallback(async (zpl: string) => {
+    if (!zpl.trim()) { setPreviewUrl(null); return; }
+
+    // aborta a requisição anterior
+    previewCtrlRef.current?.abort();
+    const ctrl = new AbortController();
+    previewCtrlRef.current = ctrl;
+
+    const myId = ++previewReqIdRef.current;
+
     setIsPreviewLoading(true);
     try {
-      const res = await fetch("/api/zpl-preview", {
-        method: "POST",
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      const res = await fetch('/api/zpl-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         body: zpl,
+        signal: ctrl.signal,
+        cache: 'no-store',
       });
 
       if (!res.ok) {
-        console.error("Preview API error:", await res.text());
-        setPreviewUrl(null);
+        console.error('Preview API error:', await res.text());
+        if (myId === previewReqIdRef.current) setPreviewUrl(null);
         return;
       }
 
       const blob = await res.blob();
       const reader = new FileReader();
-      reader.onloadend = () => setPreviewUrl(reader.result as string);
+      reader.onloadend = () => {
+        // só aplica se ainda for a requisição mais recente
+        if (myId === previewReqIdRef.current) {
+          setPreviewUrl(reader.result as string);
+        }
+      };
       reader.readAsDataURL(blob);
-    } catch (err) {
-      console.error("Error fetching ZPL preview:", err);
-      setPreviewUrl(null);
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') console.error('Preview fetch failed:', e);
+      if (myId === previewReqIdRef.current) setPreviewUrl(null);
     } finally {
-      setIsPreviewLoading(false);
+      if (myId === previewReqIdRef.current) setIsPreviewLoading(false);
     }
+  }, []);
+
+  // Debounce passa a usar a função “imediata”
+  const debounce = <F extends (...args: any[]) => any>(fn: F, ms: number) => {
+    let t: any;
+    return (...args: Parameters<F>) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
   };
 
-  const debouncedPreview = useCallback(debounce(generatePreview, 1000), []);
+  const debouncedPreview = useCallback(
+    debounce(generatePreviewImmediate, 800),
+    [generatePreviewImmediate]
+  );
+  
   useEffect(() => {
     debouncedPreview(zplEditorContent);
   }, [zplEditorContent, debouncedPreview]);
+
 
   useEffect(() => {
     if (fetchState.error) {
@@ -150,12 +179,20 @@ export default function EtiquetasPage() {
 
   useEffect(() => {
     if (remixZplState.error) {
-      toast({ variant: "destructive", title: "Erro ao Gerar ZPL", description: remixZplState.error });
-    } else if (remixZplState.result) {
-      setZplEditorContent(remixZplState.result.modifiedZpl);
-      toast({ title: "Sucesso!", description: "O código ZPL foi atualizado com os novos dados." });
+      toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
+    } else if (remixZplState.result?.modifiedZpl) {
+      const newZpl = sanitizeZpl(remixZplState.result.modifiedZpl);
+
+      // atualiza editor E base para futuras gerações
+      setZplEditorContent(newZpl);
+      setOriginalZpl(newZpl);
+
+      // força a prévia agora (sem esperar o debounce)
+      generatePreviewImmediate(newZpl);
+
+      toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
     }
-  }, [remixZplState, toast]);
+  }, [remixZplState, toast, generatePreviewImmediate]);
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
