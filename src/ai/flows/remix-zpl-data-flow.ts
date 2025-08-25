@@ -7,6 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { RemixZplDataInput, RemixZplDataOutput } from '@/app/actions';
 
 const PersonAddrSchema = z.object({
   recipientName: z.string().optional().default(''),
@@ -22,7 +23,7 @@ const PersonAddrSchema = z.object({
   estimatedDeliveryDate: z.string().optional().default(''),
 });
 
-export const RemixZplDataInputSchema = z.object({
+const RemixZplDataInputSchema = z.object({
   originalZpl: z.string().describe('Original ZPL code of the label.'),
   /** valores que já estavam no ZPL (baseline) — usados como âncora para localizar blocos ^FD corretos */
   baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
@@ -30,12 +31,9 @@ export const RemixZplDataInputSchema = z.object({
   remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
 });
 
-export const RemixZplDataOutputSchema = z.object({
+const RemixZplDataOutputSchema = z.object({
   modifiedZpl: z.string().describe('Final ZPL with modifications applied.'),
 });
-
-export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
-export type RemixZplDataOutput = z.infer<typeof RemixZplDataOutputSchema>;
 
 export async function remixZplData(input: RemixZplDataInput): Promise<RemixZplDataOutput> {
   return remixZplDataFlow(input);
@@ -73,7 +71,6 @@ Anchors (baselineData):
 New values (remixedData):
 {{{json remixedData}}}
 
-Now return the final "modifiedZpl".
 `.trim(),
 });
 

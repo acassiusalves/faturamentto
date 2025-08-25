@@ -13,7 +13,7 @@ import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
-import { remixZplData, RemixZplDataInputSchema, type RemixZplDataOutput, type RemixZplDataInput } from '@/ai/flows/remix-zpl-data-flow';
+import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import { z } from 'genkit';
 
 
@@ -353,7 +353,33 @@ export async function remixLabelDataAction(
     }
 }
 
-export { type RemixZplDataInput, type RemixZplDataOutput };
+
+const PersonAddrSchema = z.object({
+  recipientName: z.string().optional().default(''),
+  streetAddress: z.string().optional().default(''),
+  city: z.string().optional().default(''),
+  state: z.string().optional().default(''),
+  zipCode: z.string().optional().default(''),
+  orderNumber: z.string().optional().default(''),
+  invoiceNumber: z.string().optional().default(''),
+  trackingNumber: z.string().optional().default(''),
+  senderName: z.string().optional().default(''),
+  senderAddress: z.string().optional().default(''),
+  estimatedDeliveryDate: z.string().optional().default(''),
+});
+
+const RemixZplDataInputSchema = z.object({
+  originalZpl: z.string().describe('Original ZPL code of the label.'),
+  baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
+  remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
+});
+
+export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
+
+export type RemixZplDataOutput = {
+    modifiedZpl: string;
+};
+
 
 export async function remixZplDataAction(
     prevState: { result: RemixZplDataOutput | null; error: string | null; },
