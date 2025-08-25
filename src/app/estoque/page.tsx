@@ -12,6 +12,15 @@ import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
 import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,6 +71,7 @@ export default function EstoquePage() {
   const [currentSN, setCurrentSN] = useState("");
   const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
+  const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
 
   // Pagination State
   const [pageIndex, setPageIndex] = useState(0);
@@ -204,6 +214,7 @@ export default function EstoquePage() {
       });
       form.reset({ productId: '', sku: '', costPrice: 0, origin: '' });
       setSerialNumbers([]);
+      setIsNewEntryDialogOpen(false); // Close dialog on success
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar os itens.' });
@@ -296,7 +307,7 @@ export default function EstoquePage() {
             bValue = b.quantity;
           } else if (sortConfig.key === 'totalCost') {
             aValue = a.costPrice * a.quantity;
-            bValue = b.costPrice * b.quantity;
+            bValue = b.costPrice * a.quantity;
           }
 
           if (aValue < bValue) {
@@ -377,6 +388,7 @@ export default function EstoquePage() {
   }
 
   return (
+    <>
     <div className="flex flex-col gap-8 p-4 md:p-8">
        <div className="flex justify-between items-start">
         <div>
@@ -391,145 +403,147 @@ export default function EstoquePage() {
         </Button>
       </div>
       
-      <div className="grid md:grid-cols-3 gap-8 items-start">
-        <div className="md:col-span-1 space-y-4">
-          <Card>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)}>
-                <CardHeader>
-                  <CardTitle>Adicionar Item ao Estoque</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="productId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome do Produto</FormLabel>
-                        <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        className={cn(
-                                            "w-full justify-between font-normal",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                       {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione um produto..."}
-                                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Buscar produto..." autoFocus />
-                                    <CommandList>
-                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                        <CommandGroup>
-                                            {products.map((p) => (
-                                                <CommandItem
-                                                    value={p.name}
-                                                    key={p.id}
-                                                    onSelect={() => handleProductSelectionChange(p.id)}
-                                                >
-                                                    <Check
-                                                        className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
-                                                    />
-                                                    {p.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField control={form.control} name="sku" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU</FormLabel>
-                        <FormControl><Input placeholder="Selecione um produto acima" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                  )} />
-                   <FormField control={form.control} name="costPrice" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preço de Custo (R$)</FormLabel>
-                        <FormControl><Input type="number" step="0.01" placeholder="Ex: 12.50" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                  )} />
-                   <div className="space-y-2">
-                      <Label htmlFor="serial-numbers-input">SN (Código do Fabricante)</Label>
-                      <Input
-                          id="serial-numbers-input"
-                          placeholder="Bipe ou digite o SN"
-                          value={currentSN}
-                          onChange={handleSNInputChange}
-                          autoComplete="off"
-                      />
-                      <div className="p-2 border rounded-md min-h-[60px] max-h-[120px] overflow-y-auto bg-muted/50">
-                          {serialNumbers.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                  {serialNumbers.map(sn => (
-                                      <Badge key={sn} variant="secondary" className="flex items-center gap-1.5 pr-1">
-                                          {sn}
-                                          <button type="button" onClick={() => handleRemoveSerialNumber(sn)} className="rounded-full hover:bg-muted-foreground/20">
-                                              <XCircle className="h-3 w-3" />
-                                          </button>
-                                      </Badge>
-                                  ))}
-                              </div>
-                          ) : (
-                              <p className="text-xs text-muted-foreground text-center py-2">Nenhum SN adicionado.</p>
-                          )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                          Contagem: <span className="font-semibold text-primary">{serialNumbers.length}</span>
-                      </div>
-                  </div>
-
-                   <FormField
-                      control={form.control}
-                      name="origin"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Origem</FormLabel>
-                          <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma origem..." />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {origins.map((origin) => (
-                                <SelectItem key={origin} value={origin}>
-                                  {origin}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2">
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="animate-spin"/> : <PlusCircle />}
-                        Adicionar ao Estoque
+       <div className="flex justify-between items-center gap-4">
+            <Dialog open={isNewEntryDialogOpen} onOpenChange={setIsNewEntryDialogOpen}>
+                <DialogTrigger asChild>
+                     <Button size="lg">
+                        <PlusCircle className="mr-2"/>
+                        Nova Entrada
                     </Button>
-                </CardFooter>
-              </form>
-            </Form>
-          </Card>
-        </div>
-
-        <div className="md:col-span-2 space-y-8">
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-xl">
+                     <DialogHeader>
+                        <DialogTitle>Adicionar Item ao Estoque</DialogTitle>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                            <FormField
+                                control={form.control}
+                                name="productId"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nome do Produto</FormLabel>
+                                    <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "w-full justify-between font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione um produto..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar produto..." autoFocus />
+                                                <CommandList>
+                                                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {products.map((p) => (
+                                                            <CommandItem
+                                                                value={p.name}
+                                                                key={p.id}
+                                                                onSelect={() => handleProductSelectionChange(p.id)}
+                                                            >
+                                                                <Check
+                                                                    className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
+                                                                />
+                                                                {p.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField control={form.control} name="sku" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>SKU</FormLabel>
+                                    <FormControl><Input placeholder="Selecione um produto acima" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="costPrice" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Preço de Custo (R$)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" placeholder="Ex: 12.50" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <div className="space-y-2">
+                                <Label htmlFor="serial-numbers-input">SN (Código do Fabricante)</Label>
+                                <Input
+                                    id="serial-numbers-input"
+                                    placeholder="Bipe ou digite o SN"
+                                    value={currentSN}
+                                    onChange={handleSNInputChange}
+                                    autoComplete="off"
+                                />
+                                <div className="p-2 border rounded-md min-h-[60px] max-h-[120px] overflow-y-auto bg-muted/50">
+                                    {serialNumbers.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {serialNumbers.map(sn => (
+                                                <Badge key={sn} variant="secondary" className="flex items-center gap-1.5 pr-1">
+                                                    {sn}
+                                                    <button type="button" onClick={() => handleRemoveSerialNumber(sn)} className="rounded-full hover:bg-muted-foreground/20">
+                                                        <XCircle className="h-3 w-3" />
+                                                    </button>
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum SN adicionado.</p>
+                                    )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                    Contagem: <span className="font-semibold text-primary">{serialNumbers.length}</span>
+                                </div>
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="origin"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Origem</FormLabel>
+                                    <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione uma origem..." />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {origins.map((origin) => (
+                                            <SelectItem key={origin} value={origin}>
+                                            {origin}
+                                            </SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <DialogFooter>
+                                 <Button type="button" variant="ghost" onClick={() => setIsNewEntryDialogOpen(false)}>Cancelar</Button>
+                                 <Button type="submit" className="w-full" disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="animate-spin"/> : <PlusCircle />}
+                                    Adicionar ao Estoque
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
             <div className="grid sm:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -581,6 +595,9 @@ export default function EstoquePage() {
                     </CardContent>
                 </Card>
             </div>
+      </div>
+      
+        <div className="space-y-8">
           <Card>
             <CardHeader>
                <div className="flex justify-between items-center gap-4 flex-wrap">
@@ -763,8 +780,8 @@ export default function EstoquePage() {
             </CardFooter>
           </Card>
         </div>
-      </div>
       <DetailedEntryHistory />
     </div>
+    </>
   );
 }
