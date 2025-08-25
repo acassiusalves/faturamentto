@@ -21,26 +21,37 @@ const prompt = ai.definePrompt({
 You are a ZPL expert. Modify the label in an anchored way.
 
 MATCH MODE: "{{{matchMode}}}"  // "strict" or "relaxed"
+TOLERANCE_PX = 12
 
 RULES:
-1) Never change the QR code (^BQ...) or its ^FD payload.
-2) Identify text blocks (^FO ... ^A... ^FD<content>^FS) to edit for each field.
-   - STRICT: replace only when the ^FD content EXACTLY equals the baseline value of that field.
-   - RELAXED: if exact match fails, normalize both baseline and ^FD
-     (uppercase, remove accents, punctuation, multiple spaces, line breaks) and match by equality
-     OR baseline being a substring of the normalized ^FD.
-3) If remixedData.<field> is "", remove the whole block (its ^FO + ^A + ^FD + ^FS), but only after the field's block is confidently located (by STRICT or RELAXED rules).
-4) If remixedData.<field> has a value but baseline is empty (the field didn't exist),
-   only insert for "estimatedDeliveryDate" at bottom-left:
+1) NEVER change any block that contains a barcode command:
+   lines with ^B* (e.g. ^BC, ^B3, ^BQN, ^B128, ^BY etc) within the last 6 lines above the ^FD are barcodes.
+   Also never touch the QR (^BQ...).
+2) A text block to edit must have this shape:
+   ^FOx,y or ^FTx,y
+   (optional ^A* / ^FB*)
+   ^FD<content>^FS
+3) Primary anchor = coordinates. For each field, if "baselinePositions.<field>" exists,
+   only edit the block whose ^FO/^FT is within ±TOLERANCE_PX of that (x,y).
+4) Secondary anchor = text:
+   - STRICT: only if ^FD content EXACTLY equals the baseline value of that field.
+   - RELAXED: if exact match fails, normalize both sides (uppercase, remove accents,
+     punctuation, line breaks, collapse spaces) and allow equality or baseline being a substring.
+   In RELAXED mode you STILL must satisfy the coordinate rule (3). If there are no coordinates for the field, skip it.
+5) If remixedData.<field> is empty string, remove the whole block (^FO/^FT + ^A/^FB + ^FD + ^FS), but only after the anchors (3/4) confirm it's the right block.
+6) If remixedData.<field> has value but the field didn't exist (baseline empty), ONLY insert for "estimatedDeliveryDate" at:
    ^FO40,730^A0N,24,24^FDEntrega prev.: {remixedData.estimatedDeliveryDate}^FS
-5) Keep all other ZPL commands as-is. Ensure ^CI28 appears after ^XA.
-6) Return ONLY the final ZPL.
+7) Keep every other ZPL command untouched. Ensure ^CI28 appears right after ^XA (add if missing).
+8) Output ONLY the final ZPL (no comments, no backticks).
 
 Original ZPL:
 {{{originalZpl}}}
 
-Baseline (current values / anchors):
+Baseline values:
 {{{json baselineData}}}
+
+Baseline positions (if any):
+{{{json baselinePositions}}}
 
 New values:
 {{{json remixedData}}}

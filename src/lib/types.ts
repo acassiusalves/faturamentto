@@ -404,11 +404,26 @@ export const PersonAddrSchema = z.object({
   estimatedDeliveryDate: z.string().optional().default(''),
 });
 
+export const ZplPointSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+export const BaselinePositionsSchema = z.object({
+  orderNumber: ZplPointSchema.optional(),
+  invoiceNumber: ZplPointSchema.optional(),
+  trackingNumber: ZplPointSchema.optional(),
+  senderName: ZplPointSchema.optional(),
+  senderAddress: ZplPointSchema.optional(),
+});
+
+
 export const RemixZplDataInputSchema = z.object({
   originalZpl: z.string().describe('Original ZPL code of the label.'),
   baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
   remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
   matchMode: z.enum(['strict','relaxed']).default('strict'),
+  baselinePositions: BaselinePositionsSchema.optional(),
 });
 
 export const RemixZplDataOutputSchema = z.object({

@@ -328,6 +328,40 @@ export async function remixLabelDataAction(
     }
 }
 
+function buildBaselinePositions(originalZpl: string, baseline: AnalyzeLabelOutput) {
+  const fields: (keyof AnalyzeLabelOutput)[] = [
+    'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress'
+  ];
+  const lines = originalZpl.split(/\r?\n/);
+  const pos: Record<string, {x:number,y:number}> = {};
+
+  for (const f of fields) {
+    const val = (baseline as any)[f];
+    if (!val) continue;
+
+    // procura ^FD com o valor exato
+    const idx = lines.findIndex(l => /^\^FD/i.test(l) && l.includes(val));
+    if (idx === -1) continue;
+
+    // se houver um ^B* (barcode) poucas linhas acima, ignore
+    let isBarcode = false;
+    for (let k = idx; k >= 0 && k >= idx - 6; k--) {
+      if (/^\^B[A-Z]/i.test(lines[k])) { isBarcode = true; break; }
+    }
+    if (isBarcode) continue;
+
+    // sobe até achar ^FO ou ^FT para pegar as coordenadas
+    let x: number | undefined, y: number | undefined;
+    for (let k = idx; k >= 0 && k >= idx - 10; k--) {
+      const m = lines[k].match(/^\^(FO|FT)(\d+),(\d+)/i);
+      if (m) { x = +m[2]; y = +m[3]; break; }
+    }
+    if (x != null && y != null) pos[f] = { x, y };
+  }
+  return pos;
+}
+
+
 export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
   formData: FormData
@@ -342,16 +376,20 @@ export async function remixZplDataAction(
   }
 
   try {
-    const baselineData = JSON.parse(baselineDataJSON || '{}');
-    const remixedData  = JSON.parse(remixedDataJSON  || '{}');
+    const baselineData = JSON.parse(baselineDataJSON || '{}') as AnalyzeLabelOutput;
+    const remixedData  = JSON.parse(remixedDataJSON  || '{}') as AnalyzeLabelOutput;
 
     for (const k of ['recipientName','streetAddress','city','state','zipCode',
       'orderNumber','invoiceNumber','trackingNumber','senderName','senderAddress','estimatedDeliveryDate'] as const) {
+      // @ts-ignore
       if (baselineData[k] == null) baselineData[k] = '';
+      // @ts-ignore
       if (remixedData[k]  == null) remixedData[k]  = '';
     }
 
-    const flowInput = { originalZpl, baselineData, remixedData, matchMode } as RemixZplDataInput;
+    const baselinePositions = buildBaselinePositions(originalZpl, baselineData);
+
+    const flowInput: RemixZplDataInput = { originalZpl, baselineData, remixedData, matchMode, baselinePositions };
     const result = await remixZplData(flowInput);
     const sanitized = (result.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
 
