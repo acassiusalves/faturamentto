@@ -12,7 +12,10 @@ import { fetchLabelAction, analyzeLabelAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
+import * as pdfjs from 'pdfjs-dist';
 
+// Configure the worker source for pdfjs
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
 
 const fetchInitialState = {
   labelUrl: null as string | null,
@@ -58,8 +61,46 @@ export default function EtiquetasPage() {
       setLabelFile(event.target.files[0]);
     }
   };
+
+  const fileToDataURI = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                resolve(event.target.result as string);
+            } else {
+                reject(new Error("Failed to read file."));
+            }
+        };
+        reader.onerror = (error) => {
+            reject(error);
+        };
+        reader.readAsDataURL(file);
+    });
+  };
+
+  const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    const doc = await pdfjs.getDocument({ data }).promise;
+    const page = await doc.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d')!;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+    };
+    await page.render(renderContext).promise;
+
+    return canvas.toDataURL('image/png');
+  };
   
-  const handleAnalyzeClick = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAnalyzeClick = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!labelFile) {
         toast({
@@ -69,10 +110,27 @@ export default function EtiquetasPage() {
         });
         return;
     }
-    const formData = new FormData();
-    formData.append('labelFile', labelFile);
-    startTransition(() => {
-        analyzeFormAction(formData);
+    
+    startTransition(async () => {
+        try {
+            let photoDataUri = '';
+            if (labelFile.type === 'application/pdf') {
+                photoDataUri = await pdfToPngDataURI(labelFile);
+            } else if (labelFile.type.startsWith('image/')) {
+                photoDataUri = await fileToDataURI(labelFile);
+            } else {
+                toast({ variant: 'destructive', title: 'Formato de ficheiro não suportado', description: 'Por favor, envie uma imagem ou PDF.'});
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('photoDataUri', photoDataUri);
+            analyzeFormAction(formData);
+
+        } catch (error) {
+            console.error("Error processing file client-side:", error);
+            toast({ variant: "destructive", title: "Erro ao Processar Ficheiro", description: "Não foi possível converter o ficheiro para análise."});
+        }
     });
   }
 

@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -11,8 +11,6 @@ import { revalidatePath } from 'next/cache';
 import { analyzeFeed, type AnalyzeFeedInput } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel, type AnalyzeLabelOutput } from '@/ai/flows/analyze-label-flow';
-import * as pdfjs from 'pdfjs-dist';
-import { createCanvas } from 'canvas';
 
 
 // This is the main server action that will be called from the frontend.
@@ -239,55 +237,17 @@ export async function fetchLabelAction(
   }
 }
 
-// Converts a file to a data URI
-async function fileToDataURI(file: File) {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    return `data:${file.type};base64,${buffer.toString('base64')}`;
-}
-
-async function pdfToPngDataURI(pdfBuffer: Buffer): Promise<string> {
-    const data = new Uint8Array(pdfBuffer);
-    const doc = await pdfjs.getDocument({ data }).promise;
-    const page = await doc.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 }); // Increase scale for better resolution
-    
-    // The library `canvas` is required for Node.js environment
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext('2d');
-
-    const renderContext = {
-      canvasContext: context,
-      viewport: viewport,
-    };
-
-    await page.render(renderContext).promise;
-    
-    return canvas.toDataURL('image/png');
-}
-
 export async function analyzeLabelAction(
     prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
     formData: FormData
 ): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
-    const labelFile = formData.get('labelFile') as File;
+    const photoDataUri = formData.get('photoDataUri') as string;
 
-    if (!labelFile) {
-        return { analysis: null, error: 'Nenhum arquivo enviado.' };
+    if (!photoDataUri) {
+        return { analysis: null, error: 'Nenhum dado de imagem para analisar.' };
     }
 
     try {
-        let photoDataUri = '';
-        if (labelFile.type === 'application/pdf') {
-            const arrayBuffer = await labelFile.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            photoDataUri = await pdfToPngDataURI(buffer);
-        } else if (labelFile.type.startsWith('image/')) {
-            photoDataUri = await fileToDataURI(labelFile);
-        } else {
-             return { analysis: null, error: 'Formato de ficheiro não suportado. Por favor, envie uma imagem ou PDF.' };
-        }
-
         const result = await analyzeLabel({ photoDataUri });
         return { analysis: result, error: null };
     } catch (e: any) {
