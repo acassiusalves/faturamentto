@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode } from "lucide-react";
+import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2 } from "lucide-react";
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -38,11 +38,13 @@ const remixZplInitialState = {
   error: null as string | null,
 };
 
+type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'invoiceNumber' | 'trackingNumber' | 'senderName' | 'senderAddress'>;
+
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
-  const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixInitialState);
+  const [remixState, remixFormAction, isRemixingData] = useActionState(remixLabelDataAction, remixInitialState);
   const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
@@ -54,6 +56,8 @@ export default function EtiquetasPage() {
 
   const [analysisResult, setAnalysisResult] = useState<AnalyzeLabelOutput | null>(null);
   const [originalZpl, setOriginalZpl] = useState<string>("");
+
+  const [remixingField, setRemixingField] = useState<RemixableField | null>(null);
 
   // Prévia ZPL (imagem)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -142,6 +146,7 @@ export default function EtiquetasPage() {
     } else if (remixState.analysis) {
       setAnalysisResult(remixState.analysis);
     }
+    setRemixingField(null); // Stop loading indicator regardless of outcome
   }, [remixState, toast]);
 
   useEffect(() => {
@@ -212,10 +217,51 @@ export default function EtiquetasPage() {
     toast({ title: "Copiado!", description: "O conteúdo ZPL foi copiado." });
     setTimeout(() => setHasCopied(false), 2000);
   };
+  
+  const handleRemixField = (field: RemixableField) => {
+    if (!analysisResult) return;
+    setRemixingField(field);
+    const formData = new FormData();
+    formData.append('originalData', JSON.stringify(analysisResult));
+    formData.append('fieldToRemix', field);
+    remixFormAction(formData);
+  };
+
+  const handleRemoveField = (field: RemixableField) => {
+    if (!analysisResult) return;
+    setAnalysisResult(prev => {
+        if (!prev) return null;
+        return { ...prev, [field]: '' };
+    });
+    toast({
+        title: "Campo Removido",
+        description: `O campo ${field} foi limpo e não será incluído na etiqueta final.`,
+    });
+  };
 
   const isPreparingFile = isTransitioning && !isAnalyzing;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixingData || isRemixingZpl;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
+  
+  const DataRow = ({ label, value, field }: { label: string; value: string; field?: RemixableField }) => {
+    const isRemixingThis = isRemixingData && remixingField === field;
+    return (
+        <div className="flex items-center justify-between text-sm">
+            <p><strong className="text-muted-foreground">{label}:</strong> {value}</p>
+            {field && value && (
+                 <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => handleRemixField(field)} disabled={isRemixingThis} title={`Remixar ${label}`}>
+                        {isRemixingThis ? <Loader2 className="animate-spin"/> : <Wand2 />}
+                    </Button>
+                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveField(field)} disabled={isRemixingData} title={`Remover ${label}`}>
+                        <Trash2 />
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
+  };
+
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -363,7 +409,7 @@ export default function EtiquetasPage() {
               <Loader2 className="animate-spin text-primary mr-4" size={32} />
               <p className="text-muted-foreground">
                 {isPreparingFile ? "Processando ficheiro..." :
-                 isRemixing ? "Gerando novos dados..." :
+                 isRemixingData ? "Gerando novos dados..." :
                  isRemixingZpl ? "Gerando novo ZPL..." :
                  "Analisando etiqueta..."}
               </p>
@@ -377,40 +423,33 @@ export default function EtiquetasPage() {
                   <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
                   <CardDescription>Resultado da análise da IA.</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <form action={remixFormAction}>
-                    <input type="hidden" name="originalData" value={JSON.stringify(analysisResult)} />
-                    <Button type="submit" variant="ghost" size="icon" disabled={isRemixing} title="Modificar dados com IA">
-                      {isRemixing ? <Loader2 className="animate-spin" /> : <Wand2 className="text-primary" />}
-                    </Button>
-                  </form>
-                  <form action={remixZplFormAction}>
-                    <input type="hidden" name="originalZpl" value={originalZpl} />
-                    <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                    <Button type="submit" variant="default" size="icon" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
-                      {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="text-primary-foreground" />}
-                    </Button>
-                  </form>
-                </div>
+                <form action={remixZplFormAction}>
+                  <input type="hidden" name="originalZpl" value={originalZpl} />
+                  <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                  <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
+                    {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
+                    Gerar ZPL
+                  </Button>
+                </form>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                   <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
-                  <p><strong className="text-muted-foreground">Pedido:</strong> {analysisResult.orderNumber}</p>
-                  <p><strong className="text-muted-foreground">Nota Fiscal:</strong> {analysisResult.invoiceNumber}</p>
-                   <p><strong className="text-muted-foreground">Cód. Rastreio:</strong> {analysisResult.trackingNumber}</p>
+                  <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
+                  <DataRow label="Nota Fiscal" value={analysisResult.invoiceNumber} field="invoiceNumber" />
+                  <DataRow label="Cód. Rastreio" value={analysisResult.trackingNumber} field="trackingNumber" />
                 </div>
                 <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                   <h3 className="font-semibold text-base flex items-center gap-2"><User /> Destinatário</h3>
-                  <p><strong className="text-muted-foreground">Nome:</strong> {analysisResult.recipientName}</p>
-                  <p><strong className="text-muted-foreground">Endereço:</strong> {analysisResult.streetAddress}</p>
-                  <p><strong className="text-muted-foreground">Cidade/UF:</strong> {analysisResult.city} - {analysisResult.state}</p>
-                  <p><strong className="text-muted-foreground">CEP:</strong> {analysisResult.zipCode}</p>
+                  <DataRow label="Nome" value={analysisResult.recipientName} />
+                  <DataRow label="Endereço" value={analysisResult.streetAddress} />
+                  <DataRow label="Cidade/UF" value={`${analysisResult.city} - ${analysisResult.state}`} />
+                  <DataRow label="CEP" value={analysisResult.zipCode} />
                 </div>
                 <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                   <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
-                  <p><strong className="text-muted-foreground">Nome:</strong> {analysisResult.senderName}</p>
-                  <p><strong className="text-muted-foreground">Endereço:</strong> {analysisResult.senderAddress}</p>
+                   <DataRow label="Nome" value={analysisResult.senderName} field="senderName" />
+                   <DataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress"/>
                 </div>
               </CardContent>
             </Card>

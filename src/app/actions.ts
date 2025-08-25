@@ -298,45 +298,39 @@ export async function analyzeZplAction(
     }
 }
 
-// Schema definition for RemixLabelDataAction
-const RemixLabelDataInputSchema = z.object({
-  orderNumber: z.string(),
-  invoiceNumber: z.string(),
-  senderName: z.string(),
-});
-export type RemixLabelDataInput = z.infer<typeof RemixLabelDataInputSchema>;
+export type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'invoiceNumber' | 'trackingNumber' | 'senderName' | 'senderAddress'>;
+
+export type RemixLabelDataInput = {
+    fieldToRemix: RemixableField;
+    originalValue: string;
+};
 
 export type RemixLabelDataOutput = {
-  orderNumber: string;
-  invoiceNumber: string;
-  senderName: string;
-  senderAddress: string;
-}
+    newValue: string;
+};
 
 export async function remixLabelDataAction(
-    prevState: { analysis: RemixLabelDataOutput | null; error: string | null; },
+    prevState: { analysis: AnalyzeLabelOutput | null; error: string | null; },
     formData: FormData
-): Promise<{ analysis: RemixLabelDataOutput | null; error: string | null; }> {
-    const originalData = formData.get('originalData') as string;
+): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
+    const originalDataJSON = formData.get('originalData') as string;
+    const fieldToRemix = formData.get('fieldToRemix') as RemixableField;
 
-    if (!originalData) {
-        return { analysis: null, error: 'Dados originais da etiqueta não encontrados.' };
+    if (!originalDataJSON || !fieldToRemix) {
+        return { analysis: null, error: 'Dados originais ou campo para modificar não encontrados.' };
     }
 
     try {
-        const parsedData: AnalyzeLabelOutput = JSON.parse(originalData);
+        const originalData: AnalyzeLabelOutput = JSON.parse(originalDataJSON);
 
-        // We only need specific fields for the AI flow
         const flowInput: RemixLabelDataInput = {
-            orderNumber: parsedData.orderNumber,
-            invoiceNumber: parsedData.invoiceNumber,
-            senderName: parsedData.senderName,
+            fieldToRemix: fieldToRemix,
+            originalValue: originalData[fieldToRemix],
         };
 
         const result = await remixLabelData(flowInput);
         
-        // Merge the AI result with the original data, as the AI only returns modified fields
-        const finalResult = { ...parsedData, ...result };
+        const finalResult = { ...originalData, [fieldToRemix]: result.newValue };
 
         return { analysis: finalResult, error: null };
     } catch (e: any) {
@@ -358,6 +352,7 @@ const RemixZplDataInputSchema = z.object({
     invoiceNumber: z.string(),
     senderName: z.string(),
     senderAddress: z.string(),
+    trackingNumber: z.string(),
   }).describe("The new, modified data that should be placed on the label."),
 });
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;

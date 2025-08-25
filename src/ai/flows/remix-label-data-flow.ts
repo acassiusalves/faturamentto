@@ -11,19 +11,14 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { RemixLabelDataInput, RemixLabelDataOutput } from '@/app/actions';
 
-// Schemas will be defined in the action file to avoid exporting non-functions from a 'use server' file.
-// We still need to import the types for the function signature.
+// Schemas are defined in the action file. We only need the types here.
 const RemixLabelDataInputSchema = z.object({
-  orderNumber: z.string(),
-  invoiceNumber: z.string(),
-  senderName: z.string(),
+  fieldToRemix: z.enum(['orderNumber', 'invoiceNumber', 'trackingNumber', 'senderName', 'senderAddress']),
+  originalValue: z.string(),
 });
 
 const RemixLabelDataOutputSchema = z.object({
-  orderNumber: z.string().describe("A new, randomly generated number with the same character count as the original order number."),
-  invoiceNumber: z.string().describe("A new, randomly generated number with the same character count as the original invoice number."),
-  senderName: z.string().describe("A new, plausible, but fake store/company name that has the exact same number of characters as the original sender name."),
-  senderAddress: z.string().describe("The fixed address 'RUA DA ALFÂNDEGA, 200'."),
+  newValue: z.string().describe("The new, remixed value for the requested field."),
 });
 
 
@@ -37,15 +32,14 @@ const prompt = ai.definePrompt({
   name: 'remixLabelDataPrompt',
   input: { schema: RemixLabelDataInputSchema },
   output: { schema: RemixLabelDataOutputSchema },
-  prompt: `You are a creative AI that generates modified data for shipping labels based on original data.
-  Follow these instructions precisely:
+  prompt: `You are a creative AI that generates modified data for shipping labels based on a specific field.
+  Follow these instructions precisely based on the 'fieldToRemix':
 
-  1.  **orderNumber**: Generate a new random number that has the exact same number of characters as the original '{{{orderNumber}}}'.
-  2.  **invoiceNumber**: Generate a new random number that has the exact same number of characters as the original '{{{invoiceNumber}}}'.
-  3.  **senderName**: Generate a new, plausible, but fake store/company name that has the exact same number of characters as the original '{{{senderName}}}'.
-  4.  **senderAddress**: Set this value to the fixed string 'RUA DA ALFÂNDEGA, 200'.
+  - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format (including hyphens or other symbols) as the 'originalValue' ('{{{originalValue}}}').
+  - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name that has a similar character count to the 'originalValue' ('{{{originalValue}}}').
+  - If 'fieldToRemix' is 'senderAddress': Set the value to the fixed string 'RUA DA ALFÂNDEGA, 200'.
 
-  Return ONLY the modified data in the specified JSON format.
+  Return ONLY the 'newValue' in the specified JSON format.
   `,
 });
 
