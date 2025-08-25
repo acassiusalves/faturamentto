@@ -59,6 +59,7 @@ export default function EtiquetasPage() {
   const [hasCopied, setHasCopied] = useState(false);
 
   const [analysisResult, setAnalysisResult] = useState<AnalyzeLabelOutput | null>(null);
+  const [baselineAnalysis, setBaselineAnalysis] = useState<AnalyzeLabelOutput | null>(null);
   const [originalZpl, setOriginalZpl] = useState<string>("");
 
   const [remixingField, setRemixingField] = useState<RemixableField | null>(null);
@@ -67,7 +68,6 @@ export default function EtiquetasPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
-  const sanitizeZpl = (z: string) => z.replace(/```(?:zpl)?/g, '').trim();
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
   
@@ -160,6 +160,7 @@ export default function EtiquetasPage() {
       toast({ variant: "destructive", title: "Erro ao analisar etiqueta", description: analyzeState.error });
     } else if (analyzeState.analysis) {
       setAnalysisResult(analyzeState.analysis);
+      setBaselineAnalysis(prev => prev ?? analyzeState.analysis);
     }
   }, [analyzeState, toast]);
 
@@ -168,6 +169,7 @@ export default function EtiquetasPage() {
       toast({ variant: "destructive", title: "Erro ao analisar ZPL", description: analyzeZplState.error });
     } else if (analyzeZplState.analysis) {
       setAnalysisResult(analyzeZplState.analysis);
+      setBaselineAnalysis(prev => prev ?? analyzeZplState.analysis);
     }
   }, [analyzeZplState, toast]);
 
@@ -182,15 +184,15 @@ export default function EtiquetasPage() {
 
   useEffect(() => {
     if (remixZplState.error) {
-      toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
+        toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
     } else if (remixZplState.result?.modifiedZpl) {
-      const newZpl = sanitizeZpl(remixZplState.result.modifiedZpl);
-      setZplEditorContent(newZpl);
-      setOriginalZpl(newZpl);
-      generatePreviewImmediate(newZpl);
-      toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
+        const newZpl = remixZplState.result.modifiedZpl.replace(/```(?:zpl)?/g, '').trim();
+        setZplEditorContent(newZpl);
+        setOriginalZpl(newZpl);
+        generatePreviewImmediate(newZpl);
+        toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
     }
-  }, [remixZplState, toast, generatePreviewImmediate]);
+  }, [remixZplState, generatePreviewImmediate, toast]);
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -219,6 +221,8 @@ export default function EtiquetasPage() {
     }
     setLabelFile(file);
     setPhotoDataUri(null);
+    setAnalysisResult(null);
+    setBaselineAnalysis(null);
 
     startTransition(async () => {
       try {
@@ -454,41 +458,42 @@ export default function EtiquetasPage() {
 
           {analysisResult && !isAnyAnalysisRunning && (
             <Card>
-              <CardHeader className="flex flex-row justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
-                  <CardDescription>Resultado da análise da IA.</CardDescription>
-                </div>
-                <form action={remixZplFormAction}>
-                  <input type="hidden" name="originalZpl" value={originalZpl} />
-                  <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                  <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
-                    {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
-                    Gerar ZPL
-                  </Button>
-                </form>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                  <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
-                  <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
-                  <DataRow label="Nota Fiscal" value={analysisResult.invoiceNumber} field="invoiceNumber" />
-                  <DataRow label="Data Estimada" value={analysisResult.estimatedDeliveryDate} />
-                  <DataRow label="Cód. Rastreio" value={analysisResult.trackingNumber} field="trackingNumber" />
-                </div>
-                <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                  <h3 className="font-semibold text-base flex items-center gap-2"><User /> Destinatário</h3>
-                  <DataRow label="Nome" value={analysisResult.recipientName} />
-                  <DataRow label="Endereço" value={analysisResult.streetAddress} />
-                  <DataRow label="Cidade/UF" value={`${analysisResult.city} - ${analysisResult.state}`} />
-                  <DataRow label="CEP" value={analysisResult.zipCode} />
-                </div>
-                <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                  <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
-                   <DataRow label="Nome" value={analysisResult.senderName} field="senderName" />
-                   <DataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress"/>
-                </div>
-              </CardContent>
+                <CardHeader className="flex flex-row justify-between items-start">
+                    <div>
+                    <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
+                    <CardDescription>Resultado da análise da IA.</CardDescription>
+                    </div>
+                    <form action={remixZplFormAction}>
+                    <input type="hidden" name="originalZpl" value={originalZpl} />
+                    <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis || {})} />
+                    <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                    <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
+                        {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
+                        Gerar ZPL
+                    </Button>
+                    </form>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                    <div className="p-3 border rounded-md bg-muted/50 space-y-2">
+                    <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
+                    <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
+                    <DataRow label="Nota Fiscal" value={analysisResult.invoiceNumber} field="invoiceNumber" />
+                    <DataRow label="Data Estimada" value={analysisResult.estimatedDeliveryDate || 'N/A'} />
+                    <DataRow label="Cód. Rastreio" value={analysisResult.trackingNumber} field="trackingNumber" />
+                    </div>
+                    <div className="p-3 border rounded-md bg-muted/50 space-y-2">
+                    <h3 className="font-semibold text-base flex items-center gap-2"><User /> Destinatário</h3>
+                    <DataRow label="Nome" value={analysisResult.recipientName} />
+                    <DataRow label="Endereço" value={analysisResult.streetAddress} />
+                    <DataRow label="Cidade/UF" value={`${analysisResult.city} - ${analysisResult.state}`} />
+                    <DataRow label="CEP" value={analysisResult.zipCode} />
+                    </div>
+                    <div className="p-3 border rounded-md bg-muted/50 space-y-2">
+                    <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
+                    <DataRow label="Nome" value={analysisResult.senderName} field="senderName" />
+                    <DataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress"/>
+                    </div>
+                </CardContent>
             </Card>
           )}
         </div>

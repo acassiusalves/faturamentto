@@ -2,41 +2,42 @@
 'use server';
 
 /**
- * @fileOverview An AI agent that modifies ZPL shipping label data.
+ * Fluxo: modifica ZPL de forma ANCORADA (só troca ^FD que casa com o valor original).
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { RemixZplDataInput, RemixZplDataOutput } from '@/app/actions';
 
-// Schemas are defined in the action file.
-const RemixZplDataInputSchema = z.object({
-  originalZpl: z.string().describe("The original, complete ZPL code of the shipping label."),
-  remixedData: z.object({
-    recipientName: z.string(),
-    streetAddress: z.string(),
-    city: z.string(),
-    state: z.string(),
-    zipCode: z.string(),
-    orderNumber: z.string(),
-    invoiceNumber: z.string(),
-    trackingNumber: z.string(),
-    senderName: z.string(),
-    senderAddress: z.string(),
-    // Novo campo como OPCIONAL
-    estimatedDeliveryDate: z.string().optional().default(''),
-  }).describe("The new, modified data that should be placed on the label."),
+const PersonAddrSchema = z.object({
+  recipientName: z.string().optional().default(''),
+  streetAddress: z.string().optional().default(''),
+  city: z.string().optional().default(''),
+  state: z.string().optional().default(''),
+  zipCode: z.string().optional().default(''),
+  orderNumber: z.string().optional().default(''),
+  invoiceNumber: z.string().optional().default(''),
+  trackingNumber: z.string().optional().default(''),
+  senderName: z.string().optional().default(''),
+  senderAddress: z.string().optional().default(''),
+  estimatedDeliveryDate: z.string().optional().default(''),
 });
 
-
-const RemixZplDataOutputSchema = z.object({
-  modifiedZpl: z.string().describe("The new, complete ZPL code with the modified data, with the original QR code data preserved."),
+export const RemixZplDataInputSchema = z.object({
+  originalZpl: z.string().describe('Original ZPL code of the label.'),
+  /** valores que já estavam no ZPL (baseline) — usados como âncora para localizar blocos ^FD corretos */
+  baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
+  /** valores novos/remixados para aplicar */
+  remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
 });
 
+export const RemixZplDataOutputSchema = z.object({
+  modifiedZpl: z.string().describe('Final ZPL with modifications applied.'),
+});
 
-export async function remixZplData(
-  input: RemixZplDataInput
-): Promise<RemixZplDataOutput> {
+export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
+export type RemixZplDataOutput = z.infer<typeof RemixZplDataOutputSchema>;
+
+export async function remixZplData(input: RemixZplDataInput): Promise<RemixZplDataOutput> {
   return remixZplDataFlow(input);
 }
 
@@ -44,28 +45,36 @@ const prompt = ai.definePrompt({
   name: 'remixZplDataPrompt',
   input: { schema: RemixZplDataInputSchema },
   output: { schema: RemixZplDataOutputSchema },
-  prompt: `You are an expert in ZPL (Zebra Programming Language). Your task is to modify an existing ZPL shipping label with new data.
+  prompt: `
+You are a ZPL expert. Modify the label in a strictly anchored way.
 
-  **IMPORTANT RULES:**
-  1.  You MUST identify and preserve the original QR code command block (\`^BQ,...\`) and its associated data (\`^FD...\`) completely untouched. The QR code data is critical and cannot be changed.
-  2.  For all other text fields (like recipient, sender, order number, invoice number, etc.), you must find their corresponding \`^FD\` commands and replace the text content with the new data provided in \`remixedData\`.
-  3.  **If a field in \`remixedData\` is an empty string, you must remove the corresponding \`^FD\` command AND its associated positioning command (\`^FO...\`) and font command (\`^A0N,...\` or similar) from the ZPL entirely.** A field is typically represented by a block of commands like \`^FOx,y^A0N,h,w^FDtext^FS\`. The entire block for that field must be removed.
-  4.  All other ZPL commands for lines (\`^GB\`), etc., must be kept exactly as they are in the original ZPL.
-  5.  The output must be a single, complete, and valid ZPL string.
-  6.  If 'estimatedDeliveryDate' is an empty string, do nothing for this field. If it has a value but the original ZPL doesn't contain this field, insert a new text block at the bottom left: ^FO40,730^A0N,24,24^FDEntrega prev.: {estimatedDeliveryDate}^FS
+RULES (very important):
+1) NEVER change the QR code block (^BQ...) or its ^FD payload.
+2) Only edit text blocks that you can confidently anchor by the current text value found in "baselineData".
+   - A typical text block is: ^FOx,y ^A... ^FD<content>^FS
+   - Replace ONLY the ^FD content that EXACTLY matches the baseline value for that field.
+   - Do NOT move, reorder or change ^FO coordinates or ^A fonts.
+3) If remixedData.<field> is "", remove the WHOLE block of that field (its ^FO + ^A + ^FD + ^FS). Removal is allowed only if you matched the baseline text to locate the correct block.
+4) If remixedData.<field> has a value but the baseline value is empty (i.e., that field didn't exist on the label),
+   insert a NEW block at a safe fixed position:
+   - For "estimatedDeliveryDate": place near bottom-left:
+     ^FO40,730^A0N,24,24^FDEntrega prev.: {remixedData.estimatedDeliveryDate}^FS
+   - For others that don't exist, DO NOT invent positions; leave them unchanged (skip).
+5) Keep ALL other ZPL commands exactly as-is (lines ^GB, etc.).
+6) Ensure ^CI28 is present right after ^XA (UTF-8). If not, add it.
+7) Output ONLY the final ZPL (no backticks, no extra commentary).
 
-  **Original ZPL Code:**
-  \`\`\`zpl
-  {{{originalZpl}}}
-  \`\`\`
+Original ZPL:
+{{{originalZpl}}}
 
-  **New Data to Insert (empty strings mean the field and its related commands should be removed):**
-  \`\`\`json
-  {{{json remixedData}}}
-  \`\`\`
+Anchors (baselineData):
+{{{json baselineData}}}
 
-  Now, generate the final \`modifiedZpl\` code.
-  `,
+New values (remixedData):
+{{{json remixedData}}}
+
+Now return the final "modifiedZpl".
+`.trim(),
 });
 
 const remixZplDataFlow = ai.defineFlow(
