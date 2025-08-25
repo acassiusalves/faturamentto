@@ -21,6 +21,7 @@ const AnalyzeLabelOutputSchema = z.object({
   zipCode: z.string().describe('The ZIP code (CEP) of the recipient.'),
   orderNumber: z.string().describe('The order number (Pedido).'),
   invoiceNumber: z.string().describe('The invoice number (Nota Fiscal).'),
+  estimatedDeliveryDate: z.string().describe('The estimated delivery date (Data estimada).'),
   trackingNumber: z.string().describe('The barcode number. In ZPL, this is often the data for the ^BC (Code 128) command.'),
   senderName: z.string().describe('The name of the sender (REMETENTE).'),
   senderAddress: z.string().describe('The full address of the sender.'),
@@ -48,7 +49,7 @@ const prompt = ai.definePrompt({
   output: { schema: AnalyzeLabelOutputSchema },
   prompt: `You are an expert in reading and extracting information from Brazilian shipping labels written in ZPL (Zebra Programming Language).
 
-  Analyze the provided ZPL content and extract the following information. Be precise and return only the requested data in the specified JSON format. The ^FD command in ZPL defines a data field. Look for keywords like "DESTINATÁRIO", "REMETENTE", "Pedido", "Nota Fiscal", "CEP", etc. near the ^FD commands to identify the correct information. The address is often split across multiple lines.
+  Analyze the provided ZPL content and extract the following information. Be precise and return only the requested data in the specified JSON format. The ^FD command in ZPL defines a data field. Look for keywords like "DESTINATÁRIO", "REMETENTE", "Pedido", "Nota Fiscal", "Data estimada", "CEP", etc. near the ^FD commands to identify the correct information. The address is often split across multiple lines.
   
   The main barcode number (tracking number) is often the data for the ^BC (Code 128) command. Extract it.
 

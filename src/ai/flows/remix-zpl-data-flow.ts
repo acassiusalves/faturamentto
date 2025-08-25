@@ -20,6 +20,7 @@ const RemixZplDataInputSchema = z.object({
     zipCode: z.string(),
     orderNumber: z.string(),
     invoiceNumber: z.string(),
+    estimatedDeliveryDate: z.string(),
     senderName: z.string(),
     senderAddress: z.string(),
     trackingNumber: z.string(),

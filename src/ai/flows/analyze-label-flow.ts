@@ -29,6 +29,7 @@ const AnalyzeLabelOutputSchema = z.object({
   zipCode: z.string().describe('The ZIP code (CEP) of the recipient.'),
   orderNumber: z.string().describe('The order number (Pedido).'),
   invoiceNumber: z.string().describe('The invoice number (Nota Fiscal).'),
+  estimatedDeliveryDate: z.string().describe('The estimated delivery date (Data estimada).'),
   trackingNumber: z.string().describe('The barcode number, usually located vertically next to the barcode.'),
   senderName: z.string().describe('The name of the sender (REMETENTE).'),
   senderAddress: z.string().describe('The full address of the sender.'),

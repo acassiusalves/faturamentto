@@ -475,6 +475,7 @@ export default function EtiquetasPage() {
                   <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
                   <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
                   <DataRow label="Nota Fiscal" value={analysisResult.invoiceNumber} field="invoiceNumber" />
+                  <DataRow label="Data Estimada" value={analysisResult.estimatedDeliveryDate} />
                   <DataRow label="Cód. Rastreio" value={analysisResult.trackingNumber} field="trackingNumber" />
                 </div>
                 <div className="p-3 border rounded-md bg-muted/50 space-y-2">
