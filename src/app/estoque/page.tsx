@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useAuth } from '@/context/auth-context';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { DetailedEntryHistory } from './conferencia/detailed-entry-history';
 
 
 const inventorySchema = z.object({
@@ -763,6 +764,7 @@ export default function EstoquePage() {
           </Card>
         </div>
       </div>
+      <DetailedEntryHistory />
     </div>
   );
 }
