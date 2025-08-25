@@ -70,6 +70,7 @@ export default function EtiquetasPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   
+  const lastAppliedZplRef = useRef<string | null>(null);
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
 
@@ -146,19 +147,22 @@ export default function EtiquetasPage() {
     if (fetchState.error) {
       toast({ variant: "destructive", title: "Erro ao buscar etiqueta", description: fetchState.error });
     }
-    if (fetchState.zplContent) {
-      setOriginalZpl(fetchState.zplContent);
-      setZplEditorContent(fetchState.zplContent);
-      
-      setBaselineAnalysis(null);
+  }, [fetchState.error, toast]);
 
-      startTransition(() => {
-        const fd = new FormData();
-        fd.append("zplContent", fetchState.zplContent!);
-        analyzeZplFormAction(fd);
-      });
-    }
-  }, [fetchState, toast, analyzeZplFormAction, startTransition]);
+  useEffect(() => {
+    const zpl = fetchState.zplContent;
+    if (!zpl) return;
+  
+    setOriginalZpl(zpl);
+    setZplEditorContent(zpl);
+    setBaselineAnalysis(null);
+  
+    startTransition(() => {
+      const fd = new FormData();
+      fd.append("zplContent", zpl);
+      analyzeZplFormAction(fd);
+    });
+  }, [fetchState.zplContent, analyzeZplFormAction, startTransition]);
 
   useEffect(() => {
     if (analyzeState.error) {
@@ -167,18 +171,18 @@ export default function EtiquetasPage() {
       setAnalysisResult(analyzeState.analysis);
       setBaselineAnalysis(prev => prev ?? analyzeState.analysis);
     }
-  }, [analyzeState, toast]);
+  }, [analyzeState.analysis, analyzeState.error, toast]);
 
   useEffect(() => {
     if (analyzeZplState.error) {
       toast({ variant: "destructive", title: "Erro ao analisar ZPL", description: analyzeZplState.error });
-    } else if (analyzeZplState.analysis) {
-      setAnalysisResult(analyzeZplState.analysis);
-      if (!baselineAnalysis) {
-        setBaselineAnalysis(analyzeZplState.analysis); 
-      }
+      return;
     }
-  }, [analyzeZplState, toast, baselineAnalysis]);
+    if (analyzeZplState.analysis) {
+      setAnalysisResult(analyzeZplState.analysis);
+      setBaselineAnalysis(prev => prev ?? analyzeZplState.analysis);
+    }
+  }, [analyzeZplState.error, analyzeZplState.analysis, toast]);
 
   useEffect(() => {
     if (remixState.error) {
@@ -187,28 +191,32 @@ export default function EtiquetasPage() {
       setAnalysisResult(remixState.analysis);
     }
     setRemixingField(null); // Stop loading indicator regardless of outcome
-  }, [remixState, toast]);
+  }, [remixState.analysis, remixState.error, toast]);
 
   useEffect(() => {
-    if (remixZplState.error) {
-      toast({ variant: 'destructive', title: 'Erro ao Gerar ZPL', description: remixZplState.error });
-    } else if (remixZplState.result?.modifiedZpl) {
-      const newZpl = sanitizeZpl(remixZplState.result.modifiedZpl);
-      setZplEditorContent(newZpl);
-      setOriginalZpl(newZpl);
-      generatePreviewImmediate(newZpl);
-      
-      if (analysisResult) setBaselineAnalysis(analysisResult);
-      
-      startTransition(() => {
-        const fd = new FormData();
-        fd.append('zplContent', newZpl);
-        analyzeZplFormAction(fd);
-      });
+    const raw = remixZplState.result?.modifiedZpl;
+    if (!raw) return;
 
-      toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-    }
-  }, [remixZplState, toast, generatePreviewImmediate, analyzeZplFormAction, analysisResult]);
+    const newZpl = sanitizeZpl(raw);
+
+    if (lastAppliedZplRef.current === newZpl) return;
+    lastAppliedZplRef.current = newZpl;
+
+    setZplEditorContent(newZpl);
+    setOriginalZpl(newZpl);
+    generatePreviewImmediate(newZpl);
+
+    if (analysisResult) setBaselineAnalysis(analysisResult);
+    
+    startTransition(() => {
+      const fd = new FormData();
+      fd.append('zplContent', newZpl);
+      analyzeZplFormAction(fd);
+    });
+
+    toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
+  }, [remixZplState.result?.modifiedZpl, generatePreviewImmediate, toast, analysisResult, analyzeZplFormAction]);
+
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -524,3 +532,4 @@ export default function EtiquetasPage() {
     </div>
   );
 }
+
