@@ -246,27 +246,39 @@ const looksLikeDateValue = (v: any): boolean => {
 
 // normaliza qualquer valor de data para ISO
 const coerceAnyDateToISO = (raw: any): string | null => {
-  if (raw instanceof Date) {
-    // já veio como Date -> gera ISO em UTC
-    return new Date(Date.UTC(
-      raw.getFullYear(), raw.getMonth(), raw.getDate(),
-      raw.getHours(), raw.getMinutes(), raw.getSeconds()
-    )).toISOString();
-  }
-  if (typeof raw === 'number') return excelSerialToISO(raw);
-  if (typeof raw === 'string') {
-    const s = raw.trim();
-    // 1) dd/mm/yyyy
-    const isoBR = parseBRDateToISO(s);
-    if (isoBR) return isoBR;
-    // 2) serial embutido (ex.: "31/12/45808" ou "45808" puro)
-    const serial = extractExcelSerial(s);
-    if (serial != null) return excelSerialToISO(serial);
-    // 3) já é ISO
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s;
-  }
-  return null;
+    // Se o valor já é um objeto Date (vindo do XLSX com cellDates: true)
+    if (raw instanceof Date) {
+        // CORREÇÃO: Usar os métodos UTC para ignorar o fuso horário local
+        return new Date(Date.UTC(
+            raw.getUTCFullYear(), 
+            raw.getUTCMonth(), 
+            raw.getUTCDate(),
+            raw.getUTCHours(), 
+            raw.getUTCMinutes(), 
+            raw.getUTCSeconds()
+        )).toISOString();
+    }
+
+    // O restante da função continua igual, pois já lida bem com números e strings.
+    if (typeof raw === 'number') return excelSerialToISO(raw);
+    
+    if (typeof raw === 'string') {
+        const s = raw.trim();
+        // 1) dd/mm/yyyy
+        const isoBR = parseBRDateToISO(s);
+        if (isoBR) return isoBR;
+        
+        // 2) serial embutido (ex.: "31/12/45808" ou "45808" puro)
+        const serial = extractExcelSerial(s);
+        if (serial != null) return excelSerialToISO(serial);
+        
+        // 3) já é ISO
+        if (/^\\d{4}-\\d{2}-\\d{2}T/.test(s)) return s;
+    }
+    
+    return null;
 };
+
 
 // ISO -> "dd/mm/yyyy" em UTC (evita variação de fuso)
 const isoToBRDate = (iso: string) =>
@@ -364,7 +376,7 @@ const parseBrNumber = (raw: unknown): number | null => {
   if (typeof raw !== 'string') return null;
 
   // Remove qualquer coisa que não seja dígito, ponto, vírgula ou sinal negativo
-  const s0 = raw.trim().replace(/[^\d.,-]/g, '');
+  const s0 = raw.trim().replace(/[^\\d.,-]/g, '');
   if (!s0) return null;
 
   // Se tiver vírgula, assume decimal pt-BR (milhar '.')
