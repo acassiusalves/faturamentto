@@ -101,7 +101,7 @@ export function DetailedEntryHistory() {
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Arquivo de Entradas no Estoque</CardTitle>
+                 <CardTitle>Historico de Entradas Estoque</CardTitle>
                  <CardDescription>Visualize o registo de todos os itens que foram adicionados ao inventário.</CardDescription>
             </div>
             <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
