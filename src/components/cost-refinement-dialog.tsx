@@ -15,9 +15,10 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, FilterX } from 'lucide-react';
+import { Loader2, Save, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
 
 interface CostRefinementDialogProps {
   isOpen: boolean;
@@ -30,11 +31,15 @@ interface CostRefinementDialogProps {
 export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave }: CostRefinementDialogProps) {
   const [costs, setCosts] = useState<Map<string, number>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
 
   useEffect(() => {
     // Reset costs when the dialog is opened or the sales list changes
     if (isOpen) {
       setCosts(new Map());
+      setPageIndex(0); // Reset to first page when dialog opens
     }
   }, [isOpen, sales]);
 
@@ -50,6 +55,12 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     }
     return map;
   }, [products]);
+  
+  const pageCount = Math.ceil(sales.length / pageSize);
+  const paginatedSales = useMemo(() => {
+    const startIndex = pageIndex * pageSize;
+    return sales.slice(startIndex, startIndex + pageSize);
+  }, [sales, pageIndex, pageSize]);
 
 
   const handleCostChange = (saleId: string, cost: string) => {
@@ -105,7 +116,7 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sales.map(sale => {
+                            {paginatedSales.map(sale => {
                                 const friendlyName = productSkuMap.get((sale as any).item_sku) || (sale as any).item_title;
                                 return (
                                 <TableRow key={sale.id}>
@@ -133,12 +144,46 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
                 </div>
             )}
         </div>
-        <DialogFooter className="pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSaveCosts} disabled={costs.size === 0 || isSaving}>
-            {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
-            Salvar Custos ({costs.size})
-          </Button>
+        <DialogFooter className="pt-4 border-t flex-wrap-reverse sm:flex-wrap">
+            <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 flex-1 justify-center sm:justify-start">
+                 <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Itens/página</p>
+                    <Select
+                        value={`${pageSize}`}
+                        onValueChange={(value) => {
+                            setPageSize(Number(value));
+                            setPageIndex(0);
+                        }}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize.toString()} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[10, 20, 50, 100].map((size) => (
+                                <SelectItem key={size} value={`${size}`}>
+                                    {size}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm font-medium">
+                    Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button onClick={handleSaveCosts} disabled={costs.size === 0 || isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                Salvar Custos ({costs.size})
+              </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
