@@ -30,15 +30,11 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         3.  **Regra de Conectividade Padrão:**
             *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
             *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
-        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. A regra de formatação é:
-            *   Primeiro, remova qualquer caractere que não seja um dígito, um ponto ou uma vírgula.
-            *   Se a string resultante contiver uma vírgula (','), remova todos os pontos ('.') e troque a vírgula por um ponto.
-            *   Se a string resultante NÃO contiver uma vírgula (','), apenas remova os pontos.
-            *   O resultado deve ser uma string numérica com ponto como separador decimal. Exemplos: "R$ 1.234,56" se torna "1234.56". "R$ 1.130" se torna "1130". "R$ 545.00" se torna "545.00".
+        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Mantenha o formato original do número (com pontos e vírgulas). O resultado para costPrice deve ser uma string. Exemplos: "R$ 1.234,56" se torna "1.234,56". "R$ 1.130" se torna "1.130". "R$ 545.00" se torna "545.00".
         5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
             *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
-            *   \`costPrice\`: O preço de custo extraído e formatado como string numérica.
+            *   \`costPrice\`: O preço de custo extraído como uma string, mantendo o formato original.
 
         **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
         1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
@@ -49,11 +45,11 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         \'\'\'json
         {
           "details": [
-            { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
-            { "sku": "#RMGTN256P", "name": "Realme GT Neo 256GB 12GB RAM 5G - Preto", "costPrice": "2800.00" },
+            { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3.100,00" },
+            { "sku": "#RMGTN256P", "name": "Realme GT Neo 256GB 12GB RAM 5G - Preto", "costPrice": "2.800" },
             { "sku": "#MTG2264A", "name": "Motorola Moto G22 64GB 4GB RAM 4G - Azul", "costPrice": "980.00" },
             { "sku": "#SMA53128V", "name": "Samsung Galaxy A53 128GB 8GB RAM 5G - Verde", "costPrice": "1500.00" },
-            { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
+            { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630,00" }
           ]
         }
         \'\'\'

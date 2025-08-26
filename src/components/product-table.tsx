@@ -100,7 +100,9 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   
   const formatCurrencyForTable = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    const numericValue = parseFloat(String(value).replace(".", "").replace(",", "."));
+    // Remove all non-digit characters except for comma
+    let numericString = String(value).replace(/[^\d,]/g, '').replace(',', '.');
+    const numericValue = parseFloat(numericString);
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
@@ -109,7 +111,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
     const dataToExport = filteredAndSortedProducts.map(p => ({
       'SKU': p.sku,
       'Nome do Produto': p.name,
-      'Preço de Custo': p.costPrice ? parseFloat(String(p.costPrice).replace(',', '.')) : 0
+      'Preço de Custo': p.costPrice ? parseFloat(String(p.costPrice).replace(/[^\d,]/g, '').replace(',', '.')) : 0
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
