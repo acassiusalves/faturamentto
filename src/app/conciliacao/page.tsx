@@ -740,6 +740,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             if(sale && cost > 0) {
                 const newLog: PickedItemLog = {
                     id: `manual-${sale.id}`,
+                    orderNumber: (sale as any).order_code,
                     logId: `log-manual-${sale.id}-${now.getTime()}`,
                     productId: product?.id || `manual-${(sale as any).item_sku}`,
                     name: (sale as any).item_title,
@@ -757,7 +758,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         
         if(logsToSave.length > 0) {
             await savePickLog(logsToSave);
-            // After saving, reload all data to reflect the changes immediately.
             await fetchAllData();
             toast({
                 title: "Custos Salvos!",
