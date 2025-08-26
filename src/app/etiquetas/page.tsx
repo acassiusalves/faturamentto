@@ -73,6 +73,26 @@ export default function EtiquetasPage() {
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
 
+  const handlePrint = () => {
+    if (!previewUrl) return;
+
+    const printWindow = window.open('', '_blank', 'height=600,width=400');
+    if (printWindow) {
+      printWindow.document.write('<html><head><title>Imprimir Etiqueta</title>');
+      printWindow.document.write('<style>@page { size: 4in 6in; margin: 0; } body { margin: 0; } img { width: 100%; height: auto; }</style>');
+      printWindow.document.write('</head><body onload="window.print();window.close()">');
+      printWindow.document.write(`<img src="${previewUrl}" />`);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de Impressão',
+        description: 'Não foi possível abrir a janela de impressão. Verifique se o seu navegador está a bloquear pop-ups.'
+      });
+    }
+  };
+
 
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
     if (!zpl.trim()) { setPreviewUrl(null); return; }
@@ -428,7 +448,13 @@ export default function EtiquetasPage() {
            {previewUrl && !isPreviewLoading && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Eye /> Pré-visualização da Etiqueta</CardTitle>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center gap-2"><Eye /> Pré-visualização da Etiqueta</CardTitle>
+                    <Button onClick={handlePrint} variant="outline">
+                        <Printer className="mr-2 h-4 w-4"/>
+                        Imprimir
+                    </Button>
+                </div>
                 <CardDescription>Representação visual do ZPL editado.</CardDescription>
               </CardHeader>
               <CardContent className="p-2 flex items-center justify-center">
