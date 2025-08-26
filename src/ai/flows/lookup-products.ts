@@ -34,13 +34,14 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
             *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
             *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
         4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. A regra de formatação é:
-            *   Primeiro, remova qualquer caractere que não seja um dígito ou uma vírgula (ignore os pontos).
-            *   Depois, troque a vírgula por um ponto.
-            *   Exemplos: "R$ 440.00" se torna "440.00". "R$ 1.130" se torna "1130". "R$ 1.234,56" se torna "1234.56".
+            *   Primeiro, remova qualquer caractere que não seja um dígito, um ponto ou uma vírgula.
+            *   Se a string resultante contiver uma vírgula (','), remova todos os pontos ('.') e troque a vírgula por um ponto.
+            *   Se a string resultante NÃO contiver uma vírgula (','), apenas remova os pontos.
+            *   O resultado deve ser uma string numérica com ponto como separador decimal. Exemplos: "R$ 1.234,56" se torna "1234.56". "R$ 1.130" se torna "1130". "R$ 545.00" se torna "545.00".
         5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
             *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
-            *   \`costPrice\`: O preço de custo extraído e formatado como número.
+            *   \`costPrice\`: O preço de custo extraído e formatado como string numérica.
 
         **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
         1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
@@ -61,48 +62,4 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         \'\'\'
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
-        `;
-
-const LookupProductsInputSchema = z.object({
-  productList: z.string().describe('The standardized list of products (Brand Model Storage RAM etc.) with their costs.'),
-  databaseList: z
-    .string()
-    .describe(
-      'The list of available products in the database, formatted as "Product Name\\tSKU" per line.'
-    ),
-  apiKey: z.string().optional(),
-  modelName: z.string().optional(),
-  prompt_override: z.string().optional(),
-});
-export type LookupProductsInput = z.infer<typeof LookupProductsInputSchema>;
-
-
-const LookupResultSchema = z.object({
-  details: z
-    .array(
-      z.object({
-        sku: z.string().describe('The corresponding SKU from the database, or "SEM CÓDIGO" if not found.'),
-        name: z.string().describe('The full name of the product from the database, or the original name if not found.'),
-        costPrice: z.string().describe('The cost price of the product, extracted from the initial list.'),
-      })
-    )
-    .describe(
-      'A structured array of the final product details after matching with the database.'
-    ),
-});
-
-export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
-    const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
-
-    const prompt = ai.definePrompt({
-        name: 'lookupProductsPrompt',
-        model: selectedModel,
-        input: {schema: LookupProductsInputSchema},
-        output: {schema: LookupResultSchema},
-        prompt: input.prompt_override || DEFAULT_LOOKUP_PROMPT,
-    });
-
-    const {output} = await prompt(input);
-    return output!;
-}
+        `
