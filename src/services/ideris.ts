@@ -4,31 +4,51 @@ import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
 import { subDays } from 'date-fns';
 
+
+// === UTIL: parse número em formatos "1.234,56" / "1234,56" / number ===
+function toNumberSmart(v: any): number {
+  if (typeof v === 'number') return v;
+  if (typeof v !== 'string') return 0;
+  return Number(v.replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+
 let inMemoryToken: { token: string; expires: number } | null = null;
 const TOKEN_LIFETIME = 3500 * 1000;
 
 async function generateAccessToken(privateKey: string): Promise<string> {
-    const loginUrl = 'https://apiv3.ideris.com.br/login';
-    if (!privateKey) {
-      throw new Error("A Chave Privada da Ideris (login_token) é obrigatória.");
-    }
-    const body = JSON.stringify(privateKey);
-    const headers = { 'Content-Type': 'application/json' };
-    const response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store' });
-    const responseText = await response.text();
+  const loginUrl = 'https://apiv3.ideris.com.br/login';
+  if (!privateKey) throw new Error("A Chave Privada da Ideris (login_token) é obrigatória.");
+
+  // tenta primeiro como string pura
+  let body = JSON.stringify(privateKey);
+  let headers = { 'Content-Type': 'application/json' };
+
+  let response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store' });
+  let text = await response.text();
+
+  if (!response.ok) {
+    // tenta como objeto { login_token: ... }
+    body = JSON.stringify({ login_token: privateKey });
+    response = await fetch(loginUrl, { method: 'POST', headers, body, cache: 'no-store' });
+    text = await response.text();
+
     if (!response.ok) {
-        console.error('Ideris auth error response:', responseText);
-        let specificError = responseText;
-        try {
-            const errorData = JSON.parse(responseText);
-            specificError = errorData?.message || errorData?.errors?.[0] || responseText;
-        } catch (e) {}
-        throw new Error(`Falha na autenticação: ${specificError}`);
+      console.error('Ideris auth error response:', text);
+      try {
+        const err = JSON.parse(text);
+        throw new Error(`Falha na autenticação: ${err?.message || err?.errors?.[0] || text}`);
+      } catch {
+        throw new Error(`Falha na autenticação: ${text}`);
+      }
     }
-    const token = responseText.replace(/"/g, '');
-    inMemoryToken = { token, expires: Date.now() + TOKEN_LIFETIME };
-    return token;
+  }
+
+  const token = text.replace(/"/g, '');
+  inMemoryToken = { token, expires: Date.now() + TOKEN_LIFETIME };
+  return token;
 }
+
 
 async function getValidAccessToken(privateKey: string): Promise<string> {
     if (inMemoryToken && inMemoryToken.expires > Date.now()) {
@@ -74,7 +94,7 @@ export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
                  const parsedDate = new Date(value as string);
                  cleanedSale[key] = !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
             } else if (typeof value === 'string' && (keyLower.includes('value') || keyLower.includes('amount') || keyLower.includes('fee') || keyLower.includes('cost') || keyLower.includes('discount') || keyLower.includes('leftover') || keyLower.includes('profit'))) {
-                cleanedSale[key] = parseFloat(value.replace(',', '.')) || 0;
+                cleanedSale[key] = toNumberSmart(value);
             }
         }
     }
@@ -147,133 +167,138 @@ async function fetchWithToken<T>(
 
 type ProgressCallback = (current: number, total: number) => void;
 
-async function fetchOrderDetailsByIds(orderIds: string[], token: string, onProgress?: ProgressCallback): Promise<Sale[]> {
-    const sales: Sale[] = [];
-    if (onProgress) {
-        onProgress(0, orderIds.length);
+async function fetchOrderDetailsByIds(
+  orderIds: string[],
+  privateKey: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<Sale[]> {
+  const sales: Sale[] = [];
+  if (onProgress) onProgress(0, orderIds.length);
+
+  for (let i = 0; i < orderIds.length; i++) {
+    const orderId = orderIds[i];
+    if (!orderId) continue;
+    try {
+      const detailsResult = await fetchOrderById(privateKey, orderId); // << privateKey!
+      if (detailsResult?.obj) {
+        sales.push(mapIderisOrderToSale(detailsResult.obj, i));
+      }
+    } catch (e) {
+      console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
     }
-    const total = orderIds.length;
-    for (let i = 0; i < total; i++) {
-        const orderId = orderIds[i];
-        if (orderId) {
-            try {
-                const detailsResult = await fetchOrderById(token, orderId);
-                if (detailsResult && detailsResult.obj) {
-                    sales.push(mapIderisOrderToSale(detailsResult.obj, i));
-                }
-            } catch (e) {
-                console.warn(`Falha ao buscar detalhes do pedido ${orderId}:`, e);
-            }
-        }
-        if (onProgress) {
-            const currentCount = i + 1;
-            onProgress(currentCount, total);
-        }
-    }
-    return sales;
+    if (onProgress) onProgress(i + 1, orderIds.length);
+    // (Opcional): aguardar 100ms pra respeitar rate limit
+    // await new Promise(r => setTimeout(r, 100));
+  }
+  return sales;
 }
+
 
 export async function fetchOpenOrdersFromIderis(privateKey: string): Promise<any[]> {
-    const token = await getValidAccessToken(privateKey);
-    const startDate = formatDateForApi(subDays(new Date(), 5));
-    const endDate = formatDateForApi(new Date());
+  const startDate = formatDateForApi(subDays(new Date(), 5));
+  const endDate   = formatDateForApi(new Date());
 
-    let allSummaries: any[] = [];
-    let currentOffset = 0;
-    const limitPerPage = 50;
-    let hasMorePages = true;
-    let currentPage = 0;
-    const maxPages = 100; // Safety break for infinite loops
+  let allSummaries: any[] = [];
+  let currentOffset = 0;
+  const limitPerPage = 50;
+  let hasMorePages = true;
+  let currentPage = 0;
+  const maxPages = 100;
 
-    while (hasMorePages && currentPage < maxPages) {
-        const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-        try {
-            const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
-            let pageResults: any[] = [];
+  while (hasMorePages && currentPage < maxPages) {
+    let token = await getValidAccessToken(privateKey);
+    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${startDate}&endDate=${endDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
 
-            if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
-                pageResults = searchResult.result.obj;
-            } else if (searchResult?.obj && Array.isArray(searchResult.obj)) {
-                pageResults = searchResult.obj;
-            }
-            
-            if (pageResults.length > 0) {
-                allSummaries = allSummaries.concat(pageResults);
-                currentOffset += pageResults.length;
-            } else {
-                hasMorePages = false;
-            }
-        } catch (error) {
-            console.error(`Falha ao buscar página ${currentPage + 1} de pedidos da Ideris:`, error);
-            hasMorePages = false; // Stop fetching on error
-        }
-        currentPage++;
+    let resp = await fetchWithToken<{ obj?: any[]; result?: { obj?: any[] } }>(searchUrl, token);
+
+    if (!resp.ok && resp.statusText.includes('Token de acesso expirado')) {
+      inMemoryToken = null;
+      token = await getValidAccessToken(privateKey);
+      resp = await fetchWithToken<{ obj?: any[]; result?: { obj?: any[] } }>(searchUrl, token);
+    }
+    if (!resp.ok) {
+      console.error(`Falha ao buscar página ${currentPage + 1}:`, resp.errorBody);
+      break;
     }
 
-    if (currentPage >= maxPages) {
-        console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
-    }
+    const payload = resp.data || {};
+    const pageResults: any[] = payload?.result?.obj ?? payload?.obj ?? [];
 
-    return allSummaries;
+    if (pageResults.length > 0) {
+      allSummaries = allSummaries.concat(pageResults);
+      currentOffset += pageResults.length;
+    } else {
+      hasMorePages = false;
+    }
+    currentPage++;
+  }
+
+  if (currentPage >= maxPages) {
+    console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+  }
+  return allSummaries;
 }
 
 
-async function performFetchWithRetry(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
-    if (!dateRange.from || !dateRange.to) throw new Error("O período de datas é obrigatório para a busca.");
-    const token = await getValidAccessToken(privateKey);
-    const initialDate = formatDateForApi(dateRange.from);
-    const finalDate = formatDateForApi(dateRange.to);
-    let allSummaries: any[] = [];
-    let currentOffset = 0;
-    const limitPerPage = 50;
-    let hasMorePages = true;
-    let currentPage = 0;
-    const maxPages = 100; // Prevenção de loop infinito
+async function performFetchWithRetry(
+  privateKey: string,
+  dateRange: DateRange,
+  existingSaleIds: string[],
+  onProgress?: (current: number, total: number) => void
+): Promise<Sale[]> {
+  if (!dateRange.from || !dateRange.to) throw new Error("O período de datas é obrigatório para a busca.");
 
-    while (hasMorePages && currentPage < maxPages) {
-        const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
-        const searchResult = await fetchWithToken<{ obj?: any[], result?: { obj?: any[] } }>(searchUrl, token);
+  const initialDate = formatDateForApi(dateRange.from);
+  const finalDate   = formatDateForApi(dateRange.to);
 
-        let pageResults: any[] = [];
+  let allSummaries: any[] = [];
+  let currentOffset = 0;
+  const limitPerPage = 50;
+  let hasMorePages = true;
+  let currentPage = 0;
+  const maxPages = 100;
 
-        // --- INÍCIO DA CORREÇÃO ---
-        // Lógica robusta para encontrar os resultados da página atual
-        if (searchResult?.result?.obj && Array.isArray(searchResult.result.obj)) {
-            pageResults = searchResult.result.obj;
-        } else if (searchResult?.obj && Array.isArray(searchResult.obj)) {
-            pageResults = searchResult.obj;
-        }
-        // --- FIM DA CORREÇÃO ---
+  while (hasMorePages && currentPage < maxPages) {
+    let token = await getValidAccessToken(privateKey);
+    const searchUrl = `https://apiv3.ideris.com.br/order/search?startDate=${initialDate}&endDate=${finalDate}&sort=desc&limit=${limitPerPage}&offset=${currentOffset}`;
 
-        if (pageResults.length > 0) {
-            allSummaries = allSummaries.concat(pageResults);
-            currentOffset += pageResults.length;
-        } else {
-            hasMorePages = false;
-        }
-        currentPage++;
+    let resp = await fetchWithToken<{ obj?: any[]; result?: { obj?: any[] } }>(searchUrl, token);
+
+    // tenta renovar token se 401
+    if (!resp.ok && resp.statusText.includes('Token de acesso expirado')) {
+      inMemoryToken = null;
+      token = await getValidAccessToken(privateKey);
+      resp = await fetchWithToken<{ obj?: any[]; result?: { obj?: any[] } }>(searchUrl, token);
     }
+    if (!resp.ok) throw new Error(resp.statusText);
 
-    if (currentPage >= maxPages) {
-        console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+    const payload = resp.data || {};
+    const pageResults: any[] = payload?.result?.obj ?? payload?.obj ?? [];
+
+    if (pageResults.length > 0) {
+      allSummaries = allSummaries.concat(pageResults);
+      currentOffset += pageResults.length;
+    } else {
+      hasMorePages = false;
     }
-    
-    console.log('[Dashboard Fetch] Total de pedidos encontrados na Ideris:', allSummaries.length);
-    console.log('[Dashboard Fetch] IDs já existentes no seu DB:', existingSaleIds.length);
+    currentPage++;
+  }
 
-    const newSummaries = allSummaries.filter(summary => !existingSaleIds.includes(`ideris-${summary.id}`));
-    
-    console.log('[Dashboard Fetch] Novos pedidos a serem importados:', newSummaries.length);
+  if (currentPage >= maxPages) {
+    console.warn("Atingido o limite máximo de páginas na busca da Ideris. A lista pode estar incompleta.");
+  }
 
-    const newOrderIds = newSummaries.map(s => String(s.id)); // Garante que IDs sejam strings
-    if (newOrderIds.length === 0) {
-        if (onProgress) onProgress(0, 0);
-        return [];
-    }
+  const newSummaries = allSummaries.filter(s => !existingSaleIds.includes(`ideris-${s.id}`));
+  const newOrderIds = newSummaries.map(s => String(s.id));
+  if (newOrderIds.length === 0) {
+    if (onProgress) onProgress(0, 0);
+    return [];
+  }
 
-    const tokenForDetails = await getValidAccessToken(privateKey);
-    return await fetchOrderDetailsByIds(newOrderIds, tokenForDetails, onProgress);
+  // >>> passa privateKey (não token)!
+  return await fetchOrderDetailsByIds(newOrderIds, privateKey, onProgress);
 }
+
 
 export async function fetchOrdersFromIderis(privateKey: string, dateRange: DateRange, existingSaleIds: string[], onProgress?: ProgressCallback): Promise<Sale[]> {
   try {
