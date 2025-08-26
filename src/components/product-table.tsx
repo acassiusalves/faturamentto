@@ -100,19 +100,29 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
   
   const formatCurrencyForTable = (value: string | undefined): string => {
     if (value === undefined || value === null) return 'R$ 0,00';
-    // Remove all non-digit characters except for comma
-    let numericString = String(value).replace(/[^\d,]/g, '').replace(',', '.');
+    let numericString = String(value).replace(/[^\d,.]/g, '');
+    if (numericString.includes(',')) {
+        numericString = numericString.replace(/\./g, '').replace(',', '.');
+    }
     const numericValue = parseFloat(numericString);
     if (isNaN(numericValue)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
   };
   
   const handleExportXLSX = () => {
-    const dataToExport = filteredAndSortedProducts.map(p => ({
-      'SKU': p.sku,
-      'Nome do Produto': p.name,
-      'Preço de Custo': p.costPrice ? parseFloat(String(p.costPrice).replace(/[^\d,]/g, '').replace(',', '.')) : 0
-    }));
+    const dataToExport = filteredAndSortedProducts.map(p => {
+        let numericString = String(p.costPrice || '0').replace(/[^\d,.]/g, '');
+        if (numericString.includes(',')) {
+            numericString = numericString.replace(/\./g, '').replace(',', '.');
+        }
+        const numericValue = parseFloat(numericString);
+
+        return {
+            'SKU': p.sku,
+            'Nome do Produto': p.name,
+            'Preço de Custo': isNaN(numericValue) ? 0 : numericValue
+        }
+    });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
 
