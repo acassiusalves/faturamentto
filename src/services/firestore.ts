@@ -1,5 +1,4 @@
 
-
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -516,37 +515,35 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const identifier = orderIdentifier.trim();
 
-    // 1. Try to find an exact match on order_code first
-    const qExactCode = query(salesCol, where('order_code', '==', identifier), limit(1));
-    const snapshotExactCode = await getDocs(qExactCode);
-    if (!snapshotExactCode.empty) {
-        const docData = snapshotExactCode.docs[0];
-        return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
-    }
+    // Stage 1: Attempt exact match on order_code or order_id
+    const isNumeric = !isNaN(Number(identifier));
     
-    // 2. If it's a pure number, also try an exact match on order_id
-    if (!isNaN(Number(identifier))) {
-        const qExactId = query(salesCol, where('order_id', '==', identifier), limit(1));
-        const snapshotExactId = await getDocs(qExactId);
-        if (!snapshotExactId.empty) {
-            const docData = snapshotExactId.docs[0];
-            return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
-        }
+    // Query for exact order_code match
+    const qCode = query(salesCol, where('order_code', '==', identifier), limit(1));
+    const codeSnapshot = await getDocs(qCode);
+    if (!codeSnapshot.empty) {
+        return fromFirestore({ ...codeSnapshot.docs[0].data(), id: codeSnapshot.docs[0].id }) as Sale;
     }
 
-    // 3. If no exact match, try a "contains" search by loading all data.
-    // This is less efficient but necessary for partial matches.
-    const allSales = await loadSales();
+    // If it's a number, also query for exact order_id match
+    if (isNumeric) {
+        const numericId = Number(identifier);
+        const qId = query(salesCol, where('order_id', '==', numericId), limit(1));
+        const idSnapshot = await getDocs(qId);
+        if (!idSnapshot.empty) {
+            return fromFirestore({ ...idSnapshot.docs[0].data(), id: idSnapshot.docs[0].id }) as Sale;
+        }
+    }
+    
+    // Stage 2: Fallback to "contains" search if no exact match was found
+    // This part is less efficient and should be a last resort.
+    const allSales = await loadSales(); // This loads all sales, which can be slow
     const foundSale = allSales.find(sale => 
         (sale as any).order_code?.includes(identifier) ||
         String((sale as any).order_id)?.includes(identifier)
     );
-
-    if (foundSale) {
-        return foundSale;
-    }
     
-    return null;
+    return foundSale || null;
 };
 
 
