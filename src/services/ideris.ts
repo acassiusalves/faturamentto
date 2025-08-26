@@ -1,5 +1,4 @@
 
-
 import type { Sale } from '@/lib/types';
 import type { DateRange } from 'react-day-picker';
 import { iderisFields } from '@/lib/ideris-fields';
