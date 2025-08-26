@@ -514,25 +514,34 @@ export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_c
 
 export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sale | null> => {
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+    const identifier = orderIdentifier.trim();
+
+    // 1. Try to find an exact match on order_id or order_code first
+    const qExactId = query(salesCol, where('order_id', '==', identifier), limit(1));
+    const snapshotExactId = await getDocs(qExactId);
+    if (!snapshotExactId.empty) {
+        const docData = snapshotExactId.docs[0];
+        return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
+    }
     
-    // Check if the identifier is purely numeric, suggesting it's an order_id
-    if (/^\\d+$/.test(orderIdentifier)) {
-        const q = query(salesCol, where('order_id', '==', orderIdentifier), limit(1));
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            const docData = snapshot.docs[0];
-            return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
-        }
+    const qExactCode = query(salesCol, where('order_code', '==', identifier), limit(1));
+    const snapshotExactCode = await getDocs(qExactCode);
+    if (!snapshotExactCode.empty) {
+        const docData = snapshotExactCode.docs[0];
+        return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
     }
 
-    // If not found by ID or if it's not numeric, search by order_code
-    const q = query(salesCol, where('order_code', '==', orderIdentifier), limit(1));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-        return null;
+    // 2. If no exact match, and if the identifier is numeric, try a contains query on order_code
+    if (/^\\d+$/.test(identifier)) {
+        const allSales = await loadSales(); // This is inefficient but necessary for "contains"
+        const foundSale = allSales.find(sale => (sale as any).order_code?.includes(identifier));
+        if (foundSale) {
+            return foundSale;
+        }
     }
-    const docData = snapshot.docs[0];
-    return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
+    
+    // 3. If still no match, return null
+    return null;
 };
 
 
