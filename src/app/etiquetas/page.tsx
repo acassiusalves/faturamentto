@@ -202,12 +202,12 @@ export default function EtiquetasPage() {
 
     const newZpl = sanitizeZpl(raw);
 
-    if (newZpl.trim() === originalZpl.trim() && newZpl.trim() === zplEditorContent.trim()) {
-      toast({
-        title: 'Sem alterações',
-        description: 'O ZPL não sofreu alteração após a tentativa de atualização.',
-      });
-      return;
+    if (newZpl.trim() === zplEditorContent.trim()) {
+        toast({
+            title: 'Sem alterações',
+            description: 'O ZPL não sofreu alteração após a tentativa de atualização.',
+        });
+        return;
     }
 
     if (lastAppliedZplRef.current === newZpl) return;
@@ -226,7 +226,7 @@ export default function EtiquetasPage() {
     });
 
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-  }, [remixZplState.result?.modifiedZpl, originalZpl, zplEditorContent, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
+  }, [remixZplState.result?.modifiedZpl, zplEditorContent, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -304,10 +304,12 @@ export default function EtiquetasPage() {
 
   const handleRemoveField = (field: RemixableField) => {
     if (!analysisResult) return;
-
+  
+    // Monta o novo estado primeiro
     const newAnalysis: AnalyzeLabelOutput = { ...analysisResult, [field]: '' } as AnalyzeLabelOutput;
     setAnalysisResult(newAnalysis);
-
+  
+    // Dispara a geração do novo ZPL imediatamente
     startTransition(() => {
       const form = new FormData();
       form.append('originalZpl', originalZpl);
@@ -315,7 +317,7 @@ export default function EtiquetasPage() {
       form.append('remixedData', JSON.stringify(newAnalysis));
       remixZplFormAction(form);
     });
-
+  
     toast({
       title: "Campo Removido",
       description: `O campo ${field} foi limpo e a prévia será atualizada.`,

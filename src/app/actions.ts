@@ -516,8 +516,7 @@ export async function remixZplDataAction(
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
   const remixedDataJSON  = formData.get('remixedData') as string;
-  // matchMode não é mais lido do form
-
+  
   if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
     return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
   }
@@ -540,16 +539,17 @@ export async function remixZplDataAction(
     // Tenta aplicar substituições ancoradas PRIMEIRO
     const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, remixed);
 
+    // Se houve mudança por âncora, usa o resultado
     if (changed) {
       return { result: { modifiedZpl: out }, error: null };
     }
 
-    // Se as âncoras não funcionarem (template desconhecido ou nenhuma alteração), usa LLM como fallback
+    // Se as âncoras não funcionarem, usa LLM como fallback
     const flowInput: RemixZplDataInput = {
         originalZpl,
         baselineData: JSON.parse(baselineDataJSON),
         remixedData: remixed,
-        matchMode: 'strict', // Ou simplesmente remova se o flow não precisar mais
+        matchMode: 'strict', // O modo flexível foi removido da UI, mas o flow ainda pode ter o param
         baselinePositions: anchors
     };
 
