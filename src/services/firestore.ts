@@ -516,20 +516,22 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const identifier = orderIdentifier.trim();
 
-    // 1. Try to find an exact match on order_id
-    const qExactId = query(salesCol, where('order_id', '==', identifier), limit(1));
-    const snapshotExactId = await getDocs(qExactId);
-    if (!snapshotExactId.empty) {
-        const docData = snapshotExactId.docs[0];
-        return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
-    }
-    
-    // 2. Try to find an exact match on order_code
+    // 1. Try to find an exact match on order_code first
     const qExactCode = query(salesCol, where('order_code', '==', identifier), limit(1));
     const snapshotExactCode = await getDocs(qExactCode);
     if (!snapshotExactCode.empty) {
         const docData = snapshotExactCode.docs[0];
         return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
+    }
+    
+    // 2. If it's a pure number, also try an exact match on order_id
+    if (!isNaN(Number(identifier))) {
+        const qExactId = query(salesCol, where('order_id', '==', identifier), limit(1));
+        const snapshotExactId = await getDocs(qExactId);
+        if (!snapshotExactId.empty) {
+            const docData = snapshotExactId.docs[0];
+            return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
+        }
     }
 
     // 3. If no exact match, try a "contains" search by loading all data.
