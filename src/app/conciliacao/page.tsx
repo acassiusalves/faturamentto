@@ -6,11 +6,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket, CheckCircle } from 'lucide-react';
-import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket, CheckCircle, Edit } from 'lucide-react';
+import type { Sale, SupportData, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings, loadProducts } from '@/services/firestore';
+import { loadSales, loadMonthlySupportData, saveSales, loadAllPickingLogs, saveAppSettings, loadAppSettings, loadProducts, savePickLog } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import { SupportDataDialog } from '@/components/support-data-dialog';
 import Papa from "papaparse";
@@ -22,6 +22,8 @@ import { iderisFields } from '@/lib/ideris-fields';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { TicketDialog } from '@/components/ticket-dialog';
 import { Progress } from '@/components/ui/progress';
+import { CostRefinementDialog } from '@/components/cost-refinement-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Helper to generate months
@@ -304,8 +306,10 @@ export default function ConciliationPage() {
     });
     const [isSupportDataOpen, setIsSupportDataOpen] = useState(false);
     const [isCalculationOpen, setIsCalculationOpen] = useState(false);
+    const [isRefinementOpen, setIsRefinementOpen] = useState(false);
     const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
     const [selectedSaleForTicket, setSelectedSaleForTicket] = useState<Sale | null>(null);
+    const { toast } = useToast();
     
     // New filter states
     const [searchTerm, setSearchTerm] = useState("");
@@ -315,38 +319,41 @@ export default function ConciliationPage() {
 
     // Custom Calculations
     const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>(defaultCalculations);
+    
+    const fetchAllData = useCallback(async () => {
+        const [salesData, logsData, settings, productsData] = await Promise.all([
+            loadSales(),
+            loadAllPickingLogs(),
+            loadAppSettings(),
+            loadProducts(),
+        ]);
+        setSales(salesData);
+        setPickingLogs(logsData);
+        setProducts(productsData);
+
+        if(settings?.customCalculations) {
+             const savedCalcs = settings.customCalculations;
+            const finalCalcs = [...defaultCalculations];
+            savedCalcs.forEach((saved: CustomCalculation) => {
+                const existingIndex = finalCalcs.findIndex(dc => dc.id === saved.id);
+                if (existingIndex !== -1) {
+                    finalCalcs[existingIndex] = saved;
+                } else {
+                    finalCalcs.push(saved);
+                }
+            });
+            setCustomCalculations(finalCalcs);
+        }
+    }, []);
 
     useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            const [salesData, logsData, settings, productsData] = await Promise.all([
-                loadSales(),
-                loadAllPickingLogs(),
-                loadAppSettings(),
-                loadProducts(),
-            ]);
-            setSales(salesData);
-            setPickingLogs(logsData);
-            setProducts(productsData);
-
-            if(settings?.customCalculations) {
-                 // Merge default and saved calculations, giving precedence to saved ones.
-                const savedCalcs = settings.customCalculations;
-                const finalCalcs = [...defaultCalculations];
-                savedCalcs.forEach((saved: CustomCalculation) => {
-                    const existingIndex = finalCalcs.findIndex(dc => dc.id === saved.id);
-                    if (existingIndex !== -1) {
-                        finalCalcs[existingIndex] = saved;
-                    } else {
-                        finalCalcs.push(saved);
-                    }
-                });
-                setCustomCalculations(finalCalcs);
-            }
-            setIsLoading(false);
+        async function runInitialFetch() {
+             setIsLoading(true);
+             await fetchAllData();
+             setIsLoading(false);
         }
-        fetchData();
-    }, []);
+        runInitialFetch();
+    }, [fetchAllData]);
 
     const getMonthYearKey = useCallback(() => {
         if (!dateRange?.from) return "";
@@ -611,15 +618,16 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
     const conciliationStats = useMemo(() => {
         const totalSales = filteredSales.length;
-        if (totalSales === 0) return { reconciledCount: 0, percentage: 0 };
+        if (totalSales === 0) return { reconciledCount: 0, unreconciledCount: 0, percentage: 0 };
 
         const reconciledCount = filteredSales.filter(sale => {
             const productCost = getNumericField(sale, 'product_cost');
             return productCost > 0;
         }).length;
 
+        const unreconciledCount = totalSales - reconciledCount;
         const percentage = (reconciledCount / totalSales) * 100;
-        return { reconciledCount, percentage };
+        return { reconciledCount, unreconciledCount, percentage };
     }, [filteredSales]);
 
 
@@ -722,6 +730,44 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         setIsTicketDialogOpen(true);
     };
 
+    const handleSaveRefinedCosts = async (costsToSave: Map<string, number>) => {
+        const logsToSave: PickedItemLog[] = [];
+        const now = new Date();
+
+        costsToSave.forEach((cost, saleId) => {
+            const sale = sales.find(s => s.id === saleId);
+            const product = products.find(p => p.sku === (sale as any)?.item_sku);
+            if(sale && cost > 0) {
+                const newLog: PickedItemLog = {
+                    id: `manual-${sale.id}`,
+                    logId: `log-manual-${sale.id}-${now.getTime()}`,
+                    productId: product?.id || `manual-${(sale as any).item_sku}`,
+                    name: (sale as any).item_title,
+                    sku: (sale as any).item_sku,
+                    costPrice: cost,
+                    serialNumber: `MANUAL-${sale.id}`,
+                    origin: 'Manual',
+                    quantity: (sale as any).item_quantity || 1,
+                    createdAt: now.toISOString(),
+                    pickedAt: (sale as any).payment_approved_date || now.toISOString(),
+                    orderNumber: (sale as any).order_code,
+                };
+                logsToSave.push(newLog);
+            }
+        });
+        
+        if(logsToSave.length > 0) {
+            await savePickLog(logsToSave);
+            // Refresh data to show new costs
+            await fetchAllData();
+            toast({
+                title: "Custos Salvos!",
+                description: `${logsToSave.length} custos manuais foram adicionados com sucesso.`
+            });
+        }
+        setIsRefinementOpen(false);
+    };
+
     // Options for filters
     const marketplaces = useMemo(() => Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
     const states = useMemo(() => Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
@@ -753,7 +799,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                             <CardTitle>Seleção de Período</CardTitle>
                             <CardDescription>Filtre as vendas que você deseja analisar.</CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2">
+                             <Button variant="outline" onClick={() => setIsRefinementOpen(true)} disabled={conciliationStats.unreconciledCount === 0}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Refinar ({conciliationStats.unreconciledCount})
+                            </Button>
                             <Button variant="outline" onClick={() => setIsSupportDataOpen(true)}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Dados de Apoio
@@ -891,6 +941,13 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             marketplaces={marketplaces}
             availableColumns={availableFormulaColumns}
             customCalculations={customCalculations}
+        />
+        
+        <CostRefinementDialog
+            isOpen={isRefinementOpen}
+            onClose={() => setIsRefinementOpen(false)}
+            onSave={handleSaveRefinedCosts}
+            sales={filteredSales.filter(s => !pickingLogsMap.has((s as any).order_code))}
         />
         
         {selectedSaleForTicket && (
