@@ -20,35 +20,25 @@ const prompt = ai.definePrompt({
   prompt: `
 You are a ZPL expert. Modify the label in an anchored way.
 
-MATCH MODE: "{{{matchMode}}}"  // "strict" or "relaxed"
+MATCH MODE: "{{{matchMode}}}"
 TOLERANCE_PX = 12
 
 RULES:
-1) NEVER change any block that contains a barcode command:
-   lines with ^B* (e.g. ^BC, ^B3, ^BQN, ^B128, ^BY etc) within the last 6 lines above the ^FD are barcodes.
-   Also never touch the QR (^BQ...).
-2) A text block to edit must have this shape:
-   ^FOx,y or ^FTx,y
-   (optional ^A* / ^FB*)
-   ^FD<content>^FS
-3) Primary anchor = coordinates. For each field, if "baselinePositions.<field>" exists,
-   only edit the block whose ^FO/^FT is within ±TOLERANCE_PX of that (x,y).
-4. **Critical Instruction**: If a field in 'remixedData' is an empty string (""), you MUST find the corresponding ZPL command (usually a line containing ^FD followed by the old data) and completely remove the information. The best approach is to delete the entire ZPL command block (from ^FO... to ^FS) related to that field so that it is not printed on the label.
-5) If remixedData.<field> has value but the field didn't exist (baseline empty), ONLY insert for "estimatedDeliveryDate" at:
-   ^FO40,730^A0N,24,24^FDEntrega prev.: {remixedData.estimatedDeliveryDate}^FS
-6) Keep every other ZPL command untouched. Ensure ^CI28 appears right after ^XA (add if missing).
+1) **CRITICAL DATA ENCODING RULE: The text data in the ZPL file is hex-encoded. For example, the string "PHONEART" appears in the ZPL as "_50_48_4f_4e_45_41_52_54". Before you search for a value from 'baselineData' inside the 'originalZpl', you MUST convert the baselineData value to this underscore-prefixed hex format to find the correct ^FD command.**
+2) NEVER change any block that contains a barcode command (^BC, ^B3, ^BQN, etc.).
+3) A text block to edit has the shape: ^FOx,y, ^A*, ^FD<content>^FS.
+4) If a field in 'remixedData' is an empty string (""), you MUST delete the entire ZPL command block for that field (from its ^FO... to its ^FS).
+5) If a field in 'remixedData' has a new value, update the content inside the corresponding ^FD command, ensuring the new value is also properly hex-encoded.
+6) Keep every other ZPL command untouched. Ensure ^CI28 appears right after ^XA.
 7) Output ONLY the final ZPL (no comments, no backticks).
 
 Original ZPL:
 {{{originalZpl}}}
 
-Baseline values:
+Baseline values (plain text):
 {{{json baselineData}}}
 
-Baseline positions (if any):
-{{{json baselinePositions}}}
-
-New values:
+New values (plain text):
 {{{json remixedData}}}
 `.trim(),
 });
