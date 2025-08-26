@@ -82,6 +82,17 @@ const sanitizeForFirestore = (value: any): any => {
   return value;
 };
 
+// Adicione esta função no topo do arquivo SupportDataDialog.tsx
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
 
 export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportDataDialogProps) {
   const [supportData, setSupportData] = useState<SupportData>({ files: {} });
@@ -147,9 +158,9 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
             let parsedHeaders: string[] = [];
 
             if (file.fileName.toLowerCase().endsWith(".xlsx") || file.fileContent.startsWith("UEsDB")) {
-              const wb = XLSX.read(file.fileContent, { type: "base64" });
+              const wb = XLSX.read(file.fileContent, { type: "base64", cellDates: true });
               const ws = wb.Sheets[wb.SheetNames[0]];
-              parsedRows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
+              parsedRows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: "" });
               parsedHeaders = parsedRows.length ? Object.keys(parsedRows[0]) : [];
             } else {
               const parsedResult = Papa.parse(file.fileContent, { header: true, skipEmptyLines: true, delimiter: guessDelimiter(file.fileContent) });
@@ -212,13 +223,19 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
                 },
             });
         } else if (fileExtension === 'xlsx') {
-            const workbook = XLSX.read(result, { type: 'array', cellDates: true });
+            // 'result' aqui é um ArrayBuffer
+            const arrayBufferResult = result as ArrayBuffer;
+
+            // 1. Apenas lemos o arquivo para extrair os cabeçalhos para a interface
+            const workbook = XLSX.read(arrayBufferResult, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
-            headers = sanitizeHeaders((json[0] as any[]) ?? []);
-            
-            contentForStorage = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+            // Usamos 'header: 1' para pegar apenas a primeira linha como um array
+            const jsonHeaders: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 }); 
+            headers = sanitizeHeaders((jsonHeaders[0] as any[]) ?? []);
+
+            // 2. Convertemos o arquivo ORIGINAL (ArrayBuffer) para Base64, sem reescrevê-lo
+            contentForStorage = arrayBufferToBase64(arrayBufferResult);
 
             updateFileState(contentForStorage, headers);
         } else {
@@ -486,3 +503,4 @@ export function SupportDataDialog({ isOpen, onClose, monthYearKey }: SupportData
     </Dialog>
   );
 }
+
