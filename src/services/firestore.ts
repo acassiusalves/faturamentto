@@ -537,7 +537,7 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const allSales = await loadSales();
     const foundSale = allSales.find(sale => 
         (sale as any).order_code?.includes(identifier) ||
-        (sale as any).order_id?.includes(identifier)
+        String((sale as any).order_id)?.includes(identifier)
     );
 
     if (foundSale) {
