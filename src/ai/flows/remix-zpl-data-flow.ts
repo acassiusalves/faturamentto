@@ -33,16 +33,11 @@ RULES:
    ^FD<content>^FS
 3) Primary anchor = coordinates. For each field, if "baselinePositions.<field>" exists,
    only edit the block whose ^FO/^FT is within ±TOLERANCE_PX of that (x,y).
-4) Secondary anchor = text:
-   - STRICT: only if ^FD content EXACTLY equals the baseline value of that field.
-   - RELAXED: if exact match fails, normalize both sides (uppercase, remove accents,
-     punctuation, line breaks, collapse spaces) and allow equality or baseline being a substring.
-   In RELAXED mode you STILL must satisfy the coordinate rule (3). If there are no coordinates for the field, skip it.
-5) If remixedData.<field> is empty string, remove the whole block (^FO/^FT + ^A/^FB + ^FD + ^FS), but only after the anchors (3/4) confirm it's the right block.
-6) If remixedData.<field> has value but the field didn't exist (baseline empty), ONLY insert for "estimatedDeliveryDate" at:
+4. **Critical Instruction**: If a field in 'remixedData' is an empty string (""), you MUST find the corresponding ZPL command (usually a line containing ^FD followed by the old data) and completely remove the information. The best approach is to delete the entire ZPL command block (from ^FO... to ^FS) related to that field so that it is not printed on the label.
+5) If remixedData.<field> has value but the field didn't exist (baseline empty), ONLY insert for "estimatedDeliveryDate" at:
    ^FO40,730^A0N,24,24^FDEntrega prev.: {remixedData.estimatedDeliveryDate}^FS
-7) Keep every other ZPL command untouched. Ensure ^CI28 appears right after ^XA (add if missing).
-8) Output ONLY the final ZPL (no comments, no backticks).
+6) Keep every other ZPL command untouched. Ensure ^CI28 appears right after ^XA (add if missing).
+7) Output ONLY the final ZPL (no comments, no backticks).
 
 Original ZPL:
 {{{originalZpl}}}
@@ -69,5 +64,3 @@ const remixZplDataFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
