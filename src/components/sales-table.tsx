@@ -45,7 +45,7 @@ interface SalesTableProps {
   calculateNetRevenue: (sale: Sale) => number;
   formatCurrency: (value: number) => string;
   isLoading: boolean;
-  productCostSource?: Map<string, number>;
+  productCostSource?: Map<string, { cost: number; isManual: boolean }>; // Alterado aqui
   customCalculations?: CustomCalculation[];
   isDashboard?: boolean;
   onOpenTicket?: (sale: Sale) => void;
@@ -577,7 +577,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
 
                             if (field.group === 'Sistema') {
                                 if(field.key === 'product_cost') {
-                                    cellContent = productCostSource.get((sale as any).order_code);
+                                    cellContent = productCostSource.get((sale as any).order_code)?.cost;
                                 } else {
                                     cellContent = sale.customData?.[field.key];
                                 }
@@ -621,17 +621,18 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                             } else if (numericColumns.has(field.key) && typeof cellContent === 'number') {
                                 const className = field.key === 'fee_order' || field.key === 'fee_shipment' ? 'text-destructive' : (field.key === 'left_over' || (field.key.includes('lucro') && cellContent > 0)) ? 'font-semibold text-green-600' : '';
                                 if(field.key === 'product_cost' && cellContent > 0) {
+                                    const costInfo = productCostSource.get((sale as any).order_code);
                                     cellContent = (
                                         <div className="flex items-center justify-end gap-1.5">
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                            <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                            <p>Custo do picking</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                        <span className="text-destructive">{formatCurrency(cellContent)}</span>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    {costInfo?.isManual ? <Calculator className="h-3.5 w-3.5 text-muted-foreground" /> : <Package className="h-3.5 w-3.5 text-muted-foreground" />}
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{costInfo?.isManual ? 'Custo inserido manualmente' : 'Custo do picking'}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                            <span className="text-destructive">{formatCurrency(cellContent)}</span>
                                         </div>
                                     );
                                 } else if (isPercentage) {

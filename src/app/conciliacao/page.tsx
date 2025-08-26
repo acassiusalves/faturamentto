@@ -375,10 +375,14 @@ export default function ConciliationPage() {
     }, [dateRange, loadSupportDataForMonth]);
 
     const pickingLogsMap = useMemo(() => {
-        const map = new Map<string, number>();
+        const map = new Map<string, { cost: number; isManual: boolean }>();
         pickingLogs.forEach(log => {
-            const currentCost = map.get(log.orderNumber) || 0;
-            map.set(log.orderNumber, currentCost + log.costPrice);
+            const currentCost = map.get(log.orderNumber)?.cost || 0;
+            const isManual = log.serialNumber.startsWith('MANUAL-');
+            map.set(log.orderNumber, {
+                cost: currentCost + log.costPrice,
+                isManual: isManual
+            });
         });
         return map;
     }, [pickingLogs]);
@@ -425,7 +429,7 @@ const pushValue = (values: number[], v: number) => {
 const applyCustomCalculations = useCallback((sale: Sale): Sale => {
   const saleWithCost: any = {
     ...sale,
-    product_cost: pickingLogsMap.get((sale as any).order_code) || 0,
+    product_cost: pickingLogsMap.get((sale as any).order_code)?.cost || 0,
     customData: { ...(sale as any).customData || {} },
   };
 
@@ -663,7 +667,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
     };
     
     const calculateTotalCost = (sale: Sale): number => {
-        const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
+        const productCost = pickingLogsMap.get((sale as any).order_code)?.cost || 0;
         const manualCosts = sale.costs?.reduce((acc, cost) => {
              const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
             return acc + costValue;
@@ -675,7 +679,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         const baseProfit = (sale as any).left_over || 0;
         const totalAddedCosts = calculateTotalCost(sale);
         
-        const productCost = pickingLogsMap.get((sale as any).order_code) || 0;
+        const productCost = pickingLogsMap.get((sale as any).order_code)?.cost || 0;
         const manualCosts = totalAddedCosts - productCost;
 
         return baseProfit - productCost - manualCosts;
@@ -733,11 +737,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
     const handleSaveRefinedCosts = async (costsToSave: Map<string, number>) => {
         const logsToSave: PickedItemLog[] = [];
         const now = new Date();
-
+    
         costsToSave.forEach((cost, saleId) => {
             const sale = sales.find(s => s.id === saleId);
             const product = products.find(p => p.sku === (sale as any)?.item_sku);
-            if(sale && cost > 0) {
+            if (sale && cost > 0) {
                 const newLog: PickedItemLog = {
                     id: `manual-${sale.id}`,
                     orderNumber: (sale as any).order_code,
@@ -755,10 +759,10 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                 logsToSave.push(newLog);
             }
         });
-        
-        if(logsToSave.length > 0) {
+    
+        if (logsToSave.length > 0) {
             await savePickLog(logsToSave);
-            await fetchAllData();
+            await fetchAllData(); // Recarrega TODOS os dados, incluindo os picking logs
             toast({
                 title: "Custos Salvos!",
                 description: `${logsToSave.length} custos manuais foram adicionados com sucesso.`
@@ -946,7 +950,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             isOpen={isRefinementOpen}
             onClose={() => setIsRefinementOpen(false)}
             onSave={handleSaveRefinedCosts}
-            sales={filteredSales.filter(s => !pickingLogsMap.has((s as any).order_code))}
+            sales={filteredSales.filter(s => !(pickingLogsMap.has((s as any).order_code)))}
             products={products}
         />
         
