@@ -33,7 +33,10 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         3.  **Regra de Conectividade Padrão:**
             *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
             *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
-        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Remova qualquer formatação de milhar (pontos) e use um ponto como separador decimal (ex: "1.234,56" deve se tornar "1234.56").
+        4.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. A regra de formatação é:
+            *   Se o número na lista contiver uma vírgula (ex: "1.234,56"), remova os pontos e troque a vírgula por um ponto (resultado: "1234.56").
+            *   Se o número na lista contiver apenas pontos (ex: "1.130" ou "440.00"), remova os pontos (resultado: "1130" ou "44000"). Após a remoção, se o número tiver mais de 2 dígitos e terminar com "00", insira um ponto decimal antes desses dois últimos dígitos (resultado: "1130" e "440.00"). Para outros casos, mantenha o número como está após remover os pontos.
+            *   O resultado final deve ser uma string numérica usando ponto como separador decimal.
         5.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
             *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
