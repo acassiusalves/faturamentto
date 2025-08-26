@@ -305,22 +305,14 @@ export default function EtiquetasPage() {
   const handleRemoveField = (field: RemixableField) => {
     if (!analysisResult) return;
   
-    // Monta o novo estado primeiro
+    // Apenas atualiza o estado local com o campo vazio
     const newAnalysis: AnalyzeLabelOutput = { ...analysisResult, [field]: '' } as AnalyzeLabelOutput;
     setAnalysisResult(newAnalysis);
   
-    // Dispara a geração do novo ZPL imediatamente
-    startTransition(() => {
-      const form = new FormData();
-      form.append('originalZpl', originalZpl);
-      form.append('baselineData', JSON.stringify(baselineAnalysis ?? analysisResult ?? {}));
-      form.append('remixedData', JSON.stringify(newAnalysis));
-      remixZplFormAction(form);
-    });
-  
+    // Informa ao usuário que a alteração foi feita e o que fazer a seguir
     toast({
       title: "Campo Removido",
-      description: `O campo ${field} foi limpo e a prévia será atualizada.`,
+      description: `O campo '${field}' foi limpo. Clique em "Gerar ZPL" para atualizar a prévia.`,
     });
   };
 
