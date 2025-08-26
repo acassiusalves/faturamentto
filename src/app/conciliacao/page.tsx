@@ -750,7 +750,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                     quantity: (sale as any).item_quantity || 1,
                     createdAt: now.toISOString(),
                     pickedAt: (sale as any).payment_approved_date || now.toISOString(),
-                    orderNumber: (sale as any).order_code,
                 };
                 logsToSave.push(newLog);
             }
@@ -948,6 +947,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             onClose={() => setIsRefinementOpen(false)}
             onSave={handleSaveRefinedCosts}
             sales={filteredSales.filter(s => !pickingLogsMap.has((s as any).order_code))}
+            products={products}
         />
         
         {selectedSaleForTicket && (

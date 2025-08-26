@@ -1,8 +1,9 @@
 
+
 "use client";
 
-import { useState, useEffect } from 'react';
-import type { Sale } from '@/lib/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Sale, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,10 +23,11 @@ interface CostRefinementDialogProps {
   isOpen: boolean;
   onClose: () => void;
   sales: Sale[];
+  products: Product[];
   onSave: (costsToSave: Map<string, number>) => Promise<void>;
 }
 
-export function CostRefinementDialog({ isOpen, onClose, sales, onSave }: CostRefinementDialogProps) {
+export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave }: CostRefinementDialogProps) {
   const [costs, setCosts] = useState<Map<string, number>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -35,6 +37,20 @@ export function CostRefinementDialog({ isOpen, onClose, sales, onSave }: CostRef
       setCosts(new Map());
     }
   }, [isOpen, sales]);
+
+  const productSkuMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (products) {
+        products.forEach(p => {
+            if(p.sku) map.set(p.sku, p.name);
+            p.associatedSkus?.forEach(assocSku => {
+                map.set(assocSku, p.name);
+            });
+        });
+    }
+    return map;
+  }, [products]);
+
 
   const handleCostChange = (saleId: string, cost: string) => {
     const numericCost = parseFloat(cost);
@@ -89,11 +105,13 @@ export function CostRefinementDialog({ isOpen, onClose, sales, onSave }: CostRef
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sales.map(sale => (
+                            {sales.map(sale => {
+                                const friendlyName = productSkuMap.get((sale as any).item_sku) || (sale as any).item_title;
+                                return (
                                 <TableRow key={sale.id}>
                                     <TableCell className="font-mono text-xs">{(sale as any).order_code}</TableCell>
                                     <TableCell>{formatDate((sale as any).payment_approved_date)}</TableCell>
-                                    <TableCell className="font-medium">{(sale as any).item_title}</TableCell>
+                                    <TableCell className="font-medium">{friendlyName}</TableCell>
                                     <TableCell>{(sale as any).marketplace_name}</TableCell>
                                     <TableCell>
                                         <Input
@@ -104,7 +122,7 @@ export function CostRefinementDialog({ isOpen, onClose, sales, onSave }: CostRef
                                         />
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )})}
                         </TableBody>
                     </Table>
                 </div>
