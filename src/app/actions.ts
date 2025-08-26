@@ -3,9 +3,9 @@
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
 import type {PipelineResult} from '@/lib/types';
-import {organizeList, type OrganizeResult, type OrganizeListInput} from '@/ai/flows/organize-list';
-import {standardizeList, type StandardizeListOutput, type StandardizeListInput} from '@/ai/flows/standardize-list';
-import {lookupProducts, type LookupResult, type LookupProductsInput} from '@/ai/flows/lookup-products';
+import {organizeList, type OrganizeListInput} from '@/ai/flows/organize-list';
+import {standardizeList, type StandardizeListInput} from '@/ai/flows/standardize-list';
+import {lookupProducts} from '@/ai/flows/lookup-products';
 import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
@@ -14,7 +14,7 @@ import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
-import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput } from '@/lib/types';
+import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput } from '@/lib/types';
 
 
 // This is the main server action that will be called from the frontend.

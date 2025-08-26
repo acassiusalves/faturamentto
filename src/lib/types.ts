@@ -364,9 +364,26 @@ export interface StandardizeListOutput {
   unprocessedItems: UnprocessedItem[];
 }
 
-export interface LookupResult {
-  details: Omit<ProductDetail, 'quantity' | 'unitPrice' | 'totalPrice'>[];
-}
+const ProductDetailSchema = z.object({
+  name: z.string(),
+  sku: z.string(),
+  costPrice: z.string(),
+});
+
+export const LookupResultSchema = z.object({
+  details: z.array(ProductDetailSchema),
+});
+export type LookupResult = z.infer<typeof LookupResultSchema>;
+
+export const LookupProductsInputSchema = z.object({
+  productList: z.string().describe('The standardized, line-by-line list of products.'),
+  databaseList: z.string().describe('The product database as a string, with "Name\\tSKU" per line.'),
+  apiKey: z.string().optional(),
+  modelName: z.string().optional(),
+  prompt_override: z.string().optional(),
+});
+export type LookupProductsInput = z.infer<typeof LookupProductsInputSchema>;
+
 
 export interface PipelineResult {
   organizedList: string;
@@ -465,5 +482,3 @@ export const RemixZplDataOutputSchema = z.object({
 
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
 export type RemixZplDataOutput = z.infer<typeof RemixZplDataOutputSchema>;
-
-    
