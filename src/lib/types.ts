@@ -320,7 +320,7 @@ export interface PurchaseListItem {
     sku: string;
     quantity: number;
     unitCost: number;
-    storeName?: string;
+    storeName: string;
     isPaid?: boolean;
     surplus?: number;
 }
