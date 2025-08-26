@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket, CheckCircle } from 'lucide-react';
 import type { Sale, SupportData, SupportFile, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,6 +21,7 @@ import type { DateRange } from "react-day-picker";
 import { iderisFields } from '@/lib/ideris-fields';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { TicketDialog } from '@/components/ticket-dialog';
+import { Progress } from '@/components/ui/progress';
 
 
 // Helper to generate months
@@ -608,6 +609,19 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         }
     }, [filteredSales]);
 
+    const conciliationStats = useMemo(() => {
+        const totalSales = filteredSales.length;
+        if (totalSales === 0) return { reconciledCount: 0, percentage: 0 };
+
+        const reconciledCount = filteredSales.filter(sale => {
+            const productCost = getNumericField(sale, 'product_cost');
+            return productCost > 0;
+        }).length;
+
+        const percentage = (reconciledCount / totalSales) * 100;
+        return { reconciledCount, percentage };
+    }, [filteredSales]);
+
 
     const availableFormulaColumns = useMemo(() => {
         const numericIderis = iderisFields
@@ -752,7 +766,17 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                    <div className="flex items-end justify-between">
+                         <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                         <div className="text-right space-y-1">
+                            <div className="flex items-center justify-end gap-2 text-sm font-semibold text-muted-foreground">
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <span>Dados conciliados</span>
+                                <span className="text-primary font-bold">{conciliationStats.percentage.toFixed(0)}%</span>
+                            </div>
+                            <Progress value={conciliationStats.percentage} className="w-48 h-2"/>
+                         </div>
+                    </div>
                 </CardContent>
             </Card>
 
