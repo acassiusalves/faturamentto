@@ -48,7 +48,7 @@ interface SalesTableProps {
   productCostSource?: Map<string, number>;
   customCalculations?: CustomCalculation[];
   isDashboard?: boolean;
-  onOpenTicket: (sale: Sale) => void;
+  onOpenTicket?: (sale: Sale) => void;
 }
 
 const dashboardColumns = [
@@ -175,7 +175,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
         ...(customCalculations || []).map(c => ({
             key: c.id,
             label: c.name,
-            isCustom: true,
             isPercentage: c.isPercentage,
             group: 'Sistema'
         }))
@@ -649,7 +648,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                             )
                             })}
 
-                            {!isDashboard && (
+                            {!isDashboard && onOpenTicket && (
                             <TableCell className="text-center whitespace-nowrap space-x-2">
                                 <Button
                                   variant="outline"
@@ -766,3 +765,4 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
     </TooltipProvider>
   );
 }
+

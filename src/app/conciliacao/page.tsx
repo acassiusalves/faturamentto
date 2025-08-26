@@ -203,7 +203,7 @@ const isDateHeader = (label: string) =>
 // dd/mm/yyyy [hh:mm[:ss]] -> ISO (UTC)
 const parseBRDateToISO = (s: string): string | null => {
   const m = s.trim().replace(/\./g, '/')
-    .match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    .match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::\d{2})?)?$/);
   if (!m) return null;
   const [, dd, mm, yyyy, HH='00', MM='00', SS='00'] = m;
   // gera ISO sempre em UTC
@@ -963,3 +963,4 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
+
