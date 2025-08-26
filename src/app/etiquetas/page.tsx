@@ -205,7 +205,7 @@ export default function EtiquetasPage() {
     if (newZpl.trim() === zplEditorContent.trim()) {
         toast({
             title: 'Sem alterações',
-            description: 'O ZPL não sofreu alteração após a tentativa de atualização.',
+            description: 'A IA não conseguiu aplicar as mudanças no código ZPL.',
         });
         return;
     }
@@ -219,14 +219,8 @@ export default function EtiquetasPage() {
 
     if (analysisResult) setBaselineAnalysis(analysisResult);
     
-    startTransition(() => {
-      const fd = new FormData();
-      fd.append('zplContent', newZpl);
-      analyzeZplFormAction(fd);
-    });
-
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-  }, [remixZplState.result?.modifiedZpl, zplEditorContent, toast, generatePreviewImmediate, analysisResult, analyzeZplFormAction]);
+}, [remixZplState.result?.modifiedZpl]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -305,11 +299,9 @@ export default function EtiquetasPage() {
   const handleRemoveField = (field: RemixableField) => {
     if (!analysisResult) return;
   
-    // Apenas atualiza o estado local com o campo vazio
     const newAnalysis: AnalyzeLabelOutput = { ...analysisResult, [field]: '' } as AnalyzeLabelOutput;
     setAnalysisResult(newAnalysis);
   
-    // Informa ao usuário que a alteração foi feita e o que fazer a seguir
     toast({
       title: "Campo Removido",
       description: `O campo '${field}' foi limpo. Clique em "Gerar ZPL" para atualizar a prévia.`,
