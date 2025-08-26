@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -87,10 +88,10 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
   }
 
   // Fallback: últimos 30 dias se não vier range
-  const fromDate = dateRange?.from ?? startOfDay(new Date());
+  const fromDate = dateRange?.from ?? subDays(new Date(), 30);
   const toDate   = dateRange?.to   ?? endOfDay(new Date());
 
-  const fromTs = Timestamp.fromDate(new Date(startOfDay(fromDate)));
+  const fromTs = Timestamp.fromDate(startOfDay(fromDate));
   // limite superior EXCLUSIVO: +1ms
   const toTsExclusive = Timestamp.fromMillis(endOfDay(new Date(toDate)).getTime() + 1);
 
@@ -515,18 +516,15 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const identifier = orderIdentifier.trim();
 
-    // Stage 1: Attempt exact match on order_code or order_id
-    const isNumeric = !isNaN(Number(identifier));
-    
-    // Query for exact order_code match
+    // Stage 1: Try exact match on order_code
     const qCode = query(salesCol, where('order_code', '==', identifier), limit(1));
     const codeSnapshot = await getDocs(qCode);
     if (!codeSnapshot.empty) {
         return fromFirestore({ ...codeSnapshot.docs[0].data(), id: codeSnapshot.docs[0].id }) as Sale;
     }
 
-    // If it's a number, also query for exact order_id match
-    if (isNumeric) {
+    // Stage 2: If identifier is numeric, try exact match on order_id
+    if (!isNaN(Number(identifier))) {
         const numericId = Number(identifier);
         const qId = query(salesCol, where('order_id', '==', numericId), limit(1));
         const idSnapshot = await getDocs(qId);
@@ -535,7 +533,7 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
         }
     }
     
-    // Stage 2: Fallback to "contains" search if no exact match was found
+    // Stage 3: Fallback to "contains" search if no exact match was found
     // This part is less efficient and should be a last resort.
     const allSales = await loadSales(); // This loads all sales, which can be slow
     const foundSale = allSales.find(sale => 
