@@ -217,24 +217,26 @@ const excelSerialToISO = (n: number): string | null => {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0)).toISOString();
 };
 
-// trata casos estranhos tipo "31/12/45808"
-const brMaskWithSerialToISO = (s: string): string | null => {
-  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{5})$/);
+// extrai um serial do Excel de 5 dígitos **em qualquer lugar** da string
+const extractExcelSerial = (s: string): number | null => {
+  const m = s.trim().match(/(?:^|[^\d])(\d{5})(?:[^\d]|$)/);
   if (!m) return null;
-  const serial = Number(m[3]);
-  return excelSerialToISO(serial);
+  const num = Number(m[1]);
+  // faixa segura para ser serial (aprox. anos 1955–2149)
+  return (num >= 20000 && num <= 80000) ? num : null;
 };
+
 
 // reconhece valores que parecem datas (independe do header)
 const looksLikeDateValue = (v: any): boolean => {
   if (v instanceof Date) return true;
-  if (typeof v === 'number' && v > 20000 && v < 80000) return true; // serial típico do Excel
+  if (typeof v === 'number' && v > 20000 && v < 80000) return true; // serial puro
   if (typeof v === 'string') {
     const s = v.trim();
     return (
-      /^\d{1,2}\/\d{1,2}\/\d{5}$/.test(s) || // dd/mm/##### (serial disfarçado)
-      /^\d{1,2}\/\d{1,2}\/\d{4}(?:\s\d{2}:\d{2}(?::\d{2})?)?$/.test(s) || // dd/mm/yyyy...
-      /^\d{4}-\d{2}-\d{2}T/.test(s) // ISO
+      /^\d{1,2}\/\d{1,2}\/\d{4}(?:\s\d{2}:\d{2}(?::\d{2})?)?$/.test(s) || // dd/mm/yyyy
+      /^\d{4}-\d{2}-\d{2}T/.test(s) ||                                   // ISO
+      extractExcelSerial(s) != null                                      // contém serial
     );
   }
   return false;
@@ -251,7 +253,15 @@ const coerceAnyDateToISO = (raw: any): string | null => {
   }
   if (typeof raw === 'number') return excelSerialToISO(raw);
   if (typeof raw === 'string') {
-    return parseBRDateToISO(raw) || brMaskWithSerialToISO(raw) || (/^\d{4}-\d{2}-\d{2}T/.test(raw) ? raw : null);
+    const s = raw.trim();
+    // 1) dd/mm/yyyy
+    const isoBR = parseBRDateToISO(s);
+    if (isoBR) return isoBR;
+    // 2) serial embutido (ex.: "31/12/45808" ou "45808" puro)
+    const serial = extractExcelSerial(s);
+    if (serial != null) return excelSerialToISO(serial);
+    // 3) já é ISO
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s;
   }
   return null;
 };
