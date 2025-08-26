@@ -204,8 +204,9 @@ const parseBRDateToISO = (s: string): string | null => {
   if (!m) return null;
   const [, dd, mm, yyyy, HH='00', MM='00', SS='00'] = m;
   // gera ISO sempre em UTC
-  return new Date(Date.UTC(Number(yyyy), Number(mm)-1, Number(dd), Number(HH), Number(MM), Number(SS))).toISOString();
+  return new Date(Date.UTC(+yyyy, +mm - 1, +dd, +HH, +MM, +SS)).toISOString();
 };
+
 
 // Excel serial -> ISO (normalizado para UTC, sem shift de fuso)
 const excelSerialToISO = (n: number): string | null => {
@@ -216,6 +217,7 @@ const excelSerialToISO = (n: number): string | null => {
   // zera hora e fixa em UTC para evitar voltar 1 dia em TZ -03
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0)).toISOString();
 };
+
 
 // extrai um serial do Excel de 5 dígitos **em qualquer lugar** da string
 const extractExcelSerial = (s: string): number | null => {
