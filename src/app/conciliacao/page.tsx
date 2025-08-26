@@ -150,9 +150,9 @@ const parseSupportFile = (file: any): { rows: any[]; headers: string[] } => {
 
   if (isXlsx) {
     // Conteúdo base64 -> workbook
-    const wb = XLSX.read(content, { type: "base64", cellDates: true });
+    const wb = XLSX.read(content, { type: "base64" });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
+    const rows = XLSX.utils.sheet_to_json(ws, { raw: true, defval: "" });
     const headers = rows.length ? Object.keys(rows[0]) : [];
     return { rows, headers };
   } else {
@@ -208,14 +208,31 @@ const parseBRDateToISO = (s: string): string | null => {
 };
 
 
-// Excel serial -> ISO (normalizado para UTC, sem shift de fuso)
-const excelSerialToISO = (n: number): string | null => {
-  if (!Number.isFinite(n)) return null;
-  // 25569 = 1970-01-01
-  const ms = Math.round((n - 25569) * 86400 * 1000);
-  const d = new Date(ms);
-  // zera hora e fixa em UTC para evitar voltar 1 dia em TZ -03
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0)).toISOString();
+// Excel serial -> ISO (normalizado para UTC, com correção do bug de 1900)
+const excelSerialToISO = (serial: number): string | null => {
+    if (typeof serial !== 'number' || !Number.isFinite(serial)) {
+        return null;
+    }
+    
+    // O epoch do Excel começa em "dia 1" = 1900-01-01. O do JS é 1970-01-01.
+    // 25569 é o número de dias entre essas duas datas.
+    // O Excel trata 1900 como ano bissexto (bug), então para datas após 28/02/1900,
+    // o cálculo fica com 1 dia de adiantamento. Subtraímos 1 para corrigir.
+    // O dia serial 60 seria o "29/02/1900" no Excel.
+    const daysOffset = serial > 59 ? 25568 : 25569;
+
+    // Converte os dias para milissegundos
+    const utcMilliseconds = (serial - daysOffset) * 86400 * 1000;
+
+    // Cria a data diretamente em UTC para evitar qualquer interferência de fuso horário local
+    const date = new Date(utcMilliseconds);
+
+    // Validação extra para garantir que a data é válida
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date.toISOString();
 };
 
 
@@ -246,36 +263,25 @@ const looksLikeDateValue = (v: any): boolean => {
 
 // normaliza qualquer valor de data para ISO
 const coerceAnyDateToISO = (raw: any): string | null => {
-    // Se o valor já é um objeto Date (vindo do XLSX com cellDates: true)
     if (raw instanceof Date) {
-        // CORREÇÃO: Usar os métodos UTC para ignorar o fuso horário local
         return new Date(Date.UTC(
-            raw.getUTCFullYear(), 
-            raw.getUTCMonth(), 
+            raw.getUTCFullYear(),
+            raw.getUTCMonth(),
             raw.getUTCDate(),
-            raw.getUTCHours(), 
-            raw.getUTCMinutes(), 
+            raw.getUTCHours(),
+            raw.getUTCMinutes(),
             raw.getUTCSeconds()
         )).toISOString();
     }
-
-    // O restante da função continua igual, pois já lida bem com números e strings.
     if (typeof raw === 'number') return excelSerialToISO(raw);
-    
     if (typeof raw === 'string') {
         const s = raw.trim();
-        // 1) dd/mm/yyyy
         const isoBR = parseBRDateToISO(s);
         if (isoBR) return isoBR;
-        
-        // 2) serial embutido (ex.: "31/12/45808" ou "45808" puro)
         const serial = extractExcelSerial(s);
         if (serial != null) return excelSerialToISO(serial);
-        
-        // 3) já é ISO
-        if (/^\\d{4}-\\d{2}-\\d{2}T/.test(s)) return s;
+        if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s;
     }
-    
     return null;
 };
 
