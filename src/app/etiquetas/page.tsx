@@ -304,13 +304,21 @@ export default function EtiquetasPage() {
 
   const handleRemoveField = (field: RemixableField) => {
     if (!analysisResult) return;
-    setAnalysisResult(prev => {
-        if (!prev) return null;
-        return { ...prev, [field]: '' };
+
+    const newAnalysis: AnalyzeLabelOutput = { ...analysisResult, [field]: '' } as AnalyzeLabelOutput;
+    setAnalysisResult(newAnalysis);
+
+    startTransition(() => {
+      const form = new FormData();
+      form.append('originalZpl', originalZpl);
+      form.append('baselineData', JSON.stringify(baselineAnalysis ?? analysisResult ?? {}));
+      form.append('remixedData', JSON.stringify(newAnalysis));
+      remixZplFormAction(form);
     });
+
     toast({
-        title: "Campo Removido",
-        description: `O campo ${field} foi limpo e não será incluído na etiqueta final.`,
+      title: "Campo Removido",
+      description: `O campo ${field} foi limpo e a prévia será atualizada.`,
     });
   };
 
@@ -328,7 +336,14 @@ export default function EtiquetasPage() {
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => handleRemixField(field)} disabled={isRemixingThis} title={`Remixar ${label}`}>
                         {isRemixingThis ? <Loader2 className="animate-spin"/> : <Wand2 />}
                     </Button>
-                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveField(field)} disabled={isRemixing} title={`Remover ${label}`}>
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive"
+                        onClick={() => handleRemoveField(field)}
+                        disabled={isRemixingZpl}
+                        title={`Remover ${label}`}
+                      >
                         <Trash2 />
                     </Button>
                 </div>
