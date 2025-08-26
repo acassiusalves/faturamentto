@@ -757,7 +757,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         
         if(logsToSave.length > 0) {
             await savePickLog(logsToSave);
-            // Refresh data to show new costs
+            // After saving, reload all data to reflect the changes immediately.
             await fetchAllData();
             toast({
                 title: "Custos Salvos!",
@@ -963,4 +963,3 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
-
