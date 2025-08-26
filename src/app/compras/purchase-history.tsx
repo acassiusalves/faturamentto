@@ -19,13 +19,15 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
+// Add a temporary `isSplit` property to our item type for highlighting
+type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
 
 export function PurchaseHistory() {
     const { toast } = useToast();
     const [history, setHistory] = useState<PurchaseList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [pendingItems, setPendingItems] = useState<PurchaseListItem[]>([]);
+    const [pendingItems, setPendingItems] = useState<EditablePurchaseListItem[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
     const [availableStores, setAvailableStores] = useState<string[]>([]);
@@ -69,11 +71,11 @@ export function PurchaseHistory() {
     const handleEditStart = (purchase: PurchaseList) => {
         setEditingId(purchase.id);
         // Add a temporary unique ID to each item for stable key in UI
-        const itemsWithTempIds = purchase.items.map((item, index) => ({
+        const itemsWithTempIds: EditablePurchaseListItem[] = purchase.items.map((item, index) => ({
              ...item,
              tempId: `${item.sku}-${index}-${Date.now()}` 
         }));
-        setPendingItems(itemsWithTempIds as any);
+        setPendingItems(itemsWithTempIds);
         if (!openAccordionItems.includes(purchase.id)) {
             setOpenAccordionItems(prev => [...prev, purchase.id]);
         }
@@ -87,7 +89,7 @@ export function PurchaseHistory() {
     const handleItemChange = (tempId: string, field: 'unitCost' | 'storeName' | 'isPaid' | 'surplus' | 'quantity', value: string | boolean | number) => {
         setPendingItems(prev =>
             prev.map(item => {
-                if ((item as any).tempId === tempId) {
+                if (item.tempId === tempId) {
                      let updatedItem = { ...item };
                     if (field === 'unitCost') {
                         const numericCost = parseFloat(value as string);
@@ -115,29 +117,33 @@ export function PurchaseHistory() {
 
     const handleSplitItem = (tempIdToSplit: string) => {
         setPendingItems(prev => {
-            const itemIndex = prev.findIndex(item => (item as any).tempId === tempIdToSplit);
+            const itemIndex = prev.findIndex(item => item.tempId === tempIdToSplit);
             if (itemIndex === -1) return prev;
 
             const itemToSplit = prev[itemIndex];
             if (itemToSplit.quantity <= 1) return prev;
 
-            const newItem: PurchaseListItem & { tempId: string } = {
+            // Remove highlight from previous splits before creating a new one
+            const clearedItems = prev.map(it => ({ ...it, isSplit: false }));
+
+            const newItem: EditablePurchaseListItem = {
                 ...itemToSplit,
                 quantity: 1,
-                surplus: 0, // Reset surplus for the new item
-                tempId: `${itemToSplit.sku}-${prev.length}-${Date.now()}` // New unique tempId
+                surplus: 0,
+                isSplit: true, // Mark new item
+                tempId: `${itemToSplit.sku}-${clearedItems.length}-${Date.now()}`
             };
             
-            const updatedOriginalItem = {
+            const updatedOriginalItem: EditablePurchaseListItem = {
                 ...itemToSplit,
                 quantity: itemToSplit.quantity - 1,
+                isSplit: true, // Mark original item
             };
 
-            const newItems = [...prev];
-            newItems[itemIndex] = updatedOriginalItem as any;
-            newItems.splice(itemIndex + 1, 0, newItem as any);
+            clearedItems[itemIndex] = updatedOriginalItem;
+            clearedItems.splice(itemIndex + 1, 0, newItem);
             
-            return newItems;
+            return clearedItems;
         });
          toast({
             title: "Item Dividido",
@@ -172,8 +178,8 @@ export function PurchaseHistory() {
         if (!editingId) return;
         setIsSaving(true);
         try {
-            // Clean up tempId before saving
-            const itemsToSave = pendingItems.map(({ tempId, ...rest }) => rest);
+            // Clean up tempId and isSplit before saving
+            const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => acc + (item.unitCost * item.quantity), 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
             
@@ -302,13 +308,13 @@ export function PurchaseHistory() {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {itemsToDisplay.map((item) => (
-                                                        <TableRow key={(item as any).tempId || item.sku}>
+                                                        <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
                                                             <TableCell>{item.productName}</TableCell>
                                                             <TableCell className="font-mono">{item.sku}</TableCell>
                                                             <TableCell>
                                                                 {isEditingThis ? (
                                                                      <Select 
-                                                                        onValueChange={(value) => handleItemChange((item as any).tempId, 'storeName', value)} 
+                                                                        onValueChange={(value) => handleItemChange(item.tempId, 'storeName', value)} 
                                                                         value={item.storeName}
                                                                      >
                                                                         <SelectTrigger className="w-32">
@@ -330,7 +336,7 @@ export function PurchaseHistory() {
                                                                         type="number"
                                                                         min="1"
                                                                         value={item.quantity}
-                                                                        onChange={(e) => handleItemChange((item as any).tempId, 'quantity', e.target.value)}
+                                                                        onChange={(e) => handleItemChange(item.tempId, 'quantity', e.target.value)}
                                                                         className="w-16 text-center"
                                                                     />
                                                                 ) : (
@@ -342,7 +348,7 @@ export function PurchaseHistory() {
                                                                     <Input
                                                                         type="number"
                                                                         defaultValue={item.surplus}
-                                                                        onChange={(e) => handleItemChange((item as any).tempId, 'surplus', e.target.value)}
+                                                                        onChange={(e) => handleItemChange(item.tempId, 'surplus', e.target.value)}
                                                                         className="w-20"
                                                                     />
                                                                 ) : (
@@ -354,7 +360,7 @@ export function PurchaseHistory() {
                                                                     <Input
                                                                         type="number"
                                                                         defaultValue={item.unitCost}
-                                                                        onChange={(e) => handleItemChange((item as any).tempId, 'unitCost', e.target.value)}
+                                                                        onChange={(e) => handleItemChange(item.tempId, 'unitCost', e.target.value)}
                                                                         className="w-28 ml-auto text-right"
                                                                     />
                                                                 ) : (
@@ -365,7 +371,7 @@ export function PurchaseHistory() {
                                                              <TableCell className="text-center">
                                                                 <Switch
                                                                     checked={item.isPaid}
-                                                                    onCheckedChange={(checked) => isEditingThis ? handleItemChange((item as any).tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
+                                                                    onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
                                                                 />
                                                             </TableCell>
                                                             {isEditingThis && (
@@ -373,7 +379,7 @@ export function PurchaseHistory() {
                                                                     <Button 
                                                                         variant="ghost" 
                                                                         size="icon" 
-                                                                        onClick={() => handleSplitItem((item as any).tempId)} 
+                                                                        onClick={() => handleSplitItem(item.tempId)} 
                                                                         disabled={item.quantity <= 1}
                                                                         title="Dividir este item em duas linhas"
                                                                     >
