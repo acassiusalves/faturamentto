@@ -516,7 +516,7 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const identifier = orderIdentifier.trim();
 
-    // 1. Try to find an exact match on order_id or order_code first
+    // 1. Try to find an exact match on order_id
     const qExactId = query(salesCol, where('order_id', '==', identifier), limit(1));
     const snapshotExactId = await getDocs(qExactId);
     if (!snapshotExactId.empty) {
@@ -524,6 +524,7 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
         return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
     }
     
+    // 2. Try to find an exact match on order_code
     const qExactCode = query(salesCol, where('order_code', '==', identifier), limit(1));
     const snapshotExactCode = await getDocs(qExactCode);
     if (!snapshotExactCode.empty) {
@@ -531,16 +532,18 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
         return fromFirestore({ ...docData.data(), id: docData.id }) as Sale;
     }
 
-    // 2. If no exact match, and if the identifier is numeric, try a contains query on order_code
-    if (/^\\d+$/.test(identifier)) {
-        const allSales = await loadSales(); // This is inefficient but necessary for "contains"
-        const foundSale = allSales.find(sale => (sale as any).order_code?.includes(identifier));
-        if (foundSale) {
-            return foundSale;
-        }
+    // 3. If no exact match, try a "contains" search by loading all data.
+    // This is less efficient but necessary for partial matches.
+    const allSales = await loadSales();
+    const foundSale = allSales.find(sale => 
+        (sale as any).order_code?.includes(identifier) ||
+        (sale as any).order_id?.includes(identifier)
+    );
+
+    if (foundSale) {
+        return foundSale;
     }
     
-    // 3. If still no match, return null
     return null;
 };
 
