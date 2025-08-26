@@ -420,8 +420,12 @@ function magaluAnchors(): AnchorMap {
 function fhDecode(payload: string): string {
   // converte grupos como _50_41... em texto UTF-8
   return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
-    const bytes = seq.match(/_[0-9A-Fa-f]{2}/g)!.map(x => parseInt(x.slice(1), 16));
-    return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
+    try {
+      const bytes = seq.split('_').filter(Boolean).map(x => parseInt(x, 16));
+      return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
+    } catch (e) {
+      return seq; // Retorna a sequência original em caso de erro
+    }
   });
 }
 function fhEncode(txt: string): string {
@@ -465,12 +469,12 @@ function applyAnchoredReplacements(
   let changed = false;
 
   // 1) recipientName
-  if (anchors.recipientName && (remixed.recipientName ?? '').trim() !== '') {
+  if (anchors.recipientName && remixed.recipientName && remixed.recipientName.trim() !== '') {
     const blk = findBlockAt(anchors.recipientName.x!, anchors.recipientName.y!);
     if (blk) {
       const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
       const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.recipientName!) : remixed.recipientName!;
+      const newPayload = hadFH ? fhEncode(remixed.recipientName) : remixed.recipientName;
       const replaced = replaceFDChunk(chunk, newPayload);
       lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
       changed = true;
@@ -478,12 +482,12 @@ function applyAnchoredReplacements(
   }
 
   // 2) streetAddress (linha 2)
-  if (anchors.streetAddress && (remixed.streetAddress ?? '').trim() !== '') {
+  if (anchors.streetAddress && remixed.streetAddress && remixed.streetAddress.trim() !== '') {
     const blk = findBlockAt(anchors.streetAddress.x!, anchors.streetAddress.y!);
     if (blk) {
       const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
       const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.streetAddress!) : remixed.streetAddress!;
+      const newPayload = hadFH ? fhEncode(remixed.streetAddress) : remixed.streetAddress;
       const replaced = replaceFDChunk(chunk, newPayload);
       lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
       changed = true;
@@ -491,7 +495,7 @@ function applyAnchoredReplacements(
   }
 
   // 3) zipCode (apenas os ÚLTIMOS 8 dígitos da linha)
-  if (anchors.zipCode && (remixed.zipCode ?? '').trim() !== '') {
+  if (anchors.zipCode && remixed.zipCode && remixed.zipCode.trim() !== '') {
     const blk = findBlockAt(anchors.zipCode.x!, anchors.zipCode.y!);
     if (blk) {
       const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
@@ -511,12 +515,12 @@ function applyAnchoredReplacements(
   }
 
   // 4) senderName
-  if (anchors.senderName && (remixed.senderName ?? '').trim() !== '') {
+  if (anchors.senderName && remixed.senderName && remixed.senderName.trim() !== '') {
     const blk = findBlockAt(anchors.senderName.x!, anchors.senderName.y!);
     if (blk) {
       const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
       const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.senderName!) : remixed.senderName!;
+      const newPayload = hadFH ? fhEncode(remixed.senderName) : remixed.senderName;
       const replaced = replaceFDChunk(chunk, newPayload);
       lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
       changed = true;
@@ -524,12 +528,12 @@ function applyAnchoredReplacements(
   }
 
   // 5) senderAddress
-  if (anchors.senderAddress && (remixed.senderAddress ?? '').trim() !== '') {
+  if (anchors.senderAddress && remixed.senderAddress && remixed.senderAddress.trim() !== '') {
     const blk = findBlockAt(anchors.senderAddress.x!, anchors.senderAddress.y!);
     if (blk) {
       const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
       const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.senderAddress!) : remixed.senderAddress!;
+      const newPayload = hadFH ? fhEncode(remixed.senderAddress) : remixed.senderAddress;
       const replaced = replaceFDChunk(chunk, newPayload);
       lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
       changed = true;
@@ -582,49 +586,48 @@ export async function remixZplDataAction(
     const remixed  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
 
     // normaliza campos ausentes
-    ([
+    const allKeys: (keyof AnalyzeLabelOutput)[] = [
       'recipientName','streetAddress','city','state','zipCode',
       'orderNumber','invoiceNumber','trackingNumber',
       'senderName','senderAddress','estimatedDeliveryDate'
-    ] as (keyof AnalyzeLabelOutput)[]).forEach((k) => {
-      // @ts-ignore
-      if (baseline[k] == null) baseline[k] = '';
-      // @ts-ignore
-      if (remixed[k]  == null) remixed[k]  = '';
+    ];
+
+    allKeys.forEach((k) => {
+        // @ts-ignore
+      if (baseline[k] === null || baseline[k] === undefined) baseline[k] = '';
+       // @ts-ignore
+      if (remixed[k]  === null || remixed[k] === undefined) remixed[k]  = '';
     });
-
-    // 1) Âncoras: se Magalu, usa fixas; senão tenta heurística antiga (se você quiser manter).
+    
+    // 1) Âncoras: se Magalu, usa fixas; senão, passa para o LLM tentar.
     const anchors: AnchorMap = isMagaluTemplate(originalZpl) ? magaluAnchors() : {};
-
-    // 2) aplica substituições ancoradas
+    
+    // 2) Tenta aplicar substituições ancoradas PRIMEIRO
     const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, baseline, remixed);
     if (changed) {
       return { result: { modifiedZpl: out }, error: null };
     }
 
-    // 3) fallback LLM SOMENTE para inserir "estimatedDeliveryDate" (quando não existir no template)
-    if ((remixed.estimatedDeliveryDate || '').trim()) {
-      const flowInput: RemixZplDataInput = {
+    // 3) Se as âncoras não funcionarem (template desconhecido), usa LLM como fallback
+    const flowInput: RemixZplDataInput = {
         originalZpl,
         baselineData: baseline,
         remixedData: remixed,
         // @ts-ignore
-        matchMode,
-        // @ts-ignore
-        baselinePositions: anchors,
-      };
-      const llm = await remixZplData(flowInput);
-      const sanitized = (llm.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
-      return { result: { modifiedZpl: ensureCI28(sanitized) }, error: null };
-    }
+        matchMode: matchMode, // 'strict' ou 'relaxed'
+        baselinePositions: anchors
+    };
 
-    // 4) nada para fazer
-    return { result: { modifiedZpl: ensureCI28(originalZpl) }, error: null };
+    const llmResult = await remixZplData(flowInput);
+    const sanitizedZpl = (llmResult.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
+
+    return { result: { modifiedZpl: ensureCI28(sanitizedZpl) }, error: null };
 
   } catch (e: any) {
     console.error('Error remixing ZPL data:', e);
     return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
   }
 }
+    
 
     

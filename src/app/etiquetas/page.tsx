@@ -72,7 +72,7 @@ export default function EtiquetasPage() {
   const lastAppliedZplRef = useRef<string | null>(null);
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
-  const [flexMode, setFlexMode] = useState(false);
+  const [matchMode, setMatchMode] = useState<'strict' | 'relaxed'>('strict');
 
 
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
@@ -503,9 +503,10 @@ export default function EtiquetasPage() {
                         <input type="hidden" name="originalZpl" value={originalZpl} />
                         <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                         <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                         <input type="hidden" name="matchMode" value={matchMode} />
                         
                         <div className="flex items-center gap-3 mb-2">
-                            <input id="flex-mode" type="checkbox" checked={flexMode} onChange={e => setFlexMode(e.target.checked)} />
+                            <input id="flex-mode" type="checkbox" checked={matchMode === 'relaxed'} onChange={e => setMatchMode(e.target.checked ? 'relaxed' : 'strict')} />
                             <label htmlFor="flex-mode" className="text-sm text-muted-foreground">
                                 Modo flexível (match normalizado/aproximação)
                             </label>
@@ -552,3 +553,5 @@ export default function EtiquetasPage() {
     </div>
   );
 }
+
+    
