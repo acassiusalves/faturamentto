@@ -335,13 +335,6 @@ const BARCODE_LEFT_SAFE_X = 220;   // NUNCA editar à esquerda disso
 // --- TIPOS ---
 type AnchorMap = Partial<Record<keyof AnalyzeLabelOutput, { x: number, y: number }>>;
 
-type ZplBlock = {
-  start: number; end: number;
-  x?: number; y?: number;
-  fdText: string;
-  isBarcode: boolean;   // true se houver ^B* no bloco
-};
-
 // --- UTIL: normaliza texto para comparação "solta" ---
 function normalize(s: string) {
   return (s || "")
@@ -352,40 +345,30 @@ function normalize(s: string) {
     .toUpperCase();
 }
 
-// --- PARSEIA BLOCOS ^FO/^FT ... ^FD...^FS (marca se é barcode) ---
-function parseZplBlocks(zpl: string): ZplBlock[] {
-  const lines = zpl.split(/\r?\n/);
-  const blocks: ZplBlock[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^\s*\^(FO|FT)\s*(\d+),\s*(\d+)/i);
-    if (!m) continue;
-
-    const start = i, x = +m[2], y = +m[3];
-    let isBarcode = false, fdText = "", end = i;
-
-    for (let j = i + 1; j < lines.length; j++) {
-      const L = lines[j];
-      if (/^\s*\^B[A-Z]/i.test(L)) isBarcode = true;
-
-      const oneLine = L.match(/\^FD([\s\S]*?)\^FS/);
-      if (oneLine) { fdText = oneLine[1]; end = j; i = j; break; }
-
-      const fdStart = L.match(/^\s*\^FD(.*)$/);
-      if (fdStart) {
-        fdText = fdStart[1];
-        for (let k = j + 1; k < lines.length; k++) {
-          const L2 = lines[k];
-          if (/^\s*\^B[A-Z]/i.test(L2)) isBarcode = true;
-          const ends = /\^FS/.test(L2);
-          fdText += "\n" + L2.replace(/\^FS.*$/, "");
-          if (ends) { end = k; i = k; break; }
-        }
-        break;
-      }
+// --- CODIFICAÇÃO/DECODIFICAÇÃO ^FH (_xx) ---
+function fhDecode(payload: string): string {
+  // converte grupos como _50_41... em texto UTF-8
+  return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
+    try {
+      const bytes = seq.split('_').filter(Boolean).map(x => parseInt(x, 16));
+      return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
+    } catch (e) {
+      return seq; // Retorna a sequência original em caso de erro
     }
-    blocks.push({ start, end, x, y, fdText, isBarcode });
-  }
-  return blocks;
+  });
+}
+function fhEncode(txt: string): string {
+  const bytes = Buffer.from(txt, 'utf8');
+  return Array.from(bytes).map(b => `_${b.toString(16).toUpperCase().padStart(2,'0')}`).join('');
+}
+
+function composeCityState(city?: string, state?: string) {
+  const c = (city || '').trim();
+  const s = (state || '').trim();
+  if (!c && !s) return '';
+  if (!c) return s.toUpperCase();
+  if (!s) return c.toUpperCase();
+  return `${c.toUpperCase()}, ${s.toUpperCase()}`;
 }
 
 // --- GARANTE ^CI28 depois de ^XA ---
@@ -416,156 +399,114 @@ function magaluAnchors(): AnchorMap {
   };
 }
 
-// --- CODIFICAÇÃO/DECODIFICAÇÃO ^FH (_xx) ---
-function fhDecode(payload: string): string {
-  // converte grupos como _50_41... em texto UTF-8
-  return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
-    try {
-      const bytes = seq.split('_').filter(Boolean).map(x => parseInt(x, 16));
-      return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
-    } catch (e) {
-      return seq; // Retorna a sequência original em caso de erro
-    }
-  });
-}
-function fhEncode(txt: string): string {
-  const bytes = Buffer.from(txt, 'utf8');
-  return Array.from(bytes).map(b => `_${b.toString(16).toUpperCase().padStart(2,'0')}`).join('');
-}
-
-function composeCityState(city?: string, state?: string) {
-  const c = (city || '').trim();
-  const s = (state || '').trim();
-  if (!c && !s) return '';
-  if (!c) return s.toUpperCase();
-  if (!s) return c.toUpperCase();
-  return `${c.toUpperCase()}, ${s.toUpperCase()}`;
-}
-
+// --- Aplica substituições ancoradas ---
 function applyAnchoredReplacements(
   originalZpl: string,
   anchors: AnchorMap,
-  baseline: AnalyzeLabelOutput,
   remixed: AnalyzeLabelOutput
 ) {
-  const lines = originalZpl.split(/\r?\n/);
-  const blocks = parseZplBlocks(originalZpl);
+    const lines = originalZpl.split(/\r?\n/);
+    const blocksToRemove = new Set<number>();
+    let hasChanged = false;
 
-  const near = (a?: number, b?: number) =>
-    typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= TOLERANCE_PX;
+    // Helper para encontrar um bloco
+    const findBlockIndexAt = (x: number, y: number): number => {
+        for (let i = 0; i < lines.length; i++) {
+            const m = lines[i].match(/^\s*\^(FO|FT)\s*(\d+),\s*(\d+)/i);
+            if (m && Math.abs(Number(m[2]) - x) <= TOLERANCE_PX && Math.abs(Number(m[3]) - y) <= TOLERANCE_PX) {
+                if (Number(m[2]) >= BARCODE_LEFT_SAFE_X) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    };
+    
+    // Helper para substituir ou apagar
+    const processField = (fieldName: keyof AnchorMap, newValue: string) => {
+        const anchor = anchors[fieldName];
+        if (!anchor) return;
 
-  function findBlockAt(x: number, y: number) {
-    return blocks.find(b =>
-      !b.isBarcode &&
-      (b.x ?? 0) >= BARCODE_LEFT_SAFE_X &&
-      near(b.x, x) && near(b.y, y)
-    );
-  }
+        const blockStartIndex = findBlockIndexAt(anchor.x, anchor.y);
+        if (blockStartIndex === -1) return;
 
-  function replaceFDChunk(chunk: string, newTxt: string) {
-    return chunk.replace(/\^FD[\s\S]*?\^FS/, `^FD${newTxt}^FS`);
-  }
+        let blockEndIndex = -1;
+        for (let j = blockStartIndex; j < lines.length; j++) {
+            if (/\^FS/.test(lines[j])) {
+                blockEndIndex = j;
+                break;
+            }
+        }
+        if (blockEndIndex === -1) return;
+        
+        hasChanged = true;
+        
+        // Se o novo valor for vazio, marca para apagar
+        if (newValue.trim() === '') {
+            for (let i = blockStartIndex; i <= blockEndIndex; i++) {
+                blocksToRemove.add(i);
+            }
+            return;
+        }
 
-  let changed = false;
-
-  // 1) recipientName
-  if (anchors.recipientName && remixed.recipientName && remixed.recipientName.trim() !== '') {
-    const blk = findBlockAt(anchors.recipientName.x!, anchors.recipientName.y!);
-    if (blk) {
-      const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-      const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.recipientName) : remixed.recipientName;
-      const replaced = replaceFDChunk(chunk, newPayload);
-      lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-      changed = true;
+        // Procura a linha com ^FD
+        for (let j = blockStartIndex; j <= blockEndIndex; j++) {
+            if (lines[j].includes('^FD')) {
+                const hasFH = lines.slice(blockStartIndex, j + 1).some(l => l.includes('^FH'));
+                const payload = hasFH ? fhEncode(newValue) : newValue;
+                lines[j] = lines[j].replace(/\^FD[\s\S]*?\^FS/, `^FD${payload}^FS`);
+                // Apaga as outras linhas do bloco se for multi-linha
+                for (let k = j + 1; k <= blockEndIndex; k++) lines[k] = '';
+                break;
+            }
+        }
+    };
+    
+    // Aplica as lógicas
+    processField('recipientName', remixed.recipientName);
+    processField('streetAddress', remixed.streetAddress);
+    processField('senderName', remixed.senderName);
+    processField('senderAddress', remixed.senderAddress);
+    
+    const cityState = composeCityState(remixed.city, remixed.state);
+    if(anchors.city) { // Usa a âncora da cidade para o campo combinado
+        processField('city', cityState);
     }
-  }
-
-  // 2) streetAddress (linha 2)
-  if (anchors.streetAddress && remixed.streetAddress && remixed.streetAddress.trim() !== '') {
-    const blk = findBlockAt(anchors.streetAddress.x!, anchors.streetAddress.y!);
-    if (blk) {
-      const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-      const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.streetAddress) : remixed.streetAddress;
-      const replaced = replaceFDChunk(chunk, newPayload);
-      lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-      changed = true;
+    
+    // Lógica especial para CEP
+    const zipAnchor = anchors.zipCode;
+    if(zipAnchor) {
+        const zipBlockIndex = findBlockIndexAt(zipAnchor.x, zipAnchor.y);
+        if (zipBlockIndex !== -1) {
+            for(let i = zipBlockIndex; i < lines.length; i++) {
+                if(lines[i].includes('^FD')) {
+                    const newZip = (remixed.zipCode || '').replace(/\D/g, '').slice(0, 8);
+                    const originalLine = lines[i];
+                    const updatedLine = originalLine.replace(/(\d{8})(?!.*\d)/, newZip);
+                    if (originalLine !== updatedLine) {
+                        lines[i] = updatedLine;
+                        hasChanged = true;
+                    }
+                    break;
+                }
+                 if(/\^FS/.test(lines[i])) break;
+            }
+        }
     }
-  }
-
-  // 3) zipCode (apenas os ÚLTIMOS 8 dígitos da linha)
-  if (anchors.zipCode && remixed.zipCode && remixed.zipCode.trim() !== '') {
-    const blk = findBlockAt(anchors.zipCode.x!, anchors.zipCode.y!);
-    if (blk) {
-      const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-      const m = chunk.match(/\^FD([\s\S]*?)\^FS/);
-      if (m) {
-        const hadFH = /\^FH/.test(chunk);
-        const oldPayload = m[1];
-        const decoded = hadFH ? fhDecode(oldPayload) : oldPayload;
-        const newZip = (remixed.zipCode || '').replace(/\D/g, '').slice(0, 8);
-        const updatedText = decoded.replace(/(\d{8})(?!.*\d)/, newZip); // só o último bloco de 8 dígitos
-        const newPayload = hadFH ? fhEncode(updatedText) : updatedText;
-        const replaced = replaceFDChunk(chunk, newPayload);
-        lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-        changed = true;
-      }
+    
+    // Remove o bloco redundante "BA"
+    const redundantBlockIndex = findBlockIndexAt(370, 1104);
+    if (redundantBlockIndex !== -1) {
+        // Simplesmente marca a linha para remoção
+        blocksToRemove.add(redundantBlockIndex);
+        if(lines[redundantBlockIndex + 1]?.includes('^FS')) blocksToRemove.add(redundantBlockIndex+1);
+        hasChanged = true;
     }
-  }
+    
+    const finalLines = lines.filter((_, index) => !blocksToRemove.has(index));
+    let out = finalLines.join("\n").replace(/\n{2,}/g, "\n"); // Limpa linhas vazias extras
 
-  // 4) senderName
-  if (anchors.senderName && remixed.senderName && remixed.senderName.trim() !== '') {
-    const blk = findBlockAt(anchors.senderName.x!, anchors.senderName.y!);
-    if (blk) {
-      const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-      const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.senderName) : remixed.senderName;
-      const replaced = replaceFDChunk(chunk, newPayload);
-      lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-      changed = true;
-    }
-  }
-
-  // 5) senderAddress
-  if (anchors.senderAddress && remixed.senderAddress && remixed.senderAddress.trim() !== '') {
-    const blk = findBlockAt(anchors.senderAddress.x!, anchors.senderAddress.y!);
-    if (blk) {
-      const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-      const hadFH = /\^FH/.test(chunk);
-      const newPayload = hadFH ? fhEncode(remixed.senderAddress) : remixed.senderAddress;
-      const replaced = replaceFDChunk(chunk, newPayload);
-      lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-      changed = true;
-    }
-  }
-
-  // 6) city/state (linha "CIDADE, UF")
-  if (anchors.city && anchors.state) {
-    const val = composeCityState(remixed.city, remixed.state);
-    if (val) {
-      const blk = findBlockAt(anchors.city.x!, anchors.city.y!);
-      if (blk) {
-        const chunk = lines.slice(blk.start, blk.end + 1).join("\n");
-        const hadFH = /\^FH/.test(chunk);
-        const newPayload = hadFH ? fhEncode(val) : val;
-        const replaced = replaceFDChunk(chunk, newPayload);
-        lines.splice(blk.start, blk.end - blk.start + 1, ...replaced.split("\n"));
-        changed = true;
-      }
-    }
-  }
-
-  // 7) remove bloco redundante "BA" (370,1104), se existir
-  const rm = blocks.find(b => !b.isBarcode && near(b.x, 370) && near(b.y, 1104));
-  if (rm) {
-    for (let i = rm.start; i <= rm.end; i++) lines[i] = "";
-    changed = true;
-  }
-
-  let out = lines.join("\n").replace(/\n{3,}/g, "\n\n");
-  out = ensureCI28(out);
-  return { out, changed };
+    return { out: ensureCI28(out), changed: hasChanged };
 }
 
 export async function remixZplDataAction(
@@ -575,46 +516,40 @@ export async function remixZplDataAction(
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
   const remixedDataJSON  = formData.get('remixedData') as string;
-  const matchMode = (formData.get('matchMode') as 'strict' | 'relaxed') ?? 'strict';
+  // matchMode não é mais lido do form
 
   if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
     return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
   }
 
   try {
-    const baseline = JSON.parse(baselineDataJSON) as AnalyzeLabelOutput;
     const remixed  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
 
-    // normaliza campos ausentes
+    // Normaliza campos ausentes para strings vazias
     const allKeys: (keyof AnalyzeLabelOutput)[] = [
       'recipientName','streetAddress','city','state','zipCode',
       'orderNumber','invoiceNumber','trackingNumber',
       'senderName','senderAddress','estimatedDeliveryDate'
     ];
-
     allKeys.forEach((k) => {
-        // @ts-ignore
-      if (baseline[k] === null || baseline[k] === undefined) baseline[k] = '';
-       // @ts-ignore
-      if (remixed[k]  === null || remixed[k] === undefined) remixed[k]  = '';
+      if ((remixed as any)[k] === null || (remixed as any)[k] === undefined) (remixed as any)[k] = '';
     });
     
-    // 1) Âncoras: se Magalu, usa fixas; senão, passa para o LLM tentar.
     const anchors: AnchorMap = isMagaluTemplate(originalZpl) ? magaluAnchors() : {};
     
-    // 2) Tenta aplicar substituições ancoradas PRIMEIRO
-    const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, baseline, remixed);
+    // Tenta aplicar substituições ancoradas PRIMEIRO
+    const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, remixed);
+
     if (changed) {
       return { result: { modifiedZpl: out }, error: null };
     }
 
-    // 3) Se as âncoras não funcionarem (template desconhecido), usa LLM como fallback
+    // Se as âncoras não funcionarem (template desconhecido ou nenhuma alteração), usa LLM como fallback
     const flowInput: RemixZplDataInput = {
         originalZpl,
-        baselineData: baseline,
+        baselineData: JSON.parse(baselineDataJSON),
         remixedData: remixed,
-        // @ts-ignore
-        matchMode: matchMode, // 'strict' ou 'relaxed'
+        matchMode: 'strict', // Ou simplesmente remova se o flow não precisar mais
         baselinePositions: anchors
     };
 

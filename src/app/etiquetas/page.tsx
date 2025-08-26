@@ -16,66 +16,6 @@ import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 
-// --- util para ^FH (ZPL usa _XX) ---
-function fhDecode(payload: string): string {
-  return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
-    const bytes = seq.match(/_[0-9A-Fa-f]{2}/g)!.map(x => parseInt(x.slice(1), 16));
-    return new TextDecoder().decode(new Uint8Array(bytes));
-  });
-}
-
-// --- parse simples dos blocos ^FO/^FT ... ^FD...^FS (ignora barcodes) ---
-type ZplBlock = { x:number; y:number; isBarcode:boolean; fd:string };
-function parseZplBlocks(zpl: string): ZplBlock[] {
-  const lines = zpl.split(/\r?\n/);
-  const blocks: ZplBlock[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^\s*\^(FO|FT)\s*(\d+),\s*(\d+)/i);
-    if (!m) continue;
-    const x = +m[2], y = +m[3];
-    let isBarcode = false, fd = "";
-
-    for (let j = i + 1; j < lines.length; j++) {
-      const L = lines[j];
-      if (/^\s*\^B[A-Z]/i.test(L)) isBarcode = true;
-      const one = L.match(/\^FD([\s\S]*?)\^FS/);
-      if (one) { fd = one[1]; i = j; break; }
-      const start = L.match(/^\s*\^FD(.*)$/);
-      if (start) {
-        fd = start[1];
-        for (let k = j + 1; k < lines.length; k++) {
-          const L2 = lines[k];
-          if (/^\s*\^B[A-Z]/i.test(L2)) isBarcode = true;
-          fd += "\n" + L2.replace(/\^FS.*$/, "");
-          if (/\^FS/.test(L2)) { i = k; break; }
-        }
-        break;
-      }
-    }
-    blocks.push({ x, y, isBarcode, fd });
-  }
-  return blocks;
-}
-
-// âncoras fixas do template Magalu (lado direito)
-const magaluAnchors = {
-  recipientName: { x: 370, y: 736 },
-  streetAddress: { x: 370, y: 791 },
-  zipCode:       { x: 370, y: 848 },
-  senderName:    { x: 370, y: 992 },
-  senderAddress: { x: 370, y: 1047 },
-  cityState:     { x: 370, y: 1158 },
-};
-
-// bounds lógicos do ZPL (dots) – usa o maior x/y encontrado
-function getZplBounds(zpl: string) {
-  const blocks = parseZplBlocks(zpl);
-  const maxX = Math.max(...blocks.map(b => b.x), 812);   // 4" @ 203dpi ≈ 812
-  const maxY = Math.max(...blocks.map(b => b.y), 1218);  // ~6"
-  return { w: maxX + 40, h: maxY + 40 };
-}
-
-
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
   import.meta.url,
@@ -106,102 +46,6 @@ const remixZplInitialState = {
 const sanitizeZpl = (z: string) =>
   z.replace(/```(?:zpl)?/g, '').trim();
 
-function Pin({ left, top, onClick, title }: { left:number; top:number; onClick:()=>void; title:string }) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className="absolute -translate-x-1/2 -translate-y-1/2 p-1 rounded-full bg-white/90 shadow ring-1 ring-zinc-300 hover:bg-white"
-      style={{ left, top }}
-    >
-      ✎
-    </button>
-  );
-}
-
-function ZplPreviewWithPins({
-  zpl,
-  previewUrl,
-  analysis,
-  onEdit, // (field, newValue) => void
-}: {
-  zpl: string;
-  previewUrl: string;
-  analysis: AnalyzeLabelOutput | null;
-  onEdit: (field: keyof AnalyzeLabelOutput, newValue: string) => void;
-}) {
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [disp, setDisp] = useState({ w: 0, h: 0 });
-
-  // mede tamanho exibido
-  useEffect(() => {
-    const el = imgRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver(() => {
-      setDisp({ w: el.clientWidth, h: el.clientHeight });
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [previewUrl]);
-
-  const { w: zplW, h: zplH } = getZplBounds(zpl);
-  const sX = disp.w / zplW;
-  const sY = disp.h / zplH;
-  const pos = (x:number, y:number) => ({ left: x * sX, top: y * sY });
-
-  const pins = [
-    { key: 'recipientName',  label: 'Destinatário',   ...magaluAnchors.recipientName },
-    { key: 'streetAddress',  label: 'Endereço',       ...magaluAnchors.streetAddress },
-    { key: 'zipCode',        label: 'CEP (na linha)', ...magaluAnchors.zipCode },
-    { key: 'senderName',     label: 'Remetente',      ...magaluAnchors.senderName },
-    { key: 'senderAddress',  label: 'Endereço Rem.',  ...magaluAnchors.senderAddress },
-    { key: 'city',           label: 'Cidade/UF',      ...magaluAnchors.cityState }, // usaremos city+state juntos
-  ] as const;
-
-  return (
-    <div className="flex items-center justify-center p-2">
-      <div ref={wrapRef} className="relative inline-block">
-        {/* use <img> para ter medidas precisas do elemento exibido */}
-        <img
-          ref={imgRef}
-          src={previewUrl}
-          alt="Pré-visualização ZPL"
-          className="block max-w-[420px] h-auto border rounded-md"
-        />
-        {/* pinos */}
-        {disp.w > 0 && pins.map(p => {
-          const { left, top } = pos(p.x, p.y);
-          return (
-            <Pin
-              key={p.key}
-              left={left}
-              top={top}
-              title={`Editar ${p.label}`}
-              onClick={() => {
-                const current =
-                  p.key === 'city'
-                    ? `${analysis?.city || ''}, ${analysis?.state || ''}`.replace(/,\s*$/, '')
-                    : ((analysis as any)?.[p.key] || '');
-                const novo = prompt(`Novo valor para ${p.label}:`, current);
-                if (novo == null) return;
-                if (p.key === 'city') {
-                  // aceita "Cidade, UF" ou só cidade
-                  const [c, uf] = novo.split(',').map(s => s?.trim() || '');
-                  onEdit('city', c);
-                  if (uf) onEdit('state', uf);
-                } else {
-                  onEdit(p.key as keyof AnalyzeLabelOutput, novo);
-                }
-              }}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
@@ -228,7 +72,6 @@ export default function EtiquetasPage() {
   const lastAppliedZplRef = useRef<string | null>(null);
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
-  const [matchMode, setMatchMode] = useState<'strict' | 'relaxed'>('strict');
 
 
   const generatePreviewImmediate = useCallback(async (zpl: string) => {
@@ -362,7 +205,7 @@ export default function EtiquetasPage() {
     if (newZpl.trim() === originalZpl.trim() && newZpl.trim() === zplEditorContent.trim()) {
       toast({
         title: 'Sem alterações',
-        description: 'Não consegui localizar os campos no ZPL usando as âncoras. Tente o modo flexível.',
+        description: 'O ZPL não sofreu alteração após a tentativa de atualização.',
       });
       return;
     }
@@ -581,29 +424,19 @@ export default function EtiquetasPage() {
         </div>
 
         <div className="space-y-8">
-          {previewUrl && !isPreviewLoading && (
+           {previewUrl && !isPreviewLoading && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Eye /> Pré-visualização da Etiqueta</CardTitle>
-                <CardDescription>Passe o mouse sobre os campos para editar.</CardDescription>
+                <CardDescription>Representação visual do ZPL editado.</CardDescription>
               </CardHeader>
-              <CardContent className="p-2">
-                <ZplPreviewWithPins
-                  zpl={zplEditorContent}
-                  previewUrl={previewUrl}
-                  analysis={analysisResult}
-                  onEdit={(field, newValue) => {
-                    // 1) atualiza os dados locais (mostra no painel “Dados extraídos”)
-                    setAnalysisResult(prev => prev ? { ...prev, [field]: newValue } as AnalyzeLabelOutput : prev);
-
-                    // 2) dispara o fluxo ancorado (coordenadas) para gerar o novo ZPL
-                    const form = new FormData();
-                    form.append('originalZpl', originalZpl);
-                    form.append('baselineData', JSON.stringify(baselineAnalysis ?? analysisResult ?? {}));
-                    form.append('remixedData', JSON.stringify({ ...(analysisResult ?? {}), [field]: newValue }));
-                    form.append('matchMode', matchMode); // 'strict' por padrão
-                    remixZplFormAction(form);
-                  }}
+              <CardContent className="p-2 flex items-center justify-center">
+                 <Image
+                    src={previewUrl}
+                    alt="Pré-visualização ZPL"
+                    width={420}
+                    height={630}
+                    className="block max-w-[420px] h-auto border rounded-md"
                 />
               </CardContent>
             </Card>
@@ -675,14 +508,6 @@ export default function EtiquetasPage() {
                         <input type="hidden" name="originalZpl" value={originalZpl} />
                         <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                         <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                         <input type="hidden" name="matchMode" value={matchMode} />
-                        
-                        <div className="flex items-center gap-3 mb-2">
-                            <input id="flex-mode" type="checkbox" checked={matchMode === 'relaxed'} onChange={e => setMatchMode(e.target.checked ? 'relaxed' : 'strict')} />
-                            <label htmlFor="flex-mode" className="text-sm text-muted-foreground">
-                                Modo flexível (match normalizado/aproximação)
-                            </label>
-                        </div>
                         
                         <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
                             {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
