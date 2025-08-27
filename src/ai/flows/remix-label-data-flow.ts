@@ -29,25 +29,6 @@ export async function remixLabelData(
   return remixLabelDataFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'remixLabelDataPrompt',
-  input: { schema: RemixLabelDataInputSchema },
-  output: { schema: RemixLabelDataOutputSchema },
-  prompt: `You are a creative AI that generates modified data for shipping labels based on a specific field.
-  Your task is to generate a new value for the field specified in 'fieldToRemix'.
-
-  The current value for the field '{{{fieldToRemix}}}' is '{{{originalValue}}}'.
-
-  Follow these instructions precisely:
-
-  - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format as the 'originalValue'.
-  - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name.
-  - If 'fieldToRemix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
-
-  Return ONLY the 'newValue' in the specified JSON format. Do not add any other text.
-  `,
-});
-
 const remixLabelDataFlow = ai.defineFlow(
   {
     name: 'remixLabelDataFlow',
