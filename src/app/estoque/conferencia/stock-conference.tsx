@@ -10,7 +10,6 @@ import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { DetailedEntryHistory } from "./detailed-entry-history";
 import type { InventoryItem, PickedItemLog } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
@@ -150,8 +149,6 @@ export function StockConference() {
                 <SummaryCard title="Estoque Atual" data={stats.currentStock} />
             </div>
         </div>
-
-      <DetailedEntryHistory />
     </div>
   );
 }
