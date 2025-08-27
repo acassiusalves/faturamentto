@@ -347,7 +347,7 @@ type AnchorMap = Partial<Record<keyof AnalyzeLabelOutput, { x: number, y: number
 function normalize(s: string) {
   return (s || "")
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s\-]/g, " ")
+    .replace(/[^\w\s-]/g, " ") // Mantém o hífen
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
