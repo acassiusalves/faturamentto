@@ -72,7 +72,7 @@ export function StockConference() {
       .filter(item => item.createdAt && toDate(item.createdAt) >= todayStart)
       .reduce((acc, item) => {
         const condition = item.condition || 'Novo';
-        acc[condition] = (acc[condition] || 0) + 1;
+        acc[condition] = (acc[condition] || 0) + (item.quantity || 1);
         return acc;
       }, {} as Record<string, number>);
       
@@ -81,13 +81,13 @@ export function StockConference() {
       .reduce((acc, log) => {
           // Assume 'Novo' if condition is missing, which is common for older picked items.
           const condition = log.condition || 'Novo';
-          acc[condition] = (acc[condition] || 0) + 1;
+          acc[condition] = (acc[condition] || 0) + (log.quantity || 1);
           return acc;
       }, {} as Record<string, number>);
 
     const currentStockSummary = currentInventory.reduce((acc, item) => {
       const condition = item.condition || 'Novo';
-      acc[condition] = (acc[condition] || 0) + 1;
+      acc[condition] = (acc[condition] || 0) + (item.quantity || 1);
       return acc;
     }, {} as Record<string, number>);
 
