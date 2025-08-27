@@ -13,6 +13,7 @@ import { getAi } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { AnalyzeLabelOutput } from './analyze-label-flow';
 import { loadAppSettings } from '@/services/firestore';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 const AnalyzeLabelOutputSchema = z.object({
   recipientName: z.string().describe('The name of the recipient (DESTINATÁRIO).'),
@@ -52,6 +53,7 @@ export async function analyzeZpl(
     name: 'analyzeZplPrompt',
     input: { schema: AnalyzeZplInputSchema },
     output: { schema: AnalyzeLabelOutputSchema },
+    model: gemini15Flash, // Specify the model to be used
     prompt: `You are an expert in reading and extracting information from Brazilian shipping labels written in ZPL (Zebra Programming Language).
 
     Analyze the provided ZPL content and extract the following information. Be precise and return only the requested data in the specified JSON format. The ^FD command in ZPL defines a data field. Look for keywords like "DESTINATÁRIO", "REMETENTE", "Pedido", "Nota Fiscal", "Data estimada", "CEP", etc. near the ^FD commands to identify the correct information. The address is often split across multiple lines.
