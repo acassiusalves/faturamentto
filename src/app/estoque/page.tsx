@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
@@ -97,16 +97,21 @@ export default function EstoquePage() {
       origin: '',
     },
   });
+  
+  const fetchInventory = useCallback(async () => {
+    console.log("Buscando itens do inventário...");
+    const items = await loadInventoryItems();
+    setInventory(items);
+  }, []);
 
   useEffect(() => {
     async function loadData() {
         setIsLoading(true);
-        const [items, loadedProducts, productSettings] = await Promise.all([
-          loadInventoryItems(),
+        const [loadedProducts, productSettings] = await Promise.all([
           loadProducts(),
-          loadProductSettings('celular')
+          loadProductSettings('celular'),
+          fetchInventory()
         ]);
-        setInventory(items);
         setProducts(loadedProducts);
         if (productSettings) {
             const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
@@ -121,7 +126,24 @@ export default function EstoquePage() {
         setIsLoading(false);
     }
     loadData();
-  }, []);
+  }, [fetchInventory]);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+        if (localStorage.getItem('stockDataDirty') === 'true') {
+            fetchInventory();
+            localStorage.removeItem('stockDataDirty');
+        }
+    };
+    window.addEventListener('focus', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+        window.removeEventListener('focus', handleStorageChange);
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [fetchInventory]);
+
 
   const handleProductSelectionChange = (productId: string) => {
     form.setValue('productId', productId, { shouldValidate: true });
@@ -208,6 +230,7 @@ export default function EstoquePage() {
     try {
       const savedItems = await saveMultipleInventoryItems(newItems as any);
       setInventory(prev => [...savedItems, ...prev]);
+      localStorage.setItem('stockDataDirty', 'true');
       toast({
         title: `${newItems.length} Itens Adicionados!`,
         description: `Os produtos "${selectedProduct.name}" foram salvos com sucesso.`,
@@ -227,6 +250,7 @@ export default function EstoquePage() {
     try {
       await deleteInventoryItem(itemId);
       setInventory(prev => prev.filter(item => item.id !== itemId));
+      localStorage.setItem('stockDataDirty', 'true');
       toast({ title: 'Item Removido', description: 'O item foi removido do seu estoque.' });
     } catch (error) {
       console.error(error);

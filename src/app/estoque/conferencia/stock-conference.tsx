@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -104,7 +103,20 @@ export function StockConference() {
   }, []);
 
   useEffect(() => {
+    const handleStorageChange = () => {
+        if (localStorage.getItem('stockDataDirty') === 'true') {
+            fetchData();
+            localStorage.removeItem('stockDataDirty');
+        }
+    };
     fetchData();
+    window.addEventListener('focus', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+        window.removeEventListener('focus', handleStorageChange);
+        window.removeEventListener('storage', handleStorageChange);
+    };
   }, [fetchData]);
 
   if (isLoading || !stats) {
