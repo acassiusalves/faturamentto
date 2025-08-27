@@ -311,10 +311,18 @@ export async function remixLabelDataAction(
 
     try {
         const originalData: AnalyzeLabelOutput = JSON.parse(originalDataJSON);
+        
+        const settings = await loadAppSettings();
+        const apiKey = settings?.geminiApiKey;
+        
+        if (!apiKey) {
+             return { analysis: null, error: 'A chave de API do Gemini não está configurada no sistema.' };
+        }
 
         const flowInput: RemixLabelDataInput = {
             fieldToRemix: fieldToRemix,
             originalValue: originalData[fieldToRemix] as string,
+            apiKey: apiKey
         };
 
         const result = await remixLabelData(flowInput);

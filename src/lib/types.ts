@@ -425,6 +425,7 @@ export type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'inv
 export type RemixLabelDataInput = {
     fieldToRemix: RemixableField;
     originalValue: string;
+    apiKey?: string;
 };
 
 export type RemixLabelDataOutput = {
