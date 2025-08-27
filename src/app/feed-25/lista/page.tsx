@@ -261,7 +261,11 @@ export default function FeedListPage() {
 
     const filteredData = useMemo(() => {
         if (!filter) return comparisonData;
-        return comparisonData.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
+        const lowerCaseFilter = filter.toLowerCase();
+        return comparisonData.filter(p => 
+            p.name.toLowerCase().includes(lowerCaseFilter) ||
+            p.sku.toLowerCase().includes(lowerCaseFilter)
+        );
     }, [comparisonData, filter]);
 
     const handleDeleteIncorrectOffers = async () => {
@@ -438,7 +442,7 @@ export default function FeedListPage() {
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
                                     type="search"
-                                    placeholder="Filtrar por nome do produto..."
+                                    placeholder="Filtrar por nome ou SKU..."
                                     className="w-full rounded-lg bg-white pl-8"
                                     value={filter}
                                     onChange={(e) => setFilter(e.target.value)}
@@ -480,7 +484,7 @@ export default function FeedListPage() {
                                  <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportXLSX} disabled={filteredData.length === 0}>
                                     <Download className="mr-2 h-4 w-4" />
                                     Exportar XLSX
-                                </Button>
+                                 </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" className="w-full sm:w-auto" disabled={entriesForSelectedDate === 0}>
