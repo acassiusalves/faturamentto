@@ -7,13 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -362,6 +363,40 @@ export default function FeedListPage() {
             });
         }
     }
+    
+    const handleExportXLSX = () => {
+        const dataToExport = filteredData.map(product => {
+            const row: Record<string, any> = {
+                'Produto': product.name,
+                'SKU': product.sku,
+                'Média': product.averagePrice,
+            };
+            uniqueStores.forEach(store => {
+                row[store] = product.prices[store] ?? null;
+            });
+            return row;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+        // Format currency columns
+        const currencyFormat = 'R$ #,##0.00';
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        for (let C = 2; C < 2 + uniqueStores.length + 1; ++C) { // Start from Média column
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                const cell_address = { c: C, r: R };
+                const cell = XLSX.utils.encode_cell(cell_address);
+                if (ws[cell] && typeof ws[cell].v === 'number') {
+                    ws[cell].z = currencyFormat;
+                }
+            }
+        }
+        
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Comparativo ${format(selectedDate || new Date(), 'yyyy-MM-dd')}`);
+        XLSX.writeFile(wb, `comparativo_precos.xlsx`);
+    };
+
 
     const formatCurrency = (value: number | null) => {
         if (value === null || isNaN(value)) return '-';
@@ -442,6 +477,10 @@ export default function FeedListPage() {
                                         Analisar com IA
                                     </Button>
                                 </form>
+                                 <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportXLSX} disabled={filteredData.length === 0}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Exportar XLSX
+                                </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" className="w-full sm:w-auto" disabled={entriesForSelectedDate === 0}>
