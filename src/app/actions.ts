@@ -400,10 +400,10 @@ function magaluAnchors(): AnchorMap {
     recipientName:   { x: 370, y: 736 },
     streetAddress:   { x: 370, y: 791 },
     zipCode:         { x: 370, y: 848 },   // CEP ao fim da linha
-    senderName:      { x: 370, y: 992 },
-    senderAddress:   { x: 370, y: 1047 },
-    city:            { x: 370, y: 1158 },  // "CIDADE, UF"
-    state:           { x: 370, y: 1158 },  // mesma linha
+    senderName:      { x: 370, y: 1047 },
+    senderAddress:   { x: 370, y: 1104 },
+    city:            { x: 370, y: 848 },  // "CIDADE, UF"
+    state:           { x: 370, y: 848 },  // mesma linha
   };
 }
 
