@@ -69,7 +69,7 @@ export function StockConference() {
 
 
     const entriesToday = entryLogs
-      .filter(item => item.createdAt && toDate(item.createdAt) >= todayStart)
+      .filter(item => item.timestamp && toDate(item.timestamp) >= todayStart)
       .reduce((acc, item) => {
         const condition = item.condition || 'Novo';
         acc[condition] = (acc[condition] || 0) + (item.quantity || 1);
