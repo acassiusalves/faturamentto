@@ -238,7 +238,7 @@ export default function PickingPage() {
             batch.set(logDocRef, newLogEntry);
 
             if (!item.id.startsWith('manual-')) {
-                const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', item.id);
+                const inventoryItemRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', item.id);
                 batch.delete(inventoryItemRef);
             }
         }
