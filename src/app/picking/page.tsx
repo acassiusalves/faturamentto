@@ -50,7 +50,6 @@ export default function PickingPage() {
   
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  // State for SKU Mismatch Dialog
   const [mismatchItem, setMismatchItem] = useState<InventoryItem | null>(null);
   const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
@@ -220,21 +219,27 @@ export default function PickingPage() {
     setCountdown(null);
     setIsConfirming(true);
     
+    const batch = writeBatch(db);
+    const logCol = collection(db, 'users', DEFAULT_USER_ID, 'picking-log');
+
     try {
-        const logsToSave: PickedItemLog[] = scannedItems.map(item => ({
-            ...item,
-            orderNumber: (foundSale as any).order_code, // Save the order_code, not the input
-            pickedAt: new Date().toISOString(),
-            logId: `log-${item.id}-${Date.now()}`,
-        }));
-
-        await savePickLog(logsToSave);
-
         for (const item of scannedItems) {
+            const logDocRef = doc(logCol);
+            const newLogEntry: PickedItemLog = {
+                ...item,
+                orderNumber: (foundSale as any).order_code,
+                pickedAt: new Date().toISOString(),
+                logId: logDocRef.id,
+            };
+            batch.set(logDocRef, toFirestore(newLogEntry));
+
             if (!item.id.startsWith('manual-')) {
-                await deleteInventoryItem(item.id);
+                const inventoryItemRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', item.id);
+                batch.delete(inventoryItemRef);
             }
         }
+        
+        await batch.commit();
 
         toast({
             title: 'Saída Registrada com Sucesso!',

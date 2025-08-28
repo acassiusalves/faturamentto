@@ -1,6 +1,3 @@
-
-
-
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -67,9 +64,14 @@ const migrateInventoryToEntryLog = async (): Promise<void> => {
         : new Date();
         const item: any = { ...raw, id: docSnapshot.id, createdAt };
 
-        // opcional: id próprio do log (evita overwrite)
-        const logRef = doc(logCol, docSnapshot.id + '-migrate');
-        batch.set(logRef, toFirestore(item));
+        const logDocRef = doc(logCol); // Use new auto-id
+        const payload = {
+            ...item,
+            id: logDocRef.id,
+            inventoryId: item.id, // Reference to original inventory item
+            createdAt: new Date(item.createdAt),
+        };
+        batch.set(logDocRef, toFirestore(payload));
     });
 
     await batch.commit();
@@ -79,7 +81,6 @@ const migrateInventoryToEntryLog = async (): Promise<void> => {
 export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryItem[]> => {
   const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, "entry-log");
 
-  // Migração: mantém
   const snapshotCount = await getCountFromServer(query(logCol, limit(1)));
   if (snapshotCount.data().count === 0) {
     const inventorySnapshot = await getDocs(collection(db, USERS_COLLECTION, DEFAULT_USER_ID, "inventory"));
@@ -88,12 +89,10 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
     }
   }
 
-  // Fallback: últimos 30 dias se não vier range
   const fromDate = dateRange?.from ?? subDays(new Date(), 30);
   const toDate   = dateRange?.to   ?? endOfDay(new Date());
 
   const fromTs = Timestamp.fromDate(startOfDay(fromDate));
-  // limite superior EXCLUSIVO: +1ms
   const toTsExclusive = Timestamp.fromMillis(endOfDay(new Date(toDate)).getTime() + 1);
 
   const q = query(
@@ -101,7 +100,6 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
     where("createdAt", ">=", fromTs),
     where("createdAt", "<", toTsExclusive),
     orderBy("createdAt", "desc"),
-    // opcional: limit(2000)
   );
 
   const snapshot = await getDocs(q);
@@ -110,7 +108,6 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
     const data: any = docSnap.data();
     return {
       id: docSnap.id,
-      // devolve ISO pro front (tua UI espera string)
       createdAt: data.createdAt?.toDate?.() ? data.createdAt.toDate().toISOString() : data.createdAt ?? null,
       name: data.name ?? data.productName ?? "",
       sku: data.sku ?? "",
@@ -124,20 +121,22 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
 
 const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
-    const logDocRef = doc(logCol, item.id); // Use the same ID as the inventory item for traceability
-    // The item passed in should have a string date. Convert it to Firestore Timestamp for saving.
-    const itemWithDateObject = { ...item, createdAt: new Date(item.createdAt) };
-    batch.set(logDocRef, toFirestore(itemWithDateObject));
+    const logDocRef = doc(logCol); // Generate a new unique ID for the log entry
+    const payload = {
+      ...item,
+      id: logDocRef.id,          // The log's own unique ID
+      inventoryId: item.id,      // Reference to the inventory item's ID
+      createdAt: new Date(item.createdAt),
+    };
+    batch.set(logDocRef, toFirestore(payload));
 }
 
 export const revertEntryAction = async (entryLog: InventoryItem): Promise<void> => {
     const batch = writeBatch(db);
 
-    // 1. Delete the entry log record
     const entryLogDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log', entryLog.id);
     batch.delete(entryLogDocRef);
 
-    // 2. Find and delete the corresponding item from inventory by its serial number
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
     const q = query(inventoryCol, where('serialNumber', '==', entryLog.serialNumber), limit(1));
     const snapshot = await getDocs(q);
@@ -146,7 +145,6 @@ export const revertEntryAction = async (entryLog: InventoryItem): Promise<void> 
         const inventoryItemDocRef = snapshot.docs[0].ref;
         batch.delete(inventoryItemDocRef);
     } else {
-        // This case is unlikely if the data is consistent, but it's good to handle.
         console.warn(`Could not find inventory item with SN ${entryLog.serialNumber} to revert.`);
     }
 
@@ -165,22 +163,20 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
   const batch = writeBatch(db);
   const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
   const newItemsWithIds: InventoryItem[] = [];
-  const now = new Date(); // Use a single date object for consistency
+  const now = new Date();
 
   for (const item of items) {
     const docRef = doc(inventoryCol);
     const newItem = { 
         ...item, 
         id: docRef.id, 
-        createdAt: now.toISOString() // Use ISO string for the object
+        createdAt: now.toISOString()
     };
     
-    // Use the same consistent date object for both inventory and log
-    const firestoreItem = { ...newItem, createdAt: now }; // Use Date object for Firestore
+    const firestoreItem = { ...newItem, createdAt: now }; 
     batch.set(docRef, toFirestore(firestoreItem));
 
-    // Log the entry using the consistent date
-    await logInventoryEntry(batch, fromFirestore(firestoreItem));
+    await logInventoryEntry(batch, newItem as InventoryItem);
 
     newItemsWithIds.push(newItem as InventoryItem);
   }
@@ -190,17 +186,8 @@ export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'
 };
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
-  const batch = writeBatch(db);
-
-  // Reference to the item in the inventory
   const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', itemId);
-  batch.delete(inventoryDocRef);
-
-  // Reference to the item in the entry log (assuming the ID is the same)
-  const entryLogDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log', itemId);
-  batch.delete(entryLogDocRef);
-  
-  await batch.commit();
+  await deleteDoc(inventoryDocRef);
 };
 
 export const findInventoryItemBySN = async (serialNumber: string): Promise<InventoryItem | undefined> => {
@@ -225,7 +212,6 @@ export const loadProducts = async (): Promise<Product[]> => {
 export const findProductByAssociatedSku = async (sku: string): Promise<Product | null> => {
     const productsCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'products');
     
-    // First, check if the SKU is a main SKU
     const qMainSku = query(productsCol, where('sku', '==', sku), limit(1));
     const snapshotMain = await getDocs(qMainSku);
     if (!snapshotMain.empty) {
@@ -233,7 +219,6 @@ export const findProductByAssociatedSku = async (sku: string): Promise<Product |
         return fromFirestore({ ...docData.data(), id: docData.id }) as Product;
     }
 
-    // Fallback: If not a main SKU, check if it's in the associatedSkus array
     const qAssociated = query(productsCol, where('associatedSkus', 'array-contains', sku), limit(1));
     const snapshotAssociated = await getDocs(qAssociated);
     if (!snapshotAssociated.empty) {
@@ -249,7 +234,7 @@ export const saveProduct = async (product: Product): Promise<void> => {
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'products', product.id);
     const dataToSave = { ...product };
     if (!dataToSave.createdAt) {
-        dataToSave.createdAt = new Date();
+        dataToSave.createdAt = new Date().toISOString();
     }
     await setDoc(docRef, toFirestore(dataToSave), { merge: true });
 };
@@ -356,27 +341,24 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
   const batch = writeBatch(db);
   const now = new Date();
 
-  // 1) Apaga o log de saída
   const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log', pickLog.logId);
   batch.delete(logDocRef);
 
-  // 2) Se não for manual, recoloca no inventory
   if (!pickLog.id.startsWith('manual-')) {
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
     const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
-
-    // createdAt novo para a reentrada (evento de volta ao estoque)
     const itemWithDate = { ...itemToAddBack, createdAt: now };
     batch.set(inventoryDocRef, toFirestore(itemWithDate));
 
-    // 3) **LOG DE ENTRADA** da reversão
+    // Also create a new entry in the entry-log for this re-entry event
     const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
-    const entryLogRef = doc(entryLogCol, pickLog.id + '-revert-' + now.getTime()); // id único p/ não sobrescrever
-    const entryLogPayload: InventoryItem = {
+    const entryLogRef = doc(entryLogCol); 
+    const entryLogPayload: Partial<InventoryItem> & { inventoryId: string } = {
       ...(fromFirestore(itemWithDate) as any),
-      id: entryLogRef.id,           // id do log ≠ id do inventory (evita overwrite)
+      id: entryLogRef.id,
+      inventoryId: pickLog.id, // Reference the original inventory item id
       origin: pickLog.origin ?? 'Reversão de Picking',
-      createdAt: now.toISOString(), // salva como ISO; toFirestore converte p/ Timestamp
+      createdAt: now.toISOString(),
     };
     batch.set(entryLogRef, toFirestore({ ...entryLogPayload, createdAt: now }));
   }
@@ -402,19 +384,17 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
     const returnsLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
 
-    // 1. Create the return log
     const returnDocRef = doc(returnsLogCol);
     const now = new Date();
     const newReturnLog: ReturnLog = {
         ...data,
         id: returnDocRef.id,
         returnedAt: now.toISOString(),
-        originalSaleData: data.originalSaleData || null, // Ensure null instead of undefined
+        originalSaleData: data.originalSaleData || null,
     };
     batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
 
-    // 2. Add the item back to the inventory
-    const inventoryItemDocRef = doc(inventoryCol); // Always create a new inventory item for a return
+    const inventoryItemDocRef = doc(inventoryCol); 
     const product = await findProductByAssociatedSku(data.sku);
 
     const itemToReenter: InventoryItem = {
@@ -427,11 +407,11 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         origin: data.originalSaleData?.origin || 'Devolução',
         quantity: 1,
         condition: data.condition,
-        createdAt: now.toISOString(), // The date it re-entered inventory
+        createdAt: now.toISOString(),
     };
-    const firestoreItem = { ...itemToReenter, createdAt: now }; // Use Date object for Firestore
+    const firestoreItem = { ...itemToReenter, createdAt: now }; 
     batch.set(inventoryItemDocRef, toFirestore(firestoreItem));
-    await logInventoryEntry(batch, itemToReenter); // Log the return as an entry
+    await logInventoryEntry(batch, itemToReenter); 
 
     await batch.commit();
 };
@@ -447,11 +427,9 @@ export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
 export const revertReturnAction = async (returnLog: ReturnLog): Promise<void> => {
     const batch = writeBatch(db);
     
-    // 1. Delete the return log entry
     const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log', returnLog.id);
     batch.delete(logDocRef);
 
-    // 2. Find and delete the corresponding item from inventory that was re-added
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
     const q = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), limit(1));
     const snapshot = await getDocs(q);
@@ -517,14 +495,12 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const identifier = orderIdentifier.trim();
 
-    // Stage 1: Try exact match on order_code
     const qCode = query(salesCol, where('order_code', '==', identifier), limit(1));
     const codeSnapshot = await getDocs(qCode);
     if (!codeSnapshot.empty) {
         return fromFirestore({ ...codeSnapshot.docs[0].data(), id: codeSnapshot.docs[0].id }) as Sale;
     }
 
-    // Stage 2: If identifier is numeric, try exact match on order_id
     if (!isNaN(Number(identifier))) {
         const numericId = Number(identifier);
         const qId = query(salesCol, where('order_id', '==', numericId), limit(1));
@@ -534,9 +510,7 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
         }
     }
     
-    // Stage 3: Fallback to "contains" search if no exact match was found
-    // This part is less efficient and should be a last resort.
-    const allSales = await loadSales(); // This loads all sales, which can be slow
+    const allSales = await loadSales(); 
     const foundSale = allSales.find(sale => 
         (sale as any).order_code?.includes(identifier) ||
         String((sale as any).order_id)?.includes(identifier)
@@ -591,9 +565,6 @@ export const createApprovalRequest = async (request: Omit<ApprovalRequest, 'id'>
 
 export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rejected'): Promise<ApprovalRequest[]> => {
     const requestsCol = collection(db, 'approval-requests');
-    // Firestore queries require a composite index for filtering and ordering on different fields.
-    // As we cannot create indexes programmatically, we remove the ordering for now to avoid errors.
-    // The list will be unsorted but functional.
     const q = query(requestsCol, where('status', '==', status));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ApprovalRequest);
@@ -610,11 +581,9 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
     if (decision === 'approved') {
         const batch = writeBatch(db);
 
-        // 1. Delete the scanned item from inventory
         const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', request.scannedItem.id);
         batch.delete(inventoryItemRef);
 
-        // 2. Create a new picking log entry for the approved item
         const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
         const logDocRef = doc(logCol);
         const newLogEntry: PickedItemLog = {
@@ -625,13 +594,11 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
         };
         batch.set(logDocRef, toFirestore(newLogEntry));
         
-        // 3. Update the request status
         batch.update(requestDocRef, toFirestore(updateData));
 
         await batch.commit();
 
-    } else { // 'rejected'
-        // Just update the status, no inventory action needed.
+    } else {
         await updateDoc(requestDocRef, toFirestore(updateData));
     }
 }
@@ -707,10 +674,6 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     await updateDoc(userDocRef, { role });
 }
 
-/**
- * Atualiza o campo de status de múltiplos documentos de venda no Firestore.
- * @param updates Array de objetos com o ID da venda e o novo status.
- */
 export const updateSalesStatuses = async (updates: { saleId: string; newStatus: string }[]): Promise<void> => {
   if (!updates || updates.length === 0) {
     return;
@@ -733,7 +696,6 @@ export async function fetchSalesByIds(saleIds: string[]): Promise<Sale[]> {
     }
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
     const sales: Sale[] = [];
-    // Firestore 'in' query is limited to 30 items. We need to batch the requests.
     for (let i = 0; i < saleIds.length; i += 30) {
       const batchIds = saleIds.slice(i, i + 30);
       const q = query(salesCol, where('__name__', 'in', batchIds));
@@ -793,7 +755,7 @@ export const deleteFeedEntry = async (id: string): Promise<void> => {
 // --- DAILY SUMMARY ---
 export const loadInitialStockForToday = async (): Promise<number> => {
     const today = new Date();
-    today.setHours(today.getHours() - 3); // Adjust for timezone if needed (e.g., UTC-3)
+    today.setHours(today.getHours() - 3); 
     const dateKey = today.toISOString().split("T")[0];
 
     const docRef = doc(db, "daily-summaries", dateKey);
@@ -803,7 +765,6 @@ export const loadInitialStockForToday = async (): Promise<number> => {
         return docSnap.data().initialStock || 0;
     }
     
-    // Fallback if the scheduled function hasn't run yet for today
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
     const snapshot = await getCountFromServer(inventoryCol);
     return snapshot.data().count;
