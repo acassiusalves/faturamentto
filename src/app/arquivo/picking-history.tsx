@@ -57,10 +57,10 @@ export function PickingHistory() {
         if (searchTerm) {
             const lowerSearchTerm = searchTerm.toLowerCase();
             const matches = 
-                pick.orderNumber.toLowerCase().includes(lowerSearchTerm) ||
-                pick.name.toLowerCase().includes(lowerSearchTerm) ||
-                pick.sku.toLowerCase().includes(lowerSearchTerm) ||
-                pick.serialNumber.toLowerCase().includes(lowerSearchTerm);
+                (pick.orderNumber || '').toLowerCase().includes(lowerSearchTerm) ||
+                (pick.name || '').toLowerCase().includes(lowerSearchTerm) ||
+                (pick.sku || '').toLowerCase().includes(lowerSearchTerm) ||
+                (pick.serialNumber || '').toLowerCase().includes(lowerSearchTerm);
             if (!matches) {
                 return false;
             }
