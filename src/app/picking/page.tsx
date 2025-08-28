@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
 import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku, createApprovalRequest } from '@/services/firestore';
+import { db } from '@/lib/firebase';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 
 import type { InventoryItem, PickedItemLog, Sale, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,7 @@ import { useAuth } from '@/context/auth-context';
 
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_USER_ID = 'default-user'; // Placeholder
 
 export default function PickingPage() {
   const { toast } = useToast();
@@ -228,13 +231,14 @@ export default function PickingPage() {
             const newLogEntry: PickedItemLog = {
                 ...item,
                 orderNumber: (foundSale as any).order_code,
-                pickedAt: new Date().toISOString(),
+                pickedAt: new Date(),
+                createdAt: new Date(),
                 logId: logDocRef.id,
             };
             batch.set(logDocRef, toFirestore(newLogEntry));
 
             if (!item.id.startsWith('manual-')) {
-                const inventoryItemRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', item.id);
+                const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', item.id);
                 batch.delete(inventoryItemRef);
             }
         }
@@ -575,7 +579,7 @@ export default function PickingPage() {
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground text-sm">Quantidade:</span>
-                                <span className="font-semibold text-xl text-primary">{(foundSale as any).item_quantity}</span>
+                                <span className="font-semibold text-xl text-primary">{(foundSale as any).item_quantity || 0}</span>
                             </div>
                         </div>
                     ) : (
