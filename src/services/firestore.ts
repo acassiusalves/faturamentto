@@ -422,7 +422,7 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
 export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
     const todayStart = startOfDay(new Date());
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
-    const q = query(logCol, where('returnedAt', '>=', todayStart.toISOString()), orderBy('returnedAt', 'desc'));
+    const q = query(logCol, where('returnedAt', '>=', todayStart), orderBy('returnedAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
 };
@@ -592,7 +592,8 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
         const newLogEntry: PickedItemLog = {
             ...request.scannedItem,
             orderNumber: (request.orderData as any).order_code,
-            pickedAt: new Date().toISOString(),
+            pickedAt: new Date(),
+            createdAt: new Date(),
             logId: logDocRef.id,
         };
         batch.set(logDocRef, toFirestore(newLogEntry));
@@ -772,3 +773,5 @@ export const loadInitialStockForToday = async (): Promise<number> => {
     const snapshot = await getCountFromServer(inventoryCol);
     return snapshot.data().count;
 };
+
+    

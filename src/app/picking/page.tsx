@@ -235,7 +235,7 @@ export default function PickingPage() {
                 createdAt: new Date(),
                 logId: logDocRef.id,
             };
-            batch.set(logDocRef, toFirestore(newLogEntry));
+            batch.set(logDocRef, newLogEntry);
 
             if (!item.id.startsWith('manual-')) {
                 const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', item.id);
@@ -251,6 +251,7 @@ export default function PickingPage() {
         });
         
         await fetchTodaysPicks();
+        localStorage.setItem('stockDataDirty', 'true');
         resetState();
     } catch (error) {
         console.error("Error during picking confirmation:", error);
@@ -849,3 +850,5 @@ export default function PickingPage() {
     </>
   );
 }
+
+    
