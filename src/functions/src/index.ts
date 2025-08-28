@@ -1,11 +1,10 @@
 
-"use client";
-
 import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onSchedule} from "firebase-functions/v2/scheduler";
 import {AuthError} from "firebase-admin/auth";
 
 initializeApp();
@@ -53,8 +52,7 @@ export const inviteUser = onCall(async (request) => {
     const userRecord = await auth.createUser({
       email,
       emailVerified: false, // User will verify their email
-      // Generate a random password. The user will reset it.
-      password: Math.random().toString(36).slice(-8),
+      password: "123456",
       displayName: email.split("@")[0], // A sensible default
     });
     logger.info(`Usuário ${userRecord.uid} criado com sucesso.`);
@@ -88,5 +86,42 @@ export const inviteUser = onCall(async (request) => {
       );
     }
     throw new HttpsError("internal", "Erro interno ao criar o usuário.");
+  }
+});
+
+// Scheduled function to record the initial stock count for the day.
+export const recordInitialStock = onSchedule("every day 05:00", async () => {
+  logger.info("Executando a função agendada: recordInitialStock");
+
+  try {
+    const defaultUserId = "default-user";
+    const userDocRef = db.collection("users").doc(defaultUserId);
+    const userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+        logger.warn(`Usuário padrão com ID ${defaultUserId} não encontrado. Criando documento.`);
+        await userDocRef.set({ placeholder: true }); // Create a placeholder document if it doesn't exist
+    }
+
+    const inventoryCol = userDocRef.collection("inventory");
+
+    const snapshot = await inventoryCol.count().get();
+    const totalStock = snapshot.data().count;
+
+    const today = new Date();
+    today.setHours(today.getHours() - 3); 
+    const dateKey = today.toISOString().split("T")[0];
+
+    const summaryDocRef = db.collection("daily-summaries").doc(dateKey);
+
+    await summaryDocRef.set({
+      date: dateKey,
+      initialStock: totalStock,
+      recordedAt: new Date(),
+    }, { merge: true });
+
+    logger.info(`Estoque inicial de ${totalStock} itens registrado para ${dateKey}.`);
+  } catch (error) {
+    logger.error("Erro ao registrar o estoque inicial:", error);
   }
 });

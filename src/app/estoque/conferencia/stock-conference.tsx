@@ -14,36 +14,21 @@ import type { InventoryItem, PickedItemLog } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 
 interface Stats {
-    entries: Record<string, number>;
-    exits: Record<string, number>;
-    currentStock: Record<string, number>;
+    entries: number;
+    exits: number;
+    currentStock: number;
     initialStock: number;
 }
 
-const SummaryCard = ({ title, data }: { title: string, data: Record<string, number> }) => {
-    const total = useMemo(() => Object.values(data).reduce((acc, count) => acc + count, 0), [data]);
-
+const SummaryCard = ({ title, value, icon: Icon }: { title: string, value: number, icon: React.ElementType }) => {
     return (
         <Card>
-            <CardHeader className="flex flex-row items-start justify-between">
-                <CardTitle>{title}</CardTitle>
-                <div className="text-sm font-semibold text-muted-foreground">
-                    Total {total}
-                </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {Object.keys(data).length > 0 ? (
-                    <ul className="space-y-2">
-                        {Object.entries(data).map(([condition, count]) => (
-                            <li key={condition} className="flex justify-between items-center text-lg">
-                                <span className="font-medium text-muted-foreground">{condition}</span>
-                                <span className="font-bold text-primary">{count}</span>
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="text-muted-foreground text-center text-sm py-4">Nenhum item hoje.</p>
-                )}
+                <div className="text-2xl font-bold">{value}</div>
             </CardContent>
         </Card>
     );
@@ -56,45 +41,27 @@ export function StockConference() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     
-    const [entryLogs, pickingLogs, currentInventory, initialStock] = await Promise.all([
-      loadEntryLogs(),
+    const todayRange = { from: startOfDay(new Date()), to: endOfDay(new Date()) };
+    
+    const [entryLogsToday, pickingLogs, currentInventory, initialStock] = await Promise.all([
+      loadEntryLogs(todayRange),
       loadAllPickingLogs(),
       loadInventoryItems(),
       loadInitialStockForToday(),
     ]);
 
-    const todayStart = startOfDay(new Date());
     const toDate = (x:any) => typeof x?.toDate==="function" ? x.toDate() : new Date(x);
 
-
-    const entriesToday = entryLogs
-      .filter(item => item.timestamp && toDate(item.timestamp) >= todayStart)
-      .reduce((acc, item) => {
-        const condition = item.condition || 'Novo';
-        acc[condition] = (acc[condition] || 0) + (item.quantity || 1);
-        return acc;
-      }, {} as Record<string, number>);
-      
     const exitsToday = pickingLogs
-      .filter(log => log.pickedAt && toDate(log.pickedAt) >= todayStart)
-      .reduce((acc, log) => {
-          // Assume 'Novo' if condition is missing, which is common for older picked items.
-          const condition = log.condition || 'Novo';
-          acc[condition] = (acc[condition] || 0) + (log.quantity || 1);
-          return acc;
-      }, {} as Record<string, number>);
+      .filter(log => log.pickedAt && toDate(log.pickedAt) >= todayRange.from)
+      .reduce((acc, log) => acc + (log.quantity || 1), 0);
 
-    const currentStockSummary = currentInventory.reduce((acc, item) => {
-      const condition = item.condition || 'Novo';
-      acc[condition] = (acc[condition] || 0) + (item.quantity || 1);
-      return acc;
-    }, {} as Record<string, number>);
+    const currentStockTotal = currentInventory.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
-    
     setStats({
-      entries: entriesToday,
+      entries: entryLogsToday.length,
       exits: exitsToday,
-      currentStock: currentStockSummary,
+      currentStock: currentStockTotal,
       initialStock,
     });
     
@@ -144,9 +111,9 @@ export function StockConference() {
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <SummaryCard title="Entradas" data={stats.entries} />
-                <SummaryCard title="Saídas" data={stats.exits} />
-                <SummaryCard title="Estoque Atual" data={stats.currentStock} />
+                <SummaryCard title="Entradas" value={stats.entries} icon={ArrowDownToDot} />
+                <SummaryCard title="Saídas" value={stats.exits} icon={ArrowUpFromDot} />
+                <SummaryCard title="Estoque Atual" value={stats.currentStock} icon={Boxes} />
             </div>
         </div>
     </div>
