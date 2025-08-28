@@ -60,7 +60,7 @@ export async function analyzeZpl(
     
     The main barcode number (tracking number) is often the data for the ^BC (Code 128) command. Extract it.
 
-    CRITICAL INSTRUCTION: When you find a field like the sender's name (REMETENTE), extract ONLY the text content inside the ^FD command. Do not include any other part of the ZPL command itself (like trailing numbers or characters) in the final value. For example, if you find '^FDLA LIGHTHOUSE-1^FS', the extracted 'senderName' must be 'LIGHTHOUSE-1', not 'LIGHTHOUSE-1-1'.
+    CRITICAL INSTRUCTION: When you find a field like the sender's name (REMETENTE), extract ONLY the text content inside the ^FD command. For example, if you find '^FDLA LIGHTHOUSE^FS', the extracted 'senderName' must be 'LIGHTHOUSE', not 'LIGHTHOUSE-1' or any other variation.
 
     ZPL Content to analyze: 
     \`\`\`zpl
@@ -75,8 +75,8 @@ export async function analyzeZpl(
       inputSchema: AnalyzeZplInputSchema,
       outputSchema: AnalyzeLabelOutputSchema,
     },
-    async (input) => {
-      const { output } = await prompt(input);
+    async (flowInput) => {
+      const { output } = await prompt(flowInput);
       return output!;
     }
   );

@@ -35,7 +35,7 @@ export async function remixLabelData(
       inputSchema: RemixLabelDataInputSchema,
       outputSchema: RemixLabelDataOutputSchema,
     },
-    async (input) => {
+    async (flowInput) => {
       const flowPrompt = ai.definePrompt({
           name: 'remixLabelDataPrompt',
           input: { schema: RemixLabelDataInputSchema },
@@ -55,7 +55,7 @@ export async function remixLabelData(
           Return ONLY the 'newValue' in the specified JSON format. Do not add any other text.
           `,
       });
-      const { output } = await flowPrompt(input);
+      const { output } = await flowPrompt(flowInput);
       return output!;
     }
   );
