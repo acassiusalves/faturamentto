@@ -390,7 +390,7 @@ function isMagaluTemplate(zpl: string) {
   // Tem QR do Magalu e os blocos nas coordenadas típicas
   const hasQR = /\^BQN\s*,\s*2\s*,\s*4/i.test(zpl);
   const hasRecipientLine = /\^(FO|FT)\s*370\s*,\s*736\b/i.test(zpl); // linha do nome do destinatário
-  const hasSenderLine    = /\^(FO|FT)\s*370\s*,\s*992\b/i.test(zpl); // linha do nome do remetente
+  const hasSenderLine    = /\^(FO|FT)\s*370\s*,\s*1047\b/i.test(zpl); // linha do nome do remetente
   return hasQR && hasRecipientLine && hasSenderLine;
 }
 
@@ -563,8 +563,9 @@ export async function remixZplDataAction(
 
     const llmResult = await remixZplData(flowInput);
     const sanitizedZpl = (llmResult.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
-
-    return { result: { modifiedZpl: ensureCI28(sanitizedZpl) }, error: null };
+    
+    const result = { modifiedZpl: ensureCI28(sanitizedZpl) };
+    return { result, error: null };
 
   } catch (e: any) {
     console.error('Error remixing ZPL data:', e);
