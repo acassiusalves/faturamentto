@@ -120,6 +120,22 @@ export default function PickingPage() {
 
     return () => clearInterval(intervalId);
   }, [autoSyncIderis]);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+        if (localStorage.getItem('stockDataDirty') === 'true') {
+            fetchTodaysPicks();
+            localStorage.removeItem('stockDataDirty');
+        }
+    };
+    window.addEventListener('focus', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+        window.removeEventListener('focus', handleStorageChange);
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [fetchTodaysPicks]);
   
   useEffect(() => {
     if (foundSale && serialNumberRef.current) {

@@ -55,6 +55,7 @@ export default function ApprovalsPage() {
     setProcessingId(request.id);
     try {
         await processApprovalRequest(request, decision, user.email);
+        localStorage.setItem('stockDataDirty', 'true');
         toast({
             title: "Sucesso!",
             description: `A solicitação para o pedido ${request.orderData.order_code} foi ${decision === 'approved' ? 'aprovada' : 'rejeitada'}.`
