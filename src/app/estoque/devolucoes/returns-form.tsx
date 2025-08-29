@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown, Check } from 'lucide-react';
-import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product } from '@/lib/types';
+import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product, EntryLog } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts, revertReturnAction } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -24,6 +25,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { collection, doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+const DEFAULT_USER_ID = 'default-user';
 
 
 const returnSchema = z.object({
@@ -148,21 +153,55 @@ export function ReturnsForm() {
     };
     
     const onSubmit = async (data: ReturnFormValues) => {
-        try {
-            await saveReturnLog({
-                ...data,
-                sku: data.sku,
-                originalSaleData: foundLog || undefined,
-            });
-            toast({ title: "Devolução Registrada!", description: `Produto ${data.productName} retornado ao estoque.`})
-            await fetchTodaysReturns(); // Refresh the list
-            reset();
-            setScannedSn("");
-            setFoundLog(null);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível registrar a devolução.'});
-        }
+      try {
+        // Dados do item de devolução
+        const returnData = {
+          ...data,
+          sku: data.sku,
+          originalSaleData: foundLog || undefined,
+        };
+    
+        await saveReturnLog(returnData);
+    
+        // ✅ NOVO: Também salvar no entry-logs para auditoria
+        const entryLogCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
+        const entryLogRef = doc(entryLogCol);
+        
+        const entryLogItem: EntryLog = {
+          id: entryLogRef.id,
+          originalInventoryId: '', // Não tem item original pois é devolução
+          productId: data.productId,
+          name: data.productName,
+          sku: data.sku,
+          costPrice: foundLog?.costPrice || 0,
+          quantity: 1,
+          serialNumber: data.serialNumber,
+          origin: foundLog?.origin || 'Devolução',
+          condition: data.condition as any,
+          createdAt: new Date().toISOString(),
+          entryDate: new Date().toISOString(),
+          logType: 'RETURN_ENTRY'
+        };
+    
+        await setDoc(entryLogRef, entryLogItem);
+    
+        toast({ 
+          title: "Devolução Registrada!", 
+          description: `Produto ${data.productName} retornado ao estoque.`
+        });
+        
+        await fetchTodaysReturns();
+        reset();
+        setScannedSn("");
+        setFoundLog(null);
+      } catch (error) {
+        console.error(error);
+        toast({ 
+          variant: 'destructive', 
+          title: 'Erro ao Salvar', 
+          description: 'Não foi possível registrar a devolução.'
+        });
+      }
     };
     
     const handleRevertReturn = async (log: ReturnLog) => {

@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { InventoryItem } from "@/lib/types";
-import { loadEntryLogs, loadProductSettings } from "@/services/firestore";
+import { loadProductSettings, loadEntryLogsFromPermanentLog } from "@/services/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -33,11 +33,27 @@ export function DetailedEntryHistory() {
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
-    const [items, productSettings] = await Promise.all([
-      loadEntryLogs(dateRange),
+    const [entryLogs, productSettings] = await Promise.all([
+      loadEntryLogsFromPermanentLog(dateRange),
       loadProductSettings('celular')
     ]);
+    
+    // Converte EntryLog para InventoryItem para compatibilidade
+    const items: InventoryItem[] = entryLogs.map(log => ({
+      id: log.id,
+      productId: log.productId,
+      name: log.name,
+      sku: log.sku,
+      costPrice: log.costPrice,
+      quantity: log.quantity,
+      serialNumber: log.serialNumber,
+      origin: log.origin,
+      condition: log.condition,
+      createdAt: log.entryDate, // Usa entryDate como createdAt
+    }));
+  
     setAllItems(items);
+
     if (productSettings) {
       const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
       if (originAttribute && originAttribute.values) {

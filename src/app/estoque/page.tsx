@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
-import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
+import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings, migrateExistingInventoryToEntryLogs } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -568,6 +569,20 @@ export default function EstoquePage() {
                     </Form>
                 </DialogContent>
             </Dialog>
+            <Button 
+              onClick={async () => {
+                try {
+                  await migrateExistingInventoryToEntryLogs();
+                  toast({ title: "Migração Concluída!", description: "Dados migrados com sucesso." });
+                } catch (error) {
+                  toast({ variant: "destructive", title: "Erro na Migração", description: "Verifique o console." });
+                }
+              }}
+              variant="outline"
+              className="bg-yellow-50 border-yellow-300 hover:bg-yellow-100"
+            >
+              🔄 Migrar Dados (Execute Apenas Uma Vez)
+            </Button>
             <div className="grid sm:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

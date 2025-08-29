@@ -19,7 +19,7 @@ import {
   getCountFromServer,
   WriteBatch
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, ApprovalRequest } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, ApprovalRequest, EntryLog } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -133,25 +133,34 @@ const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promis
     batch.set(logDocRef, toFirestore(payload));
 }
 
-export const revertEntryAction = async (entryLog: InventoryItem): Promise<void> => {
-    const batch = writeBatch(db);
-
-    const entryLogDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log', entryLog.id);
-    batch.delete(entryLogDocRef);
-
-    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
-    const q = query(inventoryCol, where('serialNumber', '==', entryLog.serialNumber), limit(1));
-    const snapshot = await getDocs(q);
+export async function revertEntryAction(entry: InventoryItem): Promise<void> {
+  const batch = writeBatch(db);
+  
+  try {
+    // 1. Remove do inventário atual (se ainda existir)
+    const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.id);
+    batch.delete(inventoryRef);
     
-    if (!snapshot.empty) {
-        const inventoryItemDocRef = snapshot.docs[0].ref;
-        batch.delete(inventoryItemDocRef);
-    } else {
-        console.warn(`Could not find inventory item with SN ${entryLog.serialNumber} to revert.`);
-    }
+    // 2. ✅ NOVO: Remove TAMBÉM do entry-logs
+    const entryLogsCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
+    const entryLogsQuery = query(
+      entryLogsCol, 
+      where('originalInventoryId', '==', entry.id)
+    );
+    const entryLogsSnapshot = await getDocs(entryLogsQuery);
+    
+    entryLogsSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
 
     await batch.commit();
-};
+    console.log('✅ Entry revertida em ambas as coleções');
+    
+  } catch (error) {
+    console.error('❌ Erro ao reverter entry:', error);
+    throw error;
+  }
+}
 
 
 // --- INVENTORY ---
@@ -161,31 +170,38 @@ export const loadInventoryItems = async (): Promise<InventoryItem[]> => {
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
 };
 
-export const saveMultipleInventoryItems = async (items: Omit<InventoryItem, 'id'>[]): Promise<InventoryItem[]> => {
+export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, 'id'>[]): Promise<InventoryItem[]> {
   const batch = writeBatch(db);
-  const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
-  const newItemsWithIds: InventoryItem[] = [];
-  const now = new Date();
+  const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
+  const entryLogCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
+  
+  const savedItems: InventoryItem[] = [];
 
-  for (const item of items) {
-    const docRef = doc(inventoryCol);
-    const newItem = { 
-        ...item, 
-        id: docRef.id, 
-        createdAt: now.toISOString()
+  for (const item of newItems) {
+    // 1. Salva no estoque atual (inventory)
+    const inventoryRef = doc(inventoryCol);
+    const inventoryItem: InventoryItem = { 
+      ...item, 
+      id: inventoryRef.id 
     };
-    
-    const firestoreItem = { ...newItem, createdAt: now }; 
-    batch.set(docRef, toFirestore(firestoreItem));
+    batch.set(inventoryRef, inventoryItem);
+    savedItems.push(inventoryItem);
 
-    await logInventoryEntry(batch, newItem as InventoryItem);
-
-    newItemsWithIds.push(newItem as InventoryItem);
+    // 2. Salva TAMBÉM no log permanente de entradas (entry-logs)
+    const entryLogRef = doc(entryLogCol);
+    const entryLogItem: EntryLog = {
+      ...inventoryItem,
+      id: entryLogRef.id,
+      originalInventoryId: inventoryRef.id,
+      entryDate: new Date().toISOString(),
+      logType: 'INVENTORY_ENTRY'
+    };
+    batch.set(entryLogRef, entryLogItem);
   }
 
   await batch.commit();
-  return newItemsWithIds;
-};
+  return savedItems;
+}
 
 export const deleteInventoryItem = async (itemId: string): Promise<void> => {
   const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', itemId);
@@ -775,4 +791,64 @@ export const loadInitialStockForToday = async (): Promise<number> => {
     return snapshot.data().count;
 };
 
+export async function loadEntryLogsFromPermanentLog(dateRange?: { from: Date; to: Date }): Promise<EntryLog[]> {
+  const entryLogCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
+  
+  let q = query(entryLogCol, orderBy('entryDate', 'desc'));
+  
+  if (dateRange) {
+    q = query(q, 
+      where('entryDate', '>=', dateRange.from.toISOString()),
+      where('entryDate', '<=', dateRange.to.toISOString())
+    );
+  }
+  
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ 
+    id: doc.id, 
+    ...doc.data() 
+  })) as EntryLog[];
+}
+
+export async function migrateExistingInventoryToEntryLogs(): Promise<void> {
+  console.log('🔄 Iniciando migração de dados existentes...');
+  
+  try {
+    // Busca todos os itens do inventário atual
+    const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
+    const inventorySnapshot = await getDocs(query(inventoryCol, orderBy('createdAt', 'asc')));
+    
+    if (inventorySnapshot.empty) {
+      console.log('✅ Nenhum item no inventário para migrar.');
+      return;
+    }
+
+    const entryLogCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
+    const batch = writeBatch(db);
+    let count = 0;
+
+    inventorySnapshot.docs.forEach(doc => {
+      const inventoryItem = { id: doc.id, ...doc.data() } as InventoryItem;
+      
+      const entryLogRef = doc(entryLogCol);
+      const entryLogItem: EntryLog = {
+        ...inventoryItem,
+        id: entryLogRef.id,
+        originalInventoryId: inventoryItem.id,
+        entryDate: inventoryItem.createdAt,
+        logType: 'INVENTORY_ENTRY'
+      };
+      
+      batch.set(entryLogRef, entryLogItem);
+      count++;
+    });
+
+    await batch.commit();
+    console.log(`✅ Migração concluída! ${count} itens migrados para entry-logs.`);
+    
+  } catch (error) {
+    console.error('❌ Erro na migração:', error);
+    throw error;
+  }
+}
     

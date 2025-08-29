@@ -38,6 +38,12 @@ export interface InventoryItem {
   condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito' | 'Lacrado' | 'Seminovo';
 }
 
+export interface EntryLog extends InventoryItem {
+  originalInventoryId: string; // ID do item original na coleção inventory
+  entryDate: string; // Data de entrada no estoque
+  logType: 'INVENTORY_ENTRY' | 'RETURN_ENTRY'; // Tipo de entrada
+}
+
 export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };
 export type PickedItemLog = PickedItem & { logId: string; };
 
