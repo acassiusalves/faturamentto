@@ -16,6 +16,305 @@ import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput } from '@/lib/types';
 
+// === ADICIONAR ESTAS INTERFACES E FUNÇÕES NO INÍCIO DO actions.ts ===
+// (Adicione após os imports existentes)
+
+interface ZplField {
+  x: number;
+  y: number;
+  content: string;
+  startLine: number;
+  endLine: number;
+  isBarcode: boolean;
+  isQrCode: boolean;
+  hasEncoding: boolean;
+  fieldType: 'text' | 'barcode' | 'qrcode';
+  originalContent: string;
+}
+
+interface ZplAnalysis {
+  fields: ZplField[];
+  barcodeFields: ZplField[];
+  textFields: ZplField[];
+  qrCodeFields: ZplField[];
+}
+
+interface FieldMapping {
+  recipientName?: ZplField;
+  streetAddress?: ZplField;
+  city?: ZplField;
+  zipCode?: ZplField;
+  senderName?: ZplField;
+  senderAddress?: ZplField;
+  orderNumber?: ZplField;
+  invoiceNumber?: ZplField;
+  trackingNumber?: ZplField;
+  estimatedDeliveryDate?: ZplField;
+}
+
+// --- CODIFICAÇÃO/DECODIFICAÇÃO ^FH (_xx) ---
+function fhDecode(payload: string): string {
+  // converte grupos como _50_41... em texto UTF-8
+  return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
+    try {
+      const bytes = seq.split('_').filter(Boolean).map(x => parseInt(x, 16));
+      return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
+    } catch (e) {
+      return seq; // Retorna a sequência original em caso de erro
+    }
+  });
+}
+function fhEncode(txt: string): string {
+  const bytes = Buffer.from(txt, 'utf8');
+  return Array.from(bytes).map(b => `_${b.toString(16).toUpperCase().padStart(2,'0')}`).join('');
+}
+
+// --- GARANTE ^CI28 depois de ^XA ---
+function ensureCI28(zpl: string) {
+  if (!/\^XA\s*\^CI28/m.test(zpl)) return zpl.replace(/^(\^XA)/m, "$1\n^CI28");
+  return zpl;
+}
+
+// --- DETECÇÃO DO TEMPLATE MAGALU ---
+function isMagaluTemplate(zpl: string) {
+  // Tem QR do Magalu e os blocos nas coordenadas típicas
+  const hasQR = /\^BQN\s*,\s*2\s*,\s*4/i.test(zpl);
+  const hasRecipientLine = /\^(FO|FT)\s*370\s*,\s*736\b/i.test(zpl); // linha do nome do destinatário
+  const hasSenderLine    = /\^(FO|FT)\s*370\s*,\s*1047\b/i.test(zpl); // linha do nome do remetente
+  return hasQR && hasRecipientLine && hasSenderLine;
+}
+
+// --- ÂNCORAS FIXAS DO MAGALU ---
+function magaluAnchors(): AnchorMap {
+  return {
+    recipientName:   { x: 370, y: 736 },
+    streetAddress:   { x: 370, y: 791 },
+    zipCode:         { x: 370, y: 848 },   // CEP ao fim da linha
+    senderName:      { x: 370, y: 1047 },
+    senderAddress:   { x: 370, y: 1104 },
+    city:            { x: 370, y: 848 },  // "CIDADE, UF"
+    state:           { x: 370, y: 848 },  // mesma linha
+  };
+}
+
+// === FUNÇÃO 1: ANÁLISE DA ESTRUTURA ZPL ===
+function analyzeZplStructure(zpl: string): ZplAnalysis {
+  const lines = zpl.split(/\r?\n/);
+  const fields: ZplField[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Detecta posicionamento ^FO ou ^FT
+    const posMatch = line.match(/^\^(FO|FT)\s*(\d+)\s*,\s*(\d+)/i);
+    if (!posMatch) continue;
+    
+    const x = parseInt(posMatch[2]);
+    const y = parseInt(posMatch[3]);
+    
+    // Procura o bloco completo até ^FS
+    let blockEnd = -1;
+    let blockContent = '';
+    let hasBarcode = false;
+    let hasQrCode = false;
+    let hasEncoding = false;
+    let dataContent = '';
+    
+    // Analisa o bloco
+    for (let j = i; j < lines.length; j++) {
+      const blockLine = lines[j].trim();
+      blockContent += blockLine + '\n';
+      
+      // Detecta tipos de campo
+      if (/^\^B[A-Z]/i.test(blockLine)) hasBarcode = true;
+      if (/^\^BQ/i.test(blockLine)) hasQrCode = true;
+      if (/^\^FH/i.test(blockLine)) hasEncoding = true;
+      
+      // Extrai conteúdo do campo ^FD
+      const fdMatch = blockLine.match(/^\^FD(.*)$/i);
+      if (fdMatch) {
+        dataContent = fdMatch[1].replace(/\^FS$/, '');
+      }
+      
+      // Fim do bloco
+      if (/\^FS/.test(blockLine)) {
+        blockEnd = j;
+        break;
+      }
+    }
+    
+    if (blockEnd === -1) continue;
+    
+    // Decodifica conteúdo se tiver ^FH
+    let decodedContent = dataContent;
+    if (hasEncoding && dataContent) {
+      decodedContent = fhDecode(dataContent);
+    }
+    
+    // Determina o tipo do campo
+    let fieldType: 'text' | 'barcode' | 'qrcode' = 'text';
+    if (hasQrCode) fieldType = 'qrcode';
+    else if (hasBarcode) fieldType = 'barcode';
+    
+    fields.push({
+      x,
+      y,
+      content: decodedContent,
+      startLine: i,
+      endLine: blockEnd,
+      isBarcode: hasBarcode,
+      isQrCode: hasQrCode,
+      hasEncoding,
+      fieldType,
+      originalContent: blockContent.trim()
+    });
+    
+    // Pula para após o bloco
+    i = blockEnd;
+  }
+  
+  return {
+    fields,
+    barcodeFields: fields.filter(f => f.isBarcode),
+    textFields: fields.filter(f => f.fieldType === 'text'),
+    qrCodeFields: fields.filter(f => f.isQrCode)
+  };
+}
+
+// === FUNÇÃO 2: MAPEAMENTO DE CAMPOS ===
+function mapFieldsToData(analysis: ZplAnalysis, originalData: AnalyzeLabelOutput): FieldMapping {
+  const mapping: FieldMapping = {};
+  const textFields = [...analysis.textFields]; // Cópia para não modificar original
+  
+  // Função de similaridade de texto
+  const similarity = (a: string, b: string): number => {
+    if (!a || !b) return 0;
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w]/g, '');
+    const normA = normalize(a);
+    const normB = normalize(b);
+    
+    if (normA === normB) return 1;
+    if (normA.includes(normB) || normB.includes(normA)) return 0.8;
+    
+    // Verifica números (CEP, pedidos, etc)
+    if (/^\d+$/.test(normA) && /^\d+$/.test(normB)) {
+      return normA === normB ? 1 : 0;
+    }
+    
+    return 0;
+  };
+  
+  // Mapeia cada campo dos dados originais
+  Object.entries(originalData).forEach(([key, value]) => {
+    if (!value || typeof value !== 'string') return;
+    
+    let bestMatch: ZplField | null = null;
+    let bestScore = 0;
+    
+    textFields.forEach((field, index) => {
+      const score = similarity(field.content, value);
+      if (score > bestScore && score > 0.7) {
+        bestScore = score;
+        bestMatch = field;
+      }
+    });
+    
+    if (bestMatch) {
+      (mapping as any)[key] = bestMatch;
+      // Remove do array para não mapear novamente
+      const index = textFields.indexOf(bestMatch);
+      if (index > -1) textFields.splice(index, 1);
+    }
+  });
+  
+  return mapping;
+}
+
+// === FUNÇÃO 3: APLICAR SUBSTITUIÇÕES ===
+function applySmartReplacements(
+  originalZpl: string,
+  mapping: FieldMapping,
+  newData: AnalyzeLabelOutput
+): { modifiedZpl: string; changesApplied: number } {
+  const lines = originalZpl.split(/\r?\n/);
+  let changesApplied = 0;
+  
+  Object.entries(mapping).forEach(([dataKey, field]) => {
+    if (!field) return;
+    
+    const newValue = (newData as any)[dataKey];
+    if (newValue === undefined || typeof newValue !== 'string') return;
+    
+    // Encontra a linha com ^FD no bloco do campo
+    for (let i = field.startLine; i <= field.endLine; i++) {
+      if (lines[i].includes('^FD')) {
+        const encodedValue = field.hasEncoding ? fhEncode(newValue) : newValue;
+        
+        // Substitui apenas o conteúdo, mantendo ^FD e ^FS
+        lines[i] = lines[i].replace(
+          /(\^FD).*?(\^FS|$)/,
+          `$1${encodedValue}$2`
+        );
+        
+        changesApplied++;
+        break;
+      }
+    }
+  });
+  
+  return {
+    modifiedZpl: ensureCI28(lines.join('\n')),
+    changesApplied
+  };
+}
+
+// === FUNÇÃO 4: DETECÇÃO AUTOMÁTICA PRINCIPAL ===
+function autoDetectAndReplace(
+  originalZpl: string,
+  originalData: AnalyzeLabelOutput,
+  newData: AnalyzeLabelOutput
+): {
+  success: boolean;
+  modifiedZpl?: string;
+  changesApplied?: number;
+  fieldsDetected?: number;
+  error?: string;
+} {
+  try {
+    // 1. Analisa estrutura do ZPL
+    const analysis = analyzeZplStructure(originalZpl);
+    
+    if (analysis.textFields.length === 0) {
+      return {
+        success: false,
+        error: 'Nenhum campo de texto detectado no ZPL'
+      };
+    }
+    
+    // 2. Mapeia campos automaticamente
+    const mapping = mapFieldsToData(analysis, originalData);
+    
+    // 3. Aplica substituições
+    const { modifiedZpl, changesApplied } = applySmartReplacements(
+      originalZpl,
+      mapping,
+      newData
+    );
+    
+    return {
+      success: true,
+      modifiedZpl,
+      changesApplied,
+      fieldsDetected: analysis.textFields.length
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
+    };
+  }
+}
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -353,22 +652,6 @@ function normalize(s: string) {
     .toUpperCase();
 }
 
-// --- CODIFICAÇÃO/DECODIFICAÇÃO ^FH (_xx) ---
-function fhDecode(payload: string): string {
-  // converte grupos como _50_41... em texto UTF-8
-  return payload.replace(/(?:_[0-9A-Fa-f]{2})+/g, (seq) => {
-    try {
-      const bytes = seq.split('_').filter(Boolean).map(x => parseInt(x, 16));
-      return Buffer.from(Uint8Array.from(bytes)).toString('utf8');
-    } catch (e) {
-      return seq; // Retorna a sequência original em caso de erro
-    }
-  });
-}
-function fhEncode(txt: string): string {
-  const bytes = Buffer.from(txt, 'utf8');
-  return Array.from(bytes).map(b => `_${b.toString(16).toUpperCase().padStart(2,'0')}`).join('');
-}
 
 function composeCityState(city?: string, state?: string) {
   const c = (city || '').trim();
@@ -377,34 +660,6 @@ function composeCityState(city?: string, state?: string) {
   if (!c) return s.toUpperCase();
   if (!s) return c.toUpperCase();
   return `${c.toUpperCase()}, ${s.toUpperCase()}`;
-}
-
-// --- GARANTE ^CI28 depois de ^XA ---
-function ensureCI28(zpl: string) {
-  if (!/\^XA\s*\^CI28/m.test(zpl)) return zpl.replace(/^(\^XA)/m, "$1\n^CI28");
-  return zpl;
-}
-
-// --- DETECÇÃO DO TEMPLATE MAGALU ---
-function isMagaluTemplate(zpl: string) {
-  // Tem QR do Magalu e os blocos nas coordenadas típicas
-  const hasQR = /\^BQN\s*,\s*2\s*,\s*4/i.test(zpl);
-  const hasRecipientLine = /\^(FO|FT)\s*370\s*,\s*736\b/i.test(zpl); // linha do nome do destinatário
-  const hasSenderLine    = /\^(FO|FT)\s*370\s*,\s*1047\b/i.test(zpl); // linha do nome do remetente
-  return hasQR && hasRecipientLine && hasSenderLine;
-}
-
-// --- ÂNCORAS FIXAS DO MAGALU ---
-function magaluAnchors(): AnchorMap {
-  return {
-    recipientName:   { x: 370, y: 736 },
-    streetAddress:   { x: 370, y: 791 },
-    zipCode:         { x: 370, y: 848 },   // CEP ao fim da linha
-    senderName:      { x: 370, y: 1047 },
-    senderAddress:   { x: 370, y: 1104 },
-    city:            { x: 370, y: 848 },  // "CIDADE, UF"
-    state:           { x: 370, y: 848 },  // mesma linha
-  };
 }
 
 // --- Aplica substituições ancoradas ---
@@ -521,6 +776,7 @@ export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
   formData: FormData
 ): Promise<{ result: RemixZplDataOutput | null; error: string | null }> {
+  console.log('🚀 Nova remixZplDataAction executando...');
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
   const remixedDataJSON  = formData.get('remixedData') as string;
@@ -530,7 +786,8 @@ export async function remixZplDataAction(
   }
 
   try {
-    const remixed  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
+    const baselineData = JSON.parse(baselineDataJSON) as AnalyzeLabelOutput;
+    const remixedData  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
 
     // Normaliza campos ausentes para strings vazias
     const allKeys: (keyof AnalyzeLabelOutput)[] = [
@@ -539,39 +796,70 @@ export async function remixZplDataAction(
       'senderName','senderAddress','estimatedDeliveryDate'
     ];
     allKeys.forEach((k) => {
-      if ((remixed as any)[k] === null || (remixed as any)[k] === undefined) (remixed as any)[k] = '';
+      if ((remixedData as any)[k] === null || (remixedData as any)[k] === undefined) {
+        (remixedData as any)[k] = '';
+      }
     });
     
-    const anchors: AnchorMap = isMagaluTemplate(originalZpl) ? magaluAnchors() : {};
+    // === 🎯 MÉTODO 1: DETECÇÃO AUTOMÁTICA (NOVO E PRINCIPAL) ===
+    console.log('🤖 Tentando detecção automática de campos...');
+    const autoResult = autoDetectAndReplace(originalZpl, baselineData, remixedData);
     
-    // Tenta aplicar substituições ancoradas PRIMEIRO
-    const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, remixed);
-
-    // Se houve mudança por âncora, usa o resultado
-    if (changed) {
-      return { result: { modifiedZpl: out }, error: null };
+    if (autoResult.success && autoResult.changesApplied && autoResult.changesApplied > 0) {
+      console.log(`✅ Detecção automática: ${autoResult.changesApplied} campos atualizados de ${autoResult.fieldsDetected} detectados`);
+      return { 
+        result: { modifiedZpl: autoResult.modifiedZpl! }, 
+        error: null 
+      };
     }
 
-    // Se as âncoras não funcionarem, usa LLM como fallback
+    // === 🎯 MÉTODO 2: ÂNCORAS FIXAS (FALLBACK PARA TEMPLATES CONHECIDOS) ===  
+    console.log('⚓ Tentando sistema de âncoras fixas...');
+    const anchors: AnchorMap = isMagaluTemplate(originalZpl) ? magaluAnchors() : {};
+    
+    if (Object.keys(anchors).length > 0) {
+      const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, remixedData);
+      
+      if (changed) {
+        console.log('✅ Âncoras fixas (template Magalu) aplicadas com sucesso');
+        return { result: { modifiedZpl: out }, error: null };
+      }
+    }
+
+    // === 🎯 MÉTODO 3: IA COMO ÚLTIMO RECURSO ===
+    console.log('🧠 Usando IA como último recurso...');
     const flowInput: RemixZplDataInput = {
         originalZpl,
-        baselineData: JSON.parse(baselineDataJSON),
-        remixedData: remixed,
-        matchMode: 'strict', // O modo flexível foi removido da UI, mas o flow ainda pode ter o param
+        baselineData,
+        remixedData,
+        matchMode: 'strict',
         baselinePositions: anchors
     };
 
     const llmResult = await remixZplData(flowInput);
     const sanitizedZpl = (llmResult.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
     
+    if (!sanitizedZpl || sanitizedZpl.length < 50) {
+      return { 
+        result: null, 
+        error: 'Não foi possível aplicar as alterações. O formato desta etiqueta não é compatível com nenhum método de edição disponível.' 
+      };
+    }
+    
+    console.log('⚠️ IA utilizada como fallback - verifique o resultado');
     const result = { modifiedZpl: ensureCI28(sanitizedZpl) };
     return { result, error: null };
 
   } catch (e: any) {
-    console.error('Error remixing ZPL data:', e);
-    return { result: null, error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' };
+    console.error('❌ Error remixing ZPL data:', e);
+    return { 
+      result: null, 
+      error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' 
+    };
   }
 }
+    
+
     
 
     

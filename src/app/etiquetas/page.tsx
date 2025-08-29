@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw } from "lucide-react";
+import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw, Edit, X } from "lucide-react";
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +15,9 @@ import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/l
 import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
+
+// === ADICIONAR ESTAS LINHAS APÓS OS IMPORTS EXISTENTES ===
+import { ProcessingStatus } from "./processing-status"; // Assuming you create this component in a separate file
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -46,6 +49,26 @@ const remixZplInitialState = {
 const sanitizeZpl = (z: string) =>
   z.replace(/```(?:zpl)?/g, '').trim();
 
+// === COMPONENTE MELHORADO PARA STATUS DO PROCESSAMENTO ===
+const ProcessingStatus = ({ isRemixingZpl }: { isRemixingZpl: boolean }) => {
+  if (!isRemixingZpl) return null;
+  
+  return (
+    <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-md mb-4">
+      <Loader2 className="animate-spin text-blue-600" size={20} />
+      <div className="flex-1">
+        <p className="font-medium text-blue-900">Processando alterações...</p>
+        <div className="text-sm text-blue-700 space-y-1 mt-1">
+          <p>🤖 <strong>1º:</strong> Detecção automática de campos</p>
+          <p>⚓ <strong>2º:</strong> Âncoras fixas (se template conhecido)</p>
+          <p>🧠 <strong>3º:</strong> IA como último recurso</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
   const [analyzeState, analyzeFormAction, isAnalyzing] = useActionState(analyzeLabelAction, analyzeInitialState);
@@ -72,6 +95,7 @@ export default function EtiquetasPage() {
   const lastAppliedZplRef = useRef<string | null>(null);
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
 
   const handlePrint = () => {
     if (!previewUrl) return;
@@ -216,33 +240,65 @@ export default function EtiquetasPage() {
     setRemixingField(null);
   }, [remixState, toast]);
 
- useEffect(() => {
+  useEffect(() => {
+    // Trata erros
+    if (remixZplState.error) {
+      toast({
+        variant: 'destructive',
+        title: '❌ Alterações Não Aplicadas',
+        description: (
+          <div className="space-y-1">
+            <p>Erro: {remixZplState.error}</p>
+            <p className="text-xs">Formato ZPL pode ser incompatível</p>
+          </div>
+        ),
+        duration: 6000,
+      });
+      return;
+    }
+  
     const raw = remixZplState.result?.modifiedZpl;
     if (!raw) return;
-
+  
     const newZpl = sanitizeZpl(raw);
-
+  
+    // Verifica se houve alteração real
     if (newZpl.trim() === zplEditorContent.trim()) {
-        toast({
-            title: 'Sem alterações',
-            description: 'A IA não conseguiu aplicar as mudanças no código ZPL.',
-        });
-        return;
+      toast({
+        title: 'ℹ️ Sem Alterações Detectadas',
+        description: 'A edição não resultou em mudanças no ZPL. Verifique se os dados foram realmente alterados.',
+        duration: 4000,
+      });
+      return;
     }
-
+  
+    // Evita aplicar o mesmo ZPL múltiplas vezes
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
-
+  
+    // Aplica o novo ZPL
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
-
-    // Don't reset the baseline here, so the user can see the changes they made.
-    // if (analysisResult) setBaselineAnalysis(analysisResult);
+  
+    if (analysisResult) setBaselineAnalysis(analysisResult);
     
-    toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-}, [remixZplState.result?.modifiedZpl, toast, zplEditorContent, generatePreviewImmediate]);
-
+    setLastUpdateTime(Date.now());
+    
+    // Feedback de sucesso melhorado
+    toast({ 
+      title: '✅ Etiqueta Atualizada!', 
+      description: (
+        <div className="space-y-1">
+          <p>O ZPL foi modificado com os novos dados</p>
+          <p className="text-xs text-muted-foreground">
+            Códigos de barra preservados • Apenas textos alterados
+          </p>
+        </div>
+      ),
+      duration: 4000,
+    });
+  }, [remixZplState.result?.modifiedZpl, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, analysisResult]);
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -460,23 +516,69 @@ export default function EtiquetasPage() {
            {previewUrl && !isPreviewLoading && (
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center gap-2"><Eye /> Pré-visualização da Etiqueta</CardTitle>
-                    <Button onClick={handlePrint} variant="outline">
-                        <Printer className="mr-2 h-4 w-4"/>
-                        Imprimir
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye /> Pré-visualização da Etiqueta
+                    </CardTitle>
+                    <CardDescription className="space-y-2">
+                      <span>Representação visual do ZPL com suas alterações</span>
+                      
+                      {lastAppliedZplRef.current && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1 text-green-600">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="font-medium">Alterações aplicadas</span>
+                          </div>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">Códigos preservados</span>
+                        </div>
+                      )}
+                    </CardDescription>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button onClick={handlePrint} variant="outline" size="sm">
+                      <Printer className="mr-2 h-4 w-4"/>
+                      Imprimir
                     </Button>
+                    <Button 
+                      onClick={() => navigator.clipboard.writeText(zplEditorContent)}
+                      variant="outline" 
+                      size="sm"
+                      title="Copiar código ZPL"
+                    >
+                      <Copy className="h-4 w-4"/>
+                    </Button>
+                  </div>
                 </div>
-                <CardDescription>Representação visual do ZPL editado.</CardDescription>
               </CardHeader>
-              <CardContent className="p-2 flex items-center justify-center">
-                 <Image
-                    src={previewUrl}
-                    alt="Pré-visualização ZPL"
-                    width={420}
-                    height={630}
-                    className="block max-w-[420px] h-auto border rounded-md"
-                />
+              <CardContent className="p-4">
+                <div className="flex items-center justify-center">
+                  <div className="relative inline-block">
+                    <Image
+                      src={previewUrl}
+                      alt="Pré-visualização ZPL"
+                      width={420}
+                      height={630}
+                      className="block max-w-[420px] h-auto border rounded-lg shadow-sm"
+                    />
+                    
+                    {lastAppliedZplRef.current && Date.now() - (lastUpdateTime || 0) < 10000 && (
+                      <div className="absolute -top-2 -right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg animate-pulse">
+                        ✅ Atualizada
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-muted/50 rounded-md">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>📄 {zplEditorContent.split('\n').length} linhas ZPL</span>
+                    <span>🔄 Atualização automática: 800ms</span>
+                    <span>⚡ Detecção: Automática</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -524,7 +626,7 @@ export default function EtiquetasPage() {
             </Card>
           )}
 
-          {isAnyAnalysisRunning ? (
+          {isAnyAnalysisRunning && !analysisResult ? (
             <div className="flex items-center justify-center h-64 border rounded-lg bg-card">
               <Loader2 className="animate-spin text-primary mr-4" size={32} />
               <p className="text-muted-foreground">
@@ -536,7 +638,7 @@ export default function EtiquetasPage() {
             </div>
           ) : null}
 
-          {analysisResult && !isAnyAnalysisRunning && (
+          {analysisResult && (
             <Card>
                 <CardHeader className="flex flex-row justify-between items-start">
                     <div>
@@ -551,14 +653,31 @@ export default function EtiquetasPage() {
                             <input type="hidden" name="originalZpl" value={originalZpl} />
                             <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
                             <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                            <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
-                                {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
-                                Gerar ZPL
+                            <Button 
+                              type="submit" 
+                              variant="default" 
+                              size="sm" 
+                              disabled={isRemixingZpl || !originalZpl} 
+                              title="Aplicar alterações na etiqueta usando detecção automática"
+                              className="flex items-center gap-2"
+                            >
+                              {isRemixingZpl ? (
+                                <>
+                                  <Loader2 className="animate-spin h-4 w-4" />
+                                  <span>Processando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="h-4 w-4" />
+                                  <span>Aplicar Alterações</span>
+                                </>
+                              )}
                             </Button>
                         </form>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">
+                    <ProcessingStatus isRemixingZpl={isRemixingZpl} />
                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
                     <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
                     <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
@@ -578,6 +697,18 @@ export default function EtiquetasPage() {
                     <DataRow label="Nome" value={analysisResult.senderName} field="senderName" />
                     <DataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress"/>
                     </div>
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+                      <div className="flex items-start gap-2">
+                        <Barcode className="text-emerald-600 mt-0.5" size={16} />
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium text-emerald-900">🔒 Códigos Sempre Preservados</p>
+                          <p className="text-emerald-700">
+                            <strong>Códigos de barra e QR codes nunca são alterados.</strong><br/>
+                            Apenas numeração visual é editada para apresentação.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                 </CardContent>
             </Card>
           )}
@@ -593,3 +724,5 @@ export default function EtiquetasPage() {
     </div>
   );
 }
+
+    
