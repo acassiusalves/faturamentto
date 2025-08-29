@@ -138,20 +138,12 @@ export async function revertEntryAction(entry: InventoryItem): Promise<void> {
   
   try {
     // 1. Remove do inventário atual (se ainda existir)
-    const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.id);
+    const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.originalInventoryId);
     batch.delete(inventoryRef);
     
     // 2. ✅ NOVO: Remove TAMBÉM do entry-logs
-    const entryLogsCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
-    const entryLogsQuery = query(
-      entryLogsCol, 
-      where('originalInventoryId', '==', entry.id)
-    );
-    const entryLogsSnapshot = await getDocs(entryLogsQuery);
-    
-    entryLogsSnapshot.docs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
+    const entryLogRef = doc(db, 'users', DEFAULT_USER_ID, 'entry-logs', entry.id);
+    batch.delete(entryLogRef);
 
     await batch.commit();
     console.log('✅ Entry revertida em ambas as coleções');
@@ -184,7 +176,7 @@ export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, '
       ...item, 
       id: inventoryRef.id 
     };
-    batch.set(inventoryRef, inventoryItem);
+    batch.set(inventoryRef, toFirestore(inventoryItem));
     savedItems.push(inventoryItem);
 
     // 2. Salva TAMBÉM no log permanente de entradas (entry-logs)
@@ -196,7 +188,7 @@ export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, '
       entryDate: new Date().toISOString(),
       logType: 'INVENTORY_ENTRY'
     };
-    batch.set(entryLogRef, entryLogItem);
+    batch.set(entryLogRef, toFirestore(entryLogItem));
   }
 
   await batch.commit();
@@ -297,7 +289,7 @@ export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
   const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
   const q = query(logCol, where('pickedAt', '>=', todayStart), orderBy('pickedAt', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
+  return snapshot.docs.map(docSnap => fromFirestore({ ...docSnap.data(), id: docSnap.id }) as PickedItemLog);
 };
 
 export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
@@ -371,7 +363,7 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
     batch.set(inventoryDocRef, toFirestore(itemWithDate));
 
     // Also create a new entry in the entry-log for this re-entry event
-    const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
     const entryLogRef = doc(entryLogCol); 
     const entryLogPayload: Partial<InventoryItem> & { inventoryId: string } = {
       ...(fromFirestore(itemWithDate) as any),
@@ -431,7 +423,17 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
     };
     const firestoreItem = { ...itemToReenter, createdAt: now }; 
     batch.set(inventoryItemDocRef, toFirestore(firestoreItem));
-    await logInventoryEntry(batch, itemToReenter); 
+    
+    // Log the return entry
+    const entryLogRef = doc(collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs'));
+    const entryLogItem: EntryLog = {
+      ...itemToReenter,
+      id: entryLogRef.id,
+      originalInventoryId: inventoryItemDocRef.id, // Reference the new inventory item
+      entryDate: now.toISOString(),
+      logType: 'RETURN_ENTRY'
+    };
+    batch.set(entryLogRef, toFirestore(entryLogItem));
 
     await batch.commit();
 };
@@ -827,8 +829,8 @@ export async function migrateExistingInventoryToEntryLogs(): Promise<void> {
     const batch = writeBatch(db);
     let count = 0;
 
-    inventorySnapshot.docs.forEach(doc => {
-      const inventoryItem = { id: doc.id, ...doc.data() } as InventoryItem;
+    inventorySnapshot.docs.forEach(docSnapshot => {
+      const inventoryItem = { id: docSnapshot.id, ...docSnapshot.data() } as InventoryItem;
       
       const entryLogRef = doc(entryLogCol);
       const entryLogItem: EntryLog = {
@@ -839,7 +841,7 @@ export async function migrateExistingInventoryToEntryLogs(): Promise<void> {
         logType: 'INVENTORY_ENTRY'
       };
       
-      batch.set(entryLogRef, entryLogItem);
+      batch.set(entryLogRef, toFirestore(entryLogItem));
       count++;
     });
 
