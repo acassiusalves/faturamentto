@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
@@ -14,41 +15,22 @@ const firebaseConfig = {
   "messagingSenderId": "565748530082"
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let functions;
+// Simplified and robust initialization for Next.js
+const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
+const functions = getFunctions(app);
 
-if (typeof window !== 'undefined' && !getApps().length) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  functions = getFunctions(app);
-  try {
+// The enableNetwork call should ideally only run on the client.
+// However, since Firestore handles this gracefully, we can attempt it,
+// but it's often better to manage network state within client-side hooks if needed.
+// For this fix, we'll keep it simple as the primary issue is initialization.
+try {
+  if (typeof window !== 'undefined') {
     enableNetwork(db);
-    console.log("Firebase network enabled.");
-  } catch (error) {
-    console.warn("Could not enable network for Firestore. This might happen on subsequent reloads.", error);
   }
-} else if (getApps().length > 0) {
-    app = getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    functions = getFunctions(app);
-}
-
-// Fallback for server-side rendering or environments where `window` is not defined
-if (!app) {
-    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-}
-if (!auth) {
-    auth = getAuth(app);
-}
-if (!db) {
-    db = getFirestore(app);
-}
-if(!functions) {
-    functions = getFunctions(app);
+} catch (error) {
+  console.warn("Could not enable network for Firestore on this environment.", error);
 }
 
 
