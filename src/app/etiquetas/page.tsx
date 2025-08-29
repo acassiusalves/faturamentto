@@ -15,9 +15,7 @@ import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/l
 import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
-
-// === ADICIONAR ESTAS LINHAS APÓS OS IMPORTS EXISTENTES ===
-import { ProcessingStatus } from "./processing-status"; // Assuming you create this component in a separate file
+import { ProcessingStatus } from "./processing-status"; 
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -48,26 +46,6 @@ const remixZplInitialState = {
 
 const sanitizeZpl = (z: string) =>
   z.replace(/```(?:zpl)?/g, '').trim();
-
-// === COMPONENTE MELHORADO PARA STATUS DO PROCESSAMENTO ===
-const ProcessingStatus = ({ isRemixingZpl }: { isRemixingZpl: boolean }) => {
-  if (!isRemixingZpl) return null;
-  
-  return (
-    <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-md mb-4">
-      <Loader2 className="animate-spin text-blue-600" size={20} />
-      <div className="flex-1">
-        <p className="font-medium text-blue-900">Processando alterações...</p>
-        <div className="text-sm text-blue-700 space-y-1 mt-1">
-          <p>🤖 <strong>1º:</strong> Detecção automática de campos</p>
-          <p>⚓ <strong>2º:</strong> Âncoras fixas (se template conhecido)</p>
-          <p>🧠 <strong>3º:</strong> IA como último recurso</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 
 export default function EtiquetasPage() {
   const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, fetchInitialState);
@@ -206,7 +184,7 @@ export default function EtiquetasPage() {
       fd.append("zplContent", zpl);
       analyzeZplFormAction(fd);
     });
-  }, [fetchState.zplContent, analyzeZplFormAction, startTransition]);
+  }, [fetchState.zplContent, analyzeZplFormAction]);
 
   useEffect(() => {
     if (analyzeState.error) {
@@ -392,7 +370,7 @@ export default function EtiquetasPage() {
   
     toast({
       title: "Campo Removido",
-      description: `O campo '${field}' foi limpo. Clique em "Gerar ZPL" para atualizar a prévia.`,
+      description: `O campo '${field}' foi limpo. Clique em "Aplicar Alterações" para atualizar a prévia.`,
     });
   };
 
@@ -724,5 +702,3 @@ export default function EtiquetasPage() {
     </div>
   );
 }
-
-    
