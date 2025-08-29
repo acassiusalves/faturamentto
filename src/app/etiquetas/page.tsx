@@ -16,6 +16,8 @@ import * as pdfjs from "pdfjs-dist";
 import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
+import { MappingDebugger } from './mapping-debugger';
+
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -219,7 +221,6 @@ export default function EtiquetasPage() {
   }, [remixState, toast]);
 
   useEffect(() => {
-    // Trata erros
     if (remixZplState.error) {
       toast({
         variant: 'destructive',
@@ -240,7 +241,6 @@ export default function EtiquetasPage() {
   
     const newZpl = sanitizeZpl(raw);
   
-    // Verifica se houve alteração real
     if (newZpl.trim() === zplEditorContent.trim()) {
       toast({
         title: 'ℹ️ Sem Alterações Detectadas',
@@ -250,11 +250,9 @@ export default function EtiquetasPage() {
       return;
     }
   
-    // Evita aplicar o mesmo ZPL múltiplas vezes
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
   
-    // Aplica o novo ZPL
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
@@ -263,7 +261,6 @@ export default function EtiquetasPage() {
     
     setLastUpdateTime(Date.now());
     
-    // Feedback de sucesso melhorado
     toast({ 
       title: '✅ Etiqueta Atualizada!', 
       description: (
@@ -687,6 +684,15 @@ export default function EtiquetasPage() {
                         </div>
                       </div>
                     </div>
+                     {analysisResult && originalZpl && (
+                      <MappingDebugger
+                        originalZpl={originalZpl}
+                        analysisResult={analysisResult}
+                        onMappingDebug={(info) => {
+                          console.log('🗺️ Debug Info:', info);
+                        }}
+                      />
+                    )}
                 </CardContent>
             </Card>
           )}

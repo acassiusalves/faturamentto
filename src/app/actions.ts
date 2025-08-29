@@ -16,40 +16,30 @@ import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput } from '@/lib/types';
 
-// === ADICIONAR ESTAS INTERFACES E FUNÇÕES NO INÍCIO DO actions.ts ===
-// (Adicione após os imports existentes)
+// === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
+// Substitui todo o sistema anterior por uma abordagem mais determinística
 
-interface ZplField {
-  x: number;
-  y: number;
-  content: string;
-  startLine: number;
-  endLine: number;
-  isBarcode: boolean;
-  isQrCode: boolean;
-  hasEncoding: boolean;
-  fieldType: 'text' | 'barcode' | 'qrcode';
-  originalContent: string;
+interface ZplTextElement {
+  content: string;           // texto decodificado
+  rawContent: string;        // texto original no ZPL  
+  x: number;                 // coordenada X
+  y: number;                 // coordenada Y
+  startLine: number;         // linha onde começa o bloco
+  endLine: number;           // linha onde termina o bloco
+  fdLineIndex: number;       // linha específica do ^FD
+  hasEncoding: boolean;      // se tem ^FH
+  isBarcode: boolean;        // se é código de barra
+  isQrCode: boolean;         // se é QR code
 }
 
-interface ZplAnalysis {
-  fields: ZplField[];
-  barcodeFields: ZplField[];
-  textFields: ZplField[];
-  qrCodeFields: ZplField[];
-}
-
-interface FieldMapping {
-  recipientName?: ZplField;
-  streetAddress?: ZplField;
-  city?: ZplField;
-  zipCode?: ZplField;
-  senderName?: ZplField;
-  senderAddress?: ZplField;
-  orderNumber?: ZplField;
-  invoiceNumber?: ZplField;
-  trackingNumber?: ZplField;
-  estimatedDeliveryDate?: ZplField;
+interface ZplMapping {
+  allTextElements: ZplTextElement[];
+  mappedFields: {
+    [K in keyof AnalyzeLabelOutput]?: {
+      element: ZplTextElement;
+      confidence: number;
+    }
+  };
 }
 
 // --- CODIFICAÇÃO/DECODIFICAÇÃO ^FH (_xx) ---
@@ -97,224 +87,320 @@ function magaluAnchors(): AnchorMap {
   };
 }
 
-// === FUNÇÃO 1: ANÁLISE DA ESTRUTURA ZPL ===
-function analyzeZplStructure(zpl: string): ZplAnalysis {
+// === FUNÇÃO 1: EXTRAÇÃO COMPLETA DE ELEMENTOS DE TEXTO ===
+function extractAllTextElements(zpl: string): ZplTextElement[] {
   const lines = zpl.split(/\r?\n/);
-  const fields: ZplField[] = [];
+  const elements: ZplTextElement[] = [];
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
-    // Detecta posicionamento ^FO ou ^FT
+    // Detecta início de bloco com posicionamento
     const posMatch = line.match(/^\^(FO|FT)\s*(\d+)\s*,\s*(\d+)/i);
     if (!posMatch) continue;
     
     const x = parseInt(posMatch[2]);
     const y = parseInt(posMatch[3]);
     
-    // Procura o bloco completo até ^FS
+    // Analisa o bloco completo
     let blockEnd = -1;
-    let blockContent = '';
     let hasBarcode = false;
     let hasQrCode = false;
     let hasEncoding = false;
     let dataContent = '';
+    let fdLineIndex = -1;
     
-    // Analisa o bloco
     for (let j = i; j < lines.length; j++) {
       const blockLine = lines[j].trim();
-      blockContent += blockLine + '\n';
       
-      // Detecta tipos de campo
+      // Detecta tipos
       if (/^\^B[A-Z]/i.test(blockLine)) hasBarcode = true;
       if (/^\^BQ/i.test(blockLine)) hasQrCode = true;
       if (/^\^FH/i.test(blockLine)) hasEncoding = true;
       
-      // Extrai conteúdo do campo ^FD
-      const fdMatch = blockLine.match(/^\^FD(.*)$/i);
-      if (fdMatch) {
-        dataContent = fdMatch[1].replace(/\^FS$/, '');
+      // Encontra ^FD
+      if (blockLine.includes('^FD')) {
+        fdLineIndex = j;
+        const fdMatch = blockLine.match(/\^FD(.*)$/i);
+        if (fdMatch) {
+          dataContent = fdMatch[1].replace(/\^FS$/, '');
+        }
       }
       
-      // Fim do bloco
       if (/\^FS/.test(blockLine)) {
         blockEnd = j;
         break;
       }
     }
     
-    if (blockEnd === -1) continue;
+    if (blockEnd === -1 || fdLineIndex === -1) continue;
     
-    // Decodifica conteúdo se tiver ^FH
+    // Só processa campos de texto (não códigos)
+    if (hasBarcode || hasQrCode) continue;
+    
+    // Decodifica conteúdo
     let decodedContent = dataContent;
     if (hasEncoding && dataContent) {
       decodedContent = fhDecode(dataContent);
     }
     
-    // Determina o tipo do campo
-    let fieldType: 'text' | 'barcode' | 'qrcode' = 'text';
-    if (hasQrCode) fieldType = 'qrcode';
-    else if (hasBarcode) fieldType = 'barcode';
+    // Ignora campos vazios ou muito pequenos
+    if (!decodedContent || decodedContent.length < 2) continue;
     
-    fields.push({
+    elements.push({
+      content: decodedContent,
+      rawContent: dataContent,
       x,
       y,
-      content: decodedContent,
       startLine: i,
       endLine: blockEnd,
-      isBarcode: hasBarcode,
-      isQrCode: hasQrCode,
+      fdLineIndex,
       hasEncoding,
-      fieldType,
-      originalContent: blockContent.trim()
+      isBarcode: hasBarcode,
+      isQrCode: hasQrCode
     });
     
-    // Pula para após o bloco
-    i = blockEnd;
+    i = blockEnd; // Pula para depois do bloco
   }
   
-  return {
-    fields,
-    barcodeFields: fields.filter(f => f.isBarcode),
-    textFields: fields.filter(f => f.fieldType === 'text'),
-    qrCodeFields: fields.filter(f => f.isQrCode)
-  };
+  return elements;
 }
 
-// === FUNÇÃO 2: MAPEAMENTO DE CAMPOS ===
-function mapFieldsToData(analysis: ZplAnalysis, originalData: AnalyzeLabelOutput): FieldMapping {
-  const mapping: FieldMapping = {};
-  const textFields = [...analysis.textFields]; // Cópia para não modificar original
+// === FUNÇÃO 2: MAPEAMENTO INTELIGENTE POR PADRÕES ===
+function mapElementsToFields(
+  elements: ZplTextElement[], 
+  extractedData: AnalyzeLabelOutput
+): ZplMapping['mappedFields'] {
+  const mapping: ZplMapping['mappedFields'] = {};
   
-  // Função de similaridade de texto
-  const similarity = (a: string, b: string): number => {
-    if (!a || !b) return 0;
-    const normalize = (s: string) => s.toLowerCase().replace(/[^\w]/g, '');
-    const normA = normalize(a);
-    const normB = normalize(b);
-    
-    if (normA === normB) return 1;
-    if (normA.includes(normB) || normB.includes(normA)) return 0.8;
-    
-    // Verifica números (CEP, pedidos, etc)
-    if (/^\d+$/.test(normA) && /^\d+$/.test(normB)) {
-      return normA === normB ? 1 : 0;
+  // Padrões para identificar cada tipo de campo
+  const patterns = {
+    orderNumber: {
+      patterns: [/^\d{8,15}$/, /^pedido[:\s]*(\d+)/i, /^order[:\s]*(\d+)/i],
+      keywords: ['pedido', 'order', 'numero'],
+      dataField: extractedData.orderNumber
+    },
+    invoiceNumber: {
+      patterns: [/^\d{6,12}$/, /^nf[:\s]*(\d+)/i, /^nota[:\s]*(\d+)/i],
+      keywords: ['nota', 'fiscal', 'nf', 'invoice'],
+      dataField: extractedData.invoiceNumber
+    },
+    trackingNumber: {
+      patterns: [/^[A-Z]{2}\d{9}[A-Z]{2}$/, /^rastreio[:\s]*([A-Z0-9]+)/i],
+      keywords: ['rastreio', 'tracking', 'codigo'],
+      dataField: extractedData.trackingNumber
+    },
+    zipCode: {
+      patterns: [/^\d{5}-?\d{3}$/, /^\d{8}$/],
+      keywords: ['cep', 'zip'],
+      dataField: extractedData.zipCode
+    },
+    recipientName: {
+      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,50}$/i],
+      keywords: ['destinatario', 'recipient', 'para'],
+      dataField: extractedData.recipientName
+    },
+    senderName: {
+      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,50}$/i],
+      keywords: ['remetente', 'sender', 'de'],
+      dataField: extractedData.senderName
+    },
+    streetAddress: {
+      patterns: [/^(rua|av|avenida|r\.)/i, /\d+/],
+      keywords: ['endereco', 'rua', 'address'],
+      dataField: extractedData.streetAddress
+    },
+    city: {
+      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{3,30}$/i],
+      keywords: ['cidade', 'city'],
+      dataField: extractedData.city
+    },
+    state: {
+      patterns: [/^[A-Z]{2}$/],
+      keywords: ['estado', 'uf', 'state'],
+      dataField: extractedData.state
     }
-    
-    return 0;
   };
   
-  // Mapeia cada campo dos dados originais
-  Object.entries(originalData).forEach(([key, value]) => {
-    if (!value || typeof value !== 'string') return;
+  // Para cada campo, encontra o melhor elemento
+  Object.entries(patterns).forEach(([fieldName, config]) => {
+    if (!config.dataField) return;
     
-    let bestMatch: ZplField | null = null;
+    let bestMatch: ZplTextElement | null = null;
     let bestScore = 0;
     
-    textFields.forEach((field, index) => {
-      const score = similarity(field.content, value);
-      if (score > bestScore && score > 0.7) {
+    elements.forEach(element => {
+      let score = 0;
+      
+      // 1. Correspondência exata com dados extraídos (peso 100)
+      if (element.content.toLowerCase().trim() === config.dataField.toLowerCase().trim()) {
+        score = 100;
+      }
+      
+      // 2. Correspondência parcial (peso 80)
+      else if (element.content.toLowerCase().includes(config.dataField.toLowerCase()) ||
+               config.dataField.toLowerCase().includes(element.content.toLowerCase())) {
+        score = 80;
+      }
+      
+      // 3. Padrões regex (peso 60)
+      else if (config.patterns.some(pattern => pattern.test(element.content))) {
+        score = 60;
+      }
+      
+      // 4. Posição típica no layout (peso 40)
+      if (score > 0) {
+        // Adiciona pontuação por posição (campos no topo são mais prováveis de serem cabeçalho)
+        if (element.y < 500) score += 10; // Parte superior
+        if (element.x < 400) score += 5;  // Lado esquerdo
+      }
+      
+      if (score > bestScore) {
         bestScore = score;
-        bestMatch = field;
+        bestMatch = element;
       }
     });
     
-    if (bestMatch) {
-      (mapping as any)[key] = bestMatch;
-      // Remove do array para não mapear novamente
-      const index = textFields.indexOf(bestMatch);
-      if (index > -1) textFields.splice(index, 1);
+    if (bestMatch && bestScore >= 60) {
+      mapping[fieldName as keyof AnalyzeLabelOutput] = {
+        element: bestMatch,
+        confidence: bestScore
+      };
+      
+      // Remove elemento para não mapear novamente
+      const index = elements.indexOf(bestMatch);
+      if (index > -1) elements.splice(index, 1);
     }
   });
   
   return mapping;
 }
 
-// === FUNÇÃO 3: APLICAR SUBSTITUIÇÕES ===
-function applySmartReplacements(
+// === FUNÇÃO 3: APLICAÇÃO PRECISA DAS ALTERAÇÕES ===
+function applyPreciseChanges(
   originalZpl: string,
-  mapping: FieldMapping,
+  mapping: ZplMapping['mappedFields'],
   newData: AnalyzeLabelOutput
-): { modifiedZpl: string; changesApplied: number } {
+): { modifiedZpl: string; changesApplied: number; details: string[] } {
   const lines = originalZpl.split(/\r?\n/);
   let changesApplied = 0;
+  const details: string[] = [];
   
-  Object.entries(mapping).forEach(([dataKey, field]) => {
-    if (!field) return;
+  Object.entries(mapping).forEach(([fieldName, fieldMapping]) => {
+    if (!fieldMapping) return;
     
-    const newValue = (newData as any)[dataKey];
-    if (newValue === undefined || typeof newValue !== 'string') return;
+    const newValue = (newData as any)[fieldName];
+    if (!newValue || typeof newValue !== 'string') return;
     
-    // Encontra a linha com ^FD no bloco do campo
-    for (let i = field.startLine; i <= field.endLine; i++) {
-      if (lines[i].includes('^FD')) {
-        const encodedValue = field.hasEncoding ? fhEncode(newValue) : newValue;
-        
-        // Substitui apenas o conteúdo, mantendo ^FD e ^FS
-        lines[i] = lines[i].replace(
-          /(\^FD).*?(\^FS|$)/,
-          `$1${encodedValue}$2`
-        );
-        
-        changesApplied++;
-        break;
-      }
+    const element = fieldMapping.element;
+    const fdLine = lines[element.fdLineIndex];
+    
+    if (!fdLine || !fdLine.includes('^FD')) return;
+    
+    // Codifica se necessário
+    const encodedValue = element.hasEncoding ? fhEncode(newValue) : newValue;
+    
+    // Substitui mantendo estrutura ^FD...^FS
+    const newLine = fdLine.replace(
+      /(\^FD).*?(\^FS|$)/,
+      `$1${encodedValue}$2`
+    );
+    
+    if (newLine !== fdLine) {
+      lines[element.fdLineIndex] = newLine;
+      changesApplied++;
+      details.push(`${fieldName}: "${element.content}" → "${newValue}" (linha ${element.fdLineIndex + 1})`);
     }
   });
   
   return {
     modifiedZpl: ensureCI28(lines.join('\n')),
-    changesApplied
+    changesApplied,
+    details
   };
 }
 
-// === FUNÇÃO 4: DETECÇÃO AUTOMÁTICA PRINCIPAL ===
-function autoDetectAndReplace(
+// === FUNÇÃO PRINCIPAL: MAPEAMENTO E ANÁLISE COMPLETA ===
+export function preciseMappingAndAnalysis(
   originalZpl: string,
-  originalData: AnalyzeLabelOutput,
-  newData: AnalyzeLabelOutput
+  extractedData: AnalyzeLabelOutput
 ): {
   success: boolean;
-  modifiedZpl?: string;
-  changesApplied?: number;
-  fieldsDetected?: number;
+  mapping?: ZplMapping;
   error?: string;
+  stats?: {
+    totalElements: number;
+    mappedFields: number;
+    unmappedElements: number;
+  }
 } {
   try {
-    // 1. Analisa estrutura do ZPL
-    const analysis = analyzeZplStructure(originalZpl);
+    // 1. Extrai todos os elementos de texto
+    const allElements = extractAllTextElements(originalZpl);
     
-    if (analysis.textFields.length === 0) {
+    if (allElements.length === 0) {
       return {
         success: false,
-        error: 'Nenhum campo de texto detectado no ZPL'
+        error: 'Nenhum elemento de texto encontrado no ZPL'
       };
     }
     
-    // 2. Mapeia campos automaticamente
-    const mapping = mapFieldsToData(analysis, originalData);
+    // 2. Mapeia elementos para campos
+    const mappedFields = mapElementsToFields([...allElements], extractedData);
     
-    // 3. Aplica substituições
-    const { modifiedZpl, changesApplied } = applySmartReplacements(
-      originalZpl,
-      mapping,
-      newData
-    );
+    const mapping: ZplMapping = {
+      allTextElements: allElements,
+      mappedFields
+    };
     
     return {
       success: true,
-      modifiedZpl,
-      changesApplied,
-      fieldsDetected: analysis.textFields.length
+      mapping,
+      stats: {
+        totalElements: allElements.length,
+        mappedFields: Object.keys(mappedFields).length,
+        unmappedElements: allElements.length - Object.keys(mappedFields).length
+      }
     };
     
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Erro desconhecido'
+      error: error instanceof Error ? error.message : 'Erro desconhecido no mapeamento'
     };
   }
 }
+
+// === FUNÇÃO PARA APLICAR ALTERAÇÕES COM MAPEAMENTO PRECISO ===
+export function applyChangesWithPreciseMapping(
+  originalZpl: string,
+  mapping: ZplMapping,
+  newData: AnalyzeLabelOutput
+): {
+  success: boolean;
+  modifiedZpl?: string;
+  changesApplied?: number;
+  details?: string[];
+  error?: string;
+} {
+  try {
+    const result = applyPreciseChanges(originalZpl, mapping.mappedFields, newData);
+    
+    return {
+      success: true,
+      modifiedZpl: result.modifiedZpl,
+      changesApplied: result.changesApplied,
+      details: result.details
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro ao aplicar alterações'
+    };
+  }
+}
+
 
 // This is the main server action that will be called from the frontend.
 export async function processListPipelineAction(
@@ -776,10 +862,11 @@ export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
   formData: FormData
 ): Promise<{ result: RemixZplDataOutput | null; error: string | null }> {
-  console.log('🚀 Nova remixZplDataAction executando...');
+  console.log('🚀 Iniciando mapeamento preciso do ZPL...');
+  
   const originalZpl = formData.get('originalZpl') as string;
   const baselineDataJSON = formData.get('baselineData') as string;
-  const remixedDataJSON  = formData.get('remixedData') as string;
+  const remixedDataJSON = formData.get('remixedData') as string;
   
   if (!originalZpl || !remixedDataJSON || !baselineDataJSON) {
     return { result: null, error: 'Faltam dados: originalZpl, baselineData ou remixedData.' };
@@ -787,33 +874,49 @@ export async function remixZplDataAction(
 
   try {
     const baselineData = JSON.parse(baselineDataJSON) as AnalyzeLabelOutput;
-    const remixedData  = JSON.parse(remixedDataJSON)  as AnalyzeLabelOutput;
+    const remixedData = JSON.parse(remixedDataJSON) as AnalyzeLabelOutput;
 
-    // Normaliza campos ausentes para strings vazias
+    // Normaliza campos ausentes
     const allKeys: (keyof AnalyzeLabelOutput)[] = [
-      'recipientName','streetAddress','city','state','zipCode',
-      'orderNumber','invoiceNumber','trackingNumber',
-      'senderName','senderAddress','estimatedDeliveryDate'
+      'recipientName', 'streetAddress', 'city', 'state', 'zipCode',
+      'orderNumber', 'invoiceNumber', 'trackingNumber',
+      'senderName', 'senderAddress', 'estimatedDeliveryDate'
     ];
+    
     allKeys.forEach((k) => {
       if ((remixedData as any)[k] === null || (remixedData as any)[k] === undefined) {
         (remixedData as any)[k] = '';
       }
     });
+
+    // === 🎯 MÉTODO 1: MAPEAMENTO PRECISO (NOVO MÉTODO PRINCIPAL) ===
+    console.log('🗺️ Fazendo mapeamento completo do ZPL...');
+    const mappingResult = preciseMappingAndAnalysis(originalZpl, baselineData);
     
-    // === 🎯 MÉTODO 1: DETECÇÃO AUTOMÁTICA (NOVO E PRINCIPAL) ===
-    console.log('🤖 Tentando detecção automática de campos...');
-    const autoResult = autoDetectAndReplace(originalZpl, baselineData, remixedData);
-    
-    if (autoResult.success && autoResult.changesApplied && autoResult.changesApplied > 0) {
-      console.log(`✅ Detecção automática: ${autoResult.changesApplied} campos atualizados de ${autoResult.fieldsDetected} detectados`);
-      return { 
-        result: { modifiedZpl: autoResult.modifiedZpl! }, 
-        error: null 
-      };
+    if (mappingResult.success && mappingResult.mapping) {
+      const { mapping, stats } = mappingResult;
+      
+      console.log(`📊 Mapeamento: ${stats!.mappedFields} campos mapeados de ${stats!.totalElements} elementos`);
+      
+      // Aplica alterações usando mapeamento preciso
+      const changeResult = applyChangesWithPreciseMapping(originalZpl, mapping, remixedData);
+      
+      if (changeResult.success && changeResult.changesApplied! > 0) {
+        console.log(`✅ Mapeamento preciso: ${changeResult.changesApplied} alterações aplicadas`);
+        console.log('📝 Detalhes das alterações:', changeResult.details);
+        
+        return {
+          result: { modifiedZpl: changeResult.modifiedZpl! },
+          error: null
+        };
+      } else {
+        console.log('ℹ️ Mapeamento preciso não encontrou alterações para aplicar');
+      }
+    } else {
+      console.log('⚠️ Mapeamento preciso falhou:', mappingResult.error);
     }
 
-    // === 🎯 MÉTODO 2: ÂNCORAS FIXAS (FALLBACK PARA TEMPLATES CONHECIDOS) ===  
+    // === 🎯 MÉTODO 2: ÂNCORAS FIXAS (FALLBACK) ===  
     console.log('⚓ Tentando sistema de âncoras fixas...');
     const anchors: AnchorMap = isMagaluTemplate(originalZpl) ? magaluAnchors() : {};
     
@@ -821,7 +924,7 @@ export async function remixZplDataAction(
       const { out, changed } = applyAnchoredReplacements(originalZpl, anchors, remixedData);
       
       if (changed) {
-        console.log('✅ Âncoras fixas (template Magalu) aplicadas com sucesso');
+        console.log('✅ Âncoras fixas aplicadas com sucesso');
         return { result: { modifiedZpl: out }, error: null };
       }
     }
@@ -829,33 +932,74 @@ export async function remixZplDataAction(
     // === 🎯 MÉTODO 3: IA COMO ÚLTIMO RECURSO ===
     console.log('🧠 Usando IA como último recurso...');
     const flowInput: RemixZplDataInput = {
-        originalZpl,
-        baselineData,
-        remixedData,
-        matchMode: 'strict',
-        baselinePositions: anchors
+      originalZpl,
+      baselineData,
+      remixedData,
+      matchMode: 'strict',
+      baselinePositions: anchors
     };
 
     const llmResult = await remixZplData(flowInput);
     const sanitizedZpl = (llmResult.modifiedZpl || '').replace(/```(?:zpl)?/g, '').trim();
     
     if (!sanitizedZpl || sanitizedZpl.length < 50) {
-      return { 
-        result: null, 
-        error: 'Não foi possível aplicar as alterações. O formato desta etiqueta não é compatível com nenhum método de edição disponível.' 
+      return {
+        result: null,
+        error: 'Não foi possível aplicar as alterações. Nenhum método conseguiu mapear os campos desta etiqueta.'
       };
     }
     
     console.log('⚠️ IA utilizada como fallback - verifique o resultado');
-    const result = { modifiedZpl: ensureCI28(sanitizedZpl) };
-    return { result, error: null };
+    return { result: { modifiedZpl: ensureCI28(sanitizedZpl) }, error: null };
 
   } catch (e: any) {
-    console.error('❌ Error remixing ZPL data:', e);
-    return { 
-      result: null, 
-      error: e.message || 'Ocorreu um erro ao gerar o novo ZPL.' 
+    console.error('❌ Erro no mapeamento preciso:', e);
+    return {
+      result: null,
+      error: e.message || 'Ocorreu um erro ao processar a etiqueta.'
     };
+  }
+}
+
+// === FUNÇÃO PARA DEBUG: EXIBIR ELEMENTOS MAPEADOS ===
+export async function debugMappingAction(
+  prevState: { result: any | null; error: string | null },
+  formData: FormData
+): Promise<{ result: any | null; error: string | null }> {
+  const originalZpl = formData.get('originalZpl') as string;
+  const extractedDataJSON = formData.get('extractedData') as string;
+  
+  if (!originalZpl || !extractedDataJSON) {
+    return { result: null, error: 'Dados faltando para debug' };
+  }
+  
+  try {
+    const extractedData = JSON.parse(extractedDataJSON) as AnalyzeLabelOutput;
+    const mappingResult = preciseMappingAndAnalysis(originalZpl, extractedData);
+    
+    if (mappingResult.success) {
+      const debugInfo = {
+        stats: mappingResult.stats,
+        allElements: mappingResult.mapping!.allTextElements.map(el => ({
+          content: el.content,
+          position: `${el.x},${el.y}`,
+          line: el.fdLineIndex + 1
+        })),
+        mappedFields: Object.entries(mappingResult.mapping!.mappedFields).map(([field, mapping]) => ({
+          field,
+          content: mapping!.element.content,
+          position: `${mapping!.element.x},${mapping!.element.y}`,
+          confidence: mapping!.confidence,
+          line: mapping!.element.fdLineIndex + 1
+        }))
+      };
+      
+      return { result: debugInfo, error: null };
+    } else {
+      return { result: null, error: mappingResult.error! };
+    }
+  } catch (e: any) {
+    return { result: null, error: e.message };
   }
 }
     
