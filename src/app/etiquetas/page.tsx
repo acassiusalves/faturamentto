@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2 } from "lucide-react";
+import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw } from "lucide-react";
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -237,10 +237,11 @@ export default function EtiquetasPage() {
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
 
-    if (analysisResult) setBaselineAnalysis(analysisResult);
+    // Don't reset the baseline here, so the user can see the changes they made.
+    // if (analysisResult) setBaselineAnalysis(analysisResult);
     
     toast({ title: 'Sucesso!', description: 'O ZPL foi atualizado com os novos dados.' });
-}, [remixZplState.result?.modifiedZpl]);
+}, [remixZplState.result?.modifiedZpl, toast, zplEditorContent, generatePreviewImmediate]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -314,6 +315,17 @@ export default function EtiquetasPage() {
         formData.append('fieldToRemix', field);
         remixFormAction(formData);
     });
+  };
+  
+  const handleRestoreOriginalData = () => {
+    if (baselineAnalysis) {
+      setAnalysisResult(baselineAnalysis);
+      setZplEditorContent(originalZpl); // Also restore original ZPL
+      toast({
+        title: "Dados Restaurados",
+        description: "Os dados extraídos da etiqueta foram restaurados para o seu estado original.",
+      });
+    }
   };
 
   const handleRemoveField = (field: RemixableField) => {
@@ -531,16 +543,20 @@ export default function EtiquetasPage() {
                     <CardTitle className="flex items-center gap-2"><Bot /> Dados Extraídos da Etiqueta</CardTitle>
                     <CardDescription>Resultado da análise da IA.</CardDescription>
                     </div>
-                    <form action={remixZplFormAction}>
-                        <input type="hidden" name="originalZpl" value={originalZpl} />
-                        <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
-                        <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
-                        
-                        <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
-                            {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
-                            Gerar ZPL
+                    <div className="flex items-center gap-2">
+                         <Button variant="ghost" size="icon" onClick={handleRestoreOriginalData} title="Restaurar dados originais" disabled={!baselineAnalysis}>
+                            <RotateCcw className="h-5 w-5"/>
                         </Button>
-                    </form>
+                        <form action={remixZplFormAction}>
+                            <input type="hidden" name="originalZpl" value={originalZpl} />
+                            <input type="hidden" name="baselineData" value={JSON.stringify(baselineAnalysis ?? analysisResult)} />
+                            <input type="hidden" name="remixedData" value={JSON.stringify(analysisResult)} />
+                            <Button type="submit" variant="default" size="sm" disabled={isRemixingZpl || !originalZpl} title="Gerar ZPL Modificado">
+                                {isRemixingZpl ? <Loader2 className="animate-spin" /> : <Printer className="mr-2" />}
+                                Gerar ZPL
+                            </Button>
+                        </form>
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">
                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
