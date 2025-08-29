@@ -52,6 +52,7 @@ export function DetailedEntryHistory() {
       origin: log.origin,
       condition: log.condition,
       createdAt: log.entryDate, // Usa entryDate como createdAt
+      originalInventoryId: log.originalInventoryId, // Passa o ID original
     }));
     
     setAllItems(items);
