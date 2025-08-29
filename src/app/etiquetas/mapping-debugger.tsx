@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useActionState } from 'react';
+import { useActionState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Loader2 } from 'lucide-react';
 import { debugMappingAction } from '@/app/actions';
 import type { AnalyzeLabelOutput } from '@/lib/types';
 import {
@@ -32,23 +32,27 @@ export function MappingDebugger({
     result: null,
     error: null,
   });
+  const [isTransitioning, startTransition] = useTransition();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleDebugClick = () => {
-    const formData = new FormData();
-    formData.append('originalZpl', originalZpl);
-    formData.append('extractedData', JSON.stringify(analysisResult));
-    debugAction(formData);
+    startTransition(() => {
+        const formData = new FormData();
+        formData.append('originalZpl', originalZpl);
+        formData.append('extractedData', JSON.stringify(analysisResult));
+        debugAction(formData);
+    });
     setIsDialogOpen(true);
   };
 
   const debugResult = debugState?.result;
+  const isPending = isDebugging || isTransitioning;
 
   return (
     <>
       <div className="mt-4">
-        <Button variant="outline" size="sm" onClick={handleDebugClick} disabled={isDebugging}>
-          <BrainCircuit className="mr-2" />
+        <Button variant="outline" size="sm" onClick={handleDebugClick} disabled={isPending}>
+          {isPending ? <Loader2 className="mr-2 animate-spin"/> : <BrainCircuit className="mr-2" />}
           Debug Mapeamento
         </Button>
       </div>
@@ -62,7 +66,11 @@ export function MappingDebugger({
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-y-auto p-1">
-            {debugResult ? (
+            {isPending ? (
+                 <div className="flex items-center justify-center h-48">
+                    <Loader2 className="animate-spin text-primary" />
+                 </div>
+            ) : debugResult ? (
               <div className="space-y-4">
                 <div className="flex gap-4">
                     <Badge>Total de Elementos: {debugResult.stats?.totalElements}</Badge>
