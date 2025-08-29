@@ -321,7 +321,7 @@ function applyPreciseChanges(
 }
 
 // === FUNÇÃO PRINCIPAL: MAPEAMENTO E ANÁLISE COMPLETA ===
-export function preciseMappingAndAnalysis(
+function preciseMappingAndAnalysis(
   originalZpl: string,
   extractedData: AnalyzeLabelOutput
 ): {
@@ -372,7 +372,7 @@ export function preciseMappingAndAnalysis(
 }
 
 // === FUNÇÃO PARA APLICAR ALTERAÇÕES COM MAPEAMENTO PRECISO ===
-export function applyChangesWithPreciseMapping(
+function applyChangesWithPreciseMapping(
   originalZpl: string,
   mapping: ZplMapping,
   newData: AnalyzeLabelOutput
@@ -1002,6 +1002,10 @@ export async function debugMappingAction(
     return { result: null, error: e.message };
   }
 }
+    
+
+    
+
     
 
     
