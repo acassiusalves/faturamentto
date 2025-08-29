@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
 import { MappingDebugger } from './mapping-debugger';
+import { Badge } from "@/components/ui/badge";
 
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
