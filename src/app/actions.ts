@@ -166,115 +166,139 @@ function extractAllTextElements(zpl: string): ZplTextElement[] {
   return elements;
 }
 
-// === FUNÇÃO 2: MAPEAMENTO INTELIGENTE POR PADRÕES ===
-function mapElementsToFields(
+// === MAPEAMENTO MELHORADO PARA ENDEREÇOS SEPARADOS ===
+
+interface ZplAddressStructure {
+  recipientName?: ZplTextElement;
+  recipientAddress?: ZplTextElement;
+  recipientCityState?: ZplTextElement;
+  senderName?: ZplTextElement;
+  senderAddress?: ZplTextElement;  
+  senderCityState?: ZplTextElement;
+  zipCode?: ZplTextElement;
+}
+
+// === FUNÇÃO MELHORADA PARA IDENTIFICAR ESTRUTURA DE ENDEREÇOS ===
+function identifyAddressStructure(elements: ZplTextElement[]): ZplAddressStructure {
+  const structure: ZplAddressStructure = {};
+  
+  // Ordena elementos por posição vertical (Y) para analisar sequência
+  const sortedByY = [...elements].sort((a, b) => a.y - b.y);
+  
+  sortedByY.forEach((element, index) => {
+    const content = element.content.trim();
+    
+    // Identifica CEP (padrão específico)
+    if (/^\d{5}-?\d{3}$|^\d{8}$/.test(content)) {
+      structure.zipCode = element;
+      return;
+    }
+    
+    // Identifica cidade + estado (formato: CIDADE, UF ou CIDADE - UF)
+    if (/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+[,-]\s*[A-Z]{2}$/i.test(content)) {
+      // Determina se é destinatário ou remetente pela posição
+      if (!structure.recipientCityState) {
+        structure.recipientCityState = element;
+      } else {
+        structure.senderCityState = element;
+      }
+      return;
+    }
+    
+    // Identifica endereços (contém número e termos típicos)
+    if (/^(rua|av|avenida|r\.|alameda|travessa|praca).+\d+/i.test(content) || 
+        /\d+.*\-.*\d+/.test(content)) {
+      // Determina se é destinatário ou remetente pela posição
+      if (!structure.recipientAddress) {
+        structure.recipientAddress = element;
+      } else {
+        structure.senderAddress = element;
+      }
+      return;
+    }
+    
+    // Identifica nomes (texto longo sem números, não é cidade/estado)
+    if (content.length >= 5 && 
+        !/^\d/.test(content) && 
+        !/[,-]\s*[A-Z]{2}$/i.test(content) &&
+        !/^(rua|av|avenida)/i.test(content)) {
+      
+      // Determina se é destinatário ou remetente pela posição
+      if (!structure.recipientName) {
+        structure.recipientName = element;
+      } else if (!structure.senderName) {
+        structure.senderName = element;
+      }
+    }
+  });
+  
+  return structure;
+}
+
+// === FUNÇÃO PARA MAPEAR ENDEREÇOS SEPARADAMENTE ===
+function mapAddressFieldsSeparately(
   elements: ZplTextElement[], 
   extractedData: AnalyzeLabelOutput
 ): ZplMapping['mappedFields'] {
   const mapping: ZplMapping['mappedFields'] = {};
+  const addressStructure = identifyAddressStructure(elements);
   
-  // Padrões para identificar cada tipo de campo
-  const patterns = {
-    orderNumber: {
-      patterns: [/^\d{8,15}$/, /^pedido[:\s]*(\d+)/i, /^order[:\s]*(\d+)/i],
-      keywords: ['pedido', 'order', 'numero'],
-      dataField: extractedData.orderNumber
-    },
-    invoiceNumber: {
-      patterns: [/^\d{6,12}$/, /^nf[:\s]*(\d+)/i, /^nota[:\s]*(\d+)/i],
-      keywords: ['nota', 'fiscal', 'nf', 'invoice'],
-      dataField: extractedData.invoiceNumber
-    },
-    trackingNumber: {
-      patterns: [/^[A-Z]{2}\d{9}[A-Z]{2}$/, /^rastreio[:\s]*([A-Z0-9]+)/i],
-      keywords: ['rastreio', 'tracking', 'codigo'],
-      dataField: extractedData.trackingNumber
-    },
-    zipCode: {
-      patterns: [/^\d{5}-?\d{3}$/, /^\d{8}$/],
-      keywords: ['cep', 'zip'],
-      dataField: extractedData.zipCode
-    },
-    recipientName: {
-      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,50}$/i],
-      keywords: ['destinatario', 'recipient', 'para'],
-      dataField: extractedData.recipientName
-    },
-    senderName: {
-      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,50}$/i],
-      keywords: ['remetente', 'sender', 'de'],
-      dataField: extractedData.senderName
-    },
-    streetAddress: {
-      patterns: [/^(rua|av|avenida|r\.)/i, /\d+/],
-      keywords: ['endereco', 'rua', 'address'],
-      dataField: extractedData.streetAddress
-    },
-    city: {
-      patterns: [/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{3,30}$/i],
-      keywords: ['cidade', 'city'],
-      dataField: extractedData.city
-    },
-    state: {
-      patterns: [/^[A-Z]{2}$/],
-      keywords: ['estado', 'uf', 'state'],
-      dataField: extractedData.state
-    }
-  };
+  // Mapeia campos diretos primeiro
+  const directMappings = [
+    { field: 'orderNumber', patterns: [/^\d{8,15}$/, /pedido.*(\d+)/i] },
+    { field: 'invoiceNumber', patterns: [/^\d{6,12}$/, /nf.*(\d+)/i] },
+    { field: 'trackingNumber', patterns: [/^[A-Z]{2}\d{9}[A-Z]{2}$/, /^[A-Z0-9]{13}$/] }
+  ];
   
-  // Para cada campo, encontra o melhor elemento
-  Object.entries(patterns).forEach(([fieldName, config]) => {
-    if (!config.dataField) return;
+  directMappings.forEach(({ field, patterns }) => {
+    const extractedValue = (extractedData as any)[field];
+    if (!extractedValue) return;
     
-    let bestMatch: ZplTextElement | null = null;
-    let bestScore = 0;
-    
-    elements.forEach(element => {
-      let score = 0;
+    const element = elements.find(el => {
+      // Correspondência exata
+      if (el.content.includes(extractedValue)) return true;
       
-      // 1. Correspondência exata com dados extraídos (peso 100)
-      if (element.content.toLowerCase().trim() === config.dataField.toLowerCase().trim()) {
-        score = 100;
-      }
-      
-      // 2. Correspondência parcial (peso 80)
-      else if (element.content.toLowerCase().includes(config.dataField.toLowerCase()) ||
-               config.dataField.toLowerCase().includes(element.content.toLowerCase())) {
-        score = 80;
-      }
-      
-      // 3. Padrões regex (peso 60)
-      else if (config.patterns.some(pattern => pattern.test(element.content))) {
-        score = 60;
-      }
-      
-      // 4. Posição típica no layout (peso 40)
-      if (score > 0) {
-        // Adiciona pontuação por posição (campos no topo são mais prováveis de serem cabeçalho)
-        if (element.y < 500) score += 10; // Parte superior
-        if (element.x < 400) score += 5;  // Lado esquerdo
-      }
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = element;
-      }
+      // Correspondência por padrão
+      return patterns.some(pattern => pattern.test(el.content));
     });
     
-    if (bestMatch && bestScore >= 60) {
-      mapping[fieldName as keyof AnalyzeLabelOutput] = {
-        element: bestMatch,
-        confidence: bestScore
-      };
-      
-      // Remove elemento para não mapear novamente
-      const index = elements.indexOf(bestMatch);
+    if (element) {
+      (mapping as any)[field] = { element, confidence: 95 };
+      // Remove do array
+      const index = elements.indexOf(element);
       if (index > -1) elements.splice(index, 1);
     }
   });
   
+  // Mapeia endereços usando estrutura identificada
+  if (addressStructure.recipientName) {
+    mapping.recipientName = { element: addressStructure.recipientName, confidence: 90 };
+  }
+  
+  if (addressStructure.recipientAddress) {
+    mapping.streetAddress = { element: addressStructure.recipientAddress, confidence: 90 };
+  }
+  
+  if (addressStructure.recipientCityState) {
+    // Para cidade/estado, mapeia para o campo 'city' mas manterá o formato original
+    mapping.city = { element: addressStructure.recipientCityState, confidence: 90 };
+  }
+  
+  if (addressStructure.senderName) {
+    mapping.senderName = { element: addressStructure.senderName, confidence: 90 };
+  }
+  
+  if (addressStructure.senderAddress) {
+    mapping.senderAddress = { element: addressStructure.senderAddress, confidence: 90 };
+  }
+  
+  if (addressStructure.zipCode) {
+    mapping.zipCode = { element: addressStructure.zipCode, confidence: 95 };
+  }
+  
   return mapping;
 }
+
 
 // === FUNÇÃO 3: APLICAÇÃO PRECISA DAS ALTERAÇÕES ===
 function applyPreciseChanges(
@@ -290,7 +314,7 @@ function applyPreciseChanges(
     if (!fieldMapping) return;
     
     const newValue = (newData as any)[fieldName];
-    if (!newValue || typeof newValue !== 'string') return;
+    if (newValue === null || newValue === undefined) return; // Allow empty strings but not null/undefined
     
     const element = fieldMapping.element;
     const fdLine = lines[element.fdLineIndex];
@@ -298,7 +322,7 @@ function applyPreciseChanges(
     if (!fdLine || !fdLine.includes('^FD')) return;
     
     // Codifica se necessário
-    const encodedValue = element.hasEncoding ? fhEncode(newValue) : newValue;
+    const encodedValue = element.hasEncoding ? fhEncode(String(newValue)) : String(newValue);
     
     // Substitui mantendo estrutura ^FD...^FS
     const newLine = fdLine.replace(
@@ -320,7 +344,8 @@ function applyPreciseChanges(
   };
 }
 
-// === FUNÇÃO PRINCIPAL: MAPEAMENTO E ANÁLISE COMPLETA ===
+
+// === FUNÇÃO PRINCIPAL ATUALIZADA ===
 function preciseMappingAndAnalysis(
   originalZpl: string,
   extractedData: AnalyzeLabelOutput
@@ -345,8 +370,8 @@ function preciseMappingAndAnalysis(
       };
     }
     
-    // 2. Mapeia elementos para campos
-    const mappedFields = mapElementsToFields([...allElements], extractedData);
+    // 2. Usa mapeamento melhorado para endereços
+    const mappedFields = mapAddressFieldsSeparately([...allElements], extractedData);
     
     const mapping: ZplMapping = {
       allTextElements: allElements,

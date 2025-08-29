@@ -76,6 +76,9 @@ export default function EtiquetasPage() {
   const previewCtrlRef = useRef<AbortController | null>(null);
   const previewReqIdRef = useRef(0);
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
+  const [currentEditedData, setCurrentEditedData] = useState<AnalyzeLabelOutput | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
 
   const handlePrint = () => {
     if (!previewUrl) return;
@@ -221,10 +224,11 @@ export default function EtiquetasPage() {
   }, [remixState, toast]);
 
   useEffect(() => {
+    // Trata erros
     if (remixZplState.error) {
       toast({
         variant: 'destructive',
-        title: '❌ Alterações Não Aplicadas',
+        title: 'Alterações Não Aplicadas',
         description: (
           <div className="space-y-1">
             <p>Erro: {remixZplState.error}</p>
@@ -241,39 +245,50 @@ export default function EtiquetasPage() {
   
     const newZpl = sanitizeZpl(raw);
   
+    // Verifica se houve alteração real
     if (newZpl.trim() === zplEditorContent.trim()) {
       toast({
-        title: 'ℹ️ Sem Alterações Detectadas',
+        title: 'Sem Alterações Detectadas',
         description: 'A edição não resultou em mudanças no ZPL. Verifique se os dados foram realmente alterados.',
         duration: 4000,
       });
       return;
     }
   
+    // Evita aplicar o mesmo ZPL múltiplas vezes
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
   
+    // Aplica o novo ZPL
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
   
-    if (analysisResult) setBaselineAnalysis(analysisResult);
+    // *** CORREÇÃO: NÃO RESETAR analysisResult ***
+    // Em vez de resetar, mantenha os dados editados
+    if (currentEditedData) {
+      // Atualiza baseline com dados editados aplicados
+      setBaselineAnalysis(currentEditedData);
+      // Limpa flag de mudanças não salvas
+      setHasUnsavedChanges(false);
+    }
     
     setLastUpdateTime(Date.now());
     
+    // Feedback de sucesso melhorado
     toast({ 
-      title: '✅ Etiqueta Atualizada!', 
+      title: 'Etiqueta Atualizada!', 
       description: (
         <div className="space-y-1">
-          <p>O ZPL foi modificado com os novos dados</p>
+          <p>ZPL modificado com os novos dados</p>
           <p className="text-xs text-muted-foreground">
-            Códigos de barra preservados • Apenas textos alterados
+            Dados editados mantidos • Códigos preservados
           </p>
         </div>
       ),
       duration: 4000,
     });
-  }, [remixZplState.result?.modifiedZpl, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, analysisResult]);
+  }, [remixZplState.result?.modifiedZpl, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
     const arrayBuffer = await pdfFile.arrayBuffer();
@@ -351,7 +366,11 @@ export default function EtiquetasPage() {
   const handleRestoreOriginalData = () => {
     if (baselineAnalysis) {
       setAnalysisResult(baselineAnalysis);
-      setZplEditorContent(originalZpl); // Also restore original ZPL
+      setCurrentEditedData(baselineAnalysis);
+      setHasUnsavedChanges(false);
+      if (originalZpl) { // Restaurar ZPL original se houver
+        setZplEditorContent(originalZpl);
+      }
       toast({
         title: "Dados Restaurados",
         description: "Os dados extraídos da etiqueta foram restaurados para o seu estado original.",
@@ -364,6 +383,8 @@ export default function EtiquetasPage() {
   
     const newAnalysis: AnalyzeLabelOutput = { ...analysisResult, [field]: '' } as AnalyzeLabelOutput;
     setAnalysisResult(newAnalysis);
+    setCurrentEditedData(newAnalysis);
+    setHasUnsavedChanges(true);
   
     toast({
       title: "Campo Removido",
@@ -371,33 +392,141 @@ export default function EtiquetasPage() {
     });
   };
 
+  const handleFieldEdit = (field: keyof AnalyzeLabelOutput, newValue: string) => {
+    if (!analysisResult) return;
+    
+    const updatedData = { ...analysisResult, [field]: newValue };
+    setAnalysisResult(updatedData);
+    setCurrentEditedData(updatedData);
+    setHasUnsavedChanges(true);
+    
+    toast({
+      title: "Campo Editado",
+      description: `${field} atualizado. Clique em "Aplicar Alterações" para gerar nova etiqueta.`,
+      duration: 3000,
+    });
+  };
+
   const isPreparingFile = isTransitioning && !isAnalyzing;
   const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
   
-  const DataRow = ({ label, value, field }: { label: string; value: string; field?: RemixableField }) => {
-    const isRemixingThis = isRemixing && remixingField === field;
+  const EditableDataRow = ({ 
+    label, 
+    value, 
+    field,
+    onEdit 
+  }: { 
+    label: string; 
+    value: string; 
+    field?: keyof AnalyzeLabelOutput;
+    onEdit?: (field: keyof AnalyzeLabelOutput, newValue: string) => void;
+  }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(value);
+    const isRemixingThis = isRemixing && remixingField === (field as RemixableField);
+    
+    // Atualiza valor quando prop muda
+    useEffect(() => {
+      setEditValue(value);
+    }, [value]);
+  
+    const handleSave = () => {
+      if (field && onEdit && editValue !== value) {
+        onEdit(field, editValue);
+      }
+      setIsEditing(false);
+    };
+  
+    const handleCancel = () => {
+      setEditValue(value);
+      setIsEditing(false);
+    };
+  
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') handleSave();
+      if (e.key === 'Escape') handleCancel();
+    };
+  
     return (
-        <div className="flex items-center justify-between text-sm">
-            <p><strong className="text-muted-foreground">{label}:</strong> {value}</p>
-            {field && value && (
-                 <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => handleRemixField(field)} disabled={isRemixingThis} title={`Remixar ${label}`}>
-                        {isRemixingThis ? <Loader2 className="animate-spin"/> : <Wand2 />}
-                    </Button>
-                     <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive"
-                        onClick={() => handleRemoveField(field)}
-                        disabled={isRemixingZpl}
-                        title={`Remover ${label}`}
-                      >
-                        <Trash2 />
-                    </Button>
-                </div>
-            )}
+      <div className="flex items-center justify-between text-sm group">
+        <div className="flex-1">
+          <strong className="text-muted-foreground">{label}:</strong>{' '}
+          
+          {isEditing && field ? (
+            <div className="inline-flex items-center gap-2 mt-1 w-full max-w-md">
+              <Input 
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="h-7 text-sm flex-1"
+                autoFocus
+              />
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={handleSave}
+                className="h-7 w-7 p-0"
+              >
+                <Check size={14} />
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={handleCancel}
+                className="h-7 w-7 p-0"
+              >
+                <X size={14} />
+              </Button>
+            </div>
+          ) : (
+            <span 
+              className={field ? "cursor-pointer hover:bg-muted px-1 rounded transition-colors" : ""}
+              onClick={() => field && setIsEditing(true)}
+            >
+              {value || 'N/A'}
+            </span>
+          )}
         </div>
+        
+        {field && value && (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!isEditing && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-muted-foreground hover:text-primary" 
+                onClick={() => setIsEditing(true)}
+                title="Editar manualmente"
+              >
+                <Edit size={12} />
+              </Button>
+            )}
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-primary" 
+              onClick={() => handleRemixField(field as RemixableField)} 
+              disabled={isRemixingThis}
+              title={`Gerar novo ${label} com IA`}
+            >
+              {isRemixingThis ? <Loader2 className="animate-spin" size={12} /> : <Wand2 size={12} />}
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-destructive"
+              onClick={() => handleRemoveField(field as RemixableField)}
+              disabled={isRemixingZpl}
+              title={`Limpar ${label}`}
+            >
+              <Trash2 size={12} />
+            </Button>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -654,23 +783,54 @@ export default function EtiquetasPage() {
                 <CardContent className="space-y-4 text-sm">
                     <ProcessingStatus isRemixingZpl={isRemixingZpl} />
                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                    <h3 className="font-semibold text-base flex items-center gap-2"><FileText /> Geral</h3>
-                    <DataRow label="Pedido" value={analysisResult.orderNumber} field="orderNumber" />
-                    <DataRow label="Nota Fiscal" value={analysisResult.invoiceNumber} field="invoiceNumber" />
-                    <DataRow label="Data Estimada" value={analysisResult.estimatedDeliveryDate || 'N/A'} />
-                    <DataRow label="Cód. Rastreio" value={analysisResult.trackingNumber} field="trackingNumber" />
+                        <h3 className="font-semibold text-base flex items-center gap-2">
+                            <FileText /> Informações do Pedido
+                            {hasUnsavedChanges && (
+                            <Badge variant="secondary" className="text-xs">
+                                Alterações não salvas
+                            </Badge>
+                            )}
+                        </h3>
+                        <EditableDataRow 
+                            label="Pedido" 
+                            value={analysisResult.orderNumber} 
+                            field="orderNumber"
+                            onEdit={handleFieldEdit}
+                        />
+                        <EditableDataRow 
+                            label="Nota Fiscal" 
+                            value={analysisResult.invoiceNumber} 
+                            field="invoiceNumber"
+                            onEdit={handleFieldEdit}
+                        />
+                        <EditableDataRow 
+                            label="Código de Rastreio" 
+                            value={analysisResult.trackingNumber} 
+                            field="trackingNumber"
+                            onEdit={handleFieldEdit}
+                        />
+                        <EditableDataRow 
+                            label="Data Estimada" 
+                            value={analysisResult.estimatedDeliveryDate || 'N/A'}
+                            field="estimatedDeliveryDate"
+                            onEdit={handleFieldEdit}
+                        />
                     </div>
                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                    <h3 className="font-semibold text-base flex items-center gap-2"><User /> Destinatário</h3>
-                    <DataRow label="Nome" value={analysisResult.recipientName} />
-                    <DataRow label="Endereço" value={analysisResult.streetAddress} />
-                    <DataRow label="Cidade/UF" value={`${analysisResult.city} - ${analysisResult.state}`} />
-                    <DataRow label="CEP" value={analysisResult.zipCode} />
+                        <h3 className="font-semibold text-base flex items-center gap-2"><User /> Destinatário</h3>
+                        <EditableDataRow label="Nome" value={analysisResult.recipientName} field="recipientName" onEdit={handleFieldEdit} />
+                        <EditableDataRow label="Endereço" value={analysisResult.streetAddress} field="streetAddress" onEdit={handleFieldEdit} />
+                        <EditableDataRow label="Cidade/UF" value={`${analysisResult.city || ''} - ${analysisResult.state || ''}`} field="city" onEdit={(field, value) => {
+                            const parts = value.split(/,|-/);
+                            handleFieldEdit('city', parts[0]?.trim() || '');
+                            handleFieldEdit('state', parts[1]?.trim() || '');
+                        }} />
+                        <EditableDataRow label="CEP" value={analysisResult.zipCode} field="zipCode" onEdit={handleFieldEdit}/>
                     </div>
                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                    <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
-                    <DataRow label="Nome" value={analysisResult.senderName} field="senderName" />
-                    <DataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress"/>
+                        <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
+                        <EditableDataRow label="Nome" value={analysisResult.senderName} field="senderName" onEdit={handleFieldEdit}/>
+                        <EditableDataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress" onEdit={handleFieldEdit}/>
                     </div>
                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md">
                       <div className="flex items-start gap-2">
