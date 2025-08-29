@@ -122,12 +122,12 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
 };
 
 const logInventoryEntry = async (batch: WriteBatch, item: InventoryItem): Promise<void> => {
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
     const logDocRef = doc(logCol); // Generate a new unique ID for the log entry
     const payload = {
       ...item,
       id: logDocRef.id,          // The log's own unique ID
-      inventoryId: item.id,      // Reference to the inventory item's ID
+      originalInventoryId: item.id,      // Reference to the inventory item's ID
       createdAt: new Date(item.createdAt),
     };
     batch.set(logDocRef, toFirestore(payload));
@@ -137,16 +137,21 @@ export async function revertEntryAction(entry: InventoryItem): Promise<void> {
   const batch = writeBatch(db);
   
   try {
-    // 1. Remove do inventário atual (se ainda existir)
-    const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.originalInventoryId);
-    batch.delete(inventoryRef);
+    // ✅ NOVO: Verificação de segurança
+    if (entry.originalInventoryId && entry.originalInventoryId.trim() !== '') {
+      // Remove do inventário atual apenas se tiver originalInventoryId válido
+      const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.originalInventoryId);
+      batch.delete(inventoryRef);
+    } else {
+      console.warn('Item não tem originalInventoryId válido, removendo apenas do entry-logs:', entry.id);
+    }
     
-    // 2. ✅ NOVO: Remove TAMBÉM do entry-logs
+    // Remove do entry-logs (sempre)
     const entryLogRef = doc(db, 'users', DEFAULT_USER_ID, 'entry-logs', entry.id);
     batch.delete(entryLogRef);
 
     await batch.commit();
-    console.log('✅ Entry revertida em ambas as coleções');
+    console.log('✅ Entry revertida com sucesso');
     
   } catch (error) {
     console.error('❌ Erro ao reverter entry:', error);
@@ -359,7 +364,7 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
   if (!pickLog.id.startsWith('manual-')) {
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', pickLog.id);
     const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
-    const itemWithDate = { ...itemToAddBack, createdAt: now };
+    const itemWithDate = { ...itemToAddBack, createdAt: new Date(now) };
     batch.set(inventoryDocRef, toFirestore(itemWithDate));
 
     // Also create a new entry in the entry-log for this re-entry event
@@ -418,7 +423,7 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         costPrice: data.originalSaleData?.costPrice || 0,
         origin: data.originalSaleData?.origin || 'Devolução',
         quantity: 1,
-        condition: data.condition,
+        condition: data.condition as any,
         createdAt: now.toISOString(),
     };
     const firestoreItem = { ...itemToReenter, createdAt: now }; 
