@@ -393,21 +393,14 @@ const parseBrNumber = (raw: unknown): number | null => {
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   if (typeof raw !== 'string') return null;
 
-  // Remove qualquer coisa que não seja dígito, ponto, vírgula ou sinal negativo
-  const s0 = raw.trim().replace(/[^\\d.,-]/g, '');
+  // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto
+  const s0 = raw.replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
   if (!s0) return null;
 
-  // Se tiver vírgula, assume decimal pt-BR (milhar '.')
-  if (s0.includes(',')) {
-    const normalized = s0.replace(/\./g, '').replace(',', '.');
-    const n = Number(normalized);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  // Sem vírgula, assume decimal en-US (ponto)
   const n = Number(s0);
   return Number.isFinite(n) ? n : null;
 };
+
 
 const getNumericField = (saleWithCost: any, key: string): number => {
   const candidates = [
@@ -636,45 +629,48 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
 
     const availableFormulaColumns = useMemo(() => {
-      const numericIderisKeys = new Set(
-        iderisFields
-          .filter(f => {
-            const key = f.key.toLowerCase();
-            return key.includes('value') || key.includes('amount') || key.includes('fee') || key.includes('cost') || key.includes('discount') || key.includes('quantity');
-          })
-          .map(f => f.key)
-      );
-
-      const allCols = [
-        ...iderisFields
-          .filter(f => numericIderisKeys.has(f.key))
-          .map(f => ({ key: f.key, label: f.label })),
-        { key: 'product_cost', label: 'Custo do Produto' },
-        ...customCalculations.map(c => ({ key: c.id, label: c.name })),
-      ];
-
-      if (supportData && supportData.files) {
-        const sheetCols = new Map<string, string>();
-        Object.values(supportData.files).flat().forEach(file => {
-          if (!file?.fileContent) return;
-          try {
-            const { rows } = parseSupportFile(file);
-            if (rows.length > 0) {
-              const firstRow = rows[0];
-              for (const header in firstRow) {
-                if (typeof parseBrNumber(firstRow[header]) === 'number') {
-                  const friendlyName = file.friendlyNames[header] || header;
-                  sheetCols.set(normalizeLabel(friendlyName), friendlyName);
+        const numericIderisKeys = new Set(
+          iderisFields
+            .filter(f => {
+              const key = f.key.toLowerCase();
+              const nonNumeric = ['id', 'code', 'sku', 'cpf', 'cnpj', 'document'];
+              const isNonNumeric = nonNumeric.some(nn => key.includes(nn));
+              if (isNonNumeric) return false;
+              return key.includes('value') || key.includes('amount') || key.includes('fee') || key.includes('cost') || key.includes('discount') || key.includes('quantity');
+            })
+            .map(f => f.key)
+        );
+  
+        const allCols = [
+          ...iderisFields
+            .filter(f => numericIderisKeys.has(f.key))
+            .map(f => ({ key: f.key, label: f.label })),
+          { key: 'product_cost', label: 'Custo do Produto' },
+          ...customCalculations.map(c => ({ key: c.id, label: c.name })),
+        ];
+  
+        if (supportData && supportData.files) {
+          const sheetCols = new Map<string, string>();
+          Object.values(supportData.files).flat().forEach(file => {
+            if (!file?.fileContent) return;
+            try {
+              const { rows } = parseSupportFile(file);
+              if (rows.length > 0) {
+                const firstRow = rows[0];
+                for (const header in firstRow) {
+                  if (typeof parseBrNumber(firstRow[header]) === 'number') {
+                    const friendlyName = file.friendlyNames[header] || header;
+                    sheetCols.set(normalizeLabel(friendlyName), friendlyName);
+                  }
                 }
               }
-            }
-          } catch(e) { console.error("Error parsing file for columns", e)}
-        });
-        sheetCols.forEach((label, key) => allCols.push({ key, label }));
-      }
-      
-      return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
-  }, [customCalculations, supportData]);
+            } catch(e) { console.error("Error parsing file for columns", e)}
+          });
+          sheetCols.forEach((label, key) => allCols.push({ key, label }));
+        }
+        
+        return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
+    }, [customCalculations, supportData]);
 
 
     const formatCurrency = (value: number) => {
