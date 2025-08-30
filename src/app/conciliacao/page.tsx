@@ -388,18 +388,16 @@ export default function ConciliationPage() {
     }, [pickingLogs]);
     
 // === Helpers: cole acima do applyCustomCalculations ===
-const parseBrNumber = (raw: unknown): number | null => {
-    if (raw == null) return null;
-    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-    if (typeof raw !== 'string') return null;
-
-    // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto
-    const s0 = String(raw).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-    if (!s0) return null;
-
-    const n = Number(s0);
-    return Number.isFinite(n) ? n : null;
-};
+function parseLocaleNumber(input: string | number): number {
+    if (typeof input === 'number') return input;
+    if (typeof input !== 'string') return NaN;
+    let s = input.trim().replace(/[R$\s]/g, '');
+    if (s.includes(',')) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    }
+    const n = Number(s);
+    return Number.isFinite(n) ? n : NaN;
+}
 
 
 const getNumericField = (saleWithCost: any, key: string): number => {
@@ -409,8 +407,8 @@ const getNumericField = (saleWithCost: any, key: string): number => {
     saleWithCost?.[key],
   ];
   for (const c of candidates) {
-    const n = parseBrNumber(c);
-    if (n != null) return n;
+    const n = parseLocaleNumber(String(c));
+    if (!isNaN(n)) return n;
   }
   return 0;
 };
@@ -455,8 +453,8 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
           const n = getNumericField(saleWithCost, item.value);
           pushValue(values, n);
         } else if (item.type === 'number') {
-          const n = parseBrNumber(item.value);
-          pushValue(values, n ?? 0);
+          const n = parseLocaleNumber(item.value);
+          pushValue(values, isNaN(n) ? 0 : n);
         } else if (item.value === '(') {
           ops.push('(');
         } else if (item.value === ')') {
@@ -495,7 +493,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
   });
 
   // Garante custo do produto
-  if (!parseBrNumber(saleWithCost.customData?.product_cost)) {
+  if (isNaN(parseLocaleNumber(String(saleWithCost.customData?.product_cost)))) {
     saleWithCost.customData.product_cost = saleWithCost.product_cost || 0;
   }
 
@@ -633,10 +631,11 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
           iderisFields
             .filter(f => {
               const key = f.key.toLowerCase();
-              const nonNumeric = ['id', 'code', 'sku', 'cpf', 'cnpj', 'document'];
-              const isNonNumeric = nonNumeric.some(nn => key.includes(nn));
-              if (isNonNumeric) return false;
-              return key.includes('value') || key.includes('amount') || key.includes('fee') || key.includes('cost') || key.includes('discount') || key.includes('quantity');
+              const nonNumeric = ['id', 'code', 'sku', 'cpf', 'cnpj', 'document', 'cep', 'phone'];
+              if (nonNumeric.some(nn => key.includes(nn))) return false;
+              
+              const isNumericLike = ['value', 'amount', 'fee', 'cost', 'discount', 'quantity', 'price', 'profit', 'tax', 'net', 'imposto', 'frete', 'comissao'].some(term => key.includes(term));
+              return isNumericLike;
             })
             .map(f => f.key)
         );
@@ -658,7 +657,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               if (rows.length > 0) {
                 const firstRow = rows[0];
                 for (const header in firstRow) {
-                  if (typeof parseBrNumber(firstRow[header]) === 'number') {
+                  if (!isNaN(parseLocaleNumber(String(firstRow[header])))) {
                     const friendlyName = file.friendlyNames[header] || header;
                     sheetCols.set(normalizeLabel(friendlyName), friendlyName);
                   }

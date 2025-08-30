@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -22,6 +21,23 @@ import { useToast } from '@/hooks/use-toast';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
+
+function parseLocaleNumber(input: string | number): number {
+  if (typeof input === 'number') return input;
+  if (!input) return NaN;
+  let s = String(input).trim().replace(/[R$\s]/g, '');
+
+  if (s.includes(',')) {
+    s = s.replace(/\.(?=\d{3}(\D|$))/g, ''); 
+    s = s.replace(',', '.');                 
+  } else {
+    s = s.replace(/,(?=\d{3}(\D|$))/g, '');
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 
 interface CalculationDialogProps {
   isOpen: boolean;
@@ -76,13 +92,13 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
   };
   
   const handleAddNumber = () => {
-    const num = parseFloat(numberValue);
-    if (!isNaN(num)) {
-      handleItemClick({ type: 'number', value: numberValue, label: numberValue });
-      setNumberValue('');
-    } else {
-      toast({ variant: 'destructive', title: 'Número inválido', description: 'Por favor, insira um número válido.' });
+    const num = parseLocaleNumber(numberValue);
+    if (!Number.isFinite(num)) {
+      toast({ variant: 'destructive', title: 'Número inválido', description: 'Por favor, insira um número válido (ex: 1250,50 ou 0.47).' });
+      return;
     }
+    handleItemClick({ type: 'number', value: String(num), label: numberValue });
+    setNumberValue('');
   };
 
   const handleBackspace = () => {
@@ -242,8 +258,9 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
                         <p className="text-sm font-semibold">Adicionar Valor Numérico</p>
                         <div className="flex items-center gap-2">
                             <Input
-                                type="number"
-                                placeholder="Ex: 0.18"
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="Ex: 0,47"
                                 value={numberValue}
                                 onChange={(e) => setNumberValue(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNumber(); } }}
