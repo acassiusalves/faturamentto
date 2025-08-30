@@ -15,10 +15,13 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, Save, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select';
+import { useToast } from '@/hooks/use-toast';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface CostRefinementDialogProps {
   isOpen: boolean;
@@ -33,13 +36,14 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
   const [isSaving, setIsSaving] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-
+  const { toast } = useToast();
+  const [isParsing, setIsParsing] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Reset costs when the dialog is opened or the sales list changes
     if (isOpen) {
       setCosts(new Map());
-      setPageIndex(0); // Reset to first page when dialog opens
+      setPageIndex(0);
     }
   }, [isOpen, sales]);
 
@@ -62,13 +66,11 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     return sales.slice(startIndex, startIndex + pageSize);
   }, [sales, pageIndex, pageSize]);
 
-
   const handleCostChange = (saleId: string, cost: string) => {
     const numericCost = parseFloat(cost);
     if (!isNaN(numericCost) && numericCost >= 0) {
       setCosts(prev => new Map(prev).set(saleId, numericCost));
     } else {
-      // If input is cleared or invalid, remove from map
       setCosts(prev => {
         const newMap = new Map(prev);
         newMap.delete(saleId);
@@ -82,7 +84,84 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     await onSave(costs);
     setIsSaving(false);
   };
-  
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsParsing(true);
+    const reader = new FileReader();
+
+    const processData = (data: any[]) => {
+      if (data.length === 0) {
+        toast({ variant: 'destructive', title: 'Arquivo Vazio', description: 'A planilha selecionada não contém dados.' });
+        return;
+      }
+      const headers = Object.keys(data[0]);
+      if (headers.length < 2) {
+        toast({ variant: 'destructive', title: 'Formato Incorreto', description: 'A planilha deve ter pelo menos duas colunas.' });
+        return;
+      }
+
+      const orderHeader = headers.find(h => h.toLowerCase().includes('pedido') || h.toLowerCase().includes('order'));
+      const costHeader = headers.find(h => h.toLowerCase().includes('custo') || h.toLowerCase().includes('cost'));
+
+      if (!orderHeader || !costHeader) {
+        toast({ variant: 'destructive', title: 'Colunas não encontradas', description: 'A planilha deve conter uma coluna para "pedido" e uma para "custo".' });
+        return;
+      }
+
+      const newCosts = new Map(costs);
+      let updatedCount = 0;
+
+      data.forEach(row => {
+        const orderCode = row[orderHeader]?.toString().trim();
+        const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
+
+        if (orderCode && !isNaN(costValue)) {
+          const saleToUpdate = sales.find(s => (s as any).order_code === orderCode);
+          if (saleToUpdate) {
+            newCosts.set(saleToUpdate.id, costValue);
+            updatedCount++;
+          }
+        }
+      });
+      
+      setCosts(newCosts);
+      toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
+    };
+
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result;
+        if (file.name.endsWith('.csv')) {
+          Papa.parse(content as string, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => processData(results.data),
+          });
+        } else {
+          const workbook = XLSX.read(content, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(sheet);
+          processData(jsonData);
+        }
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Erro ao ler arquivo', description: 'O formato do arquivo pode estar corrompido.' });
+      } finally {
+        setIsParsing(false);
+        if (fileInputRef.current) fileInputRef.current.value = ''; // Reset file input
+      }
+    };
+
+    if (file.name.endsWith('.csv')) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsBinaryString(file);
+    }
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
@@ -99,10 +178,23 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
         <DialogHeader>
           <DialogTitle>Refinamento de Custos</DialogTitle>
           <DialogDescription>
-            Abaixo estão as vendas do período que não possuem um custo de produto associado. Insira o custo manual para cada uma.
+            Abaixo estão as vendas do período que não possuem um custo de produto associado. Insira o custo manual para cada uma ou importe uma planilha.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow overflow-y-auto pr-2">
+            <div className="flex justify-end mb-4">
+                <Input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    onChange={handleFileChange}
+                />
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isParsing}>
+                    {isParsing ? <Loader2 className="animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                    Importar Planilha de Custos
+                </Button>
+            </div>
             {sales.length > 0 ? (
                 <div className="rounded-md border">
                     <Table>
@@ -129,6 +221,7 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
                                             type="number"
                                             placeholder="Ex: 850.50"
                                             step="0.01"
+                                            value={costs.get(sale.id) ?? ''}
                                             onChange={(e) => handleCostChange(sale.id, e.target.value)}
                                         />
                                     </TableCell>
@@ -188,4 +281,84 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
       </DialogContent>
     </Dialog>
   );
+}
+
+```
+  </change>
+  <change>
+    <file>package.json</file>
+    <content><![CDATA[{
+  "name": "nextn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 9002",
+    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
+    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@genkit-ai/googleai": "^1.14.1",
+    "@genkit-ai/next": "^1.14.1",
+    "@hookform/resolvers": "^4.1.3",
+    "@radix-ui/react-accordion": "^1.2.3",
+    "@radix-ui/react-alert-dialog": "^1.1.6",
+    "@radix-ui/react-avatar": "^1.1.3",
+    "@radix-ui/react-checkbox": "^1.1.4",
+    "@radix-ui/react-collapsible": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-menubar": "^1.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-progress": "^1.1.2",
+    "@radix-ui/react-radio-group": "^1.2.3",
+    "@radix-ui/react-scroll-area": "^1.2.3",
+    "@radix-ui/react-select": "^2.1.6",
+    "@radix-ui/react-separator": "^1.1.2",
+    "@radix-ui/react-slider": "^1.2.3",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.1.3",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@radix-ui/react-toast": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.1.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.0.0",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.5.0",
+    "embla-carousel-react": "^8.6.0",
+    "firebase": "^11.9.1",
+    "firebase-admin": "^13.4.0",
+    "genkit": "^1.14.1",
+    "lucide-react": "^0.475.0",
+    "next": "15.3.3",
+    "papaparse": "^5.4.1",
+    "patch-package": "^8.0.0",
+    "pdfjs-dist": "4.2.67",
+    "react": "^18.3.1",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.2",
+    "recharts": "^2.15.1",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "genkit-cli": "^1.14.1",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
 }
