@@ -85,6 +85,8 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     setIsSaving(false);
   };
 
+  const normalizeOrderCode = (code: string) => (code || '').replace(/\D/g, '');
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -93,47 +95,47 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     const reader = new FileReader();
 
     reader.onload = (e) => {
-        const processData = (data: any[]) => {
-            if (data.length === 0) {
-                toast({ variant: 'destructive', title: 'Arquivo Vazio', description: 'A planilha selecionada não contém dados.' });
-                return;
-            }
-            const headers = Object.keys(data[0]);
-            if (headers.length < 2) {
-                toast({ variant: 'destructive', title: 'Formato Incorreto', description: 'A planilha deve ter pelo menos duas colunas.' });
-                return;
-            }
+      const processData = (data: any[]) => {
+        if (data.length === 0) {
+          toast({ variant: 'destructive', title: 'Arquivo Vazio', description: 'A planilha selecionada não contém dados.' });
+          return;
+        }
+        const headers = Object.keys(data[0]);
+        if (headers.length < 2) {
+          toast({ variant: 'destructive', title: 'Formato Incorreto', description: 'A planilha deve ter pelo menos duas colunas.' });
+          return;
+        }
 
-            const orderHeader = headers.find(h => h.toLowerCase().includes('pedido') || h.toLowerCase().includes('order'));
-            const costHeader = headers.find(h => h.toLowerCase().includes('custo') || h.toLowerCase().includes('cost'));
+        const orderHeader = headers.find(h => h.toLowerCase().includes('pedido') || h.toLowerCase().includes('order'));
+        const costHeader = headers.find(h => h.toLowerCase().includes('custo') || h.toLowerCase().includes('cost'));
 
-            if (!orderHeader || !costHeader) {
-                toast({ variant: 'destructive', title: 'Colunas não encontradas', description: 'A planilha deve conter uma coluna para "pedido" e uma para "custo".' });
-                return;
-            }
-
-            const normalizeOrderCode = (code: string) => (code || '').replace(/\D/g, '');
-            
-            const newCosts = new Map(costs);
-            let updatedCount = 0;
-            
-            data.forEach(row => {
-                const orderCode = row[orderHeader]?.toString().trim();
-                const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
-                
-                if (orderCode && !isNaN(costValue)) {
-                    const normalizedOrderCode = normalizeOrderCode(orderCode);
-                    const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
-                    if (saleToUpdate) {
-                        newCosts.set(saleToUpdate.id, costValue);
-                        updatedCount++;
-                    }
-                }
-            });
+        if (!orderHeader || !costHeader) {
+          toast({ variant: 'destructive', title: 'Colunas não encontradas', description: 'A planilha deve conter uma coluna para "pedido" e uma para "custo".' });
+          return;
+        }
+        
+        const newCosts = new Map(costs);
+        let updatedCount = 0;
+        
+        data.forEach(row => {
+          const orderCode = row[orderHeader]?.toString().trim();
+          const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
           
-            setCosts(newCosts);
-            toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
-        };
+          if (orderCode && !isNaN(costValue)) {
+            const normalizedOrderCode = normalizeOrderCode(orderCode);
+            const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
+            if (saleToUpdate) {
+              newCosts.set(saleToUpdate.id, costValue);
+              updatedCount++;
+            }
+          }
+        });
+        
+        setCosts(new Map(newCosts));
+        
+        toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
+      };
+
       try {
         const content = e.target?.result;
         if (file.name.endsWith('.csv')) {
