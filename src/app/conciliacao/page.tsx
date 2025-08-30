@@ -636,29 +636,45 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
 
 
     const availableFormulaColumns = useMemo(() => {
-        const numericIderis = iderisFields
-            .filter(f => f.key.toLowerCase().includes('value') || f.key.toLowerCase().includes('amount') || f.key.toLowerCase().includes('fee') || f.key.toLowerCase().includes('cost') || f.key.toLowerCase().includes('discount'))
-            .map(f => ({ key: f.key, label: f.label }));
-        
-        const systemCols = [
-            { key: 'product_cost', label: 'Custo do Produto' },
-        ];
+      const numericIderisKeys = new Set(
+        iderisFields
+          .filter(f => {
+            const key = f.key.toLowerCase();
+            return key.includes('value') || key.includes('amount') || key.includes('fee') || key.includes('cost') || key.includes('discount') || key.includes('quantity');
+          })
+          .map(f => f.key)
+      );
 
-        const customCols = customCalculations.map(c => ({ key: c.id, label: c.name }));
+      const allCols = [
+        ...iderisFields
+          .filter(f => numericIderisKeys.has(f.key))
+          .map(f => ({ key: f.key, label: f.label })),
+        { key: 'product_cost', label: 'Custo do Produto' },
+        ...customCalculations.map(c => ({ key: c.id, label: c.name })),
+      ];
 
-        const sheetCols: { key: string, label: string }[] = [];
-        if (supportData && supportData.files) {
-            const allFriendlyNames = new Set<string>();
-            Object.values(supportData.files).flat().forEach(file => {
-                Object.values(file.friendlyNames).forEach(name => allFriendlyNames.add(name));
-            });
-            const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-            allFriendlyNames.forEach(name => sheetCols.push({ key: normalizeLabel(name), label: name }));
-        }
-        
-        const allCols = [...numericIderis, ...systemCols, ...customCols, ...sheetCols];
-        return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
-    }, [customCalculations, supportData]);
+      if (supportData && supportData.files) {
+        const sheetCols = new Map<string, string>();
+        Object.values(supportData.files).flat().forEach(file => {
+          if (!file?.fileContent) return;
+          try {
+            const { rows } = parseSupportFile(file);
+            if (rows.length > 0) {
+              const firstRow = rows[0];
+              for (const header in firstRow) {
+                if (typeof parseBrNumber(firstRow[header]) === 'number') {
+                  const friendlyName = file.friendlyNames[header] || header;
+                  sheetCols.set(normalizeLabel(friendlyName), friendlyName);
+                }
+              }
+            }
+          } catch(e) { console.error("Error parsing file for columns", e)}
+        });
+        sheetCols.forEach((label, key) => allCols.push({ key, label }));
+      }
+      
+      return Array.from(new Map(allCols.map(item => [item['key'], item])).values());
+  }, [customCalculations, supportData]);
 
 
     const formatCurrency = (value: number) => {
