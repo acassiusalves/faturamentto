@@ -68,15 +68,15 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
 
   const handleCostChange = (saleId: string, cost: string) => {
     const numericCost = parseFloat(cost);
-    if (!isNaN(numericCost) && numericCost >= 0) {
-      setCosts(prev => new Map(prev).set(saleId, numericCost));
-    } else {
-      setCosts(prev => {
-        const newMap = new Map(prev);
+    setCosts(prev => {
+      const newMap = new Map(prev);
+      if (!isNaN(numericCost) && numericCost >= 0) {
+        newMap.set(saleId, numericCost);
+      } else {
         newMap.delete(saleId);
-        return newMap;
-      });
-    }
+      }
+      return newMap;
+    });
   };
 
   const handleSaveCosts = async () => {
@@ -111,27 +111,29 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
         return;
       }
 
-      const newCosts = new Map(costs);
-      let updatedCount = 0;
-      
-      const normalizeOrderCode = (code: string) => (code || '').replace(/\D/g, '');
+      setCosts(prevCosts => {
+          const newCosts = new Map(prevCosts);
+          let updatedCount = 0;
+          
+          const normalizeOrderCode = (code: string) => (code || '').replace(/\D/g, '');
 
-      data.forEach(row => {
-        const orderCode = row[orderHeader]?.toString().trim();
-        const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
-        
-        if (orderCode && !isNaN(costValue)) {
-            const normalizedOrderCode = normalizeOrderCode(orderCode);
-            const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
-          if (saleToUpdate) {
-            newCosts.set(saleToUpdate.id, costValue);
-            updatedCount++;
-          }
-        }
+          data.forEach(row => {
+            const orderCode = row[orderHeader]?.toString().trim();
+            const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
+            
+            if (orderCode && !isNaN(costValue)) {
+                const normalizedOrderCode = normalizeOrderCode(orderCode);
+                const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
+              if (saleToUpdate) {
+                newCosts.set(saleToUpdate.id, costValue);
+                updatedCount++;
+              }
+            }
+          });
+          
+          toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
+          return newCosts;
       });
-      
-      setCosts(newCosts);
-      toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
     };
 
     reader.onload = (e) => {
