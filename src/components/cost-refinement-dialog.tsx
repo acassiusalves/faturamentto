@@ -32,7 +32,7 @@ interface CostRefinementDialogProps {
 }
 
 export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave }: CostRefinementDialogProps) {
-  const [costs, setCosts] = useState<Map<string, number>>(new Map());
+  const [costs, setCosts] = useState<Record<string, number>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -42,10 +42,10 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
 
   useEffect(() => {
     if (isOpen) {
-      setCosts(new Map());
+      setCosts({});
       setPageIndex(0);
     }
-  }, [isOpen, sales]);
+  }, [isOpen]);
 
   const productSkuMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -67,21 +67,22 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
   }, [sales, pageIndex, pageSize]);
 
   const handleCostChange = (saleId: string, cost: string) => {
-    const numericCost = parseFloat(cost);
+    const numericCost = parseFloat(cost.replace(',', '.'));
     setCosts(prev => {
-      const newMap = new Map(prev);
       if (!isNaN(numericCost) && numericCost >= 0) {
-        newMap.set(saleId, numericCost);
+        return { ...prev, [saleId]: numericCost };
       } else {
-        newMap.delete(saleId);
+        // remove a chave
+        const { [saleId]: _, ...rest } = prev;
+        return rest;
       }
-      return newMap;
     });
   };
 
   const handleSaveCosts = async () => {
     setIsSaving(true);
-    await onSave(costs);
+    const toMap = new Map<string, number>(Object.entries(costs).map(([k, v]) => [k, Number(v)]));
+    await onSave(toMap);
     setIsSaving(false);
   };
 
@@ -95,45 +96,43 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
     const reader = new FileReader();
 
     reader.onload = (e) => {
-      const processData = (data: any[]) => {
-        if (data.length === 0) {
-          toast({ variant: 'destructive', title: 'Arquivo Vazio', description: 'A planilha selecionada não contém dados.' });
-          return;
-        }
-        const headers = Object.keys(data[0]);
-        if (headers.length < 2) {
-          toast({ variant: 'destructive', title: 'Formato Incorreto', description: 'A planilha deve ter pelo menos duas colunas.' });
-          return;
-        }
-
-        const orderHeader = headers.find(h => h.toLowerCase().includes('pedido') || h.toLowerCase().includes('order'));
-        const costHeader = headers.find(h => h.toLowerCase().includes('custo') || h.toLowerCase().includes('cost'));
-
-        if (!orderHeader || !costHeader) {
-          toast({ variant: 'destructive', title: 'Colunas não encontradas', description: 'A planilha deve conter uma coluna para "pedido" e uma para "custo".' });
-          return;
-        }
-        
-        const newCosts = new Map(costs);
-        let updatedCount = 0;
-        
-        data.forEach(row => {
-          const orderCode = row[orderHeader]?.toString().trim();
-          const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
-          
-          if (orderCode && !isNaN(costValue)) {
-            const normalizedOrderCode = normalizeOrderCode(orderCode);
-            const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
-            if (saleToUpdate) {
-              newCosts.set(saleToUpdate.id, costValue);
-              updatedCount++;
-            }
+      const applyParsedRows = (rows: any[]) => {
+          if (rows.length === 0) {
+            toast({ variant: 'destructive', title: 'Arquivo Vazio', description: 'A planilha selecionada não contém dados.' });
+            return;
           }
-        });
+          const headers = Object.keys(rows[0]);
+          if (headers.length < 2) {
+            toast({ variant: 'destructive', title: 'Formato Incorreto', description: 'A planilha deve ter pelo menos duas colunas.' });
+            return;
+          }
+    
+          const orderHeader = headers.find(h => h.toLowerCase().includes('pedido') || h.toLowerCase().includes('order'));
+          const costHeader = headers.find(h => h.toLowerCase().includes('custo') || h.toLowerCase().includes('cost'));
+    
+          if (!orderHeader || !costHeader) {
+            toast({ variant: 'destructive', title: 'Colunas não encontradas', description: 'A planilha deve conter uma coluna para "pedido" e uma para "custo".' });
+            return;
+          }
+    
+          let updatedCount = 0;
+          setCosts(prev => {
+            const next = { ...prev };
+            for (const row of rows) {
+              const orderCode = row[orderHeader]?.toString().trim();
+              const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
+              if (!orderCode || isNaN(costValue)) continue;
         
-        setCosts(new Map(newCosts));
-        
-        toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
+              const normalized = normalizeOrderCode(orderCode);
+              const sale = sales.find(s => normalizeOrderCode((s as any).order_code) === normalized);
+              if (sale) {
+                next[sale.id] = costValue;
+                updatedCount++;
+              }
+            }
+            return next;
+          });
+          toast({ title: 'Planilha Processada!', description: `${updatedCount} custos foram preenchidos a partir do arquivo.` });
       };
 
       try {
@@ -142,14 +141,14 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
           Papa.parse(content as string, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => processData(results.data),
+            complete: (results) => applyParsedRows(results.data),
           });
         } else {
           const workbook = XLSX.read(content, { type: 'binary' });
           const sheetName = workbook.SheetNames[0];
           const sheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(sheet);
-          processData(jsonData);
+          applyParsedRows(jsonData);
         }
       } catch (error) {
         toast({ variant: 'destructive', title: 'Erro ao ler arquivo', description: 'O formato do arquivo pode estar corrompido.' });
@@ -175,9 +174,11 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
         return "Data inválida";
     }
   };
+  
+  const dirtyCount = useMemo(() => Object.keys(costs).length, [costs]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Refinamento de Custos</DialogTitle>
@@ -223,9 +224,10 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
                                     <TableCell>
                                         <Input
                                             type="number"
+                                            inputMode="decimal"
                                             placeholder="Ex: 850.50"
                                             step="0.01"
-                                            value={costs.get(sale.id) ?? ''}
+                                            value={costs[sale.id] ?? ''}
                                             onChange={(e) => handleCostChange(sale.id, e.target.value)}
                                         />
                                     </TableCell>
@@ -276,9 +278,9 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button onClick={handleSaveCosts} disabled={costs.size === 0 || isSaving}>
+              <Button onClick={handleSaveCosts} disabled={dirtyCount === 0 || isSaving}>
                 {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
-                Salvar Custos ({costs.size})
+                Salvar Custos ({dirtyCount})
               </Button>
             </div>
         </DialogFooter>
