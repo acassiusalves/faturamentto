@@ -389,16 +389,16 @@ export default function ConciliationPage() {
     
 // === Helpers: cole acima do applyCustomCalculations ===
 const parseBrNumber = (raw: unknown): number | null => {
-  if (raw == null) return null;
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-  if (typeof raw !== 'string') return null;
+    if (raw == null) return null;
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    if (typeof raw !== 'string') return null;
 
-  // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto
-  const s0 = raw.replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-  if (!s0) return null;
+    // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto
+    const s0 = String(raw).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+    if (!s0) return null;
 
-  const n = Number(s0);
-  return Number.isFinite(n) ? n : null;
+    const n = Number(s0);
+    return Number.isFinite(n) ? n : null;
 };
 
 
