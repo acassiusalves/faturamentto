@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wand2, RotateCcw, User, MapPin, FileText } from 'lucide-react';
+import { Wand2, RotateCcw, User, MapPin, FileText, Loader2 } from 'lucide-react';
 import type { AnalyzeLabelOutput } from '@/lib/types';
 
 interface SimpleDataEditorProps {
@@ -29,6 +29,11 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
   hasChanges = false
 }) => {
   const [editedData, setEditedData] = useState(data);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setEditedData(data);
+  }, [data]);
 
   const updateField = (field: string, value: string) => {
     const newData = { ...editedData, [field]: value };
@@ -37,13 +42,17 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
   };
 
   const handleRegenerate = () => {
-    onRegenerate(editedData);
+    startTransition(() => {
+        onRegenerate(editedData);
+    });
   };
 
   const handleReset = () => {
     setEditedData(data);
     onReset();
   };
+  
+  const finalIsProcessing = isProcessing || isPending;
 
   return (
     <Card>
@@ -63,7 +72,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
               variant="outline" 
               size="sm" 
               onClick={handleReset}
-              disabled={isProcessing}
+              disabled={finalIsProcessing}
             >
               <RotateCcw className="mr-2 h-4 w-4"/>
               Restaurar
@@ -71,10 +80,10 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
             
             <Button 
               onClick={handleRegenerate}
-              disabled={isProcessing || !hasChanges}
+              disabled={finalIsProcessing || !hasChanges}
               className="flex items-center gap-2"
             >
-              <Wand2 className="h-4 w-4" />
+              {finalIsProcessing ? <Loader2 className="animate-spin" /> : <Wand2 className="h-4 w-4" />}
               Regenerar Etiqueta
             </Button>
           </div>
@@ -95,7 +104,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="orderNumber"
                 value={editedData.orderNumber || ''}
                 onChange={(e) => updateField('orderNumber', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -105,7 +114,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="invoiceNumber"
                 value={editedData.invoiceNumber || ''}
                 onChange={(e) => updateField('invoiceNumber', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -115,7 +124,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="trackingNumber"
                 value={editedData.trackingNumber || ''}
                 onChange={(e) => updateField('trackingNumber', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -125,7 +134,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="estimatedDate"
                 value={editedData.estimatedDeliveryDate || ''}
                 onChange={(e) => updateField('estimatedDeliveryDate', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
           </div>
@@ -144,7 +153,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="recipientName"
                 value={editedData.recipientName || ''}
                 onChange={(e) => updateField('recipientName', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -154,7 +163,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="streetAddress"
                 value={editedData.streetAddress || ''}
                 onChange={(e) => updateField('streetAddress', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -165,7 +174,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                   id="city"
                   value={editedData.city || ''}
                   onChange={(e) => updateField('city', e.target.value)}
-                  disabled={isProcessing}
+                  disabled={finalIsProcessing}
                 />
               </div>
               
@@ -175,7 +184,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                   id="state"
                   value={editedData.state || ''}
                   onChange={(e) => updateField('state', e.target.value)}
-                  disabled={isProcessing}
+                  disabled={finalIsProcessing}
                 />
               </div>
               
@@ -185,7 +194,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                   id="zipCode"
                   value={editedData.zipCode || ''}
                   onChange={(e) => updateField('zipCode', e.target.value)}
-                  disabled={isProcessing}
+                  disabled={finalIsProcessing}
                 />
               </div>
             </div>
@@ -205,7 +214,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="senderName"
                 value={editedData.senderName || ''}
                 onChange={(e) => updateField('senderName', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -215,7 +224,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                 id="senderAddress"
                 value={editedData.senderAddress || ''}
                 onChange={(e) => updateField('senderAddress', e.target.value)}
-                disabled={isProcessing}
+                disabled={finalIsProcessing}
               />
             </div>
             
@@ -226,7 +235,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                   id="senderNeighborhood"
                   value={editedData.senderNeighborhood || ''}
                   onChange={(e) => updateField('senderNeighborhood', e.target.value)}
-                  disabled={isProcessing}
+                  disabled={finalIsProcessing}
                 />
               </div>
               
@@ -236,7 +245,7 @@ export const SimpleDataEditor: React.FC<SimpleDataEditorProps> = ({
                   id="senderCityState"
                   value={editedData.senderCityState || ''}
                   onChange={(e) => updateField('senderCityState', e.target.value)}
-                  disabled={isProcessing}
+                  disabled={finalIsProcessing}
                 />
               </div>
             </div>
