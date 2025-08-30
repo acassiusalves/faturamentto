@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -413,7 +414,6 @@ function applyPreciseChanges(
 }
 
 
-// === FUNÇÃO PRINCIPAL ATUALIZADA ===
 function preciseMappingAndAnalysis(
   originalZpl: string,
   extractedData: AnalyzeLabelOutput
@@ -469,7 +469,6 @@ function preciseMappingAndAnalysis(
   }
 }
 
-// === FUNÇÃO PARA APLICAR ALTERAÇÕES COM MAPEAMENTO PRECISO ===
 function applyChangesWithPreciseMapping(
   originalZpl: string,
   mapping: ZplMapping,
@@ -956,9 +955,6 @@ function applyAnchoredReplacements(
     return { out: ensureCI28(out), changed: hasChanged };
 }
 
-// === VERSÃO MELHORADA DA remixZplDataAction ===
-// Substitua a função existente por esta versão com mapeamento preciso
-
 export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
   formData: FormData
@@ -999,21 +995,18 @@ export async function remixZplDataAction(
       
       console.log(`📊 Mapeamento: ${stats!.mappedFields} campos mapeados de ${stats!.totalElements} elementos`);
       
-      // *** IMPORTANTE: Use dados corrigidos em vez dos dados originais ***
-      const dataToApply = correctedData || remixedData;
+      const dataToApply = { ...correctedData, ...remixedData };
       
-      // Aplica alterações usando dados corrigidos
       const changeResult = applyChangesWithPreciseMapping(originalZpl, mapping, dataToApply);
       
       if (changeResult.success && changeResult.changesApplied! > 0) {
         console.log(`✅ Mapeamento preciso: ${changeResult.changesApplied} alterações aplicadas`);
         console.log('📝 Detalhes das alterações:', changeResult.details);
         
-        // Retorna tanto o ZPL modificado quanto os dados corrigidos
         return {
           result: { 
             modifiedZpl: changeResult.modifiedZpl!,
-            correctedData: correctedData // Para uso na interface
+            correctedData: dataToApply
           } as any,
           error: null
         };
@@ -1154,3 +1147,4 @@ export async function debugMappingAction(
     
 
     
+

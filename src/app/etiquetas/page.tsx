@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useActionState, useEffect, useState, useTransition, useCallback, useRef } from "react";
@@ -18,7 +19,6 @@ import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
 import { MappingDebugger } from './mapping-debugger';
 import { Badge } from "@/components/ui/badge";
-import { preciseMappingAndAnalysis } from '@/app/actions';
 
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -57,6 +57,7 @@ export default function EtiquetasPage() {
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
   const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixLabelInitialState);
   const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
+  const [correctDataState, correctDataFormAction] = useActionState(correctExtractedDataAction, analyzeInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
   const { toast } = useToast();
@@ -216,39 +217,31 @@ export default function EtiquetasPage() {
   }, [analyzeZplState.error, analyzeZplState.analysis, toast, baselineAnalysis]);
 
     useEffect(() => {
-    if (analyzeZplState.analysis && originalZpl && !baselineAnalysis) {
-        // Aplica correção automática dos dados baseado na estrutura ZPL
-        const applyCorrection = async () => {
-        try {
-            // Simula chamada da função de correção
-            const mappingResult = preciseMappingAndAnalysis(originalZpl, analyzeZplState.analysis);
-            
-            if (mappingResult.success && mappingResult.correctedData) {
-            console.log('🔧 Aplicando correção automática de endereços...');
-            
-            // Aplica dados corrigidos
-            setAnalysisResult(mappingResult.correctedData);
-            setBaselineAnalysis(mappingResult.correctedData);
-            
-            // Log para debug
-            console.log('Original:', analyzeZplState.analysis);
-            console.log('Corrigido:', mappingResult.correctedData);
-            
+        if (analyzeZplState.analysis && originalZpl && !baselineAnalysis) {
+            const formData = new FormData();
+            formData.append('originalZpl', originalZpl);
+            formData.append('extractedData', JSON.stringify(analyzeZplState.analysis));
+            correctDataFormAction(formData);
+        }
+    }, [analyzeZplState.analysis, originalZpl, baselineAnalysis, correctDataFormAction]);
+
+    useEffect(() => {
+        if (correctDataState.analysis) {
+            setAnalysisResult(correctDataState.analysis);
+            setBaselineAnalysis(correctDataState.analysis); // Set baseline after correction
             toast({
                 title: "Endereços Corrigidos",
-                description: "Os endereços foram separados automaticamente baseado na estrutura da etiqueta.",
+                description: "Os dados foram separados automaticamente baseado na estrutura da etiqueta.",
                 duration: 3000,
             });
-            }
-        } catch (error) {
-            console.error('Erro na correção automática:', error);
+        } else if (correctDataState.error) {
+             toast({
+                variant: 'destructive',
+                title: "Correção Falhou",
+                description: correctDataState.error,
+            });
         }
-        };
-        
-        // Aplica correção após um pequeno delay
-        setTimeout(applyCorrection, 500);
-    }
-    }, [analyzeZplState.analysis, originalZpl, baselineAnalysis, toast]);
+    }, [correctDataState, toast]);
 
   useEffect(() => {
     if (remixState.error) {
@@ -261,7 +254,6 @@ export default function EtiquetasPage() {
   }, [remixState, toast]);
 
 useEffect(() => {
-    // Trata erros
     if (remixZplState.error) {
         toast({
         variant: 'destructive',
@@ -277,12 +269,10 @@ useEffect(() => {
         return;
     }
 
-    const raw = (remixZplState.result as any)?.modifiedZpl;
-    if (!raw) return;
+    const resultData = remixZplState.result as any;
+    const newZpl = resultData?.modifiedZpl ? sanitizeZpl(resultData.modifiedZpl) : null;
+    if (!newZpl) return;
 
-    const newZpl = sanitizeZpl(raw);
-
-    // Verifica se houve alteração real
     if (newZpl.trim() === zplEditorContent.trim()) {
         toast({
         title: 'Sem Alterações Detectadas',
@@ -292,27 +282,23 @@ useEffect(() => {
         return;
     }
 
-    // Evita aplicar o mesmo ZPL múltiplas vezes
     if (lastAppliedZplRef.current === newZpl) return;
     lastAppliedZplRef.current = newZpl;
 
-    // Aplica o novo ZPL
     setZplEditorContent(newZpl);
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
 
-    // *** CORREÇÃO: NÃO RESETAR analysisResult ***
-    // Em vez de resetar, mantenha os dados editados
-    if (currentEditedData) {
-        // Atualiza baseline com dados editados aplicados
+    if(resultData.correctedData) {
+        setAnalysisResult(resultData.correctedData);
+        setBaselineAnalysis(resultData.correctedData);
+    } else if (currentEditedData) {
         setBaselineAnalysis(currentEditedData);
-        // Limpa flag de mudanças não salvas
-        setHasUnsavedChanges(false);
     }
     
+    setHasUnsavedChanges(false);
     setLastUpdateTime(Date.now());
     
-    // Feedback de sucesso melhorado
     toast({ 
         title: 'Etiqueta Atualizada!', 
         description: (
@@ -325,7 +311,7 @@ useEffect(() => {
         ),
         duration: 4000,
     });
-}, [(remixZplState.result as any)?.modifiedZpl, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
+}, [remixZplState, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -445,37 +431,16 @@ useEffect(() => {
         });
     };
 
-    const handleCorrectAddresses = async () => {
+    const handleCorrectAddresses = () => {
         if (!originalZpl || !analysisResult) return;
         
-        try {
-            const mappingResult = preciseMappingAndAnalysis(originalZpl, analysisResult);
-            
-            if (mappingResult.success && mappingResult.correctedData) {
-            setAnalysisResult(mappingResult.correctedData);
-            setCurrentEditedData(mappingResult.correctedData);
-            setHasUnsavedChanges(true);
-            
-            toast({
-                title: "Endereços Corrigidos",
-                description: "Os dados foram separados baseado na estrutura real da etiqueta.",
-                duration: 4000,
-            });
-            } else {
-            toast({
-                variant: "destructive",
-                title: "Correção Falhou",
-                description: mappingResult.error || "Não foi possível corrigir os endereços",
-            });
-            }
-        } catch (error) {
-            console.error('Erro na correção manual:', error);
-            toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Erro ao corrigir endereços",
-            });
-        }
+        const formData = new FormData();
+        formData.append('originalZpl', originalZpl);
+        formData.append('extractedData', JSON.stringify(analysisResult));
+        
+        startTransition(() => {
+            correctDataFormAction(formData);
+        });
     };
 
 
@@ -959,3 +924,4 @@ useEffect(() => {
     </div>
   );
 }
+
