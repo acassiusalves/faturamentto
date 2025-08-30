@@ -1,3 +1,4 @@
+
 // Converte coordenadas ZPL para coordenadas de imagem
 export function convertZplToImageCoordinates(
   zplX: number, 
@@ -28,6 +29,8 @@ export function extractEditablePositions(zpl: string): Array<{
   fdLineIndex: number;
   hasEncoding: boolean;
 }> {
+  console.log('🧩 Iniciando extração ZPL:', zpl.length, 'caracteres');
+  
   const lines = zpl.split(/\r?\n/);
   const positions = [];
   
@@ -85,6 +88,11 @@ export function extractEditablePositions(zpl: string): Array<{
     }
     
     i = j; // Pula para após o bloco
+  }
+  
+  console.log('📊 Extração concluída:', positions.length, 'posições encontradas');
+  if (positions.length > 0) {
+    console.log('📍 Exemplos:', positions.slice(0, 2));
   }
   
   return positions;

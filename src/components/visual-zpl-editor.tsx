@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -29,6 +30,12 @@ export const VisualZplEditor: React.FC<VisualZplEditorProps> = ({
   textPositions,
   onApplyChanges
 }) => {
+  console.log('🎨 VisualZplEditor iniciado:', {
+    textPositions: textPositions.length,
+    previewUrl: previewUrl ? 'OK' : 'ERRO',
+    originalZpl: originalZpl.length
+  });
+
   const [editablePositions, setEditablePositions] = useState<TextPosition[]>(textPositions);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');

@@ -268,6 +268,7 @@ export default function EtiquetasPage() {
   }, [remixState, toast]);
 
 useEffect(() => {
+    const resultData = remixZplState.result as any;
     if (remixZplState.error) {
         toast({
         variant: 'destructive',
@@ -283,7 +284,6 @@ useEffect(() => {
         return;
     }
 
-    const resultData = remixZplState.result as any;
     const newZpl = resultData?.modifiedZpl ? sanitizeZpl(resultData.modifiedZpl) : null;
     if (!newZpl) return;
 
@@ -303,7 +303,7 @@ useEffect(() => {
     setOriginalZpl(newZpl);
     generatePreviewImmediate(newZpl);
 
-    if(resultData.correctedData) {
+    if(resultData?.correctedData) {
         setAnalysisResult(resultData.correctedData);
         setBaselineAnalysis(resultData.correctedData);
     } else if (currentEditedData) {
@@ -325,7 +325,7 @@ useEffect(() => {
         ),
         duration: 4000,
     });
-}, [remixZplState.result, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
+}, [remixZplState, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -579,6 +579,52 @@ useEffect(() => {
       </div>
     );
   };
+
+  // Adicione após os outros useEffects
+useEffect(() => {
+  console.log('🔍 Debug Editor Visual:', {
+    useVisualEditor,
+    editablePositions: editablePositions.length,
+    originalZpl: originalZpl ? `${originalZpl.length} chars` : 'vazio',
+    previewUrl: previewUrl ? 'presente' : 'vazio'
+  });
+  
+  if (editablePositions.length > 0) {
+    console.log('📍 Primeiras 3 posições:', editablePositions.slice(0, 3));
+  }
+}, [useVisualEditor, editablePositions, originalZpl, previewUrl]);
+
+useEffect(() => {
+  if (analysisResult) {
+    console.log('📍 Dados do Remetente:', {
+      senderName: analysisResult.senderName,
+      senderAddress: analysisResult.senderAddress,
+      senderNeighborhood: (analysisResult as any).senderNeighborhood,
+      senderCityState: (analysisResult as any).senderCityState
+    });
+  }
+}, [analysisResult]);
+
+const applySenderFields = (senderData: {
+  name?: string;
+  address?: string;  
+  neighborhood?: string;
+  cityState?: string;
+}) => {
+  if (!analysisResult) return;
+  
+  const updatedData = {
+    ...analysisResult,
+    senderName: senderData.name || analysisResult.senderName,
+    senderAddress: senderData.address || analysisResult.senderAddress,
+    senderNeighborhood: senderData.neighborhood || (analysisResult as any).senderNeighborhood,
+    senderCityState: senderData.cityState || (analysisResult as any).senderCityState
+  };
+  
+  setAnalysisResult(updatedData as AnalyzeLabelOutput);
+  setCurrentEditedData(updatedData as AnalyzeLabelOutput);
+  setHasUnsavedChanges(true);
+};
 
 
   return (
@@ -966,6 +1012,18 @@ useEffect(() => {
                         }}
                       />
                     )}
+                    <Button 
+                      onClick={() => applySenderFields({
+                        name: 'LIGHTHOUSE',
+                        address: 'RUA DA ALFÂNDEGA, 200 - SALA 208', 
+                        neighborhood: 'BRÁS - 030060330',
+                        cityState: 'SÃO PAULO-SP'
+                      })}
+                      variant="outline"
+                      size="sm"
+                    >
+                      🧪 Testar Dados Esperados
+                    </Button>
                 </CardContent>
             </Card>
           )}
@@ -981,6 +1039,7 @@ useEffect(() => {
     </div>
   );
 }
+
 
 
 
