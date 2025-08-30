@@ -113,13 +113,16 @@ export function CostRefinementDialog({ isOpen, onClose, sales, products, onSave 
 
       const newCosts = new Map(costs);
       let updatedCount = 0;
+      
+      const normalizeOrderCode = (code: string) => (code || '').replace(/\D/g, '');
 
       data.forEach(row => {
         const orderCode = row[orderHeader]?.toString().trim();
         const costValue = parseFloat(row[costHeader]?.toString().replace(',', '.'));
-
+        
         if (orderCode && !isNaN(costValue)) {
-          const saleToUpdate = sales.find(s => (s as any).order_code === orderCode);
+            const normalizedOrderCode = normalizeOrderCode(orderCode);
+            const saleToUpdate = sales.find(s => normalizeOrderCode((s as any).order_code) === normalizedOrderCode);
           if (saleToUpdate) {
             newCosts.set(saleToUpdate.id, costValue);
             updatedCount++;
