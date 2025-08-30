@@ -19,7 +19,8 @@ import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
 import { MappingDebugger } from './mapping-debugger';
 import { Badge } from "@/components/ui/badge";
-import { preciseMappingAndAnalysis } from '@/app/actions';
+import { VisualZplEditor } from '@/components/visual-zpl-editor';
+import { extractEditablePositions } from '@/lib/utils/zpl-coordinates';
 
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -82,6 +83,16 @@ export default function EtiquetasPage() {
   const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
   const [currentEditedData, setCurrentEditedData] = useState<AnalyzeLabelOutput | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [useVisualEditor, setUseVisualEditor] = useState(false);
+  const [editablePositions, setEditablePositions] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    if (originalZpl && previewUrl) {
+      const positions = extractEditablePositions(originalZpl);
+      setEditablePositions(positions);
+    }
+  }, [originalZpl, previewUrl]);
 
 
   const handlePrint = () => {
@@ -219,11 +230,11 @@ export default function EtiquetasPage() {
 
     useEffect(() => {
         if (analyzeZplState.analysis && originalZpl && !baselineAnalysis) {
-            const formData = new FormData();
-            formData.append('originalZpl', originalZpl);
-            formData.append('extractedData', JSON.stringify(analyzeZplState.analysis));
             startTransition(() => {
-              correctDataFormAction(formData);
+                const formData = new FormData();
+                formData.append('originalZpl', originalZpl);
+                formData.append('extractedData', JSON.stringify(analyzeZplState.analysis));
+                correctDataFormAction(formData);
             });
         }
     }, [analyzeZplState.analysis, originalZpl, baselineAnalysis, correctDataFormAction]);
@@ -437,11 +448,10 @@ useEffect(() => {
     const handleCorrectAddresses = () => {
         if (!originalZpl || !analysisResult) return;
         
-        const formData = new FormData();
-        formData.append('originalZpl', originalZpl);
-        formData.append('extractedData', JSON.stringify(analysisResult));
-        
         startTransition(() => {
+            const formData = new FormData();
+            formData.append('originalZpl', originalZpl);
+            formData.append('extractedData', JSON.stringify(analysisResult));
             correctDataFormAction(formData);
         });
     };
@@ -529,7 +539,7 @@ useEffect(() => {
           )}
         </div>
         
-        {field && value && ['orderNumber', 'invoiceNumber', 'trackingNumber', 'senderName', 'senderAddress'].includes(field) && (
+        {field && value && ['orderNumber', 'invoiceNumber', 'trackingNumber', 'senderName', 'senderAddress'].includes(field as string) && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {!isEditing && (
               <Button 
@@ -665,64 +675,72 @@ useEffect(() => {
                     <CardTitle className="flex items-center gap-2">
                       <Eye /> Pré-visualização da Etiqueta
                     </CardTitle>
-                    <CardDescription className="space-y-2">
-                      <span>Representação visual do ZPL com suas alterações</span>
-                      
-                      {lastAppliedZplRef.current && (
-                        <div className="flex items-center gap-2 text-xs">
-                          <div className="flex items-center gap-1 text-green-600">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="font-medium">Alterações aplicadas</span>
-                          </div>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground">Códigos preservados</span>
-                        </div>
-                      )}
-                    </CardDescription>
+                     <CardDescription>
+                        {useVisualEditor ? 'Modo de edição visual ativo' : 'Representação visual do ZPL'}
+                      </CardDescription>
                   </div>
                   
                   <div className="flex gap-2">
+                     <Button 
+                        onClick={() => setUseVisualEditor(!useVisualEditor)}
+                        variant={useVisualEditor ? "default" : "outline"}
+                        size="sm"
+                      >
+                        <Edit className="mr-2 h-4 w-4"/>
+                        {useVisualEditor ? 'Modo Visual' : 'Ativar Edição'}
+                      </Button>
                     <Button onClick={handlePrint} variant="outline" size="sm">
                       <Printer className="mr-2 h-4 w-4"/>
                       Imprimir
                     </Button>
-                    <Button 
-                      onClick={() => navigator.clipboard.writeText(zplEditorContent)}
-                      variant="outline" 
-                      size="sm"
-                      title="Copiar código ZPL"
-                    >
-                      <Copy className="h-4 w-4"/>
-                    </Button>
                   </div>
                 </div>
               </CardHeader>
+              
               <CardContent className="p-4">
-                <div className="flex items-center justify-center">
-                  <div className="relative inline-block">
-                    <Image
-                      src={previewUrl}
-                      alt="Pré-visualização ZPL"
-                      width={420}
-                      height={630}
-                      className="block max-w-[420px] h-auto border rounded-lg shadow-sm"
+                 {useVisualEditor ? (
+                    <VisualZplEditor
+                      previewUrl={previewUrl}
+                      originalZpl={originalZpl}
+                      textPositions={editablePositions}
+                      onApplyChanges={(modifiedZpl) => {
+                        setZplEditorContent(modifiedZpl);
+                        setOriginalZpl(modifiedZpl);
+                        generatePreviewImmediate(modifiedZpl);
+                        setUseVisualEditor(false);
+                        toast({
+                          title: 'ZPL Atualizado!',
+                          description: 'As alterações visuais foram aplicadas com sucesso.',
+                        });
+                      }}
                     />
-                    
-                    {lastAppliedZplRef.current && Date.now() - (lastUpdateTime || 0) < 10000 && (
-                      <div className="absolute -top-2 -right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg animate-pulse">
-                        ✅ Atualizada
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <div className="relative inline-block">
+                        <Image
+                          src={previewUrl}
+                          alt="Pré-visualização ZPL"
+                          width={420}
+                          height={630}
+                          className="block max-w-[420px] h-auto border rounded-lg shadow-sm"
+                        />
+                        
+                        {lastAppliedZplRef.current && Date.now() - (lastUpdateTime || 0) < 10000 && (
+                          <div className="absolute -top-2 -right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg animate-pulse">
+                            ✅ Atualizada
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
+
+                  <div className="mt-4 p-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                       <span>📄 {zplEditorContent.split('\n').length} linhas ZPL</span>
+                        <span>{useVisualEditor ? '✏️ Edição Visual' : '⚡ Modo Visualização'}</span>
+                        <span>🔍 {editablePositions.length} campos editáveis</span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="mt-4 p-3 bg-muted/50 rounded-md">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>📄 {zplEditorContent.split('\n').length} linhas ZPL</span>
-                    <span>🔄 Atualização automática: 800ms</span>
-                    <span>⚡ Detecção: Automática</span>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}
@@ -963,6 +981,7 @@ useEffect(() => {
     </div>
   );
 }
+
 
 
 
