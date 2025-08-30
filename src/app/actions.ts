@@ -166,6 +166,7 @@ function extractAllTextElements(zpl: string): ZplTextElement[] {
   return elements;
 }
 
+
 // === MAPEAMENTO MELHORADO PARA ENDEREÇOS SEPARADOS ===
 
 interface ZplAddressStructure {
@@ -178,53 +179,69 @@ interface ZplAddressStructure {
   zipCode?: ZplTextElement;
 }
 
-// === FUNÇÃO MELHORADA PARA IDENTIFICAR ESTRUTURA DE ENDEREÇOS ===
-function identifyAddressStructure(elements: ZplTextElement[]): ZplAddressStructure {
+// === FUNÇÃO MELHORADA PARA IDENTIFICAR COMPONENTES SEPARADOS ===
+function identifyAddressStructureImproved(elements: ZplTextElement[]): ZplAddressStructure {
   const structure: ZplAddressStructure = {};
   
-  // Ordena elementos por posição vertical (Y) para analisar sequência
+  // Ordena elementos por posição Y (vertical) para análise sequencial
   const sortedByY = [...elements].sort((a, b) => a.y - b.y);
+  
+  // Padrões mais específicos para identificação
+  const patterns = {
+    cep: /^\d{5}-?\d{3}$|^\d{8}$/,
+    cityState: /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+[,\-]\s*[A-Z]{2}$/i,
+    street: /^(rua|r\.|av|avenida|alameda|travessa|pça|praça).+\d+|.+\d+.*\-.*/i,
+    personName: /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,}$/i
+  };
+  
+  let recipientAreaStart = -1;
+  let senderAreaStart = -1;
+  
+  // Identifica áreas de destinatário e remetente por posição Y
+  sortedByY.forEach((element, index) => {
+    if (element.y < 900) { // Área superior = destinatário
+      if (recipientAreaStart === -1) recipientAreaStart = index;
+    } else { // Área inferior = remetente
+      if (senderAreaStart === -1) senderAreaStart = index;
+    }
+  });
   
   sortedByY.forEach((element, index) => {
     const content = element.content.trim();
     
-    // Identifica CEP (padrão específico)
-    if (/^\d{5}-?\d{3}$|^\d{8}$/.test(content)) {
+    // CEP - prioridade máxima
+    if (patterns.cep.test(content)) {
       structure.zipCode = element;
       return;
     }
     
-    // Identifica cidade + estado (formato: CIDADE, UF ou CIDADE - UF)
-    if (/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+[,-]\s*[A-Z]{2}$/i.test(content)) {
-      // Determina se é destinatário ou remetente pela posição
-      if (!structure.recipientCityState) {
+    // Cidade + Estado
+    if (patterns.cityState.test(content)) {
+      if (index < senderAreaStart && !structure.recipientCityState) {
         structure.recipientCityState = element;
-      } else {
+      } else if (!structure.senderCityState) {
         structure.senderCityState = element;
       }
       return;
     }
     
-    // Identifica endereços (contém número e termos típicos)
-    if (/^(rua|av|avenida|r\.|alameda|travessa|praca).+\d+/i.test(content) || 
-        /\d+.*\-.*\d+/.test(content)) {
-      // Determina se é destinatário ou remetente pela posição
-      if (!structure.recipientAddress) {
+    // Endereços com número
+    if (patterns.street.test(content) || /\d+/.test(content)) {
+      if (index < senderAreaStart && !structure.recipientAddress) {
         structure.recipientAddress = element;
-      } else {
+      } else if (!structure.senderAddress) {
         structure.senderAddress = element;
       }
       return;
     }
     
-    // Identifica nomes (texto longo sem números, não é cidade/estado)
-    if (content.length >= 5 && 
-        !/^\d/.test(content) && 
-        !/[,-]\s*[A-Z]{2}$/i.test(content) &&
-        !/^(rua|av|avenida)/i.test(content)) {
+    // Nomes (sem números, texto longo)
+    if (patterns.personName.test(content) && 
+        !patterns.cityState.test(content) && 
+        !patterns.street.test(content) &&
+        !/^\d+$/.test(content)) {
       
-      // Determina se é destinatário ou remetente pela posição
-      if (!structure.recipientName) {
+      if (index < senderAreaStart && !structure.recipientName) {
         structure.recipientName = element;
       } else if (!structure.senderName) {
         structure.senderName = element;
@@ -235,15 +252,18 @@ function identifyAddressStructure(elements: ZplTextElement[]): ZplAddressStructu
   return structure;
 }
 
+
 // === FUNÇÃO PARA MAPEAR ENDEREÇOS SEPARADAMENTE ===
-function mapAddressFieldsSeparately(
+function mapAddressFieldsSeparatelyImproved(
   elements: ZplTextElement[], 
   extractedData: AnalyzeLabelOutput
 ): ZplMapping['mappedFields'] {
   const mapping: ZplMapping['mappedFields'] = {};
-  const addressStructure = identifyAddressStructure(elements);
   
-  // Mapeia campos diretos primeiro
+  // Usa estrutura melhorada
+  const addressStructure = identifyAddressStructureImproved(elements);
+  
+  // Mapeia primeiro os campos diretos (números de pedido, etc.)
   const directMappings = [
     { field: 'orderNumber', patterns: [/^\d{8,15}$/, /pedido.*(\d+)/i] },
     { field: 'invoiceNumber', patterns: [/^\d{6,12}$/, /nf.*(\d+)/i] },
@@ -255,16 +275,12 @@ function mapAddressFieldsSeparately(
     if (!extractedValue) return;
     
     const element = elements.find(el => {
-      // Correspondência exata
       if (el.content.includes(extractedValue)) return true;
-      
-      // Correspondência por padrão
       return patterns.some(pattern => pattern.test(el.content));
     });
     
     if (element) {
       (mapping as any)[field] = { element, confidence: 95 };
-      // Remove do array
       const index = elements.indexOf(element);
       if (index > -1) elements.splice(index, 1);
     }
@@ -272,31 +288,83 @@ function mapAddressFieldsSeparately(
   
   // Mapeia endereços usando estrutura identificada
   if (addressStructure.recipientName) {
-    mapping.recipientName = { element: addressStructure.recipientName, confidence: 90 };
+    mapping.recipientName = { element: addressStructure.recipientName, confidence: 95 };
   }
   
   if (addressStructure.recipientAddress) {
-    mapping.streetAddress = { element: addressStructure.recipientAddress, confidence: 90 };
+    mapping.streetAddress = { element: addressStructure.recipientAddress, confidence: 95 };
   }
   
   if (addressStructure.recipientCityState) {
-    // Para cidade/estado, mapeia para o campo 'city' mas manterá o formato original
-    mapping.city = { element: addressStructure.recipientCityState, confidence: 90 };
+    mapping.city = { element: addressStructure.recipientCityState, confidence: 95 };
   }
   
   if (addressStructure.senderName) {
-    mapping.senderName = { element: addressStructure.senderName, confidence: 90 };
+    mapping.senderName = { element: addressStructure.senderName, confidence: 95 };
   }
   
   if (addressStructure.senderAddress) {
-    mapping.senderAddress = { element: addressStructure.senderAddress, confidence: 90 };
+    mapping.senderAddress = { element: addressStructure.senderAddress, confidence: 95 };
   }
   
   if (addressStructure.zipCode) {
-    mapping.zipCode = { element: addressStructure.zipCode, confidence: 95 };
+    mapping.zipCode = { element: addressStructure.zipCode, confidence: 98 };
   }
   
   return mapping;
+}
+
+
+// === CORREÇÃO PARA SEPARAR ENDEREÇOS CORRETAMENTE ===
+function fixAddressSeparation(
+  extractedData: AnalyzeLabelOutput,
+  mapping: ZplMapping
+): AnalyzeLabelOutput {
+  const correctedData = { ...extractedData };
+  
+  // Se temos elementos mapeados separadamente, use eles em vez dos dados da IA
+  const { mappedFields } = mapping;
+  
+  // Corrige nome do destinatário se mapeado separadamente
+  if (mappedFields.recipientName?.element.content) {
+    correctedData.recipientName = mappedFields.recipientName.element.content;
+  }
+  
+  // Corrige endereço do destinatário se mapeado separadamente
+  if (mappedFields.streetAddress?.element.content) {
+    correctedData.streetAddress = mappedFields.streetAddress.element.content;
+  }
+  
+  // Corrige cidade/estado se mapeado separadamente
+  if (mappedFields.city?.element.content) {
+    const cityStateContent = mappedFields.city.element.content;
+    
+    // Tenta extrair cidade e estado do conteúdo
+    const cityStateMatch = cityStateContent.match(/^(.+?)[,\-]\s*([A-Z]{2})$/i);
+    if (cityStateMatch) {
+      correctedData.city = cityStateMatch[1].trim();
+      correctedData.state = cityStateMatch[2].trim().toUpperCase();
+    } else {
+      // Se não conseguir separar, assume que é só cidade
+      correctedData.city = cityStateContent;
+    }
+  }
+  
+  // Corrige CEP se mapeado separadamente
+  if (mappedFields.zipCode?.element.content) {
+    correctedData.zipCode = mappedFields.zipCode.element.content.replace(/\D/g, '');
+  }
+  
+  // Corrige dados do remetente se mapeados separadamente
+  if (mappedFields.senderName?.element.content) {
+    correctedData.senderName = mappedFields.senderName.element.content;
+  }
+  
+  if (mappedFields.senderAddress?.element.content) {
+    correctedData.senderAddress = mappedFields.senderAddress.element.content;
+  }
+  
+  return correctedData;
 }
 
 
@@ -352,6 +420,7 @@ function preciseMappingAndAnalysis(
 ): {
   success: boolean;
   mapping?: ZplMapping;
+  correctedData?: AnalyzeLabelOutput; // Nova propriedade
   error?: string;
   stats?: {
     totalElements: number;
@@ -371,16 +440,20 @@ function preciseMappingAndAnalysis(
     }
     
     // 2. Usa mapeamento melhorado para endereços
-    const mappedFields = mapAddressFieldsSeparately([...allElements], extractedData);
+    const mappedFields = mapAddressFieldsSeparatelyImproved([...allElements], extractedData);
     
     const mapping: ZplMapping = {
       allTextElements: allElements,
       mappedFields
     };
     
+    // 3. Corrige dados extraídos baseado no mapeamento
+    const correctedData = fixAddressSeparation(extractedData, mapping);
+    
     return {
       success: true,
       mapping,
+      correctedData, // Dados corrigidos com endereços separados
       stats: {
         totalElements: allElements.length,
         mappedFields: Object.keys(mappedFields).length,
@@ -883,6 +956,9 @@ function applyAnchoredReplacements(
     return { out: ensureCI28(out), changed: hasChanged };
 }
 
+// === VERSÃO MELHORADA DA remixZplDataAction ===
+// Substitua a função existente por esta versão com mapeamento preciso
+
 export async function remixZplDataAction(
   prevState: { result: RemixZplDataOutput | null; error: string | null },
   formData: FormData
@@ -914,24 +990,31 @@ export async function remixZplDataAction(
       }
     });
 
-    // === 🎯 MÉTODO 1: MAPEAMENTO PRECISO (NOVO MÉTODO PRINCIPAL) ===
-    console.log('🗺️ Fazendo mapeamento completo do ZPL...');
+    // === 🎯 MÉTODO 1: MAPEAMENTO PRECISO COM CORREÇÃO DE ENDEREÇOS ===
+    console.log('🗺️ Fazendo mapeamento completo do ZPL com correção de endereços...');
     const mappingResult = preciseMappingAndAnalysis(originalZpl, baselineData);
     
     if (mappingResult.success && mappingResult.mapping) {
-      const { mapping, stats } = mappingResult;
+      const { mapping, stats, correctedData } = mappingResult;
       
       console.log(`📊 Mapeamento: ${stats!.mappedFields} campos mapeados de ${stats!.totalElements} elementos`);
       
-      // Aplica alterações usando mapeamento preciso
-      const changeResult = applyChangesWithPreciseMapping(originalZpl, mapping, remixedData);
+      // *** IMPORTANTE: Use dados corrigidos em vez dos dados originais ***
+      const dataToApply = correctedData || remixedData;
+      
+      // Aplica alterações usando dados corrigidos
+      const changeResult = applyChangesWithPreciseMapping(originalZpl, mapping, dataToApply);
       
       if (changeResult.success && changeResult.changesApplied! > 0) {
         console.log(`✅ Mapeamento preciso: ${changeResult.changesApplied} alterações aplicadas`);
         console.log('📝 Detalhes das alterações:', changeResult.details);
         
+        // Retorna tanto o ZPL modificado quanto os dados corrigidos
         return {
-          result: { modifiedZpl: changeResult.modifiedZpl! },
+          result: { 
+            modifiedZpl: changeResult.modifiedZpl!,
+            correctedData: correctedData // Para uso na interface
+          } as any,
           error: null
         };
       } else {
@@ -985,6 +1068,41 @@ export async function remixZplDataAction(
     };
   }
 }
+
+export async function correctExtractedDataAction(
+  prevState: { analysis: AnalyzeLabelOutput | null; error: string | null },
+  formData: FormData
+): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null }> {
+  const originalZpl = formData.get('originalZpl') as string;
+  const extractedDataJSON = formData.get('extractedData') as string;
+  
+  if (!originalZpl || !extractedDataJSON) {
+    return { analysis: null, error: 'Dados faltando para correção' };
+  }
+  
+  try {
+    const extractedData = JSON.parse(extractedDataJSON) as AnalyzeLabelOutput;
+    const mappingResult = preciseMappingAndAnalysis(originalZpl, extractedData);
+    
+    if (mappingResult.success && mappingResult.correctedData) {
+      return { 
+        analysis: mappingResult.correctedData, 
+        error: null 
+      };
+    } else {
+      return { 
+        analysis: extractedData, 
+        error: mappingResult.error || 'Não foi possível corrigir os dados' 
+      };
+    }
+  } catch (e: any) {
+    return { 
+      analysis: null, 
+      error: e.message || 'Erro ao processar correção de dados' 
+    };
+  }
+}
+
 
 // === FUNÇÃO PARA DEBUG: EXIBIR ELEMENTOS MAPEADOS ===
 export async function debugMappingAction(
