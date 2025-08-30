@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw, Edit, X } from "lucide-react";
+import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw, Edit, X, BrainCircuit, ScanSearch } from "lucide-react";
 import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction, correctExtractedDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -86,7 +86,6 @@ export default function EtiquetasPage() {
   const [useVisualEditor, setUseVisualEditor] = useState(false);
   const [editablePositions, setEditablePositions] = useState<any[]>([]);
 
-
   useEffect(() => {
     if (originalZpl && previewUrl) {
       const positions = extractEditablePositions(originalZpl);
@@ -94,6 +93,19 @@ export default function EtiquetasPage() {
     }
   }, [originalZpl, previewUrl]);
 
+  // Adicione após os outros useEffects
+  useEffect(() => {
+    console.log('🔍 Debug Editor Visual:', {
+      useVisualEditor,
+      editablePositions: editablePositions.length,
+      originalZpl: originalZpl ? `${originalZpl.length} chars` : 'vazio',
+      previewUrl: previewUrl ? 'presente' : 'vazio'
+    });
+    
+    if (editablePositions.length > 0) {
+      console.log('📍 Primeiras 3 posições:', editablePositions.slice(0, 3));
+    }
+  }, [useVisualEditor, editablePositions, originalZpl, previewUrl]);
 
   const handlePrint = () => {
     if (!previewUrl) return;
@@ -267,7 +279,7 @@ export default function EtiquetasPage() {
     setRemixingField(null);
   }, [remixState, toast]);
 
-useEffect(() => {
+  useEffect(() => {
     const resultData = remixZplState.result as any;
     if (remixZplState.error) {
         toast({
@@ -580,30 +592,16 @@ useEffect(() => {
     );
   };
 
-  // Adicione após os outros useEffects
-useEffect(() => {
-  console.log('🔍 Debug Editor Visual:', {
-    useVisualEditor,
-    editablePositions: editablePositions.length,
-    originalZpl: originalZpl ? `${originalZpl.length} chars` : 'vazio',
-    previewUrl: previewUrl ? 'presente' : 'vazio'
-  });
-  
-  if (editablePositions.length > 0) {
-    console.log('📍 Primeiras 3 posições:', editablePositions.slice(0, 3));
-  }
-}, [useVisualEditor, editablePositions, originalZpl, previewUrl]);
-
-useEffect(() => {
-  if (analysisResult) {
-    console.log('📍 Dados do Remetente:', {
-      senderName: analysisResult.senderName,
-      senderAddress: analysisResult.senderAddress,
-      senderNeighborhood: (analysisResult as any).senderNeighborhood,
-      senderCityState: (analysisResult as any).senderCityState
-    });
-  }
-}, [analysisResult]);
+  useEffect(() => {
+    if (analysisResult) {
+      console.log('📍 Dados do Remetente:', {
+        senderName: analysisResult.senderName,
+        senderAddress: analysisResult.senderAddress,
+        senderNeighborhood: (analysisResult as any).senderNeighborhood,
+        senderCityState: (analysisResult as any).senderCityState
+      });
+    }
+  }, [analysisResult]);
 
 const applySenderFields = (senderData: {
   name?: string;
@@ -1021,8 +1019,52 @@ const applySenderFields = (senderData: {
                       })}
                       variant="outline"
                       size="sm"
+                      className="mt-2"
                     >
                       🧪 Testar Dados Esperados
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        console.log('🔧 Teste manual iniciado');
+                        if (originalZpl) {
+                          const extracted = extractEditablePositions(originalZpl);
+                          console.log('🔧 Resultado:', extracted);
+                          setEditablePositions(extracted);
+                          if (extracted.length > 0) {
+                            toast({
+                              title: "Posições extraídas",
+                              description: `${extracted.length} campos encontrados`
+                            });
+                          }
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      🔧 Forçar Extração
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        const testPositions = [
+                          {
+                            x: 195, y: 300, 
+                            content: "CILENE FERMINO PEREIRA",
+                            zplX: 370, zplY: 736,
+                            fdLineIndex: 50, hasEncoding: true
+                          },
+                          {
+                            x: 195, y: 325,
+                            content: "PADRE FEIJO, 341", 
+                            zplX: 370, zplY: 791,
+                            fdLineIndex: 52, hasEncoding: true
+                          }
+                        ];
+                        setEditablePositions(testPositions);
+                        setUseVisualEditor(true);
+                      }}
+                      size="sm"
+                    >
+                      Teste Manual
                     </Button>
                 </CardContent>
             </Card>
@@ -1039,8 +1081,3 @@ const applySenderFields = (senderData: {
     </div>
   );
 }
-
-
-
-
-
