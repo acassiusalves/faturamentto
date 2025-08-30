@@ -19,6 +19,7 @@ import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
 import { MappingDebugger } from './mapping-debugger';
 import { Badge } from "@/components/ui/badge";
+import { preciseMappingAndAnalysis } from '@/app/actions';
 
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -57,7 +58,7 @@ export default function EtiquetasPage() {
   const [analyzeZplState, analyzeZplFormAction, isAnalyzingZpl] = useActionState(analyzeZplAction, analyzeInitialState);
   const [remixState, remixFormAction, isRemixing] = useActionState(remixLabelDataAction, remixLabelInitialState);
   const [remixZplState, remixZplFormAction, isRemixingZpl] = useActionState(remixZplDataAction, remixZplInitialState);
-  const [correctDataState, correctDataFormAction] = useActionState(correctExtractedDataAction, analyzeInitialState);
+  const [correctDataState, correctDataFormAction, isCorrecting] = useActionState(correctExtractedDataAction, analyzeInitialState);
   const [isTransitioning, startTransition] = useTransition();
 
   const { toast } = useToast();
@@ -313,7 +314,7 @@ useEffect(() => {
         ),
         duration: 4000,
     });
-}, [remixZplState, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
+}, [remixZplState.result, remixZplState.error, toast, zplEditorContent, generatePreviewImmediate, currentEditedData]);
 
 
   const pdfToPngDataURI = async (pdfFile: File): Promise<string> => {
@@ -422,8 +423,8 @@ useEffect(() => {
         if (!analysisResult) return;
         
         const updatedData = { ...analysisResult, [field]: newValue };
-        setAnalysisResult(updatedData);
-        setCurrentEditedData(updatedData);
+        setAnalysisResult(updatedData as AnalyzeLabelOutput);
+        setCurrentEditedData(updatedData as AnalyzeLabelOutput);
         setHasUnsavedChanges(true);
         
         toast({
@@ -447,7 +448,7 @@ useEffect(() => {
 
 
   const isPreparingFile = isTransitioning && !isAnalyzing;
-  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl;
+  const isAnyAnalysisRunning = isAnalyzing || isAnalyzingZpl || isTransitioning || isRemixing || isRemixingZpl || isCorrecting;
   const isAnalyzeButtonDisabled = isAnalyzing || isPreparingFile || !photoDataUri;
   
   const EditableDataRow = ({ 
@@ -458,8 +459,8 @@ useEffect(() => {
   }: { 
     label: string; 
     value: string; 
-    field?: keyof AnalyzeLabelOutput;
-    onEdit?: (field: keyof AnalyzeLabelOutput, newValue: string) => void;
+    field?: keyof AnalyzeLabelOutput | 'senderNeighborhood' | 'senderCityState';
+    onEdit?: (field: keyof AnalyzeLabelOutput | 'senderNeighborhood' | 'senderCityState', newValue: string) => void;
   }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(value);
@@ -528,7 +529,7 @@ useEffect(() => {
           )}
         </div>
         
-        {field && value && (
+        {field && value && ['orderNumber', 'invoiceNumber', 'trackingNumber', 'senderName', 'senderAddress'].includes(field) && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {!isEditing && (
               <Button 
@@ -885,10 +886,46 @@ useEffect(() => {
                         />
                         <EditableDataRow label="CEP" value={analysisResult.zipCode} field="zipCode" onEdit={handleFieldEdit}/>
                     </div>
-                    <div className="p-3 border rounded-md bg-muted/50 space-y-2">
-                        <h3 className="font-semibold text-base flex items-center gap-2"><MapPin /> Remetente</h3>
-                        <EditableDataRow label="Nome" value={analysisResult.senderName} field="senderName" onEdit={handleFieldEdit}/>
-                        <EditableDataRow label="Endereço" value={analysisResult.senderAddress} field="senderAddress" onEdit={handleFieldEdit}/>
+                     <div className="p-3 border rounded-md bg-muted/50 space-y-2">
+                        <h3 className="font-semibold text-base flex items-center gap-2">
+                            <MapPin /> Remetente
+                        </h3>
+                        <EditableDataRow 
+                            label="Nome" 
+                            value={analysisResult.senderName} 
+                            field="senderName" 
+                            onEdit={handleFieldEdit}
+                        />
+                        <EditableDataRow 
+                            label="Endereço" 
+                            value={analysisResult.senderAddress} 
+                            field="senderAddress" 
+                            onEdit={handleFieldEdit}
+                        />
+                        <EditableDataRow 
+                            label="Bairro e CEP" 
+                            value={(analysisResult as any).senderNeighborhood || 'N/A'} 
+                            field="senderNeighborhood" 
+                            onEdit={(field, value) => {
+                                if (!analysisResult) return;
+                                const updatedData = { ...analysisResult, [field]: value };
+                                setAnalysisResult(updatedData as AnalyzeLabelOutput);
+                                setCurrentEditedData(updatedData as AnalyzeLabelOutput);
+                                setHasUnsavedChanges(true);
+                            }}
+                        />
+                        <EditableDataRow 
+                            label="Cidade/Estado" 
+                            value={(analysisResult as any).senderCityState || 'N/A'} 
+                            field="senderCityState" 
+                            onEdit={(field, value) => {
+                                if (!analysisResult) return;
+                                const updatedData = { ...analysisResult, [field]: value };
+                                setAnalysisResult(updatedData as AnalyzeLabelOutput);
+                                setCurrentEditedData(updatedData as AnalyzeLabelOutput);
+                                setHasUnsavedChanges(true);
+                            }}
+                        />
                     </div>
                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md">
                       <div className="flex items-start gap-2">
@@ -926,5 +963,6 @@ useEffect(() => {
     </div>
   );
 }
+
 
 

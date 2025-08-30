@@ -168,55 +168,119 @@ function extractAllTextElements(zpl: string): ZplTextElement[] {
 }
 
 
-// === MAPEAMENTO MELHORADO PARA ENDEREÇOS SEPARADOS ===
+// === PARSING CORRETO PARA REMETENTE EM 4 CAMPOS ===
 
+// Função para parsing específico do endereço do remetente
+function parseSenderAddress(fullAddress: string): {
+  address?: string;
+  neighborhood?: string; // Novo campo para bairro
+  cityState?: string; 
+  zipCode?: string;
+} {
+  const result: { address?: string; neighborhood?: string; cityState?: string; zipCode?: string } = {};
+  
+  // Remove espaços extras
+  const clean = fullAddress.trim();
+  
+  // Padrão específico para: "RUA DA ALFÂNDEGA, 200 - SALA 208 BRÁS - 030060330 SÃO PAULO, SP"
+  // Regex para capturar: endereço - bairro - cep cidade, estado
+  const complexMatch = clean.match(/^(.+?)\s+([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+)\s*-\s*(\d{8})\s+([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+),?\s*([A-Z]{2})$/i);
+  
+  if (complexMatch) {
+    const addressPart = complexMatch[1].trim();
+    const neighborhood = complexMatch[2].trim();
+    const zipCode = complexMatch[3];
+    const city = complexMatch[4].trim();
+    const state = complexMatch[5].trim();
+    
+    result.address = addressPart;
+    result.neighborhood = `${neighborhood} - ${zipCode}`;
+    result.cityState = `${city}-${state}`;
+    result.zipCode = zipCode;
+    
+    return result;
+  }
+  
+  // Padrão alternativo mais flexível
+  // Tenta identificar estrutura: endereço + bairro + cep + cidade + estado
+  const flexibleMatch = clean.match(/^(.+?)\s+(BRÁS|CENTRO|[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{3,15})\s*-?\s*(\d{8})\s*(.+)$/i);
+  
+  if (flexibleMatch) {
+    const addressPart = flexibleMatch[1].trim();
+    const neighborhood = flexibleMatch[2].trim();
+    const zipCode = flexibleMatch[3];
+    const remainder = flexibleMatch[4].trim();
+    
+    // Tenta extrair cidade e estado do restante
+    const cityStateMatch = remainder.match(/^([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+),?\s*([A-Z]{2})$/i);
+    
+    if (cityStateMatch) {
+      result.address = addressPart;
+      result.neighborhood = `${neighborhood} - ${zipCode}`;
+      result.cityState = `${cityStateMatch[1].trim()}-${cityStateMatch[2].trim()}`;
+      result.zipCode = zipCode;
+      return result;
+    }
+  }
+  
+  // Se não conseguiu separar completamente, tenta ao menos extrair CEP e cidade
+  const basicMatch = clean.match(/^(.+?)\s*(\d{8})\s*([A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s,]+)$/i);
+  if (basicMatch) {
+    result.address = basicMatch[1].trim();
+    result.zipCode = basicMatch[2];
+    result.cityState = basicMatch[3].trim().replace(/,\s*/, '-');
+    return result;
+  }
+  
+  // Fallback: retorna como endereço
+  result.address = clean;
+  return result;
+}
+
+// === INTERFACE ESTENDIDA PARA SUPORTAR BAIRRO ===
 interface ZplAddressStructure {
   recipientName?: ZplTextElement;
   recipientAddress?: ZplTextElement;
   recipientCityState?: ZplTextElement;
   senderName?: ZplTextElement;
   senderAddress?: ZplTextElement;  
+  senderNeighborhood?: ZplTextElement; // Novo campo
   senderCityState?: ZplTextElement;
   zipCode?: ZplTextElement;
 }
 
-// === FUNÇÃO MELHORADA PARA IDENTIFICAR COMPONENTES SEPARADOS ===
+// === FUNÇÃO ATUALIZADA DE IDENTIFICAÇÃO ===
 function identifyAddressStructureImproved(elements: ZplTextElement[]): ZplAddressStructure {
   const structure: ZplAddressStructure = {};
   
-  // Ordena elementos por posição Y (vertical) para análise sequencial
   const sortedByY = [...elements].sort((a, b) => a.y - b.y);
   
-  // Padrões mais específicos para identificação
   const patterns = {
     cep: /^\d{5}-?\d{3}$|^\d{8}$/,
     cityState: /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]+[,\-]\s*[A-Z]{2}$/i,
     street: /^(rua|r\.|av|avenida|alameda|travessa|pça|praça).+\d+|.+\d+.*\-.*/i,
-    personName: /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,}$/i
+    personName: /^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ\s]{5,}$/i,
+    complexSenderAddress: /.+\d+.+[A-Z]{2}.*\d{8}|.+\d{8}.+[A-Z]{2}/i
   };
   
-  let recipientAreaStart = -1;
   let senderAreaStart = -1;
   
-  // Identifica áreas de destinatário e remetente por posição Y
   sortedByY.forEach((element, index) => {
-    if (element.y < 900) { // Área superior = destinatário
-      if (recipientAreaStart === -1) recipientAreaStart = index;
-    } else { // Área inferior = remetente
-      if (senderAreaStart === -1) senderAreaStart = index;
+    if (element.y >= 900 && senderAreaStart === -1) {
+      senderAreaStart = index;
     }
   });
   
   sortedByY.forEach((element, index) => {
     const content = element.content.trim();
     
-    // CEP - prioridade máxima
+    // CEP isolado
     if (patterns.cep.test(content)) {
       structure.zipCode = element;
       return;
     }
     
-    // Cidade + Estado
+    // Cidade + Estado isolados
     if (patterns.cityState.test(content)) {
       if (index < senderAreaStart && !structure.recipientCityState) {
         structure.recipientCityState = element;
@@ -226,17 +290,36 @@ function identifyAddressStructureImproved(elements: ZplTextElement[]): ZplAddres
       return;
     }
     
-    // Endereços com número
+    // Endereço complexo do remetente (prioridade para área do remetente)
+    if (index >= senderAreaStart && patterns.complexSenderAddress.test(content) && content.length > 30) {
+      const parsed = parseSenderAddress(content);
+      
+      if (parsed.address) {
+        structure.senderAddress = { ...element, content: parsed.address };
+      }
+      if (parsed.neighborhood) {
+        structure.senderNeighborhood = { ...element, content: parsed.neighborhood };
+      }
+      if (parsed.cityState) {
+        structure.senderCityState = { ...element, content: parsed.cityState };
+      }
+      if (parsed.zipCode && !structure.zipCode) {
+        structure.zipCode = { ...element, content: parsed.zipCode };
+      }
+      return;
+    }
+    
+    // Endereços simples
     if (patterns.street.test(content) || /\d+/.test(content)) {
       if (index < senderAreaStart && !structure.recipientAddress) {
         structure.recipientAddress = element;
-      } else if (!structure.senderAddress) {
+      } else if (index >= senderAreaStart && !structure.senderAddress) {
         structure.senderAddress = element;
       }
       return;
     }
     
-    // Nomes (sem números, texto longo)
+    // Nomes
     if (patterns.personName.test(content) && 
         !patterns.cityState.test(content) && 
         !patterns.street.test(content) &&
@@ -244,7 +327,7 @@ function identifyAddressStructureImproved(elements: ZplTextElement[]): ZplAddres
       
       if (index < senderAreaStart && !structure.recipientName) {
         structure.recipientName = element;
-      } else if (!structure.senderName) {
+      } else if (index >= senderAreaStart && !structure.senderName) {
         structure.senderName = element;
       }
     }
@@ -253,18 +336,15 @@ function identifyAddressStructureImproved(elements: ZplTextElement[]): ZplAddres
   return structure;
 }
 
-
-// === FUNÇÃO PARA MAPEAR ENDEREÇOS SEPARADAMENTE ===
+// === MAPEAMENTO ATUALIZADO COM BAIRRO ===
 function mapAddressFieldsSeparatelyImproved(
   elements: ZplTextElement[], 
   extractedData: AnalyzeLabelOutput
 ): ZplMapping['mappedFields'] {
   const mapping: ZplMapping['mappedFields'] = {};
-  
-  // Usa estrutura melhorada
   const addressStructure = identifyAddressStructureImproved(elements);
   
-  // Mapeia primeiro os campos diretos (números de pedido, etc.)
+  // Mapeia campos diretos
   const directMappings = [
     { field: 'orderNumber', patterns: [/^\d{8,15}$/, /pedido.*(\d+)/i] },
     { field: 'invoiceNumber', patterns: [/^\d{6,12}$/, /nf.*(\d+)/i] },
@@ -287,7 +367,7 @@ function mapAddressFieldsSeparatelyImproved(
     }
   });
   
-  // Mapeia endereços usando estrutura identificada
+  // Mapeia estrutura de endereços
   if (addressStructure.recipientName) {
     mapping.recipientName = { element: addressStructure.recipientName, confidence: 95 };
   }
@@ -308,6 +388,19 @@ function mapAddressFieldsSeparatelyImproved(
     mapping.senderAddress = { element: addressStructure.senderAddress, confidence: 95 };
   }
   
+  // Novo mapeamento para bairro do remetente
+  if (addressStructure.senderNeighborhood) {
+    // Mapeia para um campo personalizado (você pode precisar adicionar este campo ao tipo AnalyzeLabelOutput)
+    (mapping as any).senderNeighborhood = { element: addressStructure.senderNeighborhood, confidence: 95 };
+  }
+  
+  if (addressStructure.senderCityState) {
+    // Se não temos cidade do destinatário, usa a do remetente como estado
+    if (!mapping.city) {
+      (mapping as any).senderCityState = { element: addressStructure.senderCityState, confidence: 95 };
+    }
+  }
+  
   if (addressStructure.zipCode) {
     mapping.zipCode = { element: addressStructure.zipCode, confidence: 98 };
   }
@@ -315,48 +408,39 @@ function mapAddressFieldsSeparatelyImproved(
   return mapping;
 }
 
-
-// === CORREÇÃO PARA SEPARAR ENDEREÇOS CORRETAMENTE ===
+// === CORREÇÃO DE DADOS ATUALIZADA ===
 function fixAddressSeparation(
   extractedData: AnalyzeLabelOutput,
   mapping: ZplMapping
 ): AnalyzeLabelOutput {
   const correctedData = { ...extractedData };
-  
-  // Se temos elementos mapeados separadamente, use eles em vez dos dados da IA
   const { mappedFields } = mapping;
   
-  // Corrige nome do destinatário se mapeado separadamente
+  // Destinatário (mantém lógica existente)
   if (mappedFields.recipientName?.element.content) {
     correctedData.recipientName = mappedFields.recipientName.element.content;
   }
   
-  // Corrige endereço do destinatário se mapeado separadamente
   if (mappedFields.streetAddress?.element.content) {
     correctedData.streetAddress = mappedFields.streetAddress.element.content;
   }
   
-  // Corrige cidade/estado se mapeado separadamente
   if (mappedFields.city?.element.content) {
     const cityStateContent = mappedFields.city.element.content;
-    
-    // Tenta extrair cidade e estado do conteúdo
     const cityStateMatch = cityStateContent.match(/^(.+?)[,\-]\s*([A-Z]{2})$/i);
     if (cityStateMatch) {
       correctedData.city = cityStateMatch[1].trim();
       correctedData.state = cityStateMatch[2].trim().toUpperCase();
     } else {
-      // Se não conseguir separar, assume que é só cidade
       correctedData.city = cityStateContent;
     }
   }
   
-  // Corrige CEP se mapeado separadamente
   if (mappedFields.zipCode?.element.content) {
     correctedData.zipCode = mappedFields.zipCode.element.content.replace(/\D/g, '');
   }
   
-  // Corrige dados do remetente se mapeados separadamente
+  // Remetente com parsing específico
   if (mappedFields.senderName?.element.content) {
     correctedData.senderName = mappedFields.senderName.element.content;
   }
@@ -364,6 +448,10 @@ function fixAddressSeparation(
   if (mappedFields.senderAddress?.element.content) {
     correctedData.senderAddress = mappedFields.senderAddress.element.content;
   }
+  
+  // Adiciona campos estendidos para o remetente
+  (correctedData as any).senderNeighborhood = (mappedFields as any).senderNeighborhood?.element.content || '';
+  (correctedData as any).senderCityState = (mappedFields as any).senderCityState?.element.content || '';
   
   return correctedData;
 }
@@ -1147,4 +1235,5 @@ export async function debugMappingAction(
     
 
     
+
 

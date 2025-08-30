@@ -425,6 +425,8 @@ export type AnalyzeLabelOutput = {
   senderName: string;
   senderAddress: string;
   estimatedDeliveryDate?: string;
+  senderNeighborhood?: string;
+  senderCityState?: string;
 };
 
 export type RemixableField = keyof Pick<AnalyzeLabelOutput, 'orderNumber' | 'invoiceNumber' | 'trackingNumber' | 'senderName' | 'senderAddress'>;
@@ -490,3 +492,4 @@ export const RemixZplDataOutputSchema = z.object({
 
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
 export type RemixZplDataOutput = z.infer<typeof RemixZplDataOutputSchema>;
+
