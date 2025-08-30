@@ -221,7 +221,9 @@ export default function EtiquetasPage() {
             const formData = new FormData();
             formData.append('originalZpl', originalZpl);
             formData.append('extractedData', JSON.stringify(analyzeZplState.analysis));
-            correctDataFormAction(formData);
+            startTransition(() => {
+              correctDataFormAction(formData);
+            });
         }
     }, [analyzeZplState.analysis, originalZpl, baselineAnalysis, correctDataFormAction]);
 
@@ -924,4 +926,5 @@ useEffect(() => {
     </div>
   );
 }
+
 
