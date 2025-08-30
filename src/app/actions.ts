@@ -16,6 +16,7 @@ import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput } from '@/lib/types';
+import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -1083,7 +1084,7 @@ export async function remixZplDataAction(
       
       console.log(`📊 Mapeamento: ${stats!.mappedFields} campos mapeados de ${stats!.totalElements} elementos`);
       
-      const dataToApply = { ...correctedData, ...remixedData };
+      const dataToApply = correctedData || remixedData;
       
       const changeResult = applyChangesWithPreciseMapping(originalZpl, mapping, dataToApply);
       
@@ -1227,13 +1228,42 @@ export async function debugMappingAction(
   }
 }
     
+export async function regenerateZplAction(
+  prevState: any,
+  formData: FormData
+): Promise<{
+  result: RegenerateZplOutput | null;
+  error: string | null;
+}> {
+  try {
+    const originalZpl = formData.get('originalZpl') as string;
+    const editedDataStr = formData.get('editedData') as string;
+    
+    if (!originalZpl || !editedDataStr) {
+      return { result: null, error: 'Dados obrigatórios em falta.' };
+    }
 
+    const editedData = JSON.parse(editedDataStr);
+    
+    const result = await regenerateZpl({
+      originalZpl,
+      editedData
+    });
+
+    return { result, error: null };
+  } catch (error) {
+    console.error('Erro ao regenerar ZPL:', error);
+    return { 
+      result: null, 
+      error: error instanceof Error ? error.message : 'Erro desconhecido ao regenerar ZPL.' 
+    };
+  }
+}
     
 
     
 
     
 
-    
 
 
