@@ -389,14 +389,20 @@ export default function ConciliationPage() {
     
 // === Helpers: cole acima do applyCustomCalculations ===
 function parseLocaleNumber(input: string | number): number {
-    if (typeof input === 'number') return input;
-    if (typeof input !== 'string') return NaN;
-    let s = input.trim().replace(/[R$\s]/g, '');
-    if (s.includes(',')) {
-        s = s.replace(/\./g, '').replace(',', '.');
-    }
-    const n = Number(s);
-    return Number.isFinite(n) ? n : NaN;
+  if (typeof input === 'number') return input;
+  if (!input) return NaN;
+  let s = String(input).trim().replace(/[R$\s]/g, '');
+
+  // Se tem vírgula, assume pt-BR: remove pontos de milhar e troca vírgula por ponto
+  if (s.includes(',')) {
+    s = s.replace(/\.(?=\d{3}(\D|$))/g, ''); // remove pontos de milhar
+    s = s.replace(',', '.');                 // vírgula decimal -> ponto
+  } else {
+    // en-US com vírgula de milhar
+    s = s.replace(/,(?=\d{3}(\D|$))/g, '');
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 
@@ -569,16 +575,17 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               const sheetValues = supportDataMap.get(saleKey);
         
               if (sheetValues) {
-                const merged = {
+                const merged: any = {
                   ...sale,
-                  // status pode vir com qualquer capitalização no mapa
-                  status: (sheetValues["status"] ?? (sale as any).status) as any,
                   sheetData: {
                     ...(sale as any).sheetData,
                     ...sheetValues,
                   },
                 };
-                delete (merged as any).sheetData["status"];
+                // Prioritize the status from the sheet if it exists
+                if (sheetValues["status"]) {
+                    merged.status = sheetValues["status"];
+                }
                 return merged;
               }
               return sale;
