@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calculator, Sparkles, Plus, Minus, X, Divide, Sigma, Trash2, Hash, Edit, Zap } from 'lucide-react';
+import { Calculator, Sparkles, Plus, Minus, X, Divide, Sigma, Trash2, Hash, Edit, Zap, Search } from 'lucide-react';
 import type { FormulaItem, CustomCalculation } from '@/lib/types';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -20,7 +20,7 @@ import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from './ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 
 function parseLocaleNumber(input: string | number): number {
@@ -56,6 +56,7 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
   const [targetMarketplace, setTargetMarketplace] = useState<string>("all");
   const [numberValue, setNumberValue] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [columnSearchTerm, setColumnSearchTerm] = useState("");
   
   // State for interaction
   const [interactionTarget, setInteractionTarget] = useState<string>('none');
@@ -153,6 +154,15 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
     }
   };
 
+  const filteredAvailableColumns = useMemo(() => {
+    if (!columnSearchTerm) {
+      return availableColumns;
+    }
+    return availableColumns.filter(col =>
+      col.label.toLowerCase().includes(columnSearchTerm.toLowerCase())
+    );
+  }, [availableColumns, columnSearchTerm]);
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -226,20 +236,29 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     <div className="space-y-2">
                         <p className="text-sm font-semibold">Colunas Disponíveis</p>
-                        <ScrollArea className="h-24 rounded-md border p-2">
-                            <div className="flex flex-wrap gap-2">
-                                {availableColumns.map(col => (
-                                    <Button 
-                                        key={col.key} 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={() => handleItemClick({ type: 'column', value: col.key, label: col.label })}
-                                    >
-                                        {col.label}
-                                    </Button>
-                                ))}
-                            </div>
-                        </ScrollArea>
+                        <Command className="rounded-lg border">
+                           <CommandInput 
+                             placeholder="Buscar coluna..." 
+                             value={columnSearchTerm}
+                             onValueChange={setColumnSearchTerm}
+                           />
+                           <CommandList>
+                                <ScrollArea className="h-28">
+                                <CommandEmpty>Nenhuma coluna encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                    {filteredAvailableColumns.map(col => (
+                                        <CommandItem 
+                                            key={col.key} 
+                                            onSelect={() => handleItemClick({ type: 'column', value: col.key, label: col.label })}
+                                            className="cursor-pointer"
+                                        >
+                                            {col.label}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                </ScrollArea>
+                           </CommandList>
+                        </Command>
                     </div>
 
                     <div className="space-y-2">
