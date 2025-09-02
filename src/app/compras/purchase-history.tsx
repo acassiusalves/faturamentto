@@ -7,7 +7,7 @@ import type { PurchaseList, PurchaseListItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -18,12 +18,15 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { useAuth } from '@/context/auth-context';
+
 
 // Add a temporary `isSplit` property to our item type for highlighting
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
 
 export function PurchaseHistory() {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [history, setHistory] = useState<PurchaseList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -181,7 +184,7 @@ export function PurchaseHistory() {
             // Clean up tempId and isSplit before saving
             const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
-                const totalQuantity = item.quantity + (item.surplus || 0);
+                const totalQuantity = (item.quantity || 0) + (item.surplus || 0);
                 return acc + (item.unitCost * totalQuantity);
             }, 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
@@ -373,12 +376,18 @@ export function PurchaseHistory() {
                                                                     formatCurrency(item.unitCost)
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * (item.quantity + (item.surplus || 0)))}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
                                                              <TableCell className="text-center">
-                                                                <Switch
-                                                                    checked={item.isPaid}
-                                                                    onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
-                                                                />
+                                                                {(user?.role === 'admin' || user?.role === 'financeiro') ? (
+                                                                    <Switch
+                                                                        checked={item.isPaid}
+                                                                        onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
+                                                                    />
+                                                                ) : (
+                                                                     <Badge variant={item.isPaid ? 'default' : 'secondary'} className={cn(item.isPaid && 'bg-green-600')}>
+                                                                        {item.isPaid ? 'Sim' : 'Não'}
+                                                                    </Badge>
+                                                                )}
                                                             </TableCell>
                                                             {isEditingThis && (
                                                                 <TableCell className="text-center">
