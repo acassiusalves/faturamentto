@@ -180,7 +180,10 @@ export function PurchaseHistory() {
         try {
             // Clean up tempId and isSplit before saving
             const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
-            const newTotalCost = itemsToSave.reduce((acc, item) => acc + (item.unitCost * item.quantity), 0);
+            const newTotalCost = itemsToSave.reduce((acc, item) => {
+                const totalQuantity = item.quantity + (item.surplus || 0);
+                return acc + (item.unitCost * totalQuantity);
+            }, 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
             
             setHistory(prev => prev.map(p => p.id === editingId ? { ...p, items: itemsToSave, totalCost: newTotalCost } : p));
@@ -233,7 +236,10 @@ export function PurchaseHistory() {
                         {history.map(purchase => {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
-                            const currentTotal = itemsToDisplay.reduce((acc, item) => acc + item.unitCost * item.quantity, 0);
+                            const currentTotal = itemsToDisplay.reduce((acc, item) => {
+                                const totalQuantity = (item.quantity || 0) + (item.surplus || 0);
+                                return acc + (item.unitCost * totalQuantity);
+                            }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
 
                             return (
@@ -367,7 +373,7 @@ export function PurchaseHistory() {
                                                                     formatCurrency(item.unitCost)
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * item.quantity)}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * (item.quantity + (item.surplus || 0)))}</TableCell>
                                                              <TableCell className="text-center">
                                                                 <Switch
                                                                     checked={item.isPaid}
