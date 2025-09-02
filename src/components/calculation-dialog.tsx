@@ -28,10 +28,12 @@ function parseLocaleNumber(input: string | number): number {
   if (!input) return NaN;
   let s = String(input).trim().replace(/[R$\s]/g, '');
 
+  // Se tem vírgula, assume pt-BR: remove pontos de milhar e troca vírgula por ponto
   if (s.includes(',')) {
     s = s.replace(/\.(?=\d{3}(\D|$))/g, ''); 
     s = s.replace(',', '.');                 
   } else {
+    // en-US com vírgula de milhar
     s = s.replace(/,(?=\d{3}(\D|$))/g, '');
   }
   const n = Number(s);
@@ -81,10 +83,15 @@ export function CalculationDialog({ isOpen, onClose, onSave, onDelete, marketpla
 
   const handleItemClick = (item: FormulaItem) => {
     const lastItem = formula[formula.length - 1];
-    
-    if (item.type === 'operator' && item.value !== '(' && (!lastItem || lastItem.type === 'operator')) {
-        return;
+
+    // Impede operadores repetidos (ex: `+ -`), mas permite parênteses de abertura.
+    if (item.type === 'operator' && item.value !== '(' && item.value !== ')') {
+        if (!lastItem || (lastItem.type === 'operator' && lastItem.value !== ')')) {
+            return;
+        }
     }
+    
+    // Impede dois operandos (coluna ou número) seguidos
     if ((item.type === 'column' || item.type === 'number') && lastItem && lastItem.type !== 'operator') {
         return;
     }
