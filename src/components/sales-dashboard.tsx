@@ -104,7 +104,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
 
 
   const filteredSales = useMemo(() => {
-    return sales.filter(sale => {
+    const filtered = sales.filter(sale => {
         if(dateRange?.from && dateRange?.to) {
             try {
                 // The date from Ideris is payment_approved_date
@@ -139,6 +139,14 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
       
       return matchesMarketplace && matchesSearch && matchesState && matchesAccount;
     });
+
+    // Sort by payment_approved_date in descending order
+    return filtered.sort((a, b) => {
+        const dateA = new Date((a as any).payment_approved_date || 0).getTime();
+        const dateB = new Date((b as any).payment_approved_date || 0).getTime();
+        return dateB - dateA;
+    });
+
   }, [sales, searchTerm, marketplace, dateRange, stateFilter, accountFilter]);
 
   const pickingLogsMap = useMemo(() => {
