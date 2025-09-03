@@ -14,6 +14,8 @@ import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -258,53 +260,76 @@ export default function CatalogoPdfPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                            {allProducts.map((product, index) => {
-                                const quantity = extractQuantity(product.description);
-                                const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
-                                const totalPrice = quantity * unitPrice;
-                                const currentIsSearching = product.isSearching || (isSearching && allProducts[index]?.isSearching);
-
-
-                                return (
-                                    <Card key={index} className="overflow-hidden flex flex-col">
-                                        <CardContent className="p-4 flex flex-col flex-grow">
-                                            <h3 className="font-semibold">{product.name}</h3>
-                                            <p className="text-sm text-muted-foreground my-2 flex-grow">{product.description}</p>
-                                            
-                                            <div className="mt-auto pt-2 space-y-2">
-                                                <p className="text-sm">
-                                                    <span className="font-medium">Unitário:</span> {formatCurrency(unitPrice)}
-                                                </p>
-                                                <p className="text-lg font-bold text-primary">
-                                                    TOTAL: {formatCurrency(totalPrice)}
-                                                </p>
-                                                 <Button size="sm" className="w-full" onClick={() => handleSearchOffers(index)} disabled={currentIsSearching}>
-                                                    {currentIsSearching ? <Loader2 className="animate-spin" /> : <Search />}
-                                                    Buscar no Mercado Livre
-                                                </Button>
+                         <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-2/5">Produto</TableHead>
+                                        <TableHead className="text-center">Qtd.</TableHead>
+                                        <TableHead className="text-right">Preço Unit.</TableHead>
+                                        <TableHead className="text-right">Preço Total</TableHead>
+                                        <TableHead className="text-center">Ações</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {allProducts.map((product, index) => {
+                                        const quantity = extractQuantity(product.description);
+                                        const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
+                                        const totalPrice = quantity * unitPrice;
+                                        const currentIsSearching = product.isSearching || (isSearching && allProducts[index]?.isSearching);
+                                        
+                                        return (
+                                             <React.Fragment key={index}>
+                                                <TableRow>
+                                                    <TableCell>
+                                                        <p className="font-semibold">{product.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{product.description}</p>
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-medium">{quantity}</TableCell>
+                                                    <TableCell className="text-right font-mono">{formatCurrency(unitPrice)}</TableCell>
+                                                    <TableCell className="text-right font-bold text-primary">{formatCurrency(totalPrice)}</TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button size="sm" onClick={() => handleSearchOffers(index)} disabled={currentIsSearching}>
+                                                            {currentIsSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                                            Buscar no ML
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
                                                 {product.foundProducts && (
-                                                    <div className="pt-2 text-xs space-y-1">
-                                                        {product.foundProducts.slice(0,3).map((offer, i) => (
-                                                            <div key={i} className="p-1 rounded bg-muted/50">
-                                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="hover:underline text-blue-600 line-clamp-1 font-semibold" title={offer.name}>
-                                                                    {offer.name}
-                                                                </Link>
-                                                                <div className="flex justify-between items-center text-muted-foreground">
-                                                                    <span>{offer.brand} - {offer.model}</span>
-                                                                    <Badge variant="outline">{offer.id}</Badge>
-                                                                </div>
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="p-2 bg-muted/50">
+                                                            <div className="p-2 space-y-2">
+                                                                <h4 className="text-xs font-semibold">Ofertas encontradas:</h4>
+                                                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                                    {product.foundProducts.slice(0,4).map((offer, i) => (
+                                                                        <div key={i} className="p-2 rounded bg-background border text-xs">
+                                                                            <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="hover:underline text-blue-600 line-clamp-1 font-semibold" title={offer.name}>
+                                                                                {offer.name}
+                                                                            </Link>
+                                                                            <div className="flex justify-between items-center text-muted-foreground mt-1">
+                                                                                <span>{offer.brand}</span>
+                                                                                <Badge variant="outline">{offer.id}</Badge>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                        </TableCell>
+                                                    </TableRow>
                                                 )}
-                                                {product.searchError && <p className="text-xs text-destructive">{product.searchError}</p>}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )
-                            })}
-                        </div>
+                                                {product.searchError && (
+                                                     <TableRow>
+                                                        <TableCell colSpan={5} className="p-2 text-center text-destructive bg-destructive/10">
+                                                           {product.searchError}
+                                                        </TableCell>
+                                                     </TableRow>
+                                                )}
+                                             </React.Fragment>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                         </div>
                     </CardContent>
                  </Card>
             )}
