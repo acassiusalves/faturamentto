@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useActionState, useEffect, useMemo } from 'react';
+import React, { useState, useActionState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,16 +42,19 @@ const listingTypeMap: Record<string, string> = {
 
 
 export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
-  const [searchState, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
+  const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
+  const [isPending, startTransition] = useTransition();
   const [showOnlyActive, setShowOnlyActive] = useState(true);
   const [broken, setBroken] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (isOpen && product) {
-      const formData = new FormData();
-      formData.append('productName', `${product.name} ${product.model}`);
-      formData.append('quantity', '10');
-      formAction(formData);
+        startTransition(() => {
+            const formData = new FormData();
+            formData.append('productName', `${product.name} ${product.model}`);
+            formData.append('quantity', '10');
+            formAction(formData);
+        });
     }
   }, [isOpen, product, formAction]);
   
@@ -60,6 +63,8 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     if (!showOnlyActive) return searchState.result;
     return searchState.result.filter((p: any) => p.price > 0);
   }, [searchState.result, showOnlyActive]);
+  
+  const isSearching = isSearchingAction || isPending;
 
 
   return (
