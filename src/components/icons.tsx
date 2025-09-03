@@ -61,7 +61,7 @@ export function FullIcon({ className }: { className?: string }) {
       alt="Mercado Livre Full"
       width={88}
       height={26}
-      className={cn("h-8 w-auto", className)}
+      className={cn("h-10 w-auto", className)}
     />
   );
 }
@@ -97,7 +97,7 @@ export function MercadoEnviosIcon({ className }: { className?: string }) {
       alt="Mercado Envios"
       width={720}
       height={130}
-      className={cn("h-7 w-auto", className)}
+      className={cn("h-6 w-auto", className)}
     />
   );
 }
