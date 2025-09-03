@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useEffect } from 'react';
+import { useState, useActionState, useEffect, useTransition } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export default function CatalogoPdfPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isParsing, setIsParsing] = useState(false);
     const [allProducts, setAllProducts] = useState<ProductSchema[]>([]);
+    const [isProcessing, startTransition] = useTransition();
 
     const [state, formAction, isAnalyzing] = useActionState(analyzeCatalogAction, initialState);
 
@@ -85,7 +86,9 @@ export default function CatalogoPdfPage() {
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
         
-        formAction(formData);
+        startTransition(() => {
+            formAction(formData);
+        });
     };
     
     const analyzeAllPages = async () => {
@@ -97,7 +100,7 @@ export default function CatalogoPdfPage() {
       }
     };
 
-    const isProcessing = isParsing || isAnalyzing;
+    const isProcessingAny = isParsing || isAnalyzing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
     return (
@@ -123,7 +126,7 @@ export default function CatalogoPdfPage() {
                 {pdfDoc && (
                     <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex-grow w-full">
-                            {isProcessing ? (
+                            {isProcessingAny ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
                                     <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
@@ -134,10 +137,10 @@ export default function CatalogoPdfPage() {
                              <Progress value={progress} className="w-full mt-2" />
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
-                             <Button onClick={() => analyzePage(currentPage)} disabled={isProcessing || currentPage > pdfDoc.numPages}>
+                             <Button onClick={() => analyzePage(currentPage)} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
                                 <Play className="mr-2" /> Analisar Próxima
                             </Button>
-                            <Button onClick={analyzeAllPages} disabled={isProcessing || currentPage > pdfDoc.numPages} variant="secondary">
+                            <Button onClick={analyzeAllPages} disabled={isProcessingAny || currentPage > pdfDoc.numPages} variant="secondary">
                                 <FastForward className="mr-2" /> Analisar Todas
                             </Button>
                         </div>
