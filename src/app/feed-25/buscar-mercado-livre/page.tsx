@@ -169,19 +169,19 @@ export default function BuscarMercadoLivrePage() {
                                                     {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                 </Link>
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
-                                                <div className="flex items-center gap-1.5 mt-1 text-sm font-semibold">
-                                                    <Truck className="h-4 w-4 text-muted-foreground" />
-                                                    {product.shipping_logistic_type === "fulfillment" ? (
-                                                        <FullIcon className="h-5" />
-                                                    ) : (
-                                                        <span className="text-muted-foreground">{product.shipping_type || "-"}</span>
+                                                <div className="flex flex-col items-start gap-1 mt-1.5">
+                                                    <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                                        <Truck className="h-4 w-4 text-muted-foreground" />
+                                                        {product.shipping_logistic_type === "fulfillment" ? (
+                                                            <FullIcon className="h-[14px]" />
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs">{product.shipping_type || "-"}</span>
+                                                        )}
+                                                    </div>
+                                                    {product.free_shipping && (
+                                                        <FreteGratisIcon className="h-5" />
                                                     )}
                                                 </div>
-                                                {product.free_shipping && (
-                                                    <div className="mt-1">
-                                                        <FreteGratisIcon />
-                                                    </div>
-                                                )}
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
                                             <TableCell>{product.brand}</TableCell>
