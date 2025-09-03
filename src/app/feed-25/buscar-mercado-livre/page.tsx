@@ -6,14 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon } from '@/components/icons';
 
 interface ProductResult {
@@ -136,7 +136,6 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>Modalidade de Entrega</TableHead>
                                         <TableHead>Frete</TableHead>
                                         <TableHead>ID Categoria</TableHead>
                                         <TableHead>Tipo</TableHead>
@@ -170,20 +169,20 @@ export default function BuscarMercadoLivrePage() {
                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                     {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                 </Link>
-                                                <div className="text-xs text-muted-foreground">ID Catálogo: {product.catalog_product_id}</div>
-                                                <div className="text-xs text-muted-foreground">ID Anúncio: {product.id}</div>
+                                                <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
+                                                <div className={cn("text-xs text-muted-foreground flex items-center gap-1.5 mt-1", product.shipping_logistic_type === "fulfillment" && "font-bold")}>
+                                                    <Truck className="h-3 w-3" />
+                                                    {product.shipping_logistic_type === "fulfillment" ? (
+                                                        <FullIcon className="h-[10px]" />
+                                                    ) : (
+                                                        <span>{product.shipping_type || "-"}</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell>
-                                                {product.shipping_logistic_type === "fulfillment" ? (
-                                                  <FullIcon />
-                                                ) : (
-                                                  <span>{product.shipping_type || "-"}</span>
-                                                )}
-                                            </TableCell>
                                             <TableCell>
                                                 {product.free_shipping && (
                                                     <Badge variant="secondary" className="ml-2">Grátis</Badge>
