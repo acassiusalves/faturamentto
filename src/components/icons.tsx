@@ -58,11 +58,12 @@ export function FullIcon({ className }: { className?: string }) {
     <svg
       role="img"
       aria-label="Full"
-      viewBox="0 0 41 13"
+      viewBox="0 0 44 13"
       className={cn(
         "inline-block h-3 w-auto align-middle leading-none text-[#00A650]",
         className
       )}
+      focusable="false"
     >
       <use href="#ml-full-icon" />
     </svg>
