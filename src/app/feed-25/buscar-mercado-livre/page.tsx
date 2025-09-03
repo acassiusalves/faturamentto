@@ -14,7 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
-import { FullIcon, FreteGratisIcon } from '@/components/icons';
+import { FullIcon, FreteGratisIcon, CorreiosLogo } from '@/components/icons';
 
 interface ProductResult {
     thumbnail: string;
@@ -30,7 +30,6 @@ interface ProductResult {
     free_shipping: boolean;
     category_id: string;
     listing_type_id: string;
-    seller_id: string;
     seller_nickname: string;
     official_store_id: string;
 }
@@ -136,8 +135,6 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>ID Categoria</TableHead>
-                                        <TableHead>Loja Oficial</TableHead>
                                         <TableHead>Vendedor</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -172,11 +169,16 @@ export default function BuscarMercadoLivrePage() {
                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
                                                         {product.shipping_logistic_type === "fulfillment" ? (
                                                             <FullIcon />
+                                                        ) : product.shipping_type === 'Correios' ? (
+                                                            <CorreiosLogo />
                                                         ) : (
                                                             product.shipping_type && <span className="text-muted-foreground text-xs">{product.shipping_type}</span>
                                                         )}
-                                                         {product.free_shipping && <FreteGratisIcon />}
+                                                        {product.shipping_logistic_type === 'fulfillment' && product.free_shipping && <FreteGratisIcon />}
                                                     </div>
+                                                    {!product.shipping_logistic_type && product.free_shipping && (
+                                                        <div className="mt-1"><FreteGratisIcon /></div>
+                                                    )}
                                                     {product.listing_type_id && (
                                                         <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
                                                     )}
@@ -186,8 +188,6 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
-                                            <TableCell>{product.official_store_id ? 'Sim' : 'Não'}</TableCell>
                                             <TableCell>
                                                 {product.seller_nickname && (
                                                     <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
@@ -198,7 +198,7 @@ export default function BuscarMercadoLivrePage() {
                                         </TableRow>
                                     )}) : (
                                         <TableRow>
-                                            <TableCell colSpan={11} className="h-24 text-center">
+                                            <TableCell colSpan={7} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
                                                     Nenhum produto encontrado para este termo.

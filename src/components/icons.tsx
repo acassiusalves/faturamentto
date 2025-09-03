@@ -61,7 +61,7 @@ export function FullIcon({ className }: { className?: string }) {
       alt="Mercado Livre Full"
       width={88}
       height={26}
-      className={cn("h-6 w-auto", className)}
+      className={cn("h-7 w-auto", className)}
     />
   );
 }
@@ -76,4 +76,16 @@ export function FreteGratisIcon({ className }: { className?: string }) {
             className={cn("h-5 w-auto", className)}
         />
     )
+}
+
+export function CorreiosLogo({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/correios-logo.svg"
+      alt="Correios"
+      width={254}
+      height={69}
+      className={cn("h-5 w-auto", className)}
+    />
+  );
 }

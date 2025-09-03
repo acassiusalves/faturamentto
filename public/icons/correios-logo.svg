@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 254 69" width="254" height="69">
+  <defs>
+    <style>
+      .bg { fill: #ffdb00; } /* fundo amarelo */
+      .txt {
+        fill: #2c2d6b;                         /* azul do texto   */
+        font: 800 40px/1.05 'Montserrat','Arial Black','Helvetica Neue',Arial,sans-serif;
+        letter-spacing: 1.5px;
+      }
+    </style>
+  </defs>
+
+  <!-- fundo -->
+  <rect class="bg" x="0" y="0" rx="6" ry="6" width="254" height="69"/>
+
+  <!-- texto centralizado -->
+  <text class="txt"
+        x="127" y="34.5"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        dy="0.02em">CORREIOS</text>
+</svg>
