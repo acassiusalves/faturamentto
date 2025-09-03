@@ -24,7 +24,8 @@ interface ProductResult {
     brand: string;
     model: string;
     price: number;
-    shipping: boolean;
+    shipping_type: string;
+    free_shipping: boolean;
     category_id: string;
     listing_type_id: string;
     seller_id: string;
@@ -133,6 +134,7 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
+                                        <TableHead>Modalidade de Entrega</TableHead>
                                         <TableHead>Frete</TableHead>
                                         <TableHead>ID Categoria</TableHead>
                                         <TableHead>Tipo</TableHead>
@@ -173,7 +175,12 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell>{product.shipping ? 'Grátis' : '-'}</TableCell>
+                                            <TableCell>{product.shipping_type || '-'}</TableCell>
+                                            <TableCell>
+                                                {product.free_shipping && (
+                                                    <Badge variant="secondary" className="ml-2">Grátis</Badge>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
                                             <TableCell>{product.listing_type_id}</TableCell>
                                             <TableCell>{product.official_store_id ? `Sim (${product.official_store_id})` : 'Não'}</TableCell>
@@ -186,7 +193,7 @@ export default function BuscarMercadoLivrePage() {
                                         </TableRow>
                                     )}) : (
                                         <TableRow>
-                                            <TableCell colSpan={11} className="h-24 text-center">
+                                            <TableCell colSpan={12} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
                                                     Nenhum produto encontrado para este termo.
