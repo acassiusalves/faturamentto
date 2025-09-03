@@ -1324,6 +1324,13 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
         brand,
         model,
         thumbnail: thumb,
+        price: item.price ?? 0,
+        shipping: item.shipping?.free_shipping ?? false,
+        category_id: item.category_id ?? '',
+        listing_type_id: item.listing_type_id ?? '',
+        seller_id: item.seller?.id ?? '',
+        seller_nickname: item.seller?.nickname ?? '',
+        official_store_id: item.official_store_id ?? '',
       };
     });
 
@@ -1333,12 +1340,12 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
     return { result: null, error: e?.message || 'Falha inesperada na busca do Mercado Livre.' };
   }
 }
-
     
 
     
 
     
+
 
 
 
