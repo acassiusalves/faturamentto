@@ -136,7 +136,7 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>Frete</TableHead>
+                                        <TableHead>Frete Grátis</TableHead>
                                         <TableHead>ID Categoria</TableHead>
                                         <TableHead>Tipo</TableHead>
                                         <TableHead>Loja Oficial</TableHead>
@@ -173,7 +173,7 @@ export default function BuscarMercadoLivrePage() {
                                                 <div className={cn("text-xs text-muted-foreground flex items-center gap-1.5 mt-1", product.shipping_logistic_type === "fulfillment" && "font-bold")}>
                                                     <Truck className="h-3 w-3" />
                                                     {product.shipping_logistic_type === "fulfillment" ? (
-                                                        <FullIcon className="h-[10px]" />
+                                                        <FullIcon className="h-5" />
                                                     ) : (
                                                         <span>{product.shipping_type || "-"}</span>
                                                     )}
@@ -184,9 +184,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell>
-                                                {product.free_shipping && (
-                                                    <Badge variant="secondary" className="ml-2">Grátis</Badge>
-                                                )}
+                                                {product.free_shipping ? 'Sim' : 'Não'}
                                             </TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
                                             <TableCell>{product.listing_type_id}</TableCell>
