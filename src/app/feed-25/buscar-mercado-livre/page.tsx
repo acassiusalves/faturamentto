@@ -208,7 +208,6 @@ export default function BuscarMercadoLivrePage() {
                                     <TableRow>
                                         <TableHead className="w-[120px]">Imagem</TableHead>
                                         <TableHead>Nome do Produto</TableHead>
-                                        <TableHead>Status</TableHead>
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Preço</TableHead>
                                     </TableRow>
@@ -269,13 +268,12 @@ export default function BuscarMercadoLivrePage() {
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status || ''}</Badge></TableCell>
                                             <TableCell>{product.brand || ''}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                         </TableRow>
                                     )}) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
+                                            <TableCell colSpan={4} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
                                                     Nenhum produto encontrado para os filtros selecionados.
