@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -49,9 +49,28 @@ export default function BuscarMercadoLivrePage() {
     const [isTransitioning, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
 
+    // Filter states
+    const [shippingFilter, setShippingFilter] = useState('all');
+    const [brandFilter, setBrandFilter] = useState('all');
+    const [officialStoreFilter, setOfficialStoreFilter] = useState('all');
+
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
+    
+    // Memoized unique filter options
+    const uniqueShippingTypes = useMemo(() => ['all', ...Array.from(new Set(state.result?.map(p => p.shipping_type).filter(Boolean) || []))], [state.result]);
+    const uniqueBrands = useMemo(() => ['all', ...Array.from(new Set(state.result?.map(p => p.brand).filter(Boolean) || []))], [state.result]);
+
+    const filteredResults = useMemo(() => {
+        return state.result?.filter(p => {
+            const shippingMatch = shippingFilter === 'all' || p.shipping_type === shippingFilter;
+            const brandMatch = brandFilter === 'all' || p.brand === brandFilter;
+            const storeMatch = officialStoreFilter === 'all' || (officialStoreFilter === 'yes' ? !!p.official_store_id : !p.official_store_id);
+            return shippingMatch && brandMatch && storeMatch;
+        }) || [];
+    }, [state.result, shippingFilter, brandFilter, officialStoreFilter]);
+
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,21 +93,25 @@ export default function BuscarMercadoLivrePage() {
     const isPending = isSearching || isTransitioning;
     
     const pageCount = useMemo(() => {
-        return Math.ceil((state?.result?.length || 0) / pageSize);
-    }, [state?.result, pageSize]);
+        return Math.ceil((filteredResults.length || 0) / pageSize);
+    }, [filteredResults, pageSize]);
 
     const paginatedResults = useMemo(() => {
         const startIndex = pageIndex * pageSize;
-        return state?.result?.slice(startIndex, startIndex + pageSize) || [];
-    }, [state?.result, pageIndex, pageSize]);
+        return filteredResults.slice(startIndex, startIndex + pageSize) || [];
+    }, [filteredResults, pageIndex, pageSize]);
     
+    useEffect(() => {
+        setPageIndex(0);
+    }, [shippingFilter, brandFilter, officialStoreFilter]);
+
     useEffect(() => {
         if (pageIndex >= pageCount && pageCount > 0) {
             setPageIndex(pageCount - 1);
         } else if (pageCount === 0) {
             setPageIndex(0);
         }
-    }, [state?.result, pageIndex, pageCount]);
+    }, [filteredResults, pageIndex, pageCount]);
 
 
     return (
@@ -146,7 +169,37 @@ export default function BuscarMercadoLivrePage() {
             {state?.result && !isPending && (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Resultados da Busca ({state.result.length})</CardTitle>
+                        <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
+                        <CardDescription>Filtre os resultados para refinar sua busca.</CardDescription>
+                        <div className="flex flex-col md:flex-row gap-4 pt-4">
+                             <div className="flex items-center gap-2 flex-1">
+                                <Filter className="h-5 w-5 text-muted-foreground"/>
+                                <Select value={shippingFilter} onValueChange={setShippingFilter}>
+                                    <SelectTrigger> <SelectValue placeholder="Filtrar por Entrega" /> </SelectTrigger>
+                                    <SelectContent>
+                                        {uniqueShippingTypes.map(type => (
+                                            <SelectItem key={type} value={type}>{type === 'all' ? 'Todos os Tipos' : type || 'N/A'}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={brandFilter} onValueChange={setBrandFilter}>
+                                    <SelectTrigger> <SelectValue placeholder="Filtrar por Marca" /> </SelectTrigger>
+                                    <SelectContent>
+                                        {uniqueBrands.map(brand => (
+                                            <SelectItem key={brand} value={brand}>{brand === 'all' ? 'Todas as Marcas' : brand || 'N/A'}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={officialStoreFilter} onValueChange={setOfficialStoreFilter}>
+                                    <SelectTrigger> <SelectValue placeholder="Filtrar por Loja Oficial" /> </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todas as Lojas</SelectItem>
+                                        <SelectItem value="yes">Apenas Lojas Oficiais</SelectItem>
+                                        <SelectItem value="no">Excluir Lojas Oficiais</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                          <div className="rounded-md border overflow-auto">
@@ -216,6 +269,9 @@ export default function BuscarMercadoLivrePage() {
                                                         {product.seller_nickname}
                                                     </Link>
                                                 )}
+                                                {product.official_store_id && (
+                                                    <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )}) : (
@@ -223,7 +279,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell colSpan={7} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
-                                                    Nenhum produto encontrado para este termo.
+                                                    Nenhum produto encontrado para os filtros selecionados.
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -234,7 +290,7 @@ export default function BuscarMercadoLivrePage() {
                     </CardContent>
                     <CardFooter className="flex items-center justify-between flex-wrap gap-4">
                         <div className="text-sm text-muted-foreground">
-                            Total de {state.result.length} registros.
+                            Total de {filteredResults.length} registros.
                         </div>
                         <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
                             <div className="flex items-center gap-2">
