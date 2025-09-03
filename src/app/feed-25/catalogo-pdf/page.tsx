@@ -45,7 +45,6 @@ export default function CatalogoPdfPage() {
       }
     
       try {
-        // 1) Faz TODO o trabalho assíncrono ANTES da transition
         const page = await pdfDoc.getPage(pageNumber);
         const textContent = await page.getTextContent();
         const pageText = textContent.items
@@ -57,12 +56,10 @@ export default function CatalogoPdfPage() {
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
     
-        // 2) Só aqui iniciamos a transition e chamamos o formAction SINCRONAMENTE
         startTransition(() => {
           formAction(formData);
         });
       } catch (err) {
-        // Trate erro local para não travar o loop
         console.error('Erro ao analisar página', err);
         setIsAnalyzingAll(false);
         toast({
@@ -77,26 +74,25 @@ export default function CatalogoPdfPage() {
     useEffect(() => {
         if (state.error) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-            setIsAnalyzingAll(false); // Stop on error
+            setIsAnalyzingAll(false); 
         }
         if (state.result) {
             setAllProducts(prev => [...prev, ...state.result!.products]);
-            if (currentPage < (pdfDoc?.numPages || 0)) {
+            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {
-                 setIsAnalyzingAll(false); // Finished all pages
+                 setIsAnalyzingAll(false); 
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state]);
 
-    // This effect triggers the next page analysis when isAnalyzingAll is true
     useEffect(() => {
         if (isAnalyzingAll && !isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
             analyzePage(currentPage);
         }
          if (isAnalyzingAll && currentPage > (pdfDoc?.numPages || 0)) {
-            setIsAnalyzingAll(false); // Ensure it stops if manually advanced past the end
+            setIsAnalyzingAll(false); 
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, isAnalyzingAll, isProcessing]);
@@ -128,20 +124,32 @@ export default function CatalogoPdfPage() {
 
     const handleAnalyzeAllClick = () => {
         if (!isProcessing) {
+            setCurrentPage(1); // Start from the beginning
+            setAllProducts([]); // Clear previous results
             setIsAnalyzingAll(true);
-            // The useEffect will trigger the first analysis
-            if (currentPage <= (pdfDoc?.numPages || 0)) {
-                analyzePage(currentPage);
-            }
         }
     };
     
     const handleAnalyzeNextClick = () => {
-        if (!isProcessing) {
+        if (!isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
            analyzePage(currentPage);
+           setCurrentPage(p => p + 1);
         }
     };
 
+    const extractQuantity = (description: string): number => {
+        if (!description) return 1;
+        const match = description.match(/(\d+)\s*(PCS|CX|UN)/i);
+        return match ? parseInt(match[1], 10) : 1;
+    };
+
+    const formatCurrency = (value: number) => {
+        if (isNaN(value)) return 'N/A';
+        return value.toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+        });
+    }
 
     const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
@@ -183,7 +191,7 @@ export default function CatalogoPdfPage() {
                              <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
                                 <Play className="mr-2" /> Analisar Próxima
                             </Button>
-                            <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages} variant="secondary">
+                            <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny} variant="secondary">
                                 {isAnalyzingAll ? <Loader2 className="animate-spin mr-2" /> : <FastForward className="mr-2" />}
                                 {isAnalyzingAll ? 'Analisando...' : 'Analisar Todas'}
                             </Button>
@@ -205,17 +213,29 @@ export default function CatalogoPdfPage() {
                     </CardHeader>
                     <CardContent>
                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                            {allProducts.map((product, index) => (
-                                <Card key={index} className="overflow-hidden flex flex-col">
-                                    <CardContent className="p-4 flex flex-col flex-grow">
-                                        <h3 className="font-semibold">{product.name}</h3>
-                                        <p className="text-sm text-muted-foreground my-2 flex-grow">{product.description}</p>
-                                        <div className="text-lg font-bold text-primary mt-auto pt-2">
-                                            {product.price ? `R$ ${product.price}` : 'Preço não encontrado'}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                            {allProducts.map((product, index) => {
+                                const quantity = extractQuantity(product.description);
+                                const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
+                                const totalPrice = quantity * unitPrice;
+
+                                return (
+                                    <Card key={index} className="overflow-hidden flex flex-col">
+                                        <CardContent className="p-4 flex flex-col flex-grow">
+                                            <h3 className="font-semibold">{product.name}</h3>
+                                            <p className="text-sm text-muted-foreground my-2">{product.description}</p>
+                                            
+                                            <div className="mt-auto pt-2 space-y-1">
+                                                <p className="text-sm">
+                                                    <span className="font-medium">Unitário:</span> {formatCurrency(unitPrice)}
+                                                </p>
+                                                <p className="text-lg font-bold text-primary">
+                                                    TOTAL: {formatCurrency(totalPrice)}
+                                                </p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
                         </div>
                     </CardContent>
                  </Card>
