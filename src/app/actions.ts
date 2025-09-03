@@ -1290,46 +1290,38 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
     if (!q) {
       return { result: null, error: 'Termo de busca vazio.' };
     }
-
-    // A busca real agora é feita diretamente aqui, sem passar pelo Genkit
+    
     const searchResult = await searchMercadoLivreProducts(q, limit);
 
     const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, 'https://') : '');
-
+    
     const result = (searchResult || []).map((item: any) => {
-      const attrs = Array.isArray(item.attributes) ? item.attributes : [];
-      const brand = attrs.find((a: any) => a.id === 'BRAND')?.value_name || '';
-      const model = attrs.find((a: any) => a.id === 'MODEL')?.value_name || '';
+      const name =
+        (item.name ?? "").toString().trim() ||
+        (item?.attributes?.find((a:any)=>a.id==="TITLE")?.value_name ?? "").toString().trim() ||
+        String(item.id);
 
-      // Lógica de fallback para a imagem
-      let thumb =
+      const thumb =
         item.secure_thumbnail ||
         item.thumbnail ||
         (Array.isArray(item.pictures) && item.pictures[0]?.secure_url) ||
         (Array.isArray(item.pictures) && item.pictures[0]?.url) ||
         '';
-      
-      thumb = toHttps(thumb);
-
-      const name =
-        (item.title ?? "").toString().trim() ||
-        (item?.attributes?.find((a:any)=>a.id==="TITLE")?.value_name ?? "").toString().trim() ||
-        String(item.id);
 
       return {
         id: item.id,
         name: name,
         status: item.status || '',
         catalog_product_id: item.catalog_product_id || '',
-        brand,
-        model,
-        thumbnail: thumb,
+        brand: item.brand || 'N/A',
+        model: item.model || 'N/A',
+        thumbnail: toHttps(thumb),
         price: item.price ?? 0,
-        shipping: item.shipping?.free_shipping ?? false,
+        shipping: item.shipping || false,
         category_id: item.category_id ?? '',
         listing_type_id: item.listing_type_id ?? '',
-        seller_id: item.seller?.id ?? '',
-        seller_nickname: item.seller?.nickname ?? '',
+        seller_id: item.seller_id ?? '',
+        seller_nickname: item.seller_nickname ?? '',
         official_store_id: item.official_store_id ?? '',
       };
     });
@@ -1345,6 +1337,7 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
     
 
     
+
 
 
 
