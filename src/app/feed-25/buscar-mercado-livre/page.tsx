@@ -174,13 +174,15 @@ export default function BuscarMercadoLivrePage() {
                                                         {product.shipping_logistic_type === "fulfillment" ? (
                                                             <FullIcon />
                                                         ) : (
-                                                            <span className="text-muted-foreground text-xs">{product.shipping_type || "-"}</span>
+                                                            product.shipping_type && <span className="text-muted-foreground text-xs">{product.shipping_type}</span>
                                                         )}
                                                     </div>
                                                     {product.free_shipping && (
                                                         <FreteGratisIcon />
                                                     )}
-                                                    <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
+                                                    {product.listing_type_id && (
+                                                        <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
@@ -188,11 +190,13 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
-                                            <TableCell>{product.official_store_id ? `Sim (${product.official_store_id})` : 'Não'}</TableCell>
+                                            <TableCell>{product.official_store_id ? `Sim` : 'Não'}</TableCell>
                                             <TableCell>
-                                                <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
-                                                    {product.seller_nickname}
-                                                </Link>
+                                                {product.seller_nickname && (
+                                                    <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
+                                                        {product.seller_nickname}
+                                                    </Link>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     )}) : (

@@ -1,3 +1,4 @@
+
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -66,13 +67,13 @@ export async function searchMercadoLivreAction(
         name,
         status: item.status || '',
         catalog_product_id: item.catalog_product_id || '',
-        brand: item.brand || 'N/A',
-        model: item.model || 'N/A',
+        brand: item.brand || '',
+        model: item.model || '',
         thumbnail: item.thumbnail,
         price: item.price ?? 0,
-        shipping_type: item.shipping_type || 'N/A',
+        shipping_type: item.shipping_type || '',
         free_shipping: !!item.free_shipping,
-        shipping_logistic_type: item.shipping_logistic_type, // Adicionado
+        shipping_logistic_type: item.shipping_logistic_type,
         category_id: item.category_id ?? '',
         listing_type_id: item.listing_type_id ?? '',
         seller_id: item.seller_id ?? '',

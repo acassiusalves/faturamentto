@@ -131,11 +131,11 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
     const brand =
       p?.brand ||
       getAttr(attrs, ["BRAND", "MARCA"]) ||
-      "N/A";
+      "";
     const model =
       p?.model ||
       getAttr(attrs, ["MODEL", "MODELO", "ALPHANUMERIC_MODEL", "MODEL_NUMBER"]) ||
-      "N/A";
+      "";
 
     const thumb =
       p?.secure_thumbnail ||
@@ -164,10 +164,10 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
 
       // anúncio vencedor (se houver)
       price: Number(price) || 0,
-      shipping_type: freightMap[rawFreightType] || rawFreightType || "N/A",
+      shipping_type: freightMap[rawFreightType] || rawFreightType || "",
       shipping_logistic_type: rawFreightType,
       free_shipping: !!winner?.shipping?.free_shipping,
-      listing_type_id: listingTypeMap[rawListingType] || rawListingType || "N/A",
+      listing_type_id: listingTypeMap[rawListingType] || rawListingType || "",
       category_id: winner?.category_id ?? "",
       official_store_id: winner?.official_store_id ?? null,
       seller_id: winner?.seller_id ?? "",
