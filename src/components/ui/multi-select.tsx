@@ -56,6 +56,7 @@ export function MultiSelect({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            type="button"               // <— impede submit acidental
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -64,19 +65,22 @@ export function MultiSelect({
             <span className="truncate">{summary}</span>
             <div className="flex items-center gap-2">
               {value.length > 0 && (
-                <X
-                  className="h-4 w-4 opacity-70 hover:opacity-100"
-                  onClick={clearAll}
-                />
+                <X className="h-4 w-4 opacity-70 hover:opacity-100" onClick={clearAll} />
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </div>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+
+        <PopoverContent
+          align="start"
+          sideOffset={6}
+          className="z-50 w-[var(--radix-popover-trigger-width)] p-0"
+          onOpenAutoFocus={(e) => e.preventDefault()} // evita focar e fechar sem querer
+        >
           <Command>
             <CommandInput placeholder="Filtrar..." />
-            <CommandList>
+            <CommandList className="max-h-64 overflow-auto">
               <CommandEmpty>{emptyText}</CommandEmpty>
               <CommandGroup>
                 {options.map((opt) => {
@@ -84,10 +88,23 @@ export function MultiSelect({
                   return (
                     <CommandItem
                       key={opt.value}
-                      onSelect={() => toggle(opt.value)}
-                      className="gap-2"
+                      className="gap-2 cursor-pointer"
+                      onSelect={(ev) => {
+                        // garante toggle via teclado e alguns browsers
+                        ev?.preventDefault?.();
+                        toggle(opt.value);
+                      }}
+                      onClick={(e) => {
+                        // garante toggle via mouse em todos os casos
+                        e.preventDefault();
+                        toggle(opt.value);
+                      }}
                     >
-                      <Checkbox checked={checked} onCheckedChange={() => toggle(opt.value)} />
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggle(opt.value)}
+                        onClick={(e) => e.stopPropagation()} // não deixa o CommandItem engolir o clique
+                      />
                       <span className="flex-1 truncate">{opt.label}</span>
                       {checked && <Check className="h-4 w-4" />}
                     </CommandItem>
@@ -99,7 +116,6 @@ export function MultiSelect({
         </PopoverContent>
       </Popover>
 
-      {/* Chips abaixo (opcional) */}
       {value.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {value.map((v) => {
