@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 130" role="img" aria-label="mercado envíos">
+  <title>mercado envíos</title>
+  <style>
+    .ml-blue{ fill:#223B77; }   /* azul */
+    .ml-lime{ fill:#B7E000; }   /* verde */
+    .word{ font-weight:800; font-family: Montserrat, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  </style>
+
+  <!-- Texto em uma linha; use tspan para colorir "envíos" -->
+  <text x="50%" y="95" text-anchor="middle" class="word ml-blue" font-size="96" letter-spacing="-1.5">
+    mercado<tspan class="ml-lime" dx="14">envíos</tspan>
+  </text>
+</svg>

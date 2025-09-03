@@ -14,7 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
-import { FullIcon, FreteGratisIcon, CorreiosLogo } from '@/components/icons';
+import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
@@ -190,15 +190,14 @@ export default function BuscarMercadoLivrePage() {
                                                 </Link>
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
                                                 <div className="flex flex-col items-start gap-1 mt-1.5">
-                                                    <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                        {product.shipping_logistic_type === "fulfillment" && <FullIcon className="h-7 w-auto" />}
+                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                                        {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
                                                         {product.shipping_type === 'Correios' && <CorreiosLogo />}
-                                                        {product.shipping_logistic_type === 'fulfillment' && product.free_shipping ? (
-                                                             <FreteGratisIcon className="h-5 w-auto" />
-                                                        ) : (
-                                                            !product.shipping_logistic_type && product.free_shipping && (
-                                                                <div className="mt-1"><FreteGratisIcon /></div>
-                                                            )
+                                                        {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                        {product.free_shipping && (
+                                                            <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
+                                                                <FreteGratisIcon />
+                                                            </div>
                                                         )}
                                                     </div>
                                                     
@@ -207,7 +206,7 @@ export default function BuscarMercadoLivrePage() {
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
+                                            <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status || ''}</Badge></TableCell>
                                             <TableCell>{product.brand || ''}</TableCell>
                                             <TableCell>{product.model || ''}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
