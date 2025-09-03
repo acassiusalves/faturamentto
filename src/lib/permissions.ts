@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -54,6 +54,7 @@ export const navLinks = [
         { href: "/feed-25", label: "Processador de Listas", icon: Sparkles },
         { href: "/feed-25/lista", label: "Feed Comparativo", icon: ListChecks },
         { href: "/feed-25/catalogo-pdf", label: "Catálogo PDF", icon: BookImage },
+        { href: "/feed-25/buscar-mercado-livre", label: "Buscar Mercado Livre", icon: Search },
       ]
     },
 ];
@@ -93,6 +94,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/feed-25': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/feed-25/lista': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/feed-25/catalogo-pdf': ['admin', 'financeiro', 'expedicao', 'sac'],
+    '/feed-25/buscar-mercado-livre': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/avisos': ['admin'],
     '/anuncios': ['admin'],
     '/etiquetas': ['admin'],
