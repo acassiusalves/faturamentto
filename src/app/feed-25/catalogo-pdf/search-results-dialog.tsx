@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useEffect } from 'react';
+import React, { useState, useActionState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +55,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     }
   }, [isOpen, product, formAction]);
   
-  const filteredResults = React.useMemo(() => {
+  const filteredResults = useMemo(() => {
     if (!searchState.result) return [];
     if (!showOnlyActive) return searchState.result;
     return searchState.result.filter((p: any) => p.price > 0);
