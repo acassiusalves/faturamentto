@@ -57,17 +57,21 @@ export default function BuscarMercadoLivrePage() {
     // Filter states
     const [shippingFilter, setShippingFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
-    const [officialStoreFilter, setOfficialStoreFilter] = useState<("yes"|"no")[]>([]); // vazio = todas
+    const [officialStoreFilter, setOfficialStoreFilter] = useState<("yes"|"no")[]>([]);
+    const [offerStatusFilter, setOfferStatusFilter] = useState<("active" | "catalog")[]>([]);
+
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
     // Memoized unique filter options with counts
-    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts } = useMemo(() => {
+    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts, offerStatusCounts } = useMemo(() => {
         const shippingCounts: Record<string, number> = {};
         const brandCounts: Record<string, number> = {};
         const storeCounts = { official: 0, nonOfficial: 0 };
+        const offerCounts = { active: 0, catalog: 0 };
+
 
         (state.result || []).forEach(p => {
             if (p.shipping_type) {
@@ -80,6 +84,11 @@ export default function BuscarMercadoLivrePage() {
                 storeCounts.official++;
             } else {
                 storeCounts.nonOfficial++;
+            }
+            if (p.price > 0) {
+                offerCounts.active++;
+            } else {
+                offerCounts.catalog++;
             }
         });
 
@@ -98,27 +107,32 @@ export default function BuscarMercadoLivrePage() {
                 count: brandCounts[opt]
             })),
             storeTypeCounts: storeCounts,
+            offerStatusCounts: offerCounts,
         };
     }, [state.result]);
 
     const filteredResults = useMemo(() => {
         return (
             state.result?.filter((p) => {
-            const shippingMatch = shippingFilter.length === 0 || shippingFilter.includes(p.shipping_type);
-            const brandMatch = brandFilter.length === 0 || brandFilter.includes(p.brand);
-            const storeMatch =
-                officialStoreFilter.length === 0 ||
-                (officialStoreFilter.includes("yes") && !!p.official_store_id) ||
-                (officialStoreFilter.includes("no") && !p.official_store_id);
+                const shippingMatch = shippingFilter.length === 0 || shippingFilter.includes(p.shipping_type);
+                const brandMatch = brandFilter.length === 0 || brandFilter.includes(p.brand);
+                
+                const storeMatch =
+                    officialStoreFilter.length === 0 ||
+                    (officialStoreFilter.includes("yes") && !!p.official_store_id) ||
+                    (officialStoreFilter.includes("no") && !p.official_store_id);
+                const storeOk = officialStoreFilter.length === 2 ? true : storeMatch;
 
-            // se usuário marcou "yes" e "no", equivaler a todas
-            const storeOk =
-                officialStoreFilter.length === 2 ? true : storeMatch;
+                const offerMatch =
+                    offerStatusFilter.length === 0 ||
+                    (offerStatusFilter.includes("active") && p.price > 0) ||
+                    (offerStatusFilter.includes("catalog") && p.price === 0);
+                const offerOk = offerStatusFilter.length === 2 ? true : offerMatch;
 
-            return shippingMatch && brandMatch && storeOk;
+                return shippingMatch && brandMatch && storeOk && offerOk;
             }) || []
         );
-    }, [state.result, shippingFilter, brandFilter, officialStoreFilter]);
+    }, [state.result, shippingFilter, brandFilter, officialStoreFilter, offerStatusFilter]);
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -152,7 +166,7 @@ export default function BuscarMercadoLivrePage() {
     
     useEffect(() => {
       setPageIndex(0);
-    }, [shippingFilter, brandFilter, officialStoreFilter]);
+    }, [shippingFilter, brandFilter, officialStoreFilter, offerStatusFilter]);
 
     useEffect(() => {
         if (pageIndex >= pageCount && pageCount > 0) {
@@ -221,12 +235,15 @@ export default function BuscarMercadoLivrePage() {
                         shippingOptions={shippingOptionsWithCounts}
                         brandOptions={brandOptionsWithCounts}
                         storeTypeCounts={storeTypeCounts}
+                        offerStatusCounts={offerStatusCounts}
                         selectedShipping={shippingFilter}
                         setSelectedShipping={setShippingFilter}
                         selectedBrands={brandFilter}
                         setSelectedBrands={setBrandFilter}
                         storeFilter={officialStoreFilter}
                         setStoreFilter={setOfficialStoreFilter}
+                        offerStatusFilter={offerStatusFilter}
+                        setOfferStatusFilter={setOfferStatusFilter}
                     />
 
                     <Card>
@@ -248,7 +265,7 @@ export default function BuscarMercadoLivrePage() {
                                         {paginatedResults.length > 0 ? paginatedResults.map(product => {
                                             const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
                                             return (
-                                            <TableRow key={product.id}>
+                                            <TableRow key={product.id} className={cn(product.price === 0 && "opacity-50 bg-muted/50")}>
                                                 <TableCell>
                                                     <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                                                         {product.thumbnail && !broken.has(product.id) ? (

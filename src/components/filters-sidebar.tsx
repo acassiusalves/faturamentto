@@ -18,12 +18,15 @@ type FiltersSidebarProps = {
   shippingOptions: FilterOption[];
   brandOptions: FilterOption[];
   storeTypeCounts: { official: number; nonOfficial: number };
+  offerStatusCounts: { active: number; catalog: number; };
   selectedShipping: string[];
   setSelectedShipping: (v: string[]) => void;
   selectedBrands: string[];
   setSelectedBrands: (v: string[]) => void;
   storeFilter: ("yes"|"no")[];
   setStoreFilter: (v: ("yes" | "no")[]) => void;
+  offerStatusFilter: ("active" | "catalog")[];
+  setOfferStatusFilter: (v: ("active" | "catalog")[]) => void;
   className?: string;
 };
 
@@ -33,12 +36,15 @@ export function FiltersSidebar({
   shippingOptions,
   brandOptions,
   storeTypeCounts,
+  offerStatusCounts,
   selectedShipping,
   setSelectedShipping,
   selectedBrands,
   setSelectedBrands,
   storeFilter,
   setStoreFilter,
+  offerStatusFilter,
+  setOfferStatusFilter,
   className,
 }: FiltersSidebarProps) {
   const [brandQuery, setBrandQuery] = React.useState("");
@@ -59,6 +65,7 @@ export function FiltersSidebar({
     setSelectedShipping([]);
     setSelectedBrands([]);
     setStoreFilter([]);
+    setOfferStatusFilter([]);
   };
   
   const visibleBrands = showAllBrands ? filteredBrands : filteredBrands.slice(0, INITIAL_VISIBLE_COUNT);
@@ -73,6 +80,28 @@ export function FiltersSidebar({
             Limpar
           </Button>
         </div>
+
+        {/* Status da Oferta */}
+        <section className="mb-4 border-b pb-4">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Status da Oferta</p>
+          <div className="space-y-2">
+             {[
+              { label: "Com oferta ativa", value: "active" as const, count: offerStatusCounts.active },
+              { label: "Apenas catálogo", value: "catalog" as const, count: offerStatusCounts.catalog },
+            ].map((o) => (
+              <label key={o.value} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
+                 <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={offerStatusFilter.includes(o.value)}
+                      onCheckedChange={() => toggle(offerStatusFilter, setOfferStatusFilter, o.value)}
+                    />
+                    <span>{o.label}</span>
+                </div>
+                 <Badge variant="outline" className="font-normal">{o.count}</Badge>
+              </label>
+            ))}
+          </div>
+        </section>
 
         {/* Tipos de entrega */}
         <section className="mb-4">
