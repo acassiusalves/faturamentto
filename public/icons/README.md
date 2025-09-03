@@ -1,0 +1,1 @@
+Este diretório é para ícones e outros recursos estáticos.
