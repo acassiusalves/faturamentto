@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useEffect, useTransition } from 'react';
+import { useState, useActionState, useEffect, useTransition, useCallback } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -153,7 +153,7 @@ export default function CatalogoPdfPage() {
                 {pdfDoc && (
                     <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex-grow w-full">
-                            {isProcessing ? (
+                            {isProcessingAny ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
                                     <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
