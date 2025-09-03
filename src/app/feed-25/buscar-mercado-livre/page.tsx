@@ -14,7 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
-import { FullIcon } from '@/components/icons';
+import { FullIcon, FreteGratisIcon } from '@/components/icons';
 
 interface ProductResult {
     thumbnail: string;
@@ -136,7 +136,7 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>Frete Grátis</TableHead>
+                                        <TableHead>Frete</TableHead>
                                         <TableHead>ID Categoria</TableHead>
                                         <TableHead>Tipo</TableHead>
                                         <TableHead>Loja Oficial</TableHead>
@@ -170,12 +170,12 @@ export default function BuscarMercadoLivrePage() {
                                                     {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                 </Link>
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
-                                                <div className={cn("text-xs text-muted-foreground flex items-center gap-1.5 mt-1", product.shipping_logistic_type === "fulfillment" && "font-bold")}>
-                                                    <Truck className="h-3 w-3" />
+                                                <div className="flex items-center gap-1.5 mt-1 text-sm font-semibold">
+                                                    <Truck className="h-4 w-4 text-muted-foreground" />
                                                     {product.shipping_logistic_type === "fulfillment" ? (
-                                                        <FullIcon className="h-5" />
+                                                        <FullIcon className="h-4" />
                                                     ) : (
-                                                        <span>{product.shipping_type || "-"}</span>
+                                                        <span className="text-muted-foreground">{product.shipping_type || "-"}</span>
                                                     )}
                                                 </div>
                                             </TableCell>
@@ -184,7 +184,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell>
-                                                {product.free_shipping ? 'Sim' : 'Não'}
+                                                {product.free_shipping && <FreteGratisIcon />}
                                             </TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
                                             <TableCell>{product.listing_type_id}</TableCell>
