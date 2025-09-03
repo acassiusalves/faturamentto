@@ -17,6 +17,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FiltersSidebar } from "@/components/filters-sidebar";
+import { Switch } from '@/components/ui/switch';
 
 
 interface ProductResult {
@@ -58,7 +59,7 @@ export default function BuscarMercadoLivrePage() {
     const [shippingFilter, setShippingFilter] = useState<string[]>([]);
     const [brandFilter, setBrandFilter] = useState<string[]>([]);
     const [officialStoreFilter, setOfficialStoreFilter] = useState<("yes"|"no")[]>([]);
-    const [offerStatusFilter, setOfferStatusFilter] = useState<("active" | "catalog")[]>([]);
+    const [showOnlyActive, setShowOnlyActive] = useState(true);
 
 
     // Pagination state
@@ -66,11 +67,10 @@ export default function BuscarMercadoLivrePage() {
     const [pageSize, setPageSize] = useState(50);
     
     // Memoized unique filter options with counts
-    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts, offerStatusCounts } = useMemo(() => {
+    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts } = useMemo(() => {
         const shippingCounts: Record<string, number> = {};
         const brandCounts: Record<string, number> = {};
         const storeCounts = { official: 0, nonOfficial: 0 };
-        const offerCounts = { active: 0, catalog: 0 };
 
 
         (state.result || []).forEach(p => {
@@ -84,11 +84,6 @@ export default function BuscarMercadoLivrePage() {
                 storeCounts.official++;
             } else {
                 storeCounts.nonOfficial++;
-            }
-            if (p.price > 0) {
-                offerCounts.active++;
-            } else {
-                offerCounts.catalog++;
             }
         });
 
@@ -107,7 +102,6 @@ export default function BuscarMercadoLivrePage() {
                 count: brandCounts[opt]
             })),
             storeTypeCounts: storeCounts,
-            offerStatusCounts: offerCounts,
         };
     }, [state.result]);
 
@@ -123,16 +117,12 @@ export default function BuscarMercadoLivrePage() {
                     (officialStoreFilter.includes("no") && !p.official_store_id);
                 const storeOk = officialStoreFilter.length === 2 ? true : storeMatch;
 
-                const offerMatch =
-                    offerStatusFilter.length === 0 ||
-                    (offerStatusFilter.includes("active") && p.price > 0) ||
-                    (offerStatusFilter.includes("catalog") && p.price === 0);
-                const offerOk = offerStatusFilter.length === 2 ? true : offerMatch;
+                const activeMatch = !showOnlyActive || p.price > 0;
 
-                return shippingMatch && brandMatch && storeOk && offerOk;
+                return shippingMatch && brandMatch && storeOk && activeMatch;
             }) || []
         );
-    }, [state.result, shippingFilter, brandFilter, officialStoreFilter, offerStatusFilter]);
+    }, [state.result, shippingFilter, brandFilter, officialStoreFilter, showOnlyActive]);
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -166,7 +156,7 @@ export default function BuscarMercadoLivrePage() {
     
     useEffect(() => {
       setPageIndex(0);
-    }, [shippingFilter, brandFilter, officialStoreFilter, offerStatusFilter]);
+    }, [shippingFilter, brandFilter, officialStoreFilter]);
 
     useEffect(() => {
         if (pageIndex >= pageCount && pageCount > 0) {
@@ -235,21 +225,26 @@ export default function BuscarMercadoLivrePage() {
                         shippingOptions={shippingOptionsWithCounts}
                         brandOptions={brandOptionsWithCounts}
                         storeTypeCounts={storeTypeCounts}
-                        offerStatusCounts={offerStatusCounts}
                         selectedShipping={shippingFilter}
                         setSelectedShipping={setShippingFilter}
                         selectedBrands={brandFilter}
                         setSelectedBrands={setBrandFilter}
                         storeFilter={officialStoreFilter}
                         setStoreFilter={setOfficialStoreFilter}
-                        offerStatusFilter={offerStatusFilter}
-                        setOfferStatusFilter={setOfferStatusFilter}
                     />
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
-                            <CardDescription>Produtos encontrados no catálogo do Mercado Livre.</CardDescription>
+                             <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
+                                    <CardDescription>Produtos encontrados no catálogo do Mercado Livre.</CardDescription>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Label htmlFor="active-only-switch" className="text-sm font-medium">Apenas ativos</Label>
+                                    <Switch id="active-only-switch" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="rounded-md border overflow-auto">

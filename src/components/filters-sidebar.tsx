@@ -18,15 +18,12 @@ type FiltersSidebarProps = {
   shippingOptions: FilterOption[];
   brandOptions: FilterOption[];
   storeTypeCounts: { official: number; nonOfficial: number };
-  offerStatusCounts: { active: number; catalog: number; };
   selectedShipping: string[];
   setSelectedShipping: (v: string[]) => void;
   selectedBrands: string[];
   setSelectedBrands: (v: string[]) => void;
   storeFilter: ("yes"|"no")[];
   setStoreFilter: (v: ("yes" | "no")[]) => void;
-  offerStatusFilter: ("active" | "catalog")[];
-  setOfferStatusFilter: (v: ("active" | "catalog")[]) => void;
   className?: string;
 };
 
@@ -36,19 +33,17 @@ export function FiltersSidebar({
   shippingOptions,
   brandOptions,
   storeTypeCounts,
-  offerStatusCounts,
   selectedShipping,
   setSelectedShipping,
   selectedBrands,
   setSelectedBrands,
   storeFilter,
   setStoreFilter,
-  offerStatusFilter,
-  setOfferStatusFilter,
   className,
 }: FiltersSidebarProps) {
   const [brandQuery, setBrandQuery] = React.useState("");
   const [showAllBrands, setShowAllBrands] = React.useState(false);
+  const [showAllShipping, setShowAllShipping] = React.useState(false);
 
   const filteredBrands = React.useMemo(() => {
     const q = brandQuery.trim().toLowerCase();
@@ -65,10 +60,10 @@ export function FiltersSidebar({
     setSelectedShipping([]);
     setSelectedBrands([]);
     setStoreFilter([]);
-    setOfferStatusFilter([]);
   };
   
   const visibleBrands = showAllBrands ? filteredBrands : filteredBrands.slice(0, INITIAL_VISIBLE_COUNT);
+  const visibleShipping = showAllShipping ? shippingOptions : shippingOptions.slice(0, INITIAL_VISIBLE_COUNT);
 
 
   return (
@@ -80,37 +75,15 @@ export function FiltersSidebar({
             Limpar
           </Button>
         </div>
-
-        {/* Status da Oferta */}
-        <section className="mb-4 border-b pb-4">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">Status da Oferta</p>
-          <div className="space-y-2">
-             {[
-              { label: "Com oferta ativa", value: "active" as const, count: offerStatusCounts.active },
-              { label: "Apenas catálogo", value: "catalog" as const, count: offerStatusCounts.catalog },
-            ].map((o) => (
-              <label key={o.value} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
-                 <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={offerStatusFilter.includes(o.value)}
-                      onCheckedChange={() => toggle(offerStatusFilter, setOfferStatusFilter, o.value)}
-                    />
-                    <span>{o.label}</span>
-                </div>
-                 <Badge variant="outline" className="font-normal">{o.count}</Badge>
-              </label>
-            ))}
-          </div>
-        </section>
-
+        
         {/* Tipos de entrega */}
         <section className="mb-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">Tipos de entrega</p>
           <div className="space-y-2 pr-1">
-            {shippingOptions.length === 0 ? (
+            {visibleShipping.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sem opções</p>
             ) : (
-              shippingOptions.map((opt) => (
+              visibleShipping.map((opt) => (
                 <label key={opt.value || "N/A"} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -124,14 +97,14 @@ export function FiltersSidebar({
               ))
             )}
           </div>
-          {selectedShipping.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {selectedShipping.map((s) => (
-                <Badge key={s} variant="secondary" className="px-2">
-                  {shippingOptions.find(opt => opt.value === s)?.label || s}
-                </Badge>
-              ))}
-            </div>
+           {!showAllShipping && shippingOptions.length > INITIAL_VISIBLE_COUNT && (
+            <Button
+              variant="link"
+              className="px-0 h-auto text-primary"
+              onClick={() => setShowAllShipping(true)}
+            >
+              Mostrar mais
+            </Button>
           )}
         </section>
 
@@ -171,15 +144,6 @@ export function FiltersSidebar({
               Mostrar mais
             </Button>
           )}
-          {selectedBrands.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {selectedBrands.map((b) => (
-                <Badge key={b} variant="secondary" className="px-2">
-                  {brandOptions.find(opt => opt.value === b)?.label || b}
-                </Badge>
-              ))}
-            </div>
-          )}
         </section>
 
         {/* Tipo de loja */}
@@ -206,15 +170,6 @@ export function FiltersSidebar({
               </label>
             ))}
           </div>
-          {storeFilter.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {storeFilter.map((s) => (
-                <Badge key={s} variant="secondary" className="px-2 capitalize">
-                  {s === 'yes' ? 'Oficial' : 'Não Oficial'}
-                </Badge>
-              ))}
-            </div>
-          )}
         </section>
       </div>
     </aside>
