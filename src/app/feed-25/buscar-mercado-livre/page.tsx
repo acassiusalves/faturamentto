@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useActionState, useTransition } from 'react';
+import { useState, useActionState, useTransition, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo } from '@/components/icons';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 interface ProductResult {
     thumbnail: string;
@@ -47,6 +49,10 @@ export default function BuscarMercadoLivrePage() {
     const [isTransitioning, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
 
+    // Pagination state
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(50);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!searchTerm.trim()) {
@@ -66,6 +72,24 @@ export default function BuscarMercadoLivrePage() {
     };
 
     const isPending = isSearching || isTransitioning;
+    
+    const pageCount = useMemo(() => {
+        return Math.ceil((state?.result?.length || 0) / pageSize);
+    }, [state?.result, pageSize]);
+
+    const paginatedResults = useMemo(() => {
+        const startIndex = pageIndex * pageSize;
+        return state?.result?.slice(startIndex, startIndex + pageSize) || [];
+    }, [state?.result, pageIndex, pageSize]);
+    
+    useEffect(() => {
+        if (pageIndex >= pageCount && pageCount > 0) {
+            setPageIndex(pageCount - 1);
+        } else if (pageCount === 0) {
+            setPageIndex(0);
+        }
+    }, [state?.result, pageIndex, pageCount]);
+
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
@@ -139,7 +163,7 @@ export default function BuscarMercadoLivrePage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {state.result.length > 0 ? state.result.map(product => {
+                                    {paginatedResults.length > 0 ? paginatedResults.map(product => {
                                         const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
                                         return (
                                         <TableRow key={product.id}>
@@ -167,26 +191,25 @@ export default function BuscarMercadoLivrePage() {
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
                                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                        {product.shipping_logistic_type === "fulfillment" ? (
-                                                            <FullIcon />
-                                                        ) : product.shipping_type === 'Correios' ? (
-                                                            <CorreiosLogo />
+                                                        {product.shipping_logistic_type === "fulfillment" && <FullIcon className="h-7 w-auto" />}
+                                                        {product.shipping_type === 'Correios' && <CorreiosLogo />}
+                                                        {product.shipping_logistic_type === 'fulfillment' && product.free_shipping ? (
+                                                             <FreteGratisIcon className="h-5 w-auto" />
                                                         ) : (
-                                                            product.shipping_type && <span className="text-muted-foreground text-xs">{product.shipping_type}</span>
+                                                            !product.shipping_logistic_type && product.free_shipping && (
+                                                                <div className="mt-1"><FreteGratisIcon /></div>
+                                                            )
                                                         )}
-                                                        {product.shipping_logistic_type === 'fulfillment' && product.free_shipping && <FreteGratisIcon />}
                                                     </div>
-                                                    {!product.shipping_logistic_type && product.free_shipping && (
-                                                        <div className="mt-1"><FreteGratisIcon /></div>
-                                                    )}
+                                                    
                                                     {product.listing_type_id && (
                                                         <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
-                                            <TableCell>{product.brand}</TableCell>
-                                            <TableCell>{product.model}</TableCell>
+                                            <TableCell>{product.brand || ''}</TableCell>
+                                            <TableCell>{product.model || ''}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell>
                                                 {product.seller_nickname && (
@@ -210,6 +233,43 @@ export default function BuscarMercadoLivrePage() {
                             </Table>
                         </div>
                     </CardContent>
+                    <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="text-sm text-muted-foreground">
+                            Total de {state.result.length} registros.
+                        </div>
+                        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">Itens por página</p>
+                                <Select
+                                    value={`${pageSize}`}
+                                    onValueChange={(value) => {
+                                        setPageSize(Number(value));
+                                        setPageIndex(0);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={pageSize.toString()} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((size) => (
+                                            <SelectItem key={size} value={`${size}`}>
+                                                {size}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-sm font-medium">
+                                Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
                  </Card>
             )}
             
