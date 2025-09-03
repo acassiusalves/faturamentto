@@ -17,7 +17,7 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { searchMercadoLivre } from '@/ai/flows/search-mercado-livre-flow';
+import { searchMercadoLivreProducts } from '@/services/mercadolivre';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -1285,20 +1285,28 @@ export async function analyzeCatalogAction(
 export async function searchMercadoLivreAction(
     prevState: any,
     formData: FormData
-): Promise<{ result: { offers: any[] } | null, error: string | null }> {
+): Promise<{ result: any | null, error: string | null }> {
     const productName = formData.get('productName') as string;
+    const quantity = Number(formData.get('quantity') as string) || 10;
+    
     if (!productName) {
         return { result: null, error: 'O nome do produto é obrigatório.' };
     }
 
     try {
-        const settings = await loadAppSettings();
-        if (!settings?.geminiApiKey) {
-            throw new Error("A chave de API do Gemini não está configurada no sistema.");
-        }
+        const results = await searchMercadoLivreProducts(productName, quantity);
+        // Processar e mapear os resultados aqui para o formato desejado
+        const processedResults = results.map((product: any) => ({
+            thumbnail: product.thumbnail,
+            name: product.name,
+            status: product.status === "active" ? "Ativo" : (product.status === "inactive" ? "Inativo" : product.status),
+            catalog_product_id: product.catalog_product_id,
+            id: product.id,
+            brand: product.attributes.find((a: any) => a.id === 'BRAND')?.value_name || '-',
+            model: product.attributes.find((a: any) => a.id === 'MODEL')?.value_name || '-',
+        }));
 
-        const result = await searchMercadoLivre({ productName, apiKey: settings.geminiApiKey });
-        return { result, error: null };
+        return { result: processedResults, error: null };
     } catch (e: any) {
         console.error("Error in searchMercadoLivreAction:", e);
         return { result: null, error: e.message || 'Ocorreu um erro ao buscar ofertas.' };
@@ -1309,6 +1317,7 @@ export async function searchMercadoLivreAction(
     
 
     
+
 
 
 

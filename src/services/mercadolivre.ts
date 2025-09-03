@@ -88,31 +88,48 @@ async function getValidAccessToken(): Promise<string> {
  * @param query O termo de busca para os produtos.
  * @returns Uma lista de produtos de catálogo encontrados.
  */
-export async function searchMercadoLivreProducts(query: string): Promise<any> {
+export async function searchMercadoLivreProducts(query: string, quantity: number): Promise<any[]> {
     const accessToken = await getValidAccessToken();
     const site = "MLB"; // Site Brasil
-    // Usando o endpoint de busca de produtos de catálogo
-    const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(query)}`;
+    const limit = 50; // Max per page
+    let products: any[] = [];
+    let offset = 0;
 
-    const options = {
-        method: "GET",
-        headers: {
-            "Authorization": `Bearer ${accessToken}`,
-        },
-    };
+    while (products.length < quantity) {
+        const remaining = quantity - products.length;
+        const currentLimit = Math.min(limit, remaining);
+        const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(query)}&limit=${currentLimit}&offset=${offset}`;
 
-    try {
-        const response = await fetch(searchUrl, options);
-        const data = await response.json();
+        const options = {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+            },
+        };
 
-        if (!response.ok) {
-            throw new Error(`Erro na API do Mercado Livre: ${data.message || 'Falha na busca'}`);
+        try {
+            const response = await fetch(searchUrl, options);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(`Erro na API do Mercado Livre: ${data.message || 'Falha na busca'}`);
+            }
+
+            const results = data.results || [];
+            products = products.concat(results);
+
+            if (results.length < limit || !data.paging || data.paging.offset + data.paging.limit >= data.paging.total) {
+                // No more results to fetch
+                break;
+            }
+            
+            offset += limit;
+        } catch (error) {
+            console.error("Erro ao buscar produtos no Mercado Livre:", error);
+            throw error;
         }
-        
-        return data.results || [];
-
-    } catch (error) {
-        console.error("Erro ao buscar produtos no Mercado Livre:", error);
-        throw error;
     }
+    
+    return products.slice(0, quantity);
 }
+
