@@ -38,21 +38,25 @@ export async function searchMercadoLivre(
       name: 'searchMercadoLivre',
       description: 'Searches for product offers on mercadolivre.com.br and returns the top 3 results.',
       inputSchema: z.object({ query: z.string() }),
-      outputSchema: z.array(z.object({ 
-        title: z.string(), 
-        price: z.string(), 
-        url: z.string() 
-      })),
+      outputSchema: z.object({
+        offers: z.array(z.object({ 
+            title: z.string(), 
+            price: z.string(), 
+            url: z.string() 
+        })),
+      })
     },
     async ({ query }) => {
       console.log(`(Mock) Searching Mercado Livre for: ${query}`);
       // In a real scenario, you'd fetch from an API here.
       // This is mock data for demonstration.
-      return [
-        { title: `${query} - 128GB - Novo Lacrado`, price: "R$ 1.599,00", url: `https://www.mercadolivre.com.br/` },
-        { title: `${query} - Pronta Entrega com Garantia`, price: "R$ 1.650,00", url: `https://www.mercadolivre.com.br/` },
-        { title: `Oferta Imperdível: ${query} Original`, price: "R$ 1.550,00", url: `https://www.mercadolivre.com.br/` },
-      ];
+      return {
+        offers: [
+            { title: `${query} - 128GB - Novo Lacrado`, price: "R$ 1.599,00", url: `https://www.mercadolivre.com.br/` },
+            { title: `${query} - Pronta Entrega com Garantia`, price: "R$ 1.650,00", url: `https://www.mercadolivre.com.br/` },
+            { title: `Oferta Imperdível: ${query} Original`, price: "R$ 1.550,00", url: `https://www.mercadolivre.com.br/` },
+        ]
+      };
     }
   );
 
@@ -67,11 +71,13 @@ export async function searchMercadoLivre(
         name: 'searchMercadoLivrePrompt',
         model: gemini15Flash,
         tools: [searchTool],
-        prompt: `Use the searchMercadoLivre tool to find the top 3 offers for the product "{{{productName}}}" on Mercado Livre.`,
+        prompt: `You MUST use the searchMercadoLivre tool to find the top 3 offers for the product "{{{productName}}}" on Mercado Livre. Return the tool's output directly.`,
       });
 
       const { output } = await prompt(flowInput);
-      return output!;
+      
+      // Ensure we always return an object with an offers array, even if it's empty.
+      return output || { offers: [] };
     }
   );
 
