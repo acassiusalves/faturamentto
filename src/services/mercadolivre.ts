@@ -55,6 +55,10 @@ const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, "https://") : "");
 
 // === FUNÇÃO PRINCIPAL ===
 export async function searchMercadoLivreProducts(query: string, quantity: number): Promise<any[]> {
+  const accessToken = await getValidAccessToken();
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const site = "MLB";
+
   // Mapeamentos amigáveis
   const freightMap: Record<string, string> = {
     "drop_off": "Correios",
@@ -72,10 +76,6 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
     "gold_special": "Clássico",
     "gold_pro": "Premium"
   };
-  
-  const accessToken = await getValidAccessToken();
-  const headers = { Authorization: `Bearer ${accessToken}` };
-  const site = "MLB";
 
   // 1) catálogos
   const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(
@@ -164,7 +164,8 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
 
       // anúncio vencedor (se houver)
       price: Number(price) || 0,
-      shipping: freightMap[rawFreightType] || (winner?.shipping?.free_shipping ? "Grátis (Outro)" : "N/A"),
+      shipping_type: freightMap[rawFreightType] || rawFreightType || "N/A",
+      free_shipping: !!winner?.shipping?.free_shipping,
       listing_type_id: listingTypeMap[rawListingType] || rawListingType || "N/A",
       category_id: winner?.category_id ?? "",
       official_store_id: winner?.official_store_id ?? null,
