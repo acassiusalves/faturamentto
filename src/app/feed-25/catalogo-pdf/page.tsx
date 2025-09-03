@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, Image as ImageIcon, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ImageIcon, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
@@ -74,30 +74,42 @@ export default function CatalogoPdfPage() {
         }
     };
     
-    const analyzePage = async (pageNumber: number) => {
+    const analyzePage = (pageNumber: number) => {
         if (!pdfDoc || pageNumber > pdfDoc.numPages) return;
 
-        const page = await pdfDoc.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-        
-        const formData = new FormData();
-        formData.append('pdfContent', pageText);
-        formData.append('pageNumber', String(pageNumber));
-        formData.append('totalPages', String(pdfDoc.numPages));
-        
-        startTransition(() => {
+        startTransition(async () => {
+            const page = await pdfDoc.getPage(pageNumber);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+            
+            const formData = new FormData();
+            formData.append('pdfContent', pageText);
+            formData.append('pageNumber', String(pageNumber));
+            formData.append('totalPages', String(pdfDoc.numPages));
+            
             formAction(formData);
         });
     };
     
-    const analyzeAllPages = async () => {
+    const analyzeAllPages = () => {
       if (!pdfDoc) return;
-      for (let i = currentPage; i <= pdfDoc.numPages; i++) {
-        await analyzePage(i);
-        // Pequena pausa para não sobrecarregar
-        await new Promise(res => setTimeout(res, 300));
-      }
+      
+      startTransition(async () => {
+        for (let i = currentPage; i <= pdfDoc.numPages; i++) {
+          const page = await pdfDoc.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+          
+          const formData = new FormData();
+          formData.append('pdfContent', pageText);
+          formData.append('pageNumber', String(i));
+          formData.append('totalPages', String(pdfDoc.numPages));
+          
+          formAction(formData);
+          // Aguarda um ciclo para o estado ser atualizado antes de continuar
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      });
     };
 
     const isProcessingAny = isParsing || isAnalyzing || isProcessing;
@@ -163,16 +175,6 @@ export default function CatalogoPdfPage() {
                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                             {allProducts.map((product, index) => (
                                 <Card key={index} className="overflow-hidden">
-                                    <div className="relative w-full h-40 bg-muted flex items-center justify-center">
-                                        <ImageIcon className="text-muted-foreground" size={48} />
-                                         <Image
-                                            src={product.imageUrl || `https://picsum.photos/seed/${product.name.replace(/\s/g, '')}/400/400`}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover"
-                                            data-ai-hint="product image"
-                                        />
-                                    </div>
                                     <div className="p-4">
                                         <h3 className="font-semibold h-10 line-clamp-2">{product.name}</h3>
                                         <p className="text-sm text-muted-foreground h-16 line-clamp-3 my-2">{product.description}</p>
