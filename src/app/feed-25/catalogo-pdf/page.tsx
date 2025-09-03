@@ -32,6 +32,7 @@ const analyzeInitialState: {
 
 interface CatalogProduct {
     name: string;
+    model: string;
     description: string;
     price: string;
     imageUrl?: string;
@@ -183,6 +184,14 @@ export default function CatalogoPdfPage() {
             }
         });
     }, [allProducts, toast]);
+    
+     const handleModelChange = (index: number, newModel: string) => {
+        setAllProducts(prev => {
+            const newProducts = [...prev];
+            newProducts[index] = { ...newProducts[index], model: newModel };
+            return newProducts;
+        });
+    };
 
     const extractQuantity = (description: string): number => {
         if (!description) return 1;
@@ -265,6 +274,7 @@ export default function CatalogoPdfPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
+                                        <TableHead className="w-[150px]">Modelo</TableHead>
                                         <TableHead className="text-center">Qtd.</TableHead>
                                         <TableHead className="text-right">Preço Unit.</TableHead>
                                         <TableHead className="text-right">Preço Total</TableHead>
@@ -285,6 +295,14 @@ export default function CatalogoPdfPage() {
                                                         <p className="font-semibold">{product.name}</p>
                                                         <p className="text-xs text-muted-foreground">{product.description}</p>
                                                     </TableCell>
+                                                    <TableCell>
+                                                        <Input 
+                                                            value={product.model || ''} 
+                                                            onChange={(e) => handleModelChange(index, e.target.value)}
+                                                            placeholder="Modelo..."
+                                                            className="h-8"
+                                                        />
+                                                    </TableCell>
                                                     <TableCell className="text-center font-medium">{quantity}</TableCell>
                                                     <TableCell className="text-right font-mono">{formatCurrency(unitPrice)}</TableCell>
                                                     <TableCell className="text-right font-bold text-primary">{formatCurrency(totalPrice)}</TableCell>
@@ -297,7 +315,7 @@ export default function CatalogoPdfPage() {
                                                 </TableRow>
                                                 {product.foundProducts && (
                                                     <TableRow>
-                                                        <TableCell colSpan={5} className="p-2 bg-muted/50">
+                                                        <TableCell colSpan={6} className="p-2 bg-muted/50">
                                                             <div className="p-2 space-y-2">
                                                                 <h4 className="text-xs font-semibold">Ofertas encontradas:</h4>
                                                                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -319,7 +337,7 @@ export default function CatalogoPdfPage() {
                                                 )}
                                                 {product.searchError && (
                                                      <TableRow>
-                                                        <TableCell colSpan={5} className="p-2 text-center text-destructive bg-destructive/10">
+                                                        <TableCell colSpan={6} className="p-2 text-center text-destructive bg-destructive/10">
                                                            {product.searchError}
                                                         </TableCell>
                                                      </TableRow>
