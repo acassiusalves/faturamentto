@@ -128,14 +128,16 @@ export default function BuscarMercadoLivrePage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {state.result.length > 0 ? state.result.map(product => (
+                                    {state.result.length > 0 ? state.result.map(product => {
+                                        const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
+                                        return (
                                         <TableRow key={product.id}>
                                             <TableCell>
                                                 <div className="w-16 h-16 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                                                     {product.thumbnail && !broken.has(product.id) ? (
                                                         <Image 
                                                             src={product.thumbnail}
-                                                            alt={product.name}
+                                                            alt={displayName}
                                                             fill
                                                             sizes="64px"
                                                             className="object-contain" 
@@ -158,7 +160,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                         </TableRow>
-                                    )) : (
+                                    )}) : (
                                         <TableRow>
                                             <TableCell colSpan={7} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">

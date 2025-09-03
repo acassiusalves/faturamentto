@@ -1311,9 +1311,14 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
       
       thumb = toHttps(thumb);
 
+      const name =
+        (item.title ?? "").toString().trim() ||
+        (item?.attributes?.find((a:any)=>a.id==="TITLE")?.value_name ?? "").toString().trim() ||
+        String(item.id);
+
       return {
         id: item.id,
-        name: item.title,
+        name: name,
         status: item.status || '',
         catalog_product_id: item.catalog_product_id || '',
         brand,
@@ -1334,6 +1339,7 @@ export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
     
 
     
+
 
 
 
