@@ -135,7 +135,7 @@ export default function BuscarMercadoLivrePage() {
                                                     {product.thumbnail && !broken.has(product.id) ? (
                                                         <Image 
                                                             src={product.thumbnail}
-                                                            alt={product.name} 
+                                                            alt={product.name}
                                                             fill
                                                             sizes="64px"
                                                             className="object-contain" 
