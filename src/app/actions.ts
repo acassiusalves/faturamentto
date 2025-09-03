@@ -1282,41 +1282,59 @@ export async function analyzeCatalogAction(
   }
 }
 
-export async function searchMercadoLivreAction(
-    prevState: any,
-    formData: FormData
-): Promise<{ result: any | null, error: string | null }> {
-    const productName = formData.get('productName') as string;
-    const quantity = Number(formData.get('quantity') as string) || 10;
-    
-    if (!productName) {
-        return { result: null, error: 'O nome do produto é obrigatório.' };
+export async function searchMercadoLivreAction(_prev: any, formData: FormData) {
+  try {
+    const q = String(formData.get('productName') || '').trim();
+    const limit = Number(formData.get('quantity') || 10);
+
+    if (!q) {
+      return { result: null, error: 'Termo de busca vazio.' };
     }
 
-    try {
-        const results = await searchMercadoLivreProducts(productName, quantity);
-        // Processar e mapear os resultados aqui para o formato desejado
-        const processedResults = results.map((product: any) => ({
-            thumbnail: product.thumbnail,
-            name: product.name,
-            status: product.status === "active" ? "Ativo" : (product.status === "inactive" ? "Inativo" : product.status),
-            catalog_product_id: product.catalog_product_id,
-            id: product.id,
-            brand: product.attributes.find((a: any) => a.id === 'BRAND')?.value_name || '-',
-            model: product.attributes.find((a: any) => a.id === 'MODEL')?.value_name || '-',
-        }));
+    // A busca real agora é feita diretamente aqui, sem passar pelo Genkit
+    const searchResult = await searchMercadoLivreProducts(q, limit);
 
-        return { result: processedResults, error: null };
-    } catch (e: any) {
-        console.error("Error in searchMercadoLivreAction:", e);
-        return { result: null, error: e.message || 'Ocorreu um erro ao buscar ofertas.' };
-    }
+    const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, 'https://') : '');
+
+    const result = (searchResult || []).map((item: any) => {
+      const attrs = Array.isArray(item.attributes) ? item.attributes : [];
+      const brand = attrs.find((a: any) => a.id === 'BRAND')?.value_name || '';
+      const model = attrs.find((a: any) => a.id === 'MODEL')?.value_name || '';
+
+      // Lógica de fallback para a imagem
+      let thumb =
+        item.secure_thumbnail ||
+        item.thumbnail ||
+        (Array.isArray(item.pictures) && item.pictures[0]?.secure_url) ||
+        (Array.isArray(item.pictures) && item.pictures[0]?.url) ||
+        '';
+      
+      thumb = toHttps(thumb);
+
+      return {
+        id: item.id,
+        name: item.title,
+        status: item.status || '',
+        catalog_product_id: item.catalog_product_id || '',
+        brand,
+        model,
+        thumbnail: thumb,
+      };
+    });
+
+    return { result, error: null };
+  } catch (e: any) {
+    console.error("Error in searchMercadoLivreAction:", e);
+    return { result: null, error: e?.message || 'Falha inesperada na busca do Mercado Livre.' };
+  }
 }
-    
 
     
 
     
+
+    
+
 
 
 

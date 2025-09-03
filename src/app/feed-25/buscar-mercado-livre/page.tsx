@@ -34,6 +34,7 @@ export default function BuscarMercadoLivrePage() {
     const [quantity, setQuantity] = useState(10);
     const [state, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
     const [isTransitioning, startTransition] = useTransition();
+    const [broken, setBroken] = useState<Set<string>>(new Set());
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -131,8 +132,16 @@ export default function BuscarMercadoLivrePage() {
                                         <TableRow key={product.id}>
                                             <TableCell>
                                                 <div className="w-16 h-16 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                                                    {product.thumbnail ? (
-                                                        <Image src={product.thumbnail} alt={product.name} fill className="object-contain" data-ai-hint="product image" />
+                                                    {product.thumbnail && !broken.has(product.id) ? (
+                                                        <Image 
+                                                            src={product.thumbnail}
+                                                            alt={product.name} 
+                                                            fill
+                                                            sizes="64px"
+                                                            className="object-contain" 
+                                                            data-ai-hint="product image"
+                                                            onError={() => setBroken(prev => new Set(prev).add(product.id))}
+                                                        />
                                                     ) : (
                                                         <Package className="h-8 w-8 text-muted-foreground" />
                                                     )}
