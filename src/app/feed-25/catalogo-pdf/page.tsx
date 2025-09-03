@@ -50,6 +50,8 @@ export default function CatalogoPdfPage() {
     const [allProducts, setAllProducts] = useState<ProductWithOffers[]>([]);
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+    const [isSearching, startSearchTransition] = useTransition();
+
 
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
 
@@ -151,28 +153,30 @@ export default function CatalogoPdfPage() {
            setCurrentPage(p => p + 1);
         }
     };
-
-    const handleSearchOffers = async (productIndex: number) => {
-        const product = allProducts[productIndex];
-        if (!product) return;
     
-        setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: true, searchError: undefined } : p));
-        
-        const formData = new FormData();
-        formData.append('productName', product.name);
-        
-        try {
-            const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
-            if (result.error) {
-                throw new Error(result.error);
+    const handleSearchOffers = useCallback((productIndex: number) => {
+        const product = allProducts[productIndex];
+        if (!product || product.isSearching) return;
+    
+        startSearchTransition(async () => {
+            setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: true, searchError: undefined } : p));
+            
+            const formData = new FormData();
+            formData.append('productName', product.name);
+            
+            try {
+                const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, offers: result.result?.offers } : p));
+            } catch (error: any) {
+                console.error("Error searching offers:", error);
+                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, searchError: error.message } : p));
+                 toast({ variant: 'destructive', title: 'Erro ao Buscar Ofertas', description: error.message });
             }
-            setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, offers: result.result?.offers } : p));
-        } catch (error: any) {
-            console.error("Error searching offers:", error);
-            setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, searchError: error.message } : p));
-             toast({ variant: 'destructive', title: 'Erro ao Buscar Ofertas', description: error.message });
-        }
-    };
+        });
+    }, [allProducts, toast]);
 
     const extractQuantity = (description: string): number => {
         if (!description) return 1;
@@ -255,6 +259,8 @@ export default function CatalogoPdfPage() {
                                 const quantity = extractQuantity(product.description);
                                 const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
                                 const totalPrice = quantity * unitPrice;
+                                const currentIsSearching = product.isSearching || (isSearching && allProducts[index]?.isSearching);
+
 
                                 return (
                                     <Card key={index} className="overflow-hidden flex flex-col">
@@ -269,8 +275,8 @@ export default function CatalogoPdfPage() {
                                                 <p className="text-lg font-bold text-primary">
                                                     TOTAL: {formatCurrency(totalPrice)}
                                                 </p>
-                                                 <Button size="sm" className="w-full" onClick={() => handleSearchOffers(index)} disabled={product.isSearching}>
-                                                    {product.isSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                                 <Button size="sm" className="w-full" onClick={() => handleSearchOffers(index)} disabled={currentIsSearching}>
+                                                    {currentIsSearching ? <Loader2 className="animate-spin" /> : <Search />}
                                                     Buscar no Mercado Livre
                                                 </Button>
                                                 {product.offers && (
