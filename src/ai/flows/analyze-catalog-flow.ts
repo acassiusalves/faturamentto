@@ -39,9 +39,9 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
 
             Para cada produto encontrado APENAS NESTA PÁGINA, extraia as seguintes informações:
             - name: O nome completo do produto.
-            - model: O modelo específico do produto (ex: "Note 13 Pro", "Galaxy S24 Ultra", "Poco X6").
+            - model: O modelo específico do produto (ex: "CS-C20", "CS-M31BTL").
             - description: Uma breve descrição do produto, se disponível (incluindo cor, memória, etc.).
-            - price: O preço do produto. Formate o preço como uma string com vírgula para decimais (ex: "1.299,00").
+            - price: O preço do produto. Formate o preço como uma string com ponto como separador decimal (ex: "22.35", "27.50"). NÃO use vírgula.
             - imageUrl: Se uma URL de imagem for mencionada, use-a. Caso contrário, deixe em branco.
 
             Ignore qualquer texto que não seja uma listagem de produto (ex: introduções, índices, informações de contato, cabeçalhos ou rodapés repetitivos).

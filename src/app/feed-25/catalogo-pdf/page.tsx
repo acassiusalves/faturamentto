@@ -176,7 +176,7 @@ export default function CatalogoPdfPage() {
                 if (result.error) {
                     throw new Error(result.error);
                 }
-                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, foundProducts: result.result?.products } : p));
+                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, foundProducts: result.result as any[] } : p));
             } catch (error: any) {
                 console.error("Error searching offers:", error);
                 setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, searchError: error.message } : p));
@@ -200,8 +200,16 @@ export default function CatalogoPdfPage() {
     };
 
     const formatCurrency = (value: number | string) => {
-        let numericValue = typeof value === 'string' ? parseFloat(value.replace('.', '').replace(',', '.')) : value;
+        let numericValue: number;
+        if (typeof value === 'string') {
+            // Remove thousand separators, then replace comma with dot for decimal
+            numericValue = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+        } else {
+            numericValue = value;
+        }
+
         if (isNaN(numericValue)) return 'N/A';
+        
         return numericValue.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
@@ -284,7 +292,7 @@ export default function CatalogoPdfPage() {
                                 <TableBody>
                                     {allProducts.map((product, index) => {
                                         const quantity = extractQuantity(product.description);
-                                        const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
+                                        const unitPrice = parseFloat(product.price?.replace(',', '.') || '0');
                                         const totalPrice = quantity * unitPrice;
                                         const currentIsSearching = product.isSearching || (isSearching && allProducts[index]?.isSearching);
                                         
