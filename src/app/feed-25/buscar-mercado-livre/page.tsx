@@ -137,7 +137,6 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
                                         <TableHead>ID Categoria</TableHead>
-                                        <TableHead>Tipo</TableHead>
                                         <TableHead>Loja Oficial</TableHead>
                                         <TableHead>Vendedor</TableHead>
                                     </TableRow>
@@ -181,6 +180,7 @@ export default function BuscarMercadoLivrePage() {
                                                     {product.free_shipping && (
                                                         <FreteGratisIcon className="h-5" />
                                                     )}
+                                                    <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
                                                 </div>
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
@@ -188,7 +188,6 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
-                                            <TableCell>{product.listing_type_id}</TableCell>
                                             <TableCell>{product.official_store_id ? `Sim (${product.official_store_id})` : 'Não'}</TableCell>
                                             <TableCell>
                                                 <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
