@@ -14,6 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
+import { FullIcon } from '@/components/icons';
 
 interface ProductResult {
     thumbnail: string;
@@ -175,7 +176,9 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell>{product.shipping_type || '-'}</TableCell>
+                                            <TableCell>
+                                                {product.shipping_type === 'Full ML' ? <FullIcon /> : product.shipping_type || '-'}
+                                            </TableCell>
                                             <TableCell>
                                                 {product.free_shipping && (
                                                     <Badge variant="secondary" className="ml-2">Grátis</Badge>
