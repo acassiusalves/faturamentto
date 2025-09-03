@@ -17,11 +17,12 @@ type FilterOption = {
 type FiltersSidebarProps = {
   shippingOptions: FilterOption[];
   brandOptions: FilterOption[];
+  storeTypeCounts: { official: number; nonOfficial: number };
   selectedShipping: string[];
   setSelectedShipping: (v: string[]) => void;
   selectedBrands: string[];
   setSelectedBrands: (v: string[]) => void;
-  storeFilter: ("yes" | "no")[];
+  storeFilter: ("yes"|"no")[];
   setStoreFilter: (v: ("yes" | "no")[]) => void;
   className?: string;
 };
@@ -31,6 +32,7 @@ const INITIAL_VISIBLE_COUNT = 7;
 export function FiltersSidebar({
   shippingOptions,
   brandOptions,
+  storeTypeCounts,
   selectedShipping,
   setSelectedShipping,
   selectedBrands,
@@ -156,19 +158,22 @@ export function FiltersSidebar({
           <p className="mb-2 text-xs font-medium text-muted-foreground">Tipo de loja</p>
           <div className="space-y-2">
             {[
-              { label: "Lojas Oficiais", value: "yes" as const },
-              { label: "Lojas Não Oficiais", value: "no" as const },
+              { label: "Lojas Oficiais", value: "yes" as const, count: storeTypeCounts.official },
+              { label: "Lojas Não Oficiais", value: "no" as const, count: storeTypeCounts.nonOfficial },
             ].map((o) => (
-              <label key={o.value} className="flex cursor-pointer items-center gap-2 text-sm">
-                <Checkbox
-                  checked={storeFilter.includes(o.value)}
-                  onCheckedChange={() => {
-                    if (storeFilter.includes(o.value))
-                      setStoreFilter(storeFilter.filter((v) => v !== o.value));
-                    else setStoreFilter([...storeFilter, o.value]);
-                  }}
-                />
-                <span>{o.label}</span>
+              <label key={o.value} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={storeFilter.includes(o.value)}
+                      onCheckedChange={() => {
+                        if (storeFilter.includes(o.value))
+                          setStoreFilter(storeFilter.filter((v) => v !== o.value));
+                        else setStoreFilter([...storeFilter, o.value]);
+                      }}
+                    />
+                    <span>{o.label}</span>
+                </div>
+                 <Badge variant="outline" className="font-normal">{o.count}</Badge>
               </label>
             ))}
           </div>

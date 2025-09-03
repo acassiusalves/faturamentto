@@ -64,9 +64,10 @@ export default function BuscarMercadoLivrePage() {
     const [pageSize, setPageSize] = useState(50);
     
     // Memoized unique filter options with counts
-    const { shippingOptionsWithCounts, brandOptionsWithCounts } = useMemo(() => {
+    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts } = useMemo(() => {
         const shippingCounts: Record<string, number> = {};
         const brandCounts: Record<string, number> = {};
+        const storeCounts = { official: 0, nonOfficial: 0 };
 
         (state.result || []).forEach(p => {
             if (p.shipping_type) {
@@ -74,6 +75,11 @@ export default function BuscarMercadoLivrePage() {
             }
             if (p.brand) {
                 brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1;
+            }
+            if (p.official_store_id) {
+                storeCounts.official++;
+            } else {
+                storeCounts.nonOfficial++;
             }
         });
 
@@ -90,7 +96,8 @@ export default function BuscarMercadoLivrePage() {
                 value: opt,
                 label: opt,
                 count: brandCounts[opt]
-            }))
+            })),
+            storeTypeCounts: storeCounts,
         };
     }, [state.result]);
 
@@ -213,6 +220,7 @@ export default function BuscarMercadoLivrePage() {
                     <FiltersSidebar
                         shippingOptions={shippingOptionsWithCounts}
                         brandOptions={brandOptionsWithCounts}
+                        storeTypeCounts={storeTypeCounts}
                         selectedShipping={shippingFilter}
                         setSelectedShipping={setShippingFilter}
                         selectedBrands={brandFilter}
