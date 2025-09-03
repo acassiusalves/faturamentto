@@ -7,11 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ImageIcon, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
-import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -35,21 +34,57 @@ export default function CatalogoPdfPage() {
     const [isParsing, setIsParsing] = useState(false);
     const [allProducts, setAllProducts] = useState<ProductSchema[]>([]);
     const [isProcessing, startTransition] = useTransition();
+    const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
 
     const [state, formAction] = useActionState(analyzeCatalogAction, initialState);
+
+    const analyzePage = useCallback((pageNumber: number) => {
+        if (!pdfDoc || pageNumber > pdfDoc.numPages) {
+            setIsAnalyzingAll(false); // Stop if we go past the last page
+            return;
+        }
+
+        startTransition(async () => {
+            const page = await pdfDoc.getPage(pageNumber);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+            
+            const formData = new FormData();
+            formData.append('pdfContent', pageText);
+            formData.append('pageNumber', String(pageNumber));
+            formData.append('totalPages', String(pdfDoc.numPages));
+            
+            formAction(formData);
+        });
+    }, [pdfDoc, formAction, startTransition]);
 
     useEffect(() => {
         if (state.error) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+            setIsAnalyzingAll(false); // Stop on error
         }
         if (state.result) {
             setAllProducts(prev => [...prev, ...state.result!.products]);
             if (currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
+            } else {
+                 setIsAnalyzingAll(false); // Finished all pages
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state]);
+
+    // This effect triggers the next page analysis when isAnalyzingAll is true
+    useEffect(() => {
+        if (isAnalyzingAll && !isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
+            analyzePage(currentPage);
+        }
+         if (isAnalyzingAll && currentPage > (pdfDoc?.numPages || 0)) {
+            setIsAnalyzingAll(false); // Ensure it stops if manually advanced past the end
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPage, isAnalyzingAll, isProcessing]);
+
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
@@ -59,6 +94,7 @@ export default function CatalogoPdfPage() {
             setAllProducts([]);
             setCurrentPage(1);
             setPdfDoc(null);
+            setIsAnalyzingAll(false);
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
                 const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
@@ -73,37 +109,23 @@ export default function CatalogoPdfPage() {
             setFile(null);
         }
     };
-    
-    const analyzePage = (pageNumber: number) => {
-        if (!pdfDoc || pageNumber > pdfDoc.numPages) return;
 
-        startTransition(async () => {
-            const page = await pdfDoc.getPage(pageNumber);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-            
-            const formData = new FormData();
-            formData.append('pdfContent', pageText);
-            formData.append('pageNumber', String(pageNumber));
-            formData.append('totalPages', String(pdfDoc.numPages));
-            
-            formAction(formData);
-        });
+    const handleAnalyzeAllClick = () => {
+        if (!isProcessing) {
+            setIsAnalyzingAll(true);
+            // The useEffect will trigger the first analysis
+            if (currentPage <= (pdfDoc?.numPages || 0)) {
+                analyzePage(currentPage);
+            }
+        }
     };
     
-    const analyzeAllPages = async () => {
-      if (!pdfDoc) return;
-
-      for (let i = currentPage; i <= pdfDoc.numPages; i++) {
-        // We need to wait for the state update from the previous page to complete
-        // before starting the next one. This is a simple way to achieve that.
-        await new Promise<void>((resolve) => {
-          analyzePage(i);
-          // The timeout gives React time to process the state update from `analyzePage`
-          setTimeout(() => resolve(), 500); 
-        });
-      }
+    const handleAnalyzeNextClick = () => {
+        if (!isProcessing) {
+           analyzePage(currentPage);
+        }
     };
+
 
     const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
@@ -142,11 +164,12 @@ export default function CatalogoPdfPage() {
                              <Progress value={progress} className="w-full mt-2" />
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
-                             <Button onClick={() => analyzePage(currentPage)} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
+                             <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
                                 <Play className="mr-2" /> Analisar Próxima
                             </Button>
-                            <Button onClick={analyzeAllPages} disabled={isProcessingAny || currentPage > pdfDoc.numPages} variant="secondary">
-                                <FastForward className="mr-2" /> Analisar Todas
+                            <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages} variant="secondary">
+                                {isAnalyzingAll ? <Loader2 className="animate-spin mr-2" /> : <FastForward className="mr-2" />}
+                                {isAnalyzingAll ? 'Analisando...' : 'Analisar Todas'}
                             </Button>
                         </div>
                     </CardFooter>
