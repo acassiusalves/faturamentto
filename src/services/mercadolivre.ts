@@ -55,15 +55,31 @@ const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, "https://") : "");
 
 // === FUNÇÃO PRINCIPAL ===
 export async function searchMercadoLivreProducts(query: string, quantity: number): Promise<any[]> {
-  const accessToken = await getValidAccessToken();
-  const headers = { Authorization: `Bearer ${accessToken}` };
-  const site = "MLB";
+  // Mapeamentos para nomes amigáveis
+  const freightMap: Record<string, string> = {
+    "drop_off": "Correios",
+    "xd_drop_off": "Correios",
+    "xd_pick_up": "Correios",
+    "fulfillment": "Full ML",
+    "cross_docking": "Agência ML",
+    "pick_up": "Retirada",
+    "prepaid": "Frete pré-pago",
+    "self_service": "Sem Mercado Envios",
+    "custom": "A combinar"
+  };
+
+  const listingTypeMap: Record<string, string> = {
+    "gold_special": "Clássico",
+    "gold_pro": "Premium"
+  };
 
   // 1) catálogos
-  const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(
+  const accessToken = await getValidAccessToken();
+  const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=MLB&q=${encodeURIComponent(
     query
   )}&limit=${quantity}`;
-
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  
   const searchRes = await fetch(searchUrl, { method: "GET", headers, cache: "no-store" as RequestCache });
   const searchData = await searchRes.json();
   if (!searchRes.ok) {
@@ -130,6 +146,9 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
       winner?.price ??
       winner?.prices?.prices?.[0]?.amount ??
       0;
+      
+    const rawListingType = winner?.listing_type_id || "";
+    const rawFreightType = winner?.shipping?.logistic_type || "";
 
     return {
       // catálogo
@@ -143,12 +162,12 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
 
       // anúncio vencedor (se houver)
       price: Number(price) || 0,
-      shipping: !!winner?.shipping?.free_shipping,
-      listing_type_id: winner?.listing_type_id ?? "",
+      shipping: freightMap[rawFreightType] || rawFreightType || (winner?.shipping?.free_shipping ? "Grátis" : "N/A"),
+      listing_type_id: listingTypeMap[rawListingType] || rawListingType || "N/A",
       category_id: winner?.category_id ?? "",
       official_store_id: winner?.official_store_id ?? null,
       seller_id: winner?.seller_id ?? "",
-      seller_nickname: winner?.seller_id ? sellerNickById.get(winner.seller_id) || "" : "",
+      seller_nickname: winner?.seller_id ? (sellerNickById.get(winner.seller_id) || "") : "",
     };
   });
 }
