@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState } from 'react';
+import { useState, useActionState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,8 @@ export default function BuscarMercadoLivrePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [quantity, setQuantity] = useState(10);
     const [state, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
-    
+    const [isTransitioning, startTransition] = useTransition();
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!searchTerm.trim()) {
@@ -44,11 +45,15 @@ export default function BuscarMercadoLivrePage() {
             });
             return;
         }
-        const formData = new FormData();
-        formData.append('productName', searchTerm);
-        formData.append('quantity', String(quantity));
-        formAction(formData);
+        startTransition(() => {
+            const formData = new FormData();
+            formData.append('productName', searchTerm);
+            formData.append('quantity', String(quantity));
+            formAction(formData);
+        });
     };
+
+    const isPending = isSearching || isTransitioning;
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
@@ -87,22 +92,22 @@ export default function BuscarMercadoLivrePage() {
                                 className="w-full sm:w-28"
                             />
                         </div>
-                        <Button type="submit" disabled={isSearching} className="w-full sm:w-auto">
-                            {isSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+                            {isPending ? <Loader2 className="animate-spin" /> : <Search />}
                             Buscar
                         </Button>
                     </form>
                 </CardContent>
             </Card>
             
-            {isSearching && (
+            {isPending && (
                 <div className="flex justify-center items-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32} />
                     <p className="ml-4">Buscando no Mercado Livre...</p>
                 </div>
             )}
             
-            {state?.result && (
+            {state?.result && !isPending && (
                  <Card>
                     <CardHeader>
                         <CardTitle>Resultados da Busca ({state.result.length})</CardTitle>
@@ -157,7 +162,7 @@ export default function BuscarMercadoLivrePage() {
                  </Card>
             )}
             
-            {state?.error && (
+            {state?.error && !isPending && (
                 <div className="text-destructive font-semibold p-4 border border-destructive/50 rounded-md bg-destructive/10">
                     Erro: {state.error}
                 </div>
