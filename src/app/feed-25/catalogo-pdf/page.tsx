@@ -38,25 +38,41 @@ export default function CatalogoPdfPage() {
 
     const [state, formAction] = useActionState(analyzeCatalogAction, initialState);
 
-    const analyzePage = useCallback((pageNumber: number) => {
-        if (!pdfDoc || pageNumber > pdfDoc.numPages) {
-            setIsAnalyzingAll(false); // Stop if we go past the last page
-            return;
-        }
+    const analyzePage = useCallback(async (pageNumber: number) => {
+      if (!pdfDoc || pageNumber > pdfDoc.numPages) {
+        setIsAnalyzingAll(false);
+        return;
+      }
 
-        startTransition(async () => {
-            const page = await pdfDoc.getPage(pageNumber);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-            
-            const formData = new FormData();
-            formData.append('pdfContent', pageText);
-            formData.append('pageNumber', String(pageNumber));
-            formData.append('totalPages', String(pdfDoc.numPages));
-            
-            formAction(formData);
+      try {
+        // 1) Faz TODO o trabalho assíncrono ANTES da transition
+        const page = await pdfDoc.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => ('str' in item ? item.str : ''))
+          .join(' ');
+
+        const formData = new FormData();
+        formData.append('pdfContent', pageText);
+        formData.append('pageNumber', String(pageNumber));
+        formData.append('totalPages', String(pdfDoc.numPages));
+
+        // 2) Só aqui iniciamos a transition e chamamos o formAction SINCRONAMENTE
+        startTransition(() => {
+          formAction(formData);
         });
-    }, [pdfDoc, formAction, startTransition]);
+      } catch (err) {
+        // Trate erro local para não travar o loop
+        console.error('Erro ao analisar página', err);
+        setIsAnalyzingAll(false);
+        toast({
+          variant: 'destructive',
+          title: 'Erro na Análise',
+          description: 'Falha ao ler o texto do PDF nesta página.',
+        });
+      }
+    }, [pdfDoc, formAction, startTransition, toast]);
+
 
     useEffect(() => {
         if (state.error) {
