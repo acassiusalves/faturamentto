@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -17,6 +18,7 @@ import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
 import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
+import { analyzeCatalog, type AnalyzeCatalogInput, type AnalyzeCatalogOutput } from '@/ai/flows/analyze-catalog-flow';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -1259,11 +1261,31 @@ export async function regenerateZplAction(
     };
   }
 }
+
+export async function analyzeCatalogAction(
+  prevState: { result: AnalyzeCatalogOutput | null; error: string | null },
+  formData: FormData
+): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null }> {
+  const pdfContent = formData.get('pdfContent') as string;
+
+  if (!pdfContent) {
+    return { result: null, error: 'O conteúdo do PDF está vazio.' };
+  }
+
+  try {
+    const result = await analyzeCatalog({ pdfContent });
+    return { result, error: null };
+  } catch (e: any) {
+    console.error('Error in analyzeCatalogAction:', e);
+    return { result: null, error: e.message || 'Ocorreu um erro desconhecido durante a análise do catálogo.' };
+  }
+}
     
 
     
 
     
+
 
 
 
