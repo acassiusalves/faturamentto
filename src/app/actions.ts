@@ -283,6 +283,7 @@ export async function savePromptAction(_prevState: any, formData: FormData) {
       throw new Error("Chave ou valor do prompt inválido.");
     }
     await saveAppSettings({ [promptKey]: promptValue });
+    revalidatePath('/feed-25');
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e.message };

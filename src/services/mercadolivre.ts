@@ -1,5 +1,4 @@
 
-
 // @ts-nocheck
 
 import { loadAppSettings } from "./firestore";
@@ -16,138 +15,140 @@ const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // O token do ML dura 6 horas, usa
 /**
  * Obtém um novo access_token usando o refresh_token.
  */
-export async function generateNewAccessToken(creds: MercadoLivreCredentials): Promise<string> {
-  if (!creds.refreshToken || !creds.appId || !creds.clientSecret || !creds.redirectUri) {
-    throw new Error("Credenciais do Mercado Livre (App ID, Secret Key, Refresh Token, Redirect URI) não estão configuradas.");
-  }
-  
-  const url = "https://api.mercadolibre.com/oauth/token";
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: creds.appId,
-    client_secret: creds.clientSecret,
-    refresh_token: creds.refreshToken,
-    redirect_uri: creds.redirectUri,
-  });
-
-  const options = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Accept": "application/json",
-    },
-    body: body.toString(),
-    cache: 'no-store' as RequestCache,
-  };
-
-  try {
-    const response = await fetch(url, options);
-    const result = await response.json();
-
-    if (!response.ok || !result.access_token) {
-      console.error("Erro ao obter novo token do Mercado Livre:", result);
-      throw new Error(`Falha ao atualizar token: ${result.message || 'Verifique as credenciais.'}`);
-    }
-
-    console.log("✅ Novo token de acesso do Mercado Livre obtido com sucesso.");
-    return result.access_token;
-
-  } catch (e) {
-    console.error("❌ Exceção ao atualizar token: " + e);
-    throw e;
-  }
-}
-
-/**
- * Obtém um token de acesso válido, seja do cache ou gerando um novo.
- */
 async function getValidAccessToken(): Promise<string> {
   if (inMemoryAccessToken && inMemoryAccessToken.expiresAt > Date.now()) {
     return inMemoryAccessToken.token;
   }
-
   const settings = await loadAppSettings();
-  if (!settings?.mercadoLivre) {
-      throw new Error("Credenciais do Mercado Livre não configuradas no sistema.");
+  const creds = settings?.mercadoLivre;
+  if (!creds?.refreshToken || !creds?.appId || !creds?.clientSecret || !creds?.redirectUri) {
+    throw new Error("Credenciais do Mercado Livre não configuradas.");
   }
 
-  const newToken = await generateNewAccessToken(settings.mercadoLivre);
-  
-  inMemoryAccessToken = {
-    token: newToken,
-    expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-  };
+  const resp = await fetch("https://api.mercadolibre.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: creds.appId,
+      client_secret: creds.clientSecret,
+      refresh_token: creds.refreshToken,
+      redirect_uri: creds.redirectUri,
+    }).toString(),
+    cache: "no-store" as RequestCache,
+  });
 
-  return newToken;
+  const data = await resp.json();
+  if (!resp.ok || !data?.access_token) {
+    throw new Error(`Falha ao atualizar token: ${data?.message || resp.status}`);
+  }
+  inMemoryAccessToken = { token: data.access_token, expiresAt: Date.now() + TOKEN_LIFETIME_MS };
+  return data.access_token;
 }
 
-/**
- * Busca produtos de catálogo e enriquece com dados da oferta vencedora.
- */
+// util: extrai valor de atributo por ids
+function getAttr(attrs: any[] | undefined, ids: string[]): string {
+  const a = (attrs || []).find((x: any) => ids.includes(x?.id));
+  return a?.value_name || a?.values?.[0]?.name || "";
+}
+const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, "https://") : "");
+
+// === FUNÇÃO PRINCIPAL ===
 export async function searchMercadoLivreProducts(query: string, quantity: number): Promise<any[]> {
-    const accessToken = await getValidAccessToken();
-    const site = "MLB"; // Site Brasil
-    
-    // 1. Buscar produtos de catálogo
-    const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(query)}&limit=${quantity}`;
-    const searchOptions = {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${accessToken}` },
-        cache: 'no-store' as RequestCache,
+  const accessToken = await getValidAccessToken();
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const site = "MLB";
+
+  // 1) catálogos
+  const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(
+    query
+  )}&limit=${quantity}`;
+
+  const searchRes = await fetch(searchUrl, { method: "GET", headers, cache: "no-store" as RequestCache });
+  const searchData = await searchRes.json();
+  if (!searchRes.ok) {
+    throw new Error(`Erro na busca de produtos: ${searchData?.message || searchRes.status}`);
+  }
+  const catalogProducts: any[] = Array.isArray(searchData?.results) ? searchData.results : [];
+  if (catalogProducts.length === 0) return [];
+
+  // 2) vencedor por catálogo
+  const CONCURRENCY = 8;
+  const winnerByCat = new Map<string, any>();
+  for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
+    const batch = catalogProducts.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      batch.map(async (p) => {
+        const url = `https://api.mercadolibre.com/products/${p.id}/items?limit=1`;
+        const r = await fetch(url, { method: "GET", headers, cache: "no-store" as RequestCache });
+        if (!r.ok) return;
+        const j = await r.json();
+        const winner = j?.results?.[0];
+        if (winner) winnerByCat.set(p.id, winner);
+      })
+    );
+  }
+
+  // 3) apelidos de vendedores (opcional)
+  const sellerIds = Array.from(
+    new Set(Array.from(winnerByCat.values()).map((w: any) => w?.seller_id).filter(Boolean))
+  );
+  const sellerNickById = new Map<number, string>();
+  for (let i = 0; i < sellerIds.length; i += CONCURRENCY) {
+    const part = sellerIds.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      part.map(async (sid: number) => {
+        const u = `https://api.mercadolibre.com/users/${sid}`;
+        const r = await fetch(u, { method: "GET", headers, cache: "no-store" as RequestCache });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j?.id) sellerNickById.set(j.id, j.nickname || "");
+      })
+    );
+  }
+
+  // 4) montar saída final
+  return catalogProducts.map((p) => {
+    const attrs = Array.isArray(p?.attributes) ? p.attributes : [];
+    const brand =
+      p?.brand ||
+      getAttr(attrs, ["BRAND", "MARCA"]) ||
+      "N/A";
+    const model =
+      p?.model ||
+      getAttr(attrs, ["MODEL", "MODELO", "ALPHANUMERIC_MODEL", "MODEL_NUMBER"]) ||
+      "N/A";
+
+    const thumb =
+      p?.secure_thumbnail ||
+      p?.thumbnail ||
+      (Array.isArray(p?.pictures) && (p.pictures[0]?.secure_url || p.pictures[0]?.url)) ||
+      "";
+
+    const winner = winnerByCat.get(p.id);
+    const price =
+      winner?.price ??
+      winner?.prices?.prices?.[0]?.amount ??
+      0;
+
+    return {
+      // catálogo
+      id: p.id, // id do catálogo
+      catalog_product_id: p.id,
+      name: (p.name || "").trim(),
+      status: p.status || "active",
+      brand,
+      model,
+      thumbnail: toHttps(thumb),
+
+      // anúncio vencedor (se houver)
+      price: Number(price) || 0,
+      shipping: !!winner?.shipping?.free_shipping,
+      listing_type_id: winner?.listing_type_id ?? "",
+      category_id: winner?.category_id ?? "",
+      official_store_id: winner?.official_store_id ?? null,
+      seller_id: winner?.seller_id ?? "",
+      seller_nickname: winner?.seller_id ? sellerNickById.get(winner.seller_id) || "" : "",
     };
-    
-    const searchResponse = await fetch(searchUrl, searchOptions);
-    const searchData = await searchResponse.json();
-    if (!searchResponse.ok) {
-        throw new Error(`Erro na busca de produtos: ${searchData.message || 'Falha na busca'}`);
-    }
-    const catalogProducts = searchData.results || [];
-    if (catalogProducts.length === 0) return [];
-
-    // 2. Montar IDs para busca de itens vencedores
-    // O item vencedor da buybox geralmente tem o mesmo ID do product_id
-    const catalogProductIds = catalogProducts.map(p => p.id).join(',');
-
-    // 3. Buscar itens vencedores em uma única chamada multi-get
-    // O endpoint de items aceita uma lista de IDs separados por vírgula.
-    const itemsUrl = `https://api.mercadolibre.com/items?ids=${catalogProductIds}`;
-    const itemsOptions = {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${accessToken}` },
-        cache: 'no-store' as RequestCache,
-    };
-
-    const itemsResponse = await fetch(itemsUrl, itemsOptions);
-    const itemsData = await itemsResponse.json();
-    
-    const itemsMap = new Map();
-    if (Array.isArray(itemsData)) {
-      itemsData.forEach(itemResult => {
-        if (itemResult.code === 200 && itemResult.body) {
-          const catId = itemResult.body.catalog_product_id;
-          if (catId) {
-            itemsMap.set(catId, itemResult.body);
-          }
-        }
-      });
-    }
-
-    // 4. Mesclar os dados
-    const enrichedProducts = catalogProducts.map(product => {
-        const winningItem = itemsMap.get(product.id);
-        const sellerInfo = winningItem?.seller_id ? { seller_id: winningItem.seller_id, seller_nickname: winningItem.seller?.nickname || '' } : {};
-
-        return {
-            ...product, // Dados do catálogo (id, name, catalog_product_id, attributes)
-            price: winningItem?.price ?? 0,
-            shipping: winningItem?.shipping?.free_shipping ?? false,
-            listing_type_id: winningItem?.listing_type_id ?? '',
-            category_id: winningItem?.category_id ?? '',
-            official_store_id: winningItem?.official_store_id ?? null,
-            ...sellerInfo,
-        };
-    });
-
-    return enrichedProducts;
+  });
 }
