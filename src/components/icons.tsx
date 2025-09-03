@@ -29,7 +29,7 @@ export function MercadoLivreLogo(props: SVGProps<SVGSVGElement>) {
     >
       <path
         d="M3.73 28.526V11.579h6.815l.135 14.158h7.02v-19.84L10.675 3.526H.21v25h17.48v-2.789H3.73zM25.79 28.526V3.526h10.435l4.05 13.053 3.645-13.053H44v25h-3.445V7.421l-3.645 13.263h-3.24l-3.712-13.263v21.105H25.79z"
-        fill="#3483FA"
+        fill="currentColor"
       ></path>
     </svg>
   );

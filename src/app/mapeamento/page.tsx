@@ -28,6 +28,8 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { MercadoLivreLogo } from "@/components/icons";
+
 
 const marketplaces = [
   { id: "magalu", name: "Magalu", logo: "https://placehold.co/100x40.png", dataAiHint: "brand logo" },
@@ -463,8 +465,9 @@ export default function MappingPage() {
         </div>
         
         <Tabs defaultValue="ideris-api" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="ideris-api"><Database />Ideris API (Base)</TabsTrigger>
+            <TabsTrigger value="mercado-livre"><MercadoLivreLogo className="h-4 w-4" /> Mercado Livre</TabsTrigger>
             <TabsTrigger value="gemini-ai"><Sparkles />Gemini AI</TabsTrigger>
             <TabsTrigger value="google-sheets"><FileSpreadsheet/>Google Planilhas</TabsTrigger>
             <TabsTrigger value="local-file"><HardDriveUpload/>Arquivo Local (CSV)</TabsTrigger>
@@ -560,6 +563,33 @@ export default function MappingPage() {
                     />
                 </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="mercado-livre" className="space-y-8 pt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conectar com Mercado Livre</CardTitle>
+                  <CardDescription>
+                      Forneça suas credenciais da API do Mercado Livre para habilitar integrações.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4 max-w-lg">
+                        <div className="space-y-2">
+                          <Label htmlFor="ml-app-id">App ID</Label>
+                          <Input id="ml-app-id" placeholder="Insira seu App ID do Mercado Livre" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ml-secret-key">Secret Key</Label>
+                          <Input id="ml-secret-key" type="password" placeholder="Insira sua Secret Key" />
+                        </div>
+                        <Button disabled>
+                          <Plug className="mr-2" />
+                          Salvar e Testar Conexão (Em Breve)
+                        </Button>
+                    </div>
+                </CardContent>
+              </Card>
           </TabsContent>
 
           <TabsContent value="gemini-ai" className="space-y-8 pt-6">
