@@ -29,6 +29,11 @@ const SearchMercadoLivreOutputSchema = z.object({
   products: z.array(CatalogProductSchema).describe('A list of catalog products found on Mercado Livre.'),
 });
 
+const RefinedQuerySchema = z.object({
+  refinedQuery: z.string().describe('The refined search query, containing only the product name and model.'),
+});
+
+
 export async function searchMercadoLivre(
   input: z.infer<typeof SearchMercadoLivreInputSchema>
 ): Promise<z.infer<typeof SearchMercadoLivreOutputSchema>> {
@@ -76,14 +81,30 @@ export async function searchMercadoLivre(
       outputSchema: SearchMercadoLivreOutputSchema,
     },
     async (flowInput) => {
-      const prompt = ai.definePrompt({
+      // 1. Refine the query first
+      const refinePrompt = ai.definePrompt({
+          name: 'refineSearchQueryPrompt',
+          model: gemini15Flash,
+          input: { schema: z.object({ productName: z.string() }) },
+          output: { schema: RefinedQuerySchema },
+          prompt: `Refine o termo de busca a seguir. Mantenha apenas o nome principal do produto e seu modelo. Remova todas as outras descrições, como "para PC/Notebook", "versão global", "cor", etc.
+          
+          Termo de Busca Original: "{{{productName}}}"
+          `,
+      });
+
+      const { output: refinedOutput } = await refinePrompt(flowInput);
+      const queryToUse = refinedOutput?.refinedQuery || flowInput.productName;
+
+      // 2. Use the refined query to search
+      const searchPrompt = ai.definePrompt({
         name: 'searchMercadoLivrePrompt',
         model: gemini15Flash,
         tools: [searchTool],
-        prompt: `You MUST use the searchMercadoLivreCatalog tool to find the top 5 catalog products for "{{{productName}}}" on Mercado Livre. Return the tool's output directly.`,
+        prompt: `You MUST use the searchMercadoLivreCatalog tool to find the top 5 catalog products for "${queryToUse}" on Mercado Livre. Return the tool's output directly.`,
       });
 
-      const { output } = await prompt(flowInput);
+      const { output } = await searchPrompt(flowInput);
       
       return output || { products: [] };
     }
