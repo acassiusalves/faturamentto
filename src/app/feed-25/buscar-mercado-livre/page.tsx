@@ -26,6 +26,7 @@ interface ProductResult {
     model: string;
     price: number;
     shipping_type: string;
+    shipping_logistic_type: string;
     free_shipping: boolean;
     category_id: string;
     listing_type_id: string;
@@ -177,7 +178,13 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell>
-                                                {product.shipping_type === 'Full ML' ? <FullIcon /> : product.shipping_type || '-'}
+                                                <div className="flex items-center gap-1">
+                                                {product.shipping_logistic_type === "fulfillment" ? (
+                                                <FullIcon />
+                                                ) : (
+                                                <span>{product.shipping_type || "-"}</span>
+                                                )}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {product.free_shipping && (

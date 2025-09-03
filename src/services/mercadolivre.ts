@@ -165,6 +165,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
       // anúncio vencedor (se houver)
       price: Number(price) || 0,
       shipping_type: freightMap[rawFreightType] || rawFreightType || "N/A",
+      shipping_logistic_type: rawFreightType,
       free_shipping: !!winner?.shipping?.free_shipping,
       listing_type_id: listingTypeMap[rawListingType] || rawListingType || "N/A",
       category_id: winner?.category_id ?? "",

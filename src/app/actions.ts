@@ -1,4 +1,3 @@
-
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -54,7 +53,34 @@ export async function searchMercadoLivreAction(
   try {
     const productName = String(formData.get("productName") || "").trim();
     const quantity = Number(formData.get("quantity") || 10);
-    const result = await searchMercadoLivreProducts(productName, quantity);
+    const searchResult = await searchMercadoLivreProducts(productName, quantity);
+    
+    const result = (searchResult || []).map((item: any) => {
+      const name =
+        (item.name ?? "").toString().trim() ||
+        (item?.attributes?.find((a:any)=>a.id==="TITLE")?.value_name ?? "").toString().trim() ||
+        String(item.id);
+    
+      return {
+        id: item.id,
+        name,
+        status: item.status || '',
+        catalog_product_id: item.catalog_product_id || '',
+        brand: item.brand || 'N/A',
+        model: item.model || 'N/A',
+        thumbnail: item.thumbnail,
+        price: item.price ?? 0,
+        shipping_type: item.shipping_type || 'N/A',
+        free_shipping: !!item.free_shipping,
+        shipping_logistic_type: item.shipping_logistic_type, // Adicionado
+        category_id: item.category_id ?? '',
+        listing_type_id: item.listing_type_id ?? '',
+        seller_id: item.seller_id ?? '',
+        seller_nickname: item.seller_nickname ?? '',
+        official_store_id: item.official_store_id ?? '',
+      };
+    });
+
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e?.message || "Falha inesperada" };
