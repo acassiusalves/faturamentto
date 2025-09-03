@@ -1,7 +1,4 @@
 
-
-
-
 'use server';
 
 import {processListPipeline} from '@/ai/flows/process-list-flow';
@@ -1268,13 +1265,15 @@ export async function analyzeCatalogAction(
   formData: FormData
 ): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null }> {
   const pdfContent = formData.get('pdfContent') as string;
+  const pageNumber = formData.get('pageNumber') as string;
+  const totalPages = formData.get('totalPages') as string;
 
   if (!pdfContent) {
-    return { result: null, error: 'O conteúdo do PDF está vazio.' };
+    return { result: null, error: 'O conteúdo da página do PDF está vazio.' };
   }
 
   try {
-    const result = await analyzeCatalog({ pdfContent });
+    const result = await analyzeCatalog({ pdfContent, pageNumber: Number(pageNumber), totalPages: Number(totalPages) });
     return { result, error: null };
   } catch (e: any) {
     console.error('Error in analyzeCatalogAction:', e);
@@ -1286,6 +1285,7 @@ export async function analyzeCatalogAction(
     
 
     
+
 
 
 

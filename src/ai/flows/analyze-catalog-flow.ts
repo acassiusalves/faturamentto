@@ -2,9 +2,9 @@
 'use server';
 
 /**
- * @fileOverview An AI agent that analyzes a PDF catalog.
+ * @fileOverview An AI agent that analyzes a single page of a PDF catalog.
  *
- * - analyzeCatalog - A function that handles the catalog analysis process.
+ * - analyzeCatalog - A function that handles the catalog analysis process for one page.
  */
 
 import { getAi } from '@/ai/genkit';
@@ -23,29 +23,29 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
   
   const analyzeFlow = ai.defineFlow(
     {
-      name: 'analyzeCatalogFlow',
+      name: 'analyzeCatalogPageFlow',
       inputSchema: AnalyzeCatalogInputSchema,
       outputSchema: AnalyzeCatalogOutputSchema,
     },
     async (flowInput) => {
         const prompt = ai.definePrompt({
-          name: 'analyzeCatalogPrompt',
+          name: 'analyzeCatalogPagePrompt',
           model: gemini15Flash,
           input: { schema: AnalyzeCatalogInputSchema },
           output: { schema: AnalyzeCatalogOutputSchema },
           prompt: `
             Você é um especialista em extrair informações de catálogos de produtos em PDF.
-            Analise o texto abaixo, que foi extraído de um PDF, e identifique cada produto listado.
+            Sua tarefa é analisar o texto da página {{pageNumber}} de um total de {{totalPages}} páginas.
 
-            Para cada produto, extraia as seguintes informações:
+            Para cada produto encontrado APENAS NESTA PÁGINA, extraia as seguintes informações:
             - name: O nome completo do produto.
             - description: Uma breve descrição do produto, se disponível.
             - price: O preço do produto. Formate o preço como uma string com vírgula para decimais (ex: "1.299,00").
             - imageUrl: Se uma URL de imagem for mencionada, use-a. Caso contrário, deixe em branco.
 
-            Ignore qualquer texto que não seja uma listagem de produto (ex: introduções, índices, informações de contato).
+            Ignore qualquer texto que não seja uma listagem de produto (ex: introduções, índices, informações de contato, cabeçalhos ou rodapés repetitivos).
 
-            Texto do PDF para análise:
+            Texto da Página {{pageNumber}} para análise:
             \`\`\`
             {{{pdfContent}}}
             \`\`\`

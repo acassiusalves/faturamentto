@@ -1,17 +1,18 @@
 
 "use client";
 
-import { useState, useActionState } from 'react';
+import { useState, useActionState, useEffect } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, Image as ImageIcon } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, Image as ImageIcon, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput } from '@/lib/types';
+import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
 import Image from 'next/image';
+import { Progress } from '@/components/ui/progress';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
@@ -29,58 +30,75 @@ const initialState: {
 export default function CatalogoPdfPage() {
     const { toast } = useToast();
     const [file, setFile] = useState<File | null>(null);
+    const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
     const [isParsing, setIsParsing] = useState(false);
+    const [allProducts, setAllProducts] = useState<ProductSchema[]>([]);
+
     const [state, formAction, isAnalyzing] = useActionState(analyzeCatalogAction, initialState);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    useEffect(() => {
+        if (state.error) {
+            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+        }
+        if (state.result) {
+            setAllProducts(prev => [...prev, ...state.result!.products]);
+            if (currentPage < (pdfDoc?.numPages || 0)) {
+                setCurrentPage(p => p + 1);
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state]);
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
         if (selectedFile && selectedFile.type === 'application/pdf') {
             setFile(selectedFile);
+            setIsParsing(true);
+            setAllProducts([]);
+            setCurrentPage(1);
+            setPdfDoc(null);
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+                setPdfDoc(pdf);
+            } catch (error) {
+                 toast({ variant: 'destructive', title: 'Erro ao ler PDF' });
+            } finally {
+                setIsParsing(false);
+            }
         } else {
-            toast({
-                variant: 'destructive',
-                title: 'Arquivo Inválido',
-                description: 'Por favor, selecione um arquivo PDF.',
-            });
+            toast({ variant: 'destructive', title: 'Arquivo Inválido' });
             setFile(null);
         }
     };
     
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (!file) {
-            toast({ variant: 'destructive', title: 'Nenhum arquivo selecionado' });
-            return;
-        }
+    const analyzePage = async (pageNumber: number) => {
+        if (!pdfDoc || pageNumber > pdfDoc.numPages) return;
 
-        setIsParsing(true);
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-            const textContents: string[] = [];
-
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-                textContents.push(pageText);
-            }
-            
-            const fullText = textContents.join('\n\n--- Page Break ---\n\n');
-            
-            const formData = new FormData();
-            formData.append('pdfContent', fullText);
-            formAction(formData);
-
-        } catch (error) {
-            console.error("Error parsing PDF:", error);
-            toast({ variant: 'destructive', title: 'Erro ao ler PDF', description: 'Não foi possível processar o arquivo.' });
-        } finally {
-            setIsParsing(false);
-        }
+        const page = await pdfDoc.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
+        
+        const formData = new FormData();
+        formData.append('pdfContent', pageText);
+        formData.append('pageNumber', String(pageNumber));
+        formData.append('totalPages', String(pdfDoc.numPages));
+        
+        formAction(formData);
+    };
+    
+    const analyzeAllPages = async () => {
+      if (!pdfDoc) return;
+      for (let i = currentPage; i <= pdfDoc.numPages; i++) {
+        await analyzePage(i);
+        // Pequena pausa para não sobrecarregar
+        await new Promise(res => setTimeout(res, 300));
+      }
     };
 
     const isProcessing = isParsing || isAnalyzing;
+    const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
@@ -91,84 +109,77 @@ export default function CatalogoPdfPage() {
                         Análise de Catálogo PDF
                     </CardTitle>
                     <CardDescription>
-                       Faça o upload do seu catálogo em PDF e a IA irá extrair e listar os produtos para você.
+                       Faça o upload do seu catálogo em PDF e a IA irá extrair e listar os produtos para você, página por página.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="pdf-upload">Arquivo do Catálogo (.pdf)</Label>
-                            <div className="flex gap-4">
-                                <Input id="pdf-upload" type="file" accept="application/pdf" onChange={handleFileChange} />
-                                <Button type="submit" disabled={!file || isProcessing}>
-                                    {isProcessing ? <Loader2 className="animate-spin" /> : <Upload />}
-                                    Analisar
-                                </Button>
-                            </div>
+                            <Input id="pdf-upload" type="file" accept="application/pdf" onChange={handleFileChange} />
                         </div>
                     </form>
                 </CardContent>
+                {pdfDoc && (
+                    <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div className="flex-grow w-full">
+                            {isProcessing ? (
+                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Loader2 className="animate-spin" />
+                                    <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Pronto para analisar. {pdfDoc.numPages} páginas encontradas.</p>
+                            )}
+                             <Progress value={progress} className="w-full mt-2" />
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                             <Button onClick={() => analyzePage(currentPage)} disabled={isProcessing || currentPage > pdfDoc.numPages}>
+                                <Play className="mr-2" /> Analisar Próxima
+                            </Button>
+                            <Button onClick={analyzeAllPages} disabled={isProcessing || currentPage > pdfDoc.numPages} variant="secondary">
+                                <FastForward className="mr-2" /> Analisar Todas
+                            </Button>
+                        </div>
+                    </CardFooter>
+                )}
             </Card>
-
-            {isProcessing && (
-                <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                    <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4 text-muted-foreground">{isParsing ? 'Lendo arquivo PDF...' : 'Analisando produtos com IA...'}</p>
-                </div>
-            )}
             
-            {state.error && (
-                <div className="p-4 bg-destructive/10 text-destructive rounded-md flex items-center gap-2">
-                    <XCircle />
-                    <div>
-                        <h4 className="font-semibold">Erro na Análise</h4>
-                        <p>{state.error}</p>
-                    </div>
-                </div>
-            )}
-
-            {state.result && (
+            {allProducts.length > 0 && (
                  <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <FileText />
-                            Produtos Extraídos ({state.result.products.length})
+                            Produtos Extraídos ({allProducts.length})
                         </CardTitle>
                          <CardDescription>
                             Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {state.result.products.length > 0 ? (
-                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                                {state.result.products.map((product, index) => (
-                                    <Card key={index} className="overflow-hidden">
-                                        <div className="relative w-full h-40 bg-muted flex items-center justify-center">
-                                            <ImageIcon className="text-muted-foreground" size={48} />
-                                             <Image
-                                                src={product.imageUrl || `https://picsum.photos/seed/${product.name}/400/400`}
-                                                alt={product.name}
-                                                fill
-                                                className="object-cover"
-                                                data-ai-hint="product image"
-                                            />
+                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                            {allProducts.map((product, index) => (
+                                <Card key={index} className="overflow-hidden">
+                                    <div className="relative w-full h-40 bg-muted flex items-center justify-center">
+                                        <ImageIcon className="text-muted-foreground" size={48} />
+                                         <Image
+                                            src={product.imageUrl || `https://picsum.photos/seed/${product.name.replace(/\s/g, '')}/400/400`}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover"
+                                            data-ai-hint="product image"
+                                        />
+                                    </div>
+                                    <div className="p-4">
+                                        <h3 className="font-semibold h-10 line-clamp-2">{product.name}</h3>
+                                        <p className="text-sm text-muted-foreground h-16 line-clamp-3 my-2">{product.description}</p>
+                                        <div className="text-lg font-bold text-primary mt-2">
+                                            {product.price ? `R$ ${product.price}` : 'Preço não encontrado'}
                                         </div>
-                                        <div className="p-4">
-                                            <h3 className="font-semibold h-10 line-clamp-2">{product.name}</h3>
-                                            <p className="text-sm text-muted-foreground h-16 line-clamp-3 my-2">{product.description}</p>
-                                            <div className="text-lg font-bold text-primary mt-2">
-                                                {product.price ? `R$ ${product.price}` : 'Preço não encontrado'}
-                                            </div>
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground border-2 border-dashed rounded-lg">
-                                <h3 className="text-lg font-semibold">Nenhum produto encontrado</h3>
-                                <p>A IA não conseguiu extrair nenhum produto do PDF enviado.</p>
-                            </div>
-                        )}
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
                     </CardContent>
                  </Card>
             )}
