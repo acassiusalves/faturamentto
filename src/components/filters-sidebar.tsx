@@ -26,6 +26,8 @@ type FiltersSidebarProps = {
   className?: string;
 };
 
+const INITIAL_VISIBLE_COUNT = 7;
+
 export function FiltersSidebar({
   shippingOptions,
   brandOptions,
@@ -38,6 +40,8 @@ export function FiltersSidebar({
   className,
 }: FiltersSidebarProps) {
   const [brandQuery, setBrandQuery] = React.useState("");
+  const [showAllBrands, setShowAllBrands] = React.useState(false);
+
   const filteredBrands = React.useMemo(() => {
     const q = brandQuery.trim().toLowerCase();
     if (!q) return brandOptions;
@@ -54,6 +58,9 @@ export function FiltersSidebar({
     setSelectedBrands([]);
     setStoreFilter([]);
   };
+  
+  const visibleBrands = showAllBrands ? filteredBrands : filteredBrands.slice(0, INITIAL_VISIBLE_COUNT);
+
 
   return (
     <aside className={cn("w-full md:w-64 shrink-0", className)}>
@@ -68,7 +75,7 @@ export function FiltersSidebar({
         {/* Tipos de entrega */}
         <section className="mb-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">Tipos de entrega</p>
-          <div className="space-y-2 max-h-40 overflow-auto pr-1">
+          <div className="space-y-2 pr-1">
             {shippingOptions.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sem opções</p>
             ) : (
@@ -90,7 +97,7 @@ export function FiltersSidebar({
             <div className="mt-2 flex flex-wrap gap-1">
               {selectedShipping.map((s) => (
                 <Badge key={s} variant="secondary" className="px-2">
-                  {s}
+                  {shippingOptions.find(opt => opt.value === s)?.label || s}
                 </Badge>
               ))}
             </div>
@@ -106,11 +113,11 @@ export function FiltersSidebar({
             value={brandQuery}
             onChange={(e) => setBrandQuery(e.target.value)}
           />
-          <div className="space-y-2 max-h-48 overflow-auto pr-1">
-            {filteredBrands.length === 0 ? (
+          <div className="space-y-2 pr-1">
+            {visibleBrands.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sem resultados</p>
             ) : (
-              filteredBrands.map((b) => (
+              visibleBrands.map((b) => (
                 <label key={b.value || "N/A"} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
                     <div className="flex items-center gap-2">
                         <Checkbox
@@ -124,11 +131,20 @@ export function FiltersSidebar({
               ))
             )}
           </div>
+          {!showAllBrands && filteredBrands.length > INITIAL_VISIBLE_COUNT && (
+            <Button
+              variant="link"
+              className="px-0 h-auto text-primary"
+              onClick={() => setShowAllBrands(true)}
+            >
+              Mostrar mais
+            </Button>
+          )}
           {selectedBrands.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {selectedBrands.map((b) => (
                 <Badge key={b} variant="secondary" className="px-2">
-                  {b}
+                  {brandOptions.find(opt => opt.value === b)?.label || b}
                 </Badge>
               ))}
             </div>
@@ -160,7 +176,7 @@ export function FiltersSidebar({
             <div className="mt-2 flex flex-wrap gap-1">
               {storeFilter.map((s) => (
                 <Badge key={s} variant="secondary" className="px-2 capitalize">
-                  {s}
+                  {s === 'yes' ? 'Oficial' : 'Não Oficial'}
                 </Badge>
               ))}
             </div>
