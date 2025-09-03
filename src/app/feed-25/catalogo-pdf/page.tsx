@@ -43,7 +43,7 @@ export default function CatalogoPdfPage() {
         setIsAnalyzingAll(false);
         return;
       }
-
+    
       try {
         // 1) Faz TODO o trabalho assíncrono ANTES da transition
         const page = await pdfDoc.getPage(pageNumber);
@@ -51,12 +51,12 @@ export default function CatalogoPdfPage() {
         const pageText = textContent.items
           .map((item: any) => ('str' in item ? item.str : ''))
           .join(' ');
-
+    
         const formData = new FormData();
         formData.append('pdfContent', pageText);
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
-
+    
         // 2) Só aqui iniciamos a transition e chamamos o formAction SINCRONAMENTE
         startTransition(() => {
           formAction(formData);
@@ -206,11 +206,11 @@ export default function CatalogoPdfPage() {
                     <CardContent>
                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                             {allProducts.map((product, index) => (
-                                <Card key={index} className="overflow-hidden">
-                                    <CardContent className="p-4">
-                                        <h3 className="font-semibold h-10 line-clamp-2">{product.name}</h3>
-                                        <p className="text-sm text-muted-foreground h-16 line-clamp-3 my-2">{product.description}</p>
-                                        <div className="text-lg font-bold text-primary mt-2">
+                                <Card key={index} className="overflow-hidden flex flex-col">
+                                    <CardContent className="p-4 flex flex-col flex-grow">
+                                        <h3 className="font-semibold">{product.name}</h3>
+                                        <p className="text-sm text-muted-foreground my-2 flex-grow">{product.description}</p>
+                                        <div className="text-lg font-bold text-primary mt-auto pt-2">
                                             {product.price ? `R$ ${product.price}` : 'Preço não encontrado'}
                                         </div>
                                     </CardContent>
