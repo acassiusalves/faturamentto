@@ -178,13 +178,11 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1">
                                                 {product.shipping_logistic_type === "fulfillment" ? (
-                                                <FullIcon />
+                                                  <FullIcon />
                                                 ) : (
-                                                <span>{product.shipping_type || "-"}</span>
+                                                  <span>{product.shipping_type || "-"}</span>
                                                 )}
-                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {product.free_shipping && (

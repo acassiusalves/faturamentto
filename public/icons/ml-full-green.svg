@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 26" role="img" aria-label="Full">
+  <g fill="#00A650">
+    <path d="M2 1h14l-5 8h8L6 25l4-10H1z"/>
+    <g transform="translate(22,3) skewX(-12)">
+      <text x="0" y="16"
+            font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,'Helvetica Neue',Arial,sans-serif"
+            font-weight="800" font-size="16">FULL</text>
+    </g>
+  </g>
+</svg>

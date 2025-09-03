@@ -1,6 +1,7 @@
 
 import type { SVGProps } from "react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 
 export function MarketFlowLogo(props: SVGProps<SVGSVGElement>) {
@@ -55,17 +56,12 @@ export function AmazonLogo(props: SVGProps<SVGSVGElement>) {
 
 export function FullIcon({ className }: { className?: string }) {
   return (
-    <svg
-      role="img"
-      aria-label="Full"
-      viewBox="0 0 44 13"
-      className={cn(
-        "inline-block h-3 w-auto align-middle leading-none text-[#00A650]",
-        className
-      )}
-      focusable="false"
-    >
-      <use href="#ml-full-icon" />
-    </svg>
+    <Image
+      src="/icons/ml-full-green.svg"
+      alt="Mercado Livre Full"
+      width={44}
+      height={13}
+      className={cn("h-3 w-auto", className)}
+    />
   );
 }
