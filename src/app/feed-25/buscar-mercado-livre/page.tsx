@@ -136,7 +136,6 @@ export default function BuscarMercadoLivrePage() {
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>Frete</TableHead>
                                         <TableHead>ID Categoria</TableHead>
                                         <TableHead>Tipo</TableHead>
                                         <TableHead>Loja Oficial</TableHead>
@@ -173,19 +172,21 @@ export default function BuscarMercadoLivrePage() {
                                                 <div className="flex items-center gap-1.5 mt-1 text-sm font-semibold">
                                                     <Truck className="h-4 w-4 text-muted-foreground" />
                                                     {product.shipping_logistic_type === "fulfillment" ? (
-                                                        <FullIcon className="h-4" />
+                                                        <FullIcon className="h-5" />
                                                     ) : (
                                                         <span className="text-muted-foreground">{product.shipping_type || "-"}</span>
                                                     )}
                                                 </div>
+                                                {product.free_shipping && (
+                                                    <div className="mt-1">
+                                                        <FreteGratisIcon />
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status}</Badge></TableCell>
                                             <TableCell>{product.brand}</TableCell>
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell>
-                                                {product.free_shipping && <FreteGratisIcon />}
-                                            </TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
                                             <TableCell>{product.listing_type_id}</TableCell>
                                             <TableCell>{product.official_store_id ? `Sim (${product.official_store_id})` : 'Não'}</TableCell>
@@ -198,7 +199,7 @@ export default function BuscarMercadoLivrePage() {
                                         </TableRow>
                                     )}) : (
                                         <TableRow>
-                                            <TableCell colSpan={12} className="h-24 text-center">
+                                            <TableCell colSpan={11} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
                                                     Nenhum produto encontrado para este termo.
