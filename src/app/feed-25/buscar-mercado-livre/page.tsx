@@ -131,7 +131,7 @@ export default function BuscarMercadoLivrePage() {
                                         <TableRow key={product.id}>
                                             <TableCell>
                                                 <div className="w-16 h-16 bg-muted rounded-md overflow-hidden relative">
-                                                    <Image src={product.thumbnail.replace('http://','https://')} alt={product.name} fill className="object-contain" data-ai-hint="product image" />
+                                                    <Image src={(product.thumbnail || '').replace('http://','https://')} alt={product.name} fill className="object-contain" data-ai-hint="product image" />
                                                 </div>
                                             </TableCell>
                                             <TableCell>
