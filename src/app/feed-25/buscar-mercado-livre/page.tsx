@@ -15,8 +15,8 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
-import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FiltersSidebar } from "@/components/filters-sidebar";
 
 
 interface ProductResult {
@@ -188,168 +188,145 @@ export default function BuscarMercadoLivrePage() {
             )}
             
             {state?.result && !isPending && (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
-                        <CardDescription>Filtre os resultados para refinar sua busca.</CardDescription>
-                        <div className="flex flex-col md:flex-row gap-4 pt-4">
-                            <div className="flex items-center gap-2 flex-1">
-                                <Filter className="h-5 w-5 text-muted-foreground"/>
+                 <div className="grid grid-cols-1 md:grid-cols-[256px,1fr] gap-6">
+                    <FiltersSidebar
+                        shippingOptions={shippingOptions}
+                        brandOptions={brandOptions}
+                        selectedShipping={shippingFilter}
+                        setSelectedShipping={setShippingFilter}
+                        selectedBrands={brandFilter}
+                        setSelectedBrands={setBrandFilter}
+                        storeFilter={officialStoreFilter}
+                        setStoreFilter={setOfficialStoreFilter}
+                    />
 
-                                <MultiSelect
-                                    value={shippingFilter}
-                                    onChange={setShippingFilter}
-                                    options={shippingOptions.map(v => ({ label: v || "N/A", value: v || "N/A" }))}
-                                    placeholder="Tipos de entrega"
-                                    emptyText="Sem tipos de entrega"
-                                />
-
-                                <MultiSelect
-                                    value={brandFilter}
-                                    onChange={setBrandFilter}
-                                    options={brandOptions.map(v => ({ label: v || "N/A", value: v || "N/A" }))}
-                                    placeholder="Marcas"
-                                    emptyText="Sem marcas"
-                                />
-                                
-                                <MultiSelect
-                                    value={officialStoreFilter}
-                                    onChange={(vals) =>
-                                    setOfficialStoreFilter(
-                                        vals.filter((v): v is "yes" | "no" => v === "yes" || v === "no")
-                                    )
-                                    }
-                                    options={[
-                                    { label: "Lojas Oficiais", value: "yes" },
-                                    { label: "Lojas Não Oficiais", value: "no" },
-                                    ]}
-                                    placeholder="Tipo de loja"
-                                />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                         <div className="rounded-md border overflow-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[120px]">Imagem</TableHead>
-                                        <TableHead>Nome do Produto</TableHead>
-                                        <TableHead>Marca</TableHead>
-                                        <TableHead>Preço</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {paginatedResults.length > 0 ? paginatedResults.map(product => {
-                                        const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
-                                        return (
-                                        <TableRow key={product.id}>
-                                            <TableCell>
-                                                <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                                                    {product.thumbnail && !broken.has(product.id) ? (
-                                                        <Image 
-                                                            src={product.thumbnail}
-                                                            alt={displayName}
-                                                            fill
-                                                            sizes="96px"
-                                                            className="object-contain" 
-                                                            data-ai-hint="product image"
-                                                            onError={() => setBroken(prev => new Set(prev).add(product.id))}
-                                                        />
-                                                    ) : (
-                                                        <Package className="h-8 w-8 text-muted-foreground" />
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
-                                                    {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                </Link>
-                                                <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
-                                                <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    Vendedor: 
-                                                    {product.seller_nickname ? (
-                                                        <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline ml-1">
-                                                            {product.seller_nickname}
-                                                        </Link>
-                                                    ) : ''}
-                                                    {product.official_store_id && (
-                                                        <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col items-start gap-1 mt-1.5">
-                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                        {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
-                                                        {product.shipping_type === 'Correios' && <CorreiosLogo />}
-                                                        {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
-                                                        {product.free_shipping && (
-                                                            <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
-                                                                <FreteGratisIcon />
-                                                            </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
+                            <CardDescription>Produtos encontrados no catálogo do Mercado Livre.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-md border overflow-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[120px]">Imagem</TableHead>
+                                            <TableHead>Nome do Produto</TableHead>
+                                            <TableHead>Preço</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {paginatedResults.length > 0 ? paginatedResults.map(product => {
+                                            const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
+                                            return (
+                                            <TableRow key={product.id}>
+                                                <TableCell>
+                                                    <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+                                                        {product.thumbnail && !broken.has(product.id) ? (
+                                                            <Image 
+                                                                src={product.thumbnail}
+                                                                alt={displayName}
+                                                                fill
+                                                                sizes="96px"
+                                                                className="object-contain" 
+                                                                data-ai-hint="product image"
+                                                                onError={() => setBroken(prev => new Set(prev).add(product.id))}
+                                                            />
+                                                        ) : (
+                                                            <Package className="h-8 w-8 text-muted-foreground" />
                                                         )}
                                                     </div>
-                                                    
-                                                    {product.listing_type_id && (
-                                                         <Badge variant="outline" className="text-xs">{listingTypeMap[product.listing_type_id] || product.listing_type_id || ''}</Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{product.brand || ''}</TableCell>
-                                            <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                        </TableRow>
-                                    )}) : (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
-                                                 <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                                    <Package className="h-10 w-10 mb-2"/>
-                                                    Nenhum produto encontrado para os filtros selecionados.
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                    <CardFooter className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="text-sm text-muted-foreground">
-                            Total de {filteredResults.length} registros.
-                        </div>
-                        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
-                            <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium">Itens por página</p>
-                                <Select
-                                    value={`${pageSize}`}
-                                    onValueChange={(value) => {
-                                        setPageSize(Number(value));
-                                        setPageIndex(0);
-                                    }}
-                                >
-                                    <SelectTrigger className="h-8 w-[70px]">
-                                        <SelectValue placeholder={pageSize.toString()} />
-                                    </SelectTrigger>
-                                    <SelectContent side="top">
-                                        {[10, 20, 50, 100].map((size) => (
-                                            <SelectItem key={size} value={`${size}`}>
-                                                {size}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
+                                                        {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                    </Link>
+                                                    <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
+                                                    <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
+                                                    <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        Vendedor: 
+                                                        {product.seller_nickname ? (
+                                                            <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline ml-1">
+                                                                {product.seller_nickname}
+                                                            </Link>
+                                                        ) : ''}
+                                                        {product.official_store_id && (
+                                                            <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col items-start gap-1 mt-1.5">
+                                                        <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                                            {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
+                                                            {product.shipping_type === 'Correios' && <CorreiosLogo />}
+                                                            {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                            {product.free_shipping && (
+                                                                <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
+                                                                    <FreteGratisIcon />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {product.listing_type_id && (
+                                                            <Badge variant="outline" className="text-xs">{listingTypeMap[product.listing_type_id] || product.listing_type_id || ''}</Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
+                                            </TableRow>
+                                        )}) : (
+                                            <TableRow>
+                                                <TableCell colSpan={3} className="h-24 text-center">
+                                                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                                        <Package className="h-10 w-10 mb-2"/>
+                                                        Nenhum produto encontrado para os filtros selecionados.
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
                             </div>
-                            <div className="text-sm font-medium">
-                                Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                        </CardContent>
+                        <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="text-sm text-muted-foreground">
+                                Total de {filteredResults.length} registros.
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                            <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium">Itens por página</p>
+                                    <Select
+                                        value={`${pageSize}`}
+                                        onValueChange={(value) => {
+                                            setPageSize(Number(value));
+                                            setPageIndex(0);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 w-[70px]">
+                                            <SelectValue placeholder={pageSize.toString()} />
+                                        </SelectTrigger>
+                                        <SelectContent side="top">
+                                            {[10, 20, 50, 100].map((size) => (
+                                                <SelectItem key={size} value={`${size}`}>
+                                                    {size}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="text-sm font-medium">
+                                    Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                                    <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                                </div>
                             </div>
-                        </div>
-                    </CardFooter>
-                 </Card>
+                        </CardFooter>
+                    </Card>
+                </div>
             )}
             
             {state?.error && !isPending && (
