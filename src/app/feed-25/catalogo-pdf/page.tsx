@@ -36,7 +36,7 @@ export default function CatalogoPdfPage() {
     const [allProducts, setAllProducts] = useState<ProductSchema[]>([]);
     const [isProcessing, startTransition] = useTransition();
 
-    const [state, formAction, isAnalyzing] = useActionState(analyzeCatalogAction, initialState);
+    const [state, formAction] = useActionState(analyzeCatalogAction, initialState);
 
     useEffect(() => {
         if (state.error) {
@@ -91,28 +91,21 @@ export default function CatalogoPdfPage() {
         });
     };
     
-    const analyzeAllPages = () => {
+    const analyzeAllPages = async () => {
       if (!pdfDoc) return;
-      
-      startTransition(async () => {
-        for (let i = currentPage; i <= pdfDoc.numPages; i++) {
-          const page = await pdfDoc.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(item => ('str' in item ? item.str : '')).join(' ');
-          
-          const formData = new FormData();
-          formData.append('pdfContent', pageText);
-          formData.append('pageNumber', String(i));
-          formData.append('totalPages', String(pdfDoc.numPages));
-          
-          formAction(formData);
-          // Aguarda um ciclo para o estado ser atualizado antes de continuar
-          await new Promise(resolve => setTimeout(resolve, 0));
-        }
-      });
+
+      for (let i = currentPage; i <= pdfDoc.numPages; i++) {
+        // We need to wait for the state update from the previous page to complete
+        // before starting the next one. This is a simple way to achieve that.
+        await new Promise<void>((resolve) => {
+          analyzePage(i);
+          // The timeout gives React time to process the state update from `analyzePage`
+          setTimeout(() => resolve(), 500); 
+        });
+      }
     };
 
-    const isProcessingAny = isParsing || isAnalyzing || isProcessing;
+    const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
     return (
@@ -138,7 +131,7 @@ export default function CatalogoPdfPage() {
                 {pdfDoc && (
                     <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex-grow w-full">
-                            {isProcessingAny ? (
+                            {isProcessing ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
                                     <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
@@ -175,13 +168,13 @@ export default function CatalogoPdfPage() {
                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                             {allProducts.map((product, index) => (
                                 <Card key={index} className="overflow-hidden">
-                                    <div className="p-4">
+                                    <CardContent className="p-4">
                                         <h3 className="font-semibold h-10 line-clamp-2">{product.name}</h3>
                                         <p className="text-sm text-muted-foreground h-16 line-clamp-3 my-2">{product.description}</p>
                                         <div className="text-lg font-bold text-primary mt-2">
                                             {product.price ? `R$ ${product.price}` : 'Preço não encontrado'}
                                         </div>
-                                    </div>
+                                    </CardContent>
                                 </Card>
                             ))}
                         </div>
