@@ -61,7 +61,7 @@ export function FullIcon({ className }: { className?: string }) {
       alt="Mercado Livre Full"
       width={44}
       height={13}
-      className={cn("h-3 w-auto", className)}
+      className={cn("h-4 w-auto", className)}
     />
   );
 }
