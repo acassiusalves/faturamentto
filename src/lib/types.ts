@@ -493,3 +493,20 @@ export const RemixZplDataOutputSchema = z.object({
 export type RemixZplDataInput = z.infer<typeof RemixZplDataInputSchema>;
 export type RemixZplDataOutput = z.infer<typeof RemixZplDataOutputSchema>;
 
+// Catalog Analysis Types
+export const AnalyzeCatalogInputSchema = z.object({
+  pdfContent: z.string().describe('The full text content extracted from a PDF catalog.'),
+});
+export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
+
+const ProductSchema = z.object({
+  name: z.string().describe('The name of the product.'),
+  description: z.string().describe('A brief description of the product.'),
+  price: z.string().describe('The price of the product, formatted as a string (e.g., "1.299,00").'),
+  imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),
+});
+
+export const AnalyzeCatalogOutputSchema = z.object({
+  products: z.array(ProductSchema).describe('A list of products extracted from the catalog.'),
+});
+export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;

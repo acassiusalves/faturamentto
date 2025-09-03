@@ -5,30 +5,13 @@
  * @fileOverview An AI agent that analyzes a PDF catalog.
  *
  * - analyzeCatalog - A function that handles the catalog analysis process.
- * - AnalyzeCatalogInput - The input type for the analyzeCatalog function.
- * - AnalyzeCatalogOutput - The return type for the analyzeCatalog function.
  */
 
 import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
+import { AnalyzeCatalogInputSchema, AnalyzeCatalogOutputSchema, type AnalyzeCatalogInput, type AnalyzeCatalogOutput } from '@/lib/types';
 
-export const AnalyzeCatalogInputSchema = z.object({
-  pdfContent: z.string().describe('The full text content extracted from a PDF catalog.'),
-});
-export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
-
-const ProductSchema = z.object({
-  name: z.string().describe('The name of the product.'),
-  description: z.string().describe('A brief description of the product.'),
-  price: z.string().describe('The price of the product, formatted as a string (e.g., "1.299,00").'),
-  imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),
-});
-
-export const AnalyzeCatalogOutputSchema = z.object({
-  products: z.array(ProductSchema).describe('A list of products extracted from the catalog.'),
-});
-export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
 
 export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<AnalyzeCatalogOutput> {
   const settings = await import('@/services/firestore').then(m => m.loadAppSettings());

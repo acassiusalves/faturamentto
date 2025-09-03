@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput } from '@/ai/flows/analyze-catalog-flow';
+import type { AnalyzeCatalogOutput } from '@/lib/types';
 import Image from 'next/image';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
