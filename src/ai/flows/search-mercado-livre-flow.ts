@@ -12,10 +12,12 @@ import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 import { searchMercadoLivreProducts } from '@/services/mercadolivre';
 
-const OfferSchema = z.object({
-  title: z.string().describe('The full title of the product listing.'),
-  price: z.string().describe('The price of the product, formatted as a string (e.g., "R$ 1.299,00").'),
-  url: z.string().url().describe('The direct URL to the product listing.'),
+const CatalogProductSchema = z.object({
+  id: z.string().describe('The Mercado Livre product ID (e.g., MLB12345678).'),
+  catalog_product_id: z.string().nullable().describe('The catalog product ID, if available (e.g., MLB98765432).'),
+  name: z.string().describe('The full title of the product.'),
+  brand: z.string().describe('The brand of the product.'),
+  model: z.string().describe('The model of the product.'),
 });
 
 const SearchMercadoLivreInputSchema = z.object({
@@ -24,7 +26,7 @@ const SearchMercadoLivreInputSchema = z.object({
 });
 
 const SearchMercadoLivreOutputSchema = z.object({
-  offers: z.array(OfferSchema).describe('A list of offers found on Mercado Livre.'),
+  products: z.array(CatalogProductSchema).describe('A list of catalog products found on Mercado Livre.'),
 });
 
 export async function searchMercadoLivre(
@@ -32,32 +34,37 @@ export async function searchMercadoLivre(
 ): Promise<z.infer<typeof SearchMercadoLivreOutputSchema>> {
   const ai = getAi(input.apiKey);
 
-  // This tool now uses the real Mercado Livre API service.
   const searchTool = ai.defineTool(
     {
-      name: 'searchMercadoLivre',
-      description: 'Searches for product offers on mercadolivre.com.br and returns the top 3 results.',
+      name: 'searchMercadoLivreCatalog',
+      description: 'Searches for catalog products on mercadolivre.com.br and returns the top results.',
       inputSchema: z.object({ query: z.string() }),
       outputSchema: z.object({
-        offers: z.array(z.object({ 
-            title: z.string(), 
-            price: z.string(), 
-            url: z.string() 
+        products: z.array(z.object({ 
+            id: z.string(),
+            catalog_product_id: z.string().nullable(),
+            name: z.string(),
+            brand: z.string(),
+            model: z.string(),
         })),
       })
     },
     async ({ query }) => {
       const results = await searchMercadoLivreProducts(query);
       
-      // Map the API response to the expected Offer schema
-      const mappedOffers = results.slice(0, 3).map((item: any) => ({
-        title: item.title,
-        price: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: item.currency_id || 'BRL' }).format(item.price),
-        url: item.permalink
-      }));
+      const mappedProducts = results.slice(0, 5).map((item: any) => {
+        const attributes = new Map(item.attributes.map((attr: any) => [attr.id, attr.value_name]));
+        return {
+          id: item.id,
+          catalog_product_id: item.catalog_product_id,
+          name: item.name,
+          brand: attributes.get('BRAND') || 'N/A',
+          model: attributes.get('MODEL') || 'N/A',
+        };
+      });
 
       return {
-        offers: mappedOffers
+        products: mappedProducts
       };
     }
   );
@@ -73,13 +80,12 @@ export async function searchMercadoLivre(
         name: 'searchMercadoLivrePrompt',
         model: gemini15Flash,
         tools: [searchTool],
-        prompt: `You MUST use the searchMercadoLivre tool to find the top 3 offers for the product "{{{productName}}}" on Mercado Livre. Return the tool's output directly.`,
+        prompt: `You MUST use the searchMercadoLivreCatalog tool to find the top 5 catalog products for "{{{productName}}}" on Mercado Livre. Return the tool's output directly.`,
       });
 
       const { output } = await prompt(flowInput);
       
-      // Ensure we always return an object with an offers array, even if it's empty.
-      return output || { offers: [] };
+      return output || { products: [] };
     }
   );
 

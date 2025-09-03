@@ -84,14 +84,15 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 /**
- * Busca produtos no Mercado Livre usando a API oficial.
+ * Busca produtos de catálogo no Mercado Livre usando a API oficial.
  * @param query O termo de busca para os produtos.
- * @returns Uma lista de produtos encontrados.
+ * @returns Uma lista de produtos de catálogo encontrados.
  */
 export async function searchMercadoLivreProducts(query: string): Promise<any> {
     const accessToken = await getValidAccessToken();
     const site = "MLB"; // Site Brasil
-    const searchUrl = `https://api.mercadolibre.com/sites/${site}/search?q=${encodeURIComponent(query)}`;
+    // Usando o endpoint de busca de produtos de catálogo
+    const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(query)}`;
 
     const options = {
         method: "GET",
@@ -108,7 +109,6 @@ export async function searchMercadoLivreProducts(query: string): Promise<any> {
             throw new Error(`Erro na API do Mercado Livre: ${data.message || 'Falha na busca'}`);
         }
         
-        // Retornando apenas os resultados da busca por enquanto
         return data.results || [];
 
     } catch (error) {

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
+import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -28,16 +28,20 @@ const analyzeInitialState: {
   error: null,
 };
 
-interface Offer {
-    title: string;
+interface CatalogProduct {
+    name: string;
+    description: string;
     price: string;
-    url: string;
-}
-
-interface ProductWithOffers extends ProductSchema {
+    imageUrl?: string;
     isSearching?: boolean;
-    offers?: Offer[];
     searchError?: string;
+    foundProducts?: {
+        id: string;
+        catalog_product_id: string | null;
+        name: string;
+        brand: string;
+        model: string;
+    }[];
 }
 
 
@@ -47,13 +51,13 @@ export default function CatalogoPdfPage() {
     const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [isParsing, setIsParsing] = useState(false);
-    const [allProducts, setAllProducts] = useState<ProductWithOffers[]>([]);
+    const [allProducts, setAllProducts] = useState<CatalogProduct[]>([]);
+    
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
-    const [isSearching, startSearchTransition] = useTransition();
-
 
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
+    const [isSearching, startSearchTransition] = useTransition();
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -169,7 +173,7 @@ export default function CatalogoPdfPage() {
                 if (result.error) {
                     throw new Error(result.error);
                 }
-                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, offers: result.result?.offers } : p));
+                setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, foundProducts: result.result?.products } : p));
             } catch (error: any) {
                 console.error("Error searching offers:", error);
                 setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, searchError: error.message } : p));
@@ -279,14 +283,17 @@ export default function CatalogoPdfPage() {
                                                     {currentIsSearching ? <Loader2 className="animate-spin" /> : <Search />}
                                                     Buscar no Mercado Livre
                                                 </Button>
-                                                {product.offers && (
+                                                {product.foundProducts && (
                                                     <div className="pt-2 text-xs space-y-1">
-                                                        {product.offers.slice(0,3).map((offer, i) => (
+                                                        {product.foundProducts.slice(0,3).map((offer, i) => (
                                                             <div key={i} className="p-1 rounded bg-muted/50">
-                                                                <Link href={offer.url} target="_blank" className="hover:underline text-blue-600 line-clamp-1" title={offer.title}>
-                                                                    {offer.title}
+                                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="hover:underline text-blue-600 line-clamp-1 font-semibold" title={offer.name}>
+                                                                    {offer.name}
                                                                 </Link>
-                                                                <p className="font-semibold">{offer.price}</p>
+                                                                <div className="flex justify-between items-center text-muted-foreground">
+                                                                    <span>{offer.brand} - {offer.model}</span>
+                                                                    <Badge variant="outline">{offer.id}</Badge>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
