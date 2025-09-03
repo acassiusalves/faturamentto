@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useActionState, useEffect, useTransition, useCallback } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
