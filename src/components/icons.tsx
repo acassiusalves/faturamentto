@@ -60,8 +60,8 @@ export function FullIcon({ className }: { className?: string }) {
       src="/icons/ml-full-green.svg"
       alt="Mercado Livre Full"
       width={44}
-      height={13}
-      className={cn("h-4 w-auto", className)}
+      height={16}
+      className={cn("h-5 w-auto", className)}
     />
   );
 }
