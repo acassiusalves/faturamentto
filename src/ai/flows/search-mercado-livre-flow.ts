@@ -10,6 +10,7 @@
 import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
+import { searchMercadoLivreProducts } from '@/services/mercadolivre';
 
 const OfferSchema = z.object({
   title: z.string().describe('The full title of the product listing.'),
@@ -31,8 +32,7 @@ export async function searchMercadoLivre(
 ): Promise<z.infer<typeof SearchMercadoLivreOutputSchema>> {
   const ai = getAi(input.apiKey);
 
-  // This is a placeholder tool. In a real application, this would
-  // use an actual API (like Google Custom Search API) to browse the web.
+  // This tool now uses the real Mercado Livre API service.
   const searchTool = ai.defineTool(
     {
       name: 'searchMercadoLivre',
@@ -47,15 +47,17 @@ export async function searchMercadoLivre(
       })
     },
     async ({ query }) => {
-      console.log(`(Mock) Searching Mercado Livre for: ${query}`);
-      // In a real scenario, you'd fetch from an API here.
-      // This is mock data for demonstration.
+      const results = await searchMercadoLivreProducts(query);
+      
+      // Map the API response to the expected Offer schema
+      const mappedOffers = results.slice(0, 3).map((item: any) => ({
+        title: item.title,
+        price: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: item.currency_id || 'BRL' }).format(item.price),
+        url: item.permalink
+      }));
+
       return {
-        offers: [
-            { title: `${query} - 128GB - Novo Lacrado`, price: "R$ 1.599,00", url: `https://www.mercadolivre.com.br/` },
-            { title: `${query} - Pronta Entrega com Garantia`, price: "R$ 1.650,00", url: `https://www.mercadolivre.com.br/` },
-            { title: `Oferta Imperdível: ${query} Original`, price: "R$ 1.550,00", url: `https://www.mercadolivre.com.br/` },
-        ]
+        offers: mappedOffers
       };
     }
   );
