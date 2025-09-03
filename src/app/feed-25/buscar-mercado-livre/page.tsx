@@ -206,13 +206,11 @@ export default function BuscarMercadoLivrePage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[80px]">Imagem</TableHead>
-                                        <TableHead>Nome</TableHead>
+                                        <TableHead className="w-[120px]">Imagem</TableHead>
+                                        <TableHead>Nome do Produto</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>Marca</TableHead>
-                                        <TableHead>Modelo</TableHead>
                                         <TableHead>Preço</TableHead>
-                                        <TableHead>Vendedor</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -221,13 +219,13 @@ export default function BuscarMercadoLivrePage() {
                                         return (
                                         <TableRow key={product.id}>
                                             <TableCell>
-                                                <div className="w-16 h-16 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+                                                <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                                                     {product.thumbnail && !broken.has(product.id) ? (
                                                         <Image 
                                                             src={product.thumbnail}
                                                             alt={displayName}
                                                             fill
-                                                            sizes="64px"
+                                                            sizes="96px"
                                                             className="object-contain" 
                                                             data-ai-hint="product image"
                                                             onError={() => setBroken(prev => new Set(prev).add(product.id))}
@@ -242,6 +240,18 @@ export default function BuscarMercadoLivrePage() {
                                                     {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                 </Link>
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
+                                                <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Vendedor: 
+                                                    {product.seller_nickname ? (
+                                                        <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline ml-1">
+                                                            {product.seller_nickname}
+                                                        </Link>
+                                                    ) : ''}
+                                                    {product.official_store_id && (
+                                                        <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
+                                                    )}
+                                                </div>
                                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                                      <div className="flex items-center gap-1.5 text-sm font-semibold">
                                                         {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
@@ -261,22 +271,11 @@ export default function BuscarMercadoLivrePage() {
                                             </TableCell>
                                             <TableCell><Badge variant={product.status === 'active' ? 'default' : 'destructive'} className={product.status === 'active' ? 'bg-green-600' : ''}>{product.status || ''}</Badge></TableCell>
                                             <TableCell>{product.brand || ''}</TableCell>
-                                            <TableCell>{product.model || ''}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
-                                            <TableCell>
-                                                {product.seller_nickname && (
-                                                    <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
-                                                        {product.seller_nickname}
-                                                    </Link>
-                                                )}
-                                                {product.official_store_id && (
-                                                    <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
-                                                )}
-                                            </TableCell>
                                         </TableRow>
                                     )}) : (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={5} className="h-24 text-center">
                                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                     <Package className="h-10 w-10 mb-2"/>
                                                     Nenhum produto encontrado para os filtros selecionados.
