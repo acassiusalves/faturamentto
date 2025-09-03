@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 
 import { loadAppSettings } from "./firestore";
@@ -93,6 +94,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
     const searchOptions = {
         method: "GET",
         headers: { "Authorization": `Bearer ${accessToken}` },
+        cache: 'no-store' as RequestCache,
     };
     
     const searchResponse = await fetch(searchUrl, searchOptions);
@@ -104,13 +106,16 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
     if (catalogProducts.length === 0) return [];
 
     // 2. Montar IDs para busca de itens vencedores
+    // O item vencedor da buybox geralmente tem o mesmo ID do product_id
     const catalogProductIds = catalogProducts.map(p => p.id).join(',');
 
     // 3. Buscar itens vencedores em uma única chamada multi-get
-    const itemsUrl = `https://api.mercadolibre.com/items?ids=${catalogProductIds.split(',').map(id => `MLB${id.replace('MLB','')}`).join(',')}`;
+    // O endpoint de items aceita uma lista de IDs separados por vírgula.
+    const itemsUrl = `https://api.mercadolibre.com/items?ids=${catalogProductIds}`;
     const itemsOptions = {
         method: "GET",
         headers: { "Authorization": `Bearer ${accessToken}` },
+        cache: 'no-store' as RequestCache,
     };
 
     const itemsResponse = await fetch(itemsUrl, itemsOptions);
@@ -131,7 +136,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
     // 4. Mesclar os dados
     const enrichedProducts = catalogProducts.map(product => {
         const winningItem = itemsMap.get(product.id);
-        const sellerInfo = winningItem?.seller_id ? { seller_id: winningItem.seller_id, seller_nickname: '' } : {}; // Placeholder, seller name needs another call
+        const sellerInfo = winningItem?.seller_id ? { seller_id: winningItem.seller_id, seller_nickname: winningItem.seller?.nickname || '' } : {};
 
         return {
             ...product, // Dados do catálogo (id, name, catalog_product_id, attributes)
@@ -139,6 +144,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
             shipping: winningItem?.shipping?.free_shipping ?? false,
             listing_type_id: winningItem?.listing_type_id ?? '',
             category_id: winningItem?.category_id ?? '',
+            official_store_id: winningItem?.official_store_id ?? null,
             ...sellerInfo,
         };
     });
