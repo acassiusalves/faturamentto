@@ -63,15 +63,36 @@ export default function BuscarMercadoLivrePage() {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
-    // Memoized unique filter options
-    const shippingOptions = useMemo(
-        () => Array.from(new Set(state.result?.map(p => p.shipping_type).filter(Boolean) || [])),
-        [state.result]
-    );
-    const brandOptions = useMemo(
-        () => Array.from(new Set(state.result?.map(p => p.brand).filter(Boolean) || [])),
-        [state.result]
-    );
+    // Memoized unique filter options with counts
+    const { shippingOptionsWithCounts, brandOptionsWithCounts } = useMemo(() => {
+        const shippingCounts: Record<string, number> = {};
+        const brandCounts: Record<string, number> = {};
+
+        (state.result || []).forEach(p => {
+            if (p.shipping_type) {
+                shippingCounts[p.shipping_type] = (shippingCounts[p.shipping_type] || 0) + 1;
+            }
+            if (p.brand) {
+                brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1;
+            }
+        });
+
+        const shippingOptions = Object.keys(shippingCounts).sort();
+        const brandOptions = Object.keys(brandCounts).sort();
+
+        return {
+            shippingOptionsWithCounts: shippingOptions.map(opt => ({
+                value: opt,
+                label: opt,
+                count: shippingCounts[opt]
+            })),
+            brandOptionsWithCounts: brandOptions.map(opt => ({
+                value: opt,
+                label: opt,
+                count: brandCounts[opt]
+            }))
+        };
+    }, [state.result]);
 
     const filteredResults = useMemo(() => {
         return (
@@ -190,8 +211,8 @@ export default function BuscarMercadoLivrePage() {
             {state?.result && !isPending && (
                  <div className="grid grid-cols-1 md:grid-cols-[256px,1fr] gap-6">
                     <FiltersSidebar
-                        shippingOptions={shippingOptions}
-                        brandOptions={brandOptions}
+                        shippingOptions={shippingOptionsWithCounts}
+                        brandOptions={brandOptionsWithCounts}
                         selectedShipping={shippingFilter}
                         setSelectedShipping={setShippingFilter}
                         selectedBrands={brandFilter}

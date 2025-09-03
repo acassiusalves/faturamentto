@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -7,9 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+type FilterOption = {
+    value: string;
+    label: string;
+    count: number;
+}
+
 type FiltersSidebarProps = {
-  shippingOptions: string[];
-  brandOptions: string[];
+  shippingOptions: FilterOption[];
+  brandOptions: FilterOption[];
   selectedShipping: string[];
   setSelectedShipping: (v: string[]) => void;
   selectedBrands: string[];
@@ -34,7 +41,7 @@ export function FiltersSidebar({
   const filteredBrands = React.useMemo(() => {
     const q = brandQuery.trim().toLowerCase();
     if (!q) return brandOptions;
-    return brandOptions.filter((b) => (b || "").toLowerCase().includes(q));
+    return brandOptions.filter((b) => (b.label || "").toLowerCase().includes(q));
   }, [brandOptions, brandQuery]);
 
   const toggle = (list: string[], setList: (v: string[]) => void, value: string) => {
@@ -66,12 +73,15 @@ export function FiltersSidebar({
               <p className="text-xs text-muted-foreground">Sem opções</p>
             ) : (
               shippingOptions.map((opt) => (
-                <label key={opt || "N/A"} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={selectedShipping.includes(opt)}
-                    onCheckedChange={() => toggle(selectedShipping, setSelectedShipping, opt)}
-                  />
-                  <span className="truncate">{opt || "N/A"}</span>
+                <label key={opt.value || "N/A"} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                        checked={selectedShipping.includes(opt.value)}
+                        onCheckedChange={() => toggle(selectedShipping, setSelectedShipping, opt.value)}
+                    />
+                    <span className="truncate">{opt.label || "N/A"}</span>
+                  </div>
+                  <Badge variant="outline" className="font-normal">{opt.count}</Badge>
                 </label>
               ))
             )}
@@ -101,12 +111,15 @@ export function FiltersSidebar({
               <p className="text-xs text-muted-foreground">Sem resultados</p>
             ) : (
               filteredBrands.map((b) => (
-                <label key={b || "N/A"} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={selectedBrands.includes(b)}
-                    onCheckedChange={() => toggle(selectedBrands, setSelectedBrands, b)}
-                  />
-                  <span className="truncate">{b || "N/A"}</span>
+                <label key={b.value || "N/A"} className="flex cursor-pointer items-center justify-between gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            checked={selectedBrands.includes(b.value)}
+                            onCheckedChange={() => toggle(selectedBrands, setSelectedBrands, b.value)}
+                        />
+                        <span className="truncate">{b.label || "N/A"}</span>
+                   </div>
+                   <Badge variant="outline" className="font-normal">{b.count}</Badge>
                 </label>
               ))
             )}
