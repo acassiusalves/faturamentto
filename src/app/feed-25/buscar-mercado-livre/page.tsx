@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 interface ProductResult {
