@@ -172,13 +172,13 @@ export default function BuscarMercadoLivrePage() {
                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
                                                         <Truck className="h-4 w-4 text-muted-foreground" />
                                                         {product.shipping_logistic_type === "fulfillment" ? (
-                                                            <FullIcon className="h-[14px]" />
+                                                            <FullIcon />
                                                         ) : (
                                                             <span className="text-muted-foreground text-xs">{product.shipping_type || "-"}</span>
                                                         )}
                                                     </div>
                                                     {product.free_shipping && (
-                                                        <FreteGratisIcon className="h-5" />
+                                                        <FreteGratisIcon />
                                                     )}
                                                     <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
                                                 </div>
@@ -193,7 +193,6 @@ export default function BuscarMercadoLivrePage() {
                                                 <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
                                                     {product.seller_nickname}
                                                 </Link>
-                                                <div className="text-xs text-muted-foreground">ID: {product.seller_id}</div>
                                             </TableCell>
                                         </TableRow>
                                     )}) : (
