@@ -13,3 +13,4 @@ import '@/ai/flows/analyze-zpl-flow.ts';
 import '@/ai/flows/remix-label-data-flow.ts';
 import '@/ai/flows/remix-zpl-data-flow.ts';
 import '@/ai/flows/analyze-catalog-flow.ts';
+import '@/ai/flows/search-mercado-livre-flow.ts';

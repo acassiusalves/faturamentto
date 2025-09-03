@@ -7,18 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction } from '@/app/actions';
+import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
   import.meta.url
 ).toString();
 
-const initialState: {
+const analyzeInitialState: {
   result: AnalyzeCatalogOutput | null;
   error: string | null;
 } = {
@@ -26,17 +28,30 @@ const initialState: {
   error: null,
 };
 
+interface Offer {
+    title: string;
+    price: string;
+    url: string;
+}
+
+interface ProductWithOffers extends ProductSchema {
+    isSearching?: boolean;
+    offers?: Offer[];
+    searchError?: string;
+}
+
+
 export default function CatalogoPdfPage() {
     const { toast } = useToast();
     const [file, setFile] = useState<File | null>(null);
     const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [isParsing, setIsParsing] = useState(false);
-    const [allProducts, setAllProducts] = useState<ProductSchema[]>([]);
+    const [allProducts, setAllProducts] = useState<ProductWithOffers[]>([]);
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
 
-    const [state, formAction] = useActionState(analyzeCatalogAction, initialState);
+    const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -77,7 +92,7 @@ export default function CatalogoPdfPage() {
             setIsAnalyzingAll(false); 
         }
         if (state.result) {
-            setAllProducts(prev => [...prev, ...state.result!.products]);
+            setAllProducts(prev => [...prev, ...state.result!.products.map(p => ({...p}))]);
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {
@@ -124,8 +139,8 @@ export default function CatalogoPdfPage() {
 
     const handleAnalyzeAllClick = () => {
         if (!isProcessing) {
-            setCurrentPage(1); // Start from the beginning
-            setAllProducts([]); // Clear previous results
+            setCurrentPage(1);
+            setAllProducts([]);
             setIsAnalyzingAll(true);
         }
     };
@@ -137,15 +152,38 @@ export default function CatalogoPdfPage() {
         }
     };
 
+    const handleSearchOffers = async (productIndex: number) => {
+        const product = allProducts[productIndex];
+        if (!product) return;
+    
+        setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: true, searchError: undefined } : p));
+        
+        const formData = new FormData();
+        formData.append('productName', product.name);
+        
+        try {
+            const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, offers: result.result?.offers } : p));
+        } catch (error: any) {
+            console.error("Error searching offers:", error);
+            setAllProducts(prev => prev.map((p, i) => i === productIndex ? { ...p, isSearching: false, searchError: error.message } : p));
+             toast({ variant: 'destructive', title: 'Erro ao Buscar Ofertas', description: error.message });
+        }
+    };
+
     const extractQuantity = (description: string): number => {
         if (!description) return 1;
         const match = description.match(/(\d+)\s*(PCS|CX|UN)/i);
         return match ? parseInt(match[1], 10) : 1;
     };
 
-    const formatCurrency = (value: number) => {
-        if (isNaN(value)) return 'N/A';
-        return value.toLocaleString('pt-BR', {
+    const formatCurrency = (value: number | string) => {
+        let numericValue = typeof value === 'string' ? parseFloat(value.replace('.', '').replace(',', '.')) : value;
+        if (isNaN(numericValue)) return 'N/A';
+        return numericValue.toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL',
         });
@@ -222,15 +260,32 @@ export default function CatalogoPdfPage() {
                                     <Card key={index} className="overflow-hidden flex flex-col">
                                         <CardContent className="p-4 flex flex-col flex-grow">
                                             <h3 className="font-semibold">{product.name}</h3>
-                                            <p className="text-sm text-muted-foreground my-2">{product.description}</p>
+                                            <p className="text-sm text-muted-foreground my-2 flex-grow">{product.description}</p>
                                             
-                                            <div className="mt-auto pt-2 space-y-1">
+                                            <div className="mt-auto pt-2 space-y-2">
                                                 <p className="text-sm">
                                                     <span className="font-medium">Unitário:</span> {formatCurrency(unitPrice)}
                                                 </p>
                                                 <p className="text-lg font-bold text-primary">
                                                     TOTAL: {formatCurrency(totalPrice)}
                                                 </p>
+                                                 <Button size="sm" className="w-full" onClick={() => handleSearchOffers(index)} disabled={product.isSearching}>
+                                                    {product.isSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                                    Buscar no Mercado Livre
+                                                </Button>
+                                                {product.offers && (
+                                                    <div className="pt-2 text-xs space-y-1">
+                                                        {product.offers.slice(0,3).map((offer, i) => (
+                                                            <div key={i} className="p-1 rounded bg-muted/50">
+                                                                <Link href={offer.url} target="_blank" className="hover:underline text-blue-600 line-clamp-1" title={offer.title}>
+                                                                    {offer.title}
+                                                                </Link>
+                                                                <p className="font-semibold">{offer.price}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {product.searchError && <p className="text-xs text-destructive">{product.searchError}</p>}
                                             </div>
                                         </CardContent>
                                     </Card>

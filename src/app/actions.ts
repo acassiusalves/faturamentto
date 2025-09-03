@@ -17,6 +17,7 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
+import { searchMercadoLivre } from '@/ai/flows/search-mercado-livre-flow';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -1280,11 +1281,35 @@ export async function analyzeCatalogAction(
     return { result: null, error: e.message || 'Ocorreu um erro desconhecido durante a análise do catálogo.' };
   }
 }
+
+export async function searchMercadoLivreAction(
+    prevState: any,
+    formData: FormData
+): Promise<{ result: { offers: any[] } | null, error: string | null }> {
+    const productName = formData.get('productName') as string;
+    if (!productName) {
+        return { result: null, error: 'O nome do produto é obrigatório.' };
+    }
+
+    try {
+        const settings = await loadAppSettings();
+        if (!settings?.geminiApiKey) {
+            throw new Error("A chave de API do Gemini não está configurada no sistema.");
+        }
+
+        const result = await searchMercadoLivre({ productName, apiKey: settings.geminiApiKey });
+        return { result, error: null };
+    } catch (e: any) {
+        console.error("Error in searchMercadoLivreAction:", e);
+        return { result: null, error: e.message || 'Ocorreu um erro ao buscar ofertas.' };
+    }
+}
     
 
     
 
     
+
 
 
 
