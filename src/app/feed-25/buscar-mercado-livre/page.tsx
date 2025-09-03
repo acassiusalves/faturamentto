@@ -132,7 +132,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>
                                                 <div className="w-16 h-16 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                                                     {product.thumbnail ? (
-                                                        <Image src={product.thumbnail.replace('http://','https://')} alt={product.name} fill className="object-contain" data-ai-hint="product image" />
+                                                        <Image src={product.thumbnail} alt={product.name} fill className="object-contain" data-ai-hint="product image" />
                                                     ) : (
                                                         <Package className="h-8 w-8 text-muted-foreground" />
                                                     )}
