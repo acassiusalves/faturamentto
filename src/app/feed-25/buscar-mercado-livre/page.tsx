@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, Truck } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -170,16 +170,13 @@ export default function BuscarMercadoLivrePage() {
                                                 <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
                                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                        <Truck className="h-4 w-4 text-muted-foreground" />
                                                         {product.shipping_logistic_type === "fulfillment" ? (
                                                             <FullIcon />
                                                         ) : (
                                                             product.shipping_type && <span className="text-muted-foreground text-xs">{product.shipping_type}</span>
                                                         )}
+                                                         {product.free_shipping && <FreteGratisIcon />}
                                                     </div>
-                                                    {product.free_shipping && (
-                                                        <FreteGratisIcon />
-                                                    )}
                                                     {product.listing_type_id && (
                                                         <Badge variant="outline" className="text-xs">{product.listing_type_id}</Badge>
                                                     )}
@@ -190,7 +187,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableCell>{product.model}</TableCell>
                                             <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
                                             <TableCell className="font-mono text-xs">{product.category_id}</TableCell>
-                                            <TableCell>{product.official_store_id ? `Sim` : 'Não'}</TableCell>
+                                            <TableCell>{product.official_store_id ? 'Sim' : 'Não'}</TableCell>
                                             <TableCell>
                                                 {product.seller_nickname && (
                                                     <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline">
