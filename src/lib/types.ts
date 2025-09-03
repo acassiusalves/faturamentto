@@ -297,12 +297,19 @@ export interface Notice {
   createdBy: string; // User's email
 }
 
+export interface MercadoLivreCredentials {
+  appId: string;
+  clientSecret: string;
+  redirectUri: string;
+  refreshToken: string;
+}
 
 // -- App Settings --
 export interface AppSettings {
     iderisPrivateKey?: string;
     googleSheetsApiKey?: string;
     geminiApiKey?: string;
+    mercadoLivre?: MercadoLivreCredentials;
     allMappings?: AllMappingsState;
     friendlyFieldNames?: Record<string, string>;
     fileNames?: { [key: string]: string };
