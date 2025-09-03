@@ -14,7 +14,7 @@ import { Loader2, Trash2, CheckCircle, XCircle, AlertTriangle, Upload, Sparkles,
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import type { ColumnMapping, AllMappingsState, Sale, ApiKeyStatus } from "@/lib/types";
-import Papa from 'papaparse';
+import Papa from "papaparse";
 import { getMappingSuggestions } from "@/lib/actions";
 import { testIderisConnection, fetchOrdersFromIderis } from "@/services/ideris";
 import { removeAccents } from "@/lib/utils";
@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MercadoLivreLogo } from "@/components/icons";
+import { generateNewAccessToken as testMercadoLivreConnection } from "@/services/mercadolivre";
 
 
 const marketplaces = [
@@ -79,6 +80,14 @@ export default function MappingPage() {
   });
   const [importedSalesCount, setImportedSalesCount] = useState(0);
 
+  // --- Mercado Livre State ---
+  const [mlAppId, setMlAppId] = useState("");
+  const [mlClientSecret, setMlClientSecret] = useState("");
+  const [mlRefreshToken, setMlRefreshToken] = useState("");
+  const [mlRedirectUri, setMlRedirectUri] = useState("");
+  const [mlApiStatus, setMlApiStatus] = useState<ApiKeyStatus>('unchecked');
+  const [isTestingMlConnection, setIsTestingMlConnection] = useState(false);
+
 
   const { toast } = useToast();
   
@@ -97,16 +106,19 @@ export default function MappingPage() {
             setAllMappings(settings.allMappings || {});
             setFriendlyNames(settings.friendlyFieldNames || {});
             setFileNames(settings.fileNames || {});
-            if (settings.iderisApiStatus) {
-                setIderisApiStatus(settings.iderisApiStatus as ApiKeyStatus);
+            if (settings.iderisApiStatus) setIderisApiStatus(settings.iderisApiStatus as ApiKeyStatus);
+            if (settings.geminiApiStatus) setGeminiApiStatus(settings.geminiApiStatus as ApiKeyStatus);
+            if (settings.googleSheetsApiStatus) setGoogleSheetsApiStatus(settings.googleSheetsApiStatus as ApiKeyStatus);
+
+            // Load Mercado Livre credentials
+            if (settings.mercadoLivre) {
+                setMlAppId(settings.mercadoLivre.appId || "");
+                setMlClientSecret(settings.mercadoLivre.clientSecret || "");
+                setMlRefreshToken(settings.mercadoLivre.refreshToken || "");
+                setMlRedirectUri(settings.mercadoLivre.redirectUri || "");
+                setMlApiStatus((settings.mercadoLivre as any).apiStatus || 'unchecked');
             }
-             if (settings.geminiApiStatus) {
-                setGeminiApiStatus(settings.geminiApiStatus as ApiKeyStatus);
-            }
-             if (settings.googleSheetsApiStatus) {
-                setGoogleSheetsApiStatus(settings.googleSheetsApiStatus as ApiKeyStatus);
-            }
-             // Load headers from saved file data if available
+             
             const initialHeaders: { [key: string]: string[] } = {};
             for (const mp of marketplaces) {
                 const fileData = settings.fileData?.[mp.id];
@@ -133,7 +145,6 @@ export default function MappingPage() {
   const handleMappingsChange = async (marketplaceId: string, newMappings: Partial<ColumnMapping>) => {
     const updatedAllMappings = { ...allMappings, [marketplaceId]: newMappings };
     setAllMappings(updatedAllMappings);
-    // Directly save to mock service
     await saveAppSettings({ allMappings: updatedAllMappings });
   };
   
@@ -444,6 +455,33 @@ export default function MappingPage() {
     setActiveMarketplaceForSuggestion(marketplaceId);
     setIsSuggestionOpen(true);
   };
+  
+  const handleSaveMercadoLivreCredentials = async () => {
+    setIsTestingMlConnection(true);
+    const creds = {
+      appId: mlAppId,
+      clientSecret: mlClientSecret,
+      refreshToken: mlRefreshToken,
+      redirectUri: mlRedirectUri,
+    };
+
+    // Salva as credenciais primeiro
+    await saveAppSettings({ mercadoLivre: { ...creds, apiStatus: 'unchecked' } });
+
+    try {
+      await testMercadoLivreConnection(creds as any);
+      setMlApiStatus('valid');
+      await saveAppSettings({ mercadoLivre: { ...creds, apiStatus: 'valid' } });
+      toast({ title: 'Sucesso!', description: 'A conexão com a API do Mercado Livre foi bem-sucedida.' });
+    } catch (e: any) {
+      setMlApiStatus('invalid');
+      await saveAppSettings({ mercadoLivre: { ...creds, apiStatus: 'invalid' } });
+      toast({ variant: 'destructive', title: 'Falha na Conexão', description: e.message });
+    } finally {
+      setIsTestingMlConnection(false);
+    }
+  };
+
 
   if (isDataLoading) {
     return (
@@ -575,17 +613,30 @@ export default function MappingPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4 max-w-lg">
+                       <div className="flex justify-end">
+                            <ApiStatusBadge status={mlApiStatus} />
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="ml-app-id">App ID (Client ID)</Label>
+                                <Input id="ml-app-id" placeholder="App ID" value={mlAppId} onChange={e => setMlAppId(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ml-secret-key">Secret Key</Label>
+                                <Input id="ml-secret-key" type="password" placeholder="Client Secret" value={mlClientSecret} onChange={e => setMlClientSecret(e.target.value)} />
+                            </div>
+                       </div>
                         <div className="space-y-2">
-                          <Label htmlFor="ml-app-id">App ID</Label>
-                          <Input id="ml-app-id" placeholder="Insira seu App ID do Mercado Livre" />
+                          <Label htmlFor="ml-redirect-uri">Redirect URI</Label>
+                          <Input id="ml-redirect-uri" placeholder="URL de Redirecionamento" value={mlRedirectUri} onChange={e => setMlRedirectUri(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="ml-secret-key">Secret Key</Label>
-                          <Input id="ml-secret-key" type="password" placeholder="Insira sua Secret Key" />
+                          <Label htmlFor="ml-refresh-token">Refresh Token</Label>
+                          <Input id="ml-refresh-token" type="password" placeholder="Refresh Token" value={mlRefreshToken} onChange={e => setMlRefreshToken(e.target.value)} />
                         </div>
-                        <Button disabled>
-                          <Plug className="mr-2" />
-                          Salvar e Testar Conexão (Em Breve)
+                        <Button onClick={handleSaveMercadoLivreCredentials} disabled={isTestingMlConnection}>
+                          {isTestingMlConnection ? <Loader2 className="animate-spin mr-2"/> : <Plug className="mr-2" />}
+                          Salvar e Testar Conexão
                         </Button>
                     </div>
                 </CardContent>

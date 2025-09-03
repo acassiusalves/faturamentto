@@ -302,6 +302,7 @@ export interface MercadoLivreCredentials {
   clientSecret: string;
   redirectUri: string;
   refreshToken: string;
+  apiStatus?: ApiKeyStatus;
 }
 
 // -- App Settings --

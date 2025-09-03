@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 
 import { loadAppSettings } from "./firestore";
@@ -15,7 +16,7 @@ const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // O token do ML dura 6 horas, usa
  * Obtém um novo access_token usando o refresh_token.
  * Esta é a versão para servidor da sua função de planilha.
  */
-async function generateNewAccessToken(creds: MercadoLivreCredentials): Promise<string> {
+export async function generateNewAccessToken(creds: MercadoLivreCredentials): Promise<string> {
   if (!creds.refreshToken || !creds.appId || !creds.clientSecret || !creds.redirectUri) {
     throw new Error("Credenciais do Mercado Livre (App ID, Secret Key, Refresh Token, Redirect URI) não estão configuradas.");
   }
@@ -51,10 +52,10 @@ async function generateNewAccessToken(creds: MercadoLivreCredentials): Promise<s
     }
 
     console.log("✅ Novo token de acesso do Mercado Livre obtido com sucesso.");
-    return result.access_token;
+    return result.access_token; // ✅ retorno correto
 
   } catch (e) {
-    console.error("❌ Exceção ao atualizar token:", e);
+    console.error("❌ Exceção ao atualizar token: " + e);
     throw e;
   }
 }
