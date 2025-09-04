@@ -82,7 +82,8 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
           </DialogDescription>
         </DialogHeader>
         
-        <div className="border-b pb-4 flex justify-end">
+        <div className="border-b pb-4 flex justify-end items-center gap-4">
+            <Badge variant="secondary">{filteredResults.length} anúncios listados</Badge>
              <div className="flex items-center space-x-2">
                 <Label htmlFor="active-only-switch" className="text-sm font-medium">Apenas ativos</Label>
                 <Switch id="active-only-switch" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
