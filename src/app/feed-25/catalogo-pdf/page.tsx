@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useActionState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useActionState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2 } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, refineSearchTermAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
@@ -16,6 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SearchResultsDialog } from './search-results-dialog';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 import { buildSearchQuery } from "@/lib/search-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 if (typeof window !== "undefined") {
   setupPdfjsWorker();
@@ -58,13 +60,16 @@ export default function CatalogoPdfPage() {
     
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
-    const [isRefining, setIsRefining] = useState(false);
-
+    
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
     
     // State for search dialog
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
     const [selectedProductForSearch, setSelectedProductForSearch] = useState<SearchableProduct | null>(null);
+
+    // Pagination State
+    const [productsPageIndex, setProductsPageIndex] = useState(0);
+    const [productsPageSize, setProductsPageSize] = useState(10);
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -176,80 +181,6 @@ export default function CatalogoPdfPage() {
         }
     };
     
-const norm = (s = "") =>
-  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const toTokens = (s = "") =>
-  norm(s).replace(/[^\w\s-]/g, " ").split(/\s+/).filter(Boolean);
-
-const intersectCandidateWithSource = (candidate: string, ...sources: string[]) => {
-  const sourceSet = new Set(sources.flatMap(toTokens));
-  const cand = toTokens(candidate);
-  const kept = cand.filter((t) => sourceSet.has(t));
-  // medida de sobreposição
-  const overlap = kept.length / Math.max(1, cand.length);
-  // se overlap for baixo, descarta o candidato inteiro
-  if (overlap < 0.3) return "";
-  return kept.join(" ");
-};
-
-const runInBatches = async <T,>(tasks: Array<() => Promise<T>>, size = 4) => {
-  const out: T[] = [];
-  for (let i = 0; i < tasks.length; i += size) {
-    const chunk = tasks.slice(i, i + size);
-    const res = await Promise.all(chunk.map((fn) => fn()));
-    out.push(...res);
-  }
-  return out;
-};
-
-const handleRefineAllSearches = async () => {
-  setIsRefining(true);
-
-  const tasks = allProducts.map((product, index) => async () => {
-    const brandForProduct = product.brand || brand;
-
-    try {
-      const fd = new FormData();
-      fd.append("productName", `${product.name} ${product.description || ""}`.trim());
-      fd.append("productModel", product.model);
-      fd.append("productBrand", brandForProduct);
-
-      const resp = await refineSearchTermAction({ result: null, error: null }, fd);
-      const raw = resp?.result?.refinedQuery?.trim() || "";
-      
-      const enforced = buildSearchQuery({
-        name: `${product.name} ${product.description || ""}`,
-        description: "",
-        model: product.model,
-        brand: brandForProduct,
-      });
-
-      return { index, refined: enforced };
-    } catch {
-       const fallback = buildSearchQuery({
-        name: `${product.name} ${product.description || ""}`,
-        model: product.model,
-        brand: brandForProduct,
-      });
-      return { index, refined: fallback };
-    }
-  });
-
-  const results = await runInBatches(tasks, 4);
-
-  setAllProducts((curr) => {
-    const next = [...curr];
-    for (const r of results) {
-      next[r.index].refinedQuery = r.refined;
-    }
-    return next;
-  });
-
-  setIsRefining(false);
-  toast({ title: "Termos de busca refinados!", description: "Todos os termos foram validados contra o nome original." });
-};
-
-    
     const handleSearchOffers = useCallback((product: SearchableProduct) => {
         setSelectedProductForSearch(product);
         setIsSearchDialogOpen(true);
@@ -258,7 +189,8 @@ const handleRefineAllSearches = async () => {
      const handleModelChange = (index: number, newModel: string) => {
         setAllProducts(prev => {
             const newProducts = [...prev];
-            newProducts[index] = { ...newProducts[index], model: newModel };
+            const originalIndex = (productsPageIndex * productsPageSize) + index;
+            newProducts[originalIndex] = { ...newProducts[originalIndex], model: newModel };
             return newProducts;
         });
     };
@@ -266,7 +198,8 @@ const handleRefineAllSearches = async () => {
     const handleRefinedQueryChange = (index: number, newQuery: string) => {
         setAllProducts(prev => {
             const newProducts = [...prev];
-            newProducts[index] = { ...newProducts[index], refinedQuery: newQuery };
+            const originalIndex = (productsPageIndex * productsPageSize) + index;
+            newProducts[originalIndex] = { ...newProducts[originalIndex], refinedQuery: newQuery };
             return newProducts;
         });
     };
@@ -287,8 +220,15 @@ const handleRefineAllSearches = async () => {
         });
     }
 
-    const isProcessingAny = isParsing || isProcessing || isRefining;
+    const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
+
+    const pageCount = useMemo(() => Math.ceil(allProducts.length / productsPageSize), [allProducts.length, productsPageSize]);
+    const paginatedProducts = useMemo(() => {
+        const startIndex = productsPageIndex * productsPageSize;
+        return allProducts.slice(startIndex, startIndex + productsPageSize);
+    }, [allProducts, productsPageIndex, productsPageSize]);
+
 
     return (
         <>
@@ -320,7 +260,7 @@ const handleRefineAllSearches = async () => {
                 {pdfDoc && (
                     <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex-grow w-full">
-                            {isProcessingAny && !isRefining ? (
+                            {isProcessingAny ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
                                     <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
@@ -331,13 +271,21 @@ const handleRefineAllSearches = async () => {
                              <Progress value={progress} className="w-full mt-2" />
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
-                             <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
-                                <Play className="mr-2" /> Analisar Próxima
-                            </Button>
-                            <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny} variant="secondary">
-                                {isAnalyzingAll ? <Loader2 className="animate-spin mr-2" /> : <FastForward className="mr-2" />}
-                                {isAnalyzingAll ? 'Analisando...' : 'Analisar Todas'}
-                            </Button>
+                            {isAnalyzingAll ? (
+                                <Button onClick={() => setIsAnalyzingAll(false)} disabled={!isProcessingAny} variant="destructive">
+                                    <XCircle className="mr-2" /> Cancelar
+                                </Button>
+                            ) : (
+                                <>
+                                 <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
+                                    <Play className="mr-2" /> Analisar Próxima
+                                </Button>
+                                <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny} variant="secondary">
+                                    <FastForward className="mr-2" />
+                                    Analisar Todas
+                                </Button>
+                                </>
+                            )}
                         </div>
                     </CardFooter>
                 )}
@@ -373,7 +321,7 @@ const handleRefineAllSearches = async () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {allProducts.map((product, index) => {
+                                    {paginatedProducts.map((product, index) => {
                                         const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
                                         return (
@@ -422,6 +370,43 @@ const handleRefineAllSearches = async () => {
                             </Table>
                          </div>
                     </CardContent>
+                    <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="text-sm text-muted-foreground">
+                            Total de {allProducts.length} produtos.
+                        </div>
+                        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">Itens por página</p>
+                                <Select
+                                    value={`${productsPageSize}`}
+                                    onValueChange={(value) => {
+                                        setProductsPageSize(Number(value));
+                                        setProductsPageIndex(0);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={productsPageSize.toString()} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((size) => (
+                                            <SelectItem key={size} value={`${size}`}>
+                                                {size}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-sm font-medium">
+                                Página {productsPageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(0)} disabled={productsPageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageIndex - 1)} disabled={productsPageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageIndex + 1)} disabled={productsPageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(pageCount - 1)} disabled={productsPageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
                  </Card>
             )}
         </main>
