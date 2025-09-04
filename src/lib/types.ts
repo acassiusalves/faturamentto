@@ -512,6 +512,7 @@ export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
 export const ProductSchema = z.object({
   name: z.string().describe('The full name of the product.'),
   model: z.string().describe('The specific model of the product (e.g., "Note 13 Pro", "Galaxy S24 Ultra").'),
+  brand: z.string().describe('The brand of the product.'),
   description: z.string().describe('A brief description of the product, including details like color, memory, etc.'),
   price: z.string().describe('The price of the product, formatted as a string (e.g., "1.299,00").'),
   imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),

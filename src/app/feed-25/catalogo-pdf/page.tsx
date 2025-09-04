@@ -31,6 +31,7 @@ const analyzeInitialState: {
 interface CatalogProduct {
     name: string;
     model: string;
+    brand: string;
     description: string;
     price: string;
     imageUrl?: string;
@@ -317,7 +318,8 @@ export default function CatalogoPdfPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
-                                        <TableHead className="w-[150px]">Modelo</TableHead>
+                                        <TableHead>Modelo</TableHead>
+                                        <TableHead>Marca</TableHead>
                                         <TableHead className="w-1/5">Termo de Busca (IA)</TableHead>
                                         <TableHead className="text-right">Preço Unit.</TableHead>
                                         <TableHead className="text-center">Ações</TableHead>
@@ -340,6 +342,13 @@ export default function CatalogoPdfPage() {
                                                             onChange={(e) => handleModelChange(index, e.target.value)}
                                                             placeholder="Modelo..."
                                                             className="h-8"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input 
+                                                            value={product.brand || brand || ''}
+                                                            readOnly
+                                                            className="h-8 bg-muted/50"
                                                         />
                                                     </TableCell>
                                                     <TableCell>
