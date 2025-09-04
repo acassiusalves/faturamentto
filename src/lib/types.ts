@@ -1,5 +1,4 @@
 
-
 import { z } from 'genkit';
 
 export interface Cost {
@@ -524,3 +523,14 @@ export const AnalyzeCatalogOutputSchema = z.object({
   products: z.array(ProductSchema).describe('A list of products extracted from the page.'),
 });
 export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
+
+// Refine Search Term Types
+export interface RefineSearchTermInput {
+  productName: string;
+  productModel?: string;
+  productBrand?: string;
+}
+
+export interface RefineSearchTermOutput {
+  refinedQuery: string;
+}

@@ -19,6 +19,7 @@ import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
 import { searchMercadoLivreProducts } from '@/services/mercadolivre';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
+import { refineSearchTerm, type RefineSearchTermInput, type RefineSearchTermOutput } from '@/ai/flows/refine-search-term-flow';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -315,5 +316,26 @@ export async function savePromptAction(_prevState: any, formData: FormData) {
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e.message };
+  }
+}
+
+export async function refineSearchTermAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ result: RefineSearchTermOutput | null; error: string | null }> {
+  try {
+    const productName = formData.get('productName') as string;
+    const productModel = formData.get('productModel') as string | undefined;
+    const productBrand = formData.get('productBrand') as string | undefined;
+
+    if (!productName) {
+      throw new Error('O nome do produto é obrigatório para refinar a busca.');
+    }
+
+    const input: RefineSearchTermInput = { productName, productModel, productBrand };
+    const result = await refineSearchTerm(input);
+    return { result, error: null };
+  } catch (e: any) {
+    return { result: null, error: e.message || 'Falha ao refinar o termo de busca.' };
   }
 }

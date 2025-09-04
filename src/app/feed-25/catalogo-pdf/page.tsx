@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction } from '@/app/actions';
+import { analyzeCatalogAction, refineSearchTermAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,6 +37,7 @@ interface CatalogProduct {
 }
 
 export interface SearchableProduct extends CatalogProduct {
+    refinedQuery?: string;
     isSearching?: boolean;
     searchError?: string;
     foundProducts?: any[];
@@ -54,6 +55,7 @@ export default function CatalogoPdfPage() {
     
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+    const [isRefining, setIsRefining] = useState(false);
 
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
     
@@ -161,6 +163,36 @@ export default function CatalogoPdfPage() {
         }
     };
     
+    const handleRefineAllSearches = async () => {
+        setIsRefining(true);
+        const promises = allProducts.map(async (product, index) => {
+            const formData = new FormData();
+            formData.append('productName', product.name);
+            formData.append('productModel', product.model);
+            formData.append('productBrand', brand);
+            const result = await refineSearchTermAction({ result: null, error: null }, formData);
+            return { index, result };
+        });
+
+        const results = await Promise.all(promises);
+        
+        setAllProducts(currentProducts => {
+            const newProducts = [...currentProducts];
+            results.forEach(({ index, result }) => {
+                if (result.result?.refinedQuery) {
+                    newProducts[index].refinedQuery = result.result.refinedQuery;
+                } else if (result.error) {
+                    console.error(`Error refining product ${index}:`, result.error);
+                }
+            });
+            return newProducts;
+        });
+        
+        setIsRefining(false);
+        toast({ title: "Termos de busca refinados!", description: "A IA otimizou os termos para busca no Mercado Livre." });
+    };
+
+    
     const handleSearchOffers = useCallback((product: SearchableProduct) => {
         setSelectedProductForSearch(product);
         setIsSearchDialogOpen(true);
@@ -170,6 +202,14 @@ export default function CatalogoPdfPage() {
         setAllProducts(prev => {
             const newProducts = [...prev];
             newProducts[index] = { ...newProducts[index], model: newModel };
+            return newProducts;
+        });
+    };
+    
+    const handleRefinedQueryChange = (index: number, newQuery: string) => {
+        setAllProducts(prev => {
+            const newProducts = [...prev];
+            newProducts[index] = { ...newProducts[index], refinedQuery: newQuery };
             return newProducts;
         });
     };
@@ -196,7 +236,7 @@ export default function CatalogoPdfPage() {
         });
     }
 
-    const isProcessingAny = isParsing || isProcessing;
+    const isProcessingAny = isParsing || isProcessing || isRefining;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
     return (
@@ -229,7 +269,7 @@ export default function CatalogoPdfPage() {
                 {pdfDoc && (
                     <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="flex-grow w-full">
-                            {isProcessingAny ? (
+                            {isProcessingAny && !isRefining ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
                                     <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
@@ -255,13 +295,21 @@ export default function CatalogoPdfPage() {
             {allProducts.length > 0 && (
                  <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText />
-                            Produtos Extraídos ({allProducts.length})
-                        </CardTitle>
-                         <CardDescription>
-                            Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
-                        </CardDescription>
+                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText />
+                                    Produtos Extraídos ({allProducts.length})
+                                </CardTitle>
+                                <CardDescription>
+                                    Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
+                                </CardDescription>
+                            </div>
+                            <Button onClick={handleRefineAllSearches} disabled={isRefining}>
+                                {isRefining ? <Loader2 className="animate-spin mr-2" /> : <Wand2 className="mr-2"/>}
+                                Refinar Termos com IA
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                          <div className="rounded-md border">
@@ -270,17 +318,14 @@ export default function CatalogoPdfPage() {
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
                                         <TableHead className="w-[150px]">Modelo</TableHead>
-                                        <TableHead className="text-center">Qtd.</TableHead>
+                                        <TableHead className="w-1/5">Termo de Busca (IA)</TableHead>
                                         <TableHead className="text-right">Preço Unit.</TableHead>
-                                        <TableHead className="text-right">Preço Total</TableHead>
                                         <TableHead className="text-center">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {allProducts.map((product, index) => {
-                                        const quantity = extractQuantity(product.description);
                                         const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
-                                        const totalPrice = quantity * unitPrice;
                                         
                                         return (
                                              <React.Fragment key={index}>
@@ -297,9 +342,15 @@ export default function CatalogoPdfPage() {
                                                             className="h-8"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="text-center font-medium">{quantity}</TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            value={product.refinedQuery || ''}
+                                                            onChange={(e) => handleRefinedQueryChange(index, e.target.value)}
+                                                            placeholder="Aguardando IA..."
+                                                            className="h-8"
+                                                        />
+                                                    </TableCell>
                                                     <TableCell className="text-right font-mono">{formatCurrency(unitPrice)}</TableCell>
-                                                    <TableCell className="text-right font-bold text-primary">{formatCurrency(totalPrice)}</TableCell>
                                                     <TableCell className="text-center">
                                                         <Button size="sm" onClick={() => handleSearchOffers(product)}>
                                                             <Search className="mr-2" />
