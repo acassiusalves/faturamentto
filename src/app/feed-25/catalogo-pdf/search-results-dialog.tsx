@@ -130,7 +130,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                     )}
                                 </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="align-top relative">
                                 <Link href={`https://www.mercadolivre.com.br/p/${p.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                     {p.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                 </Link>
@@ -147,12 +147,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                         <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
                                     )}
                                 </div>
-                                {isModelMatch && (
-                                    <div className="mt-2 flex items-center gap-2 text-green-600 font-semibold text-sm">
-                                        <CheckCircle className="h-5 w-5" />
-                                        <span>Correspondência de modelo</span>
-                                    </div>
-                                )}
+                                
                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
                                         {p.shipping_logistic_type === "fulfillment" && <FullIcon />}
@@ -169,8 +164,15 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                         <Badge variant="outline" className="text-xs">{listingTypeMap[p.listing_type_id] || p.listing_type_id || ''}</Badge>
                                     )}
                                 </div>
+
+                                {isModelMatch && (
+                                    <div className="absolute bottom-4 right-4 flex items-center gap-2 text-white bg-green-600 px-3 py-1.5 rounded-full font-semibold text-sm shadow-lg">
+                                        <span>Correspondência de modelo</span>
+                                        <CheckCircle className="h-5 w-5" />
+                                    </div>
+                                )}
                             </TableCell>
-                            <TableCell className="font-semibold text-right">{formatCurrency(p.price)}</TableCell>
+                            <TableCell className="font-semibold text-right align-top">{formatCurrency(p.price)}</TableCell>
                         </TableRow>
                      )
                   })}
