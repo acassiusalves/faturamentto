@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, refineSearchTermAction, searchMercadoLivreAction } from '@/app/actions';
+import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -218,7 +218,7 @@ export default function CatalogoPdfPage() {
     const formatCurrency = (value: number | string) => {
       let numericValue: number;
       if (typeof value === 'string') {
-        numericValue = parseFloat(value);
+        numericValue = parseFloat(value.replace('.', '').replace(',', '.'));
       } else {
         numericValue = value;
       }
@@ -248,8 +248,8 @@ export default function CatalogoPdfPage() {
 
         for (let i = 0; i < allProducts.length; i++) {
             const product = allProducts[i];
-            const progress = ((i + 1) / allProducts.length) * 100;
-            setBatchSearchProgress(progress);
+            const progressPercentage = ((i + 1) / allProducts.length) * 100;
+            setBatchSearchProgress(progressPercentage);
             setBatchSearchStatus(`Buscando ${i + 1} de ${allProducts.length}: ${product.name}`);
 
             const formData = new FormData();
@@ -258,9 +258,17 @@ export default function CatalogoPdfPage() {
             
             const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
             if (result.result) {
-                const matchingOffer = result.result.find((offer: any) => offer.model?.toLowerCase() === product.model?.toLowerCase());
-                if (matchingOffer) {
-                    setBatchSearchResults(prev => [...prev, { ...matchingOffer, originalProductName: product.name }]);
+                // Use filter to get all matching offers, including those without a price
+                const matchingOffers = result.result.filter((offer: any) => 
+                    offer.model?.toLowerCase() === product.model?.toLowerCase()
+                );
+
+                if (matchingOffers.length > 0) {
+                    const offersWithProductInfo = matchingOffers.map(offer => ({
+                        ...offer,
+                        originalProductName: product.name
+                    }));
+                    setBatchSearchResults(prev => [...prev, ...offersWithProductInfo]);
                 }
             }
             // Pequeno delay para não sobrecarregar a API
@@ -373,7 +381,7 @@ export default function CatalogoPdfPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedProducts.map((product, index) => {
-                                        const unitPrice = parseFloat(product.price || '0');
+                                        const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
                                         return (
                                              <React.Fragment key={index}>
