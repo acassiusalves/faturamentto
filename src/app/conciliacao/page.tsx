@@ -316,6 +316,8 @@ export default function ConciliationPage() {
     const [marketplaceFilter, setMarketplaceFilter] = useState("all");
     const [stateFilter, setStateFilter] = useState("all");
     const [accountFilter, setAccountFilter] = useState("all");
+    const [customFilters, setCustomFilters] = useState<Record<string, string>>({});
+
 
     // Custom Calculations
     const [customCalculations, setCustomCalculations] = useState<CustomCalculation[]>(defaultCalculations);
@@ -593,9 +595,22 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
           }
         }
         
-        return processedSales.map(applyCustomCalculations);
+        let finalSales = processedSales.map(applyCustomCalculations);
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations]);
+        // Apply custom filters
+        const activeCustomFilters = Object.entries(customFilters).filter(([, value]) => value);
+        if(activeCustomFilters.length > 0) {
+            finalSales = finalSales.filter(sale => {
+                return activeCustomFilters.every(([key, value]) => {
+                    const saleValue = (sale.sheetData?.[key] ?? '').toString().toLowerCase();
+                    return saleValue.includes(value.toLowerCase());
+                })
+            })
+        }
+
+        return finalSales;
+
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations, customFilters]);
     
     const summaryStats = useMemo(() => {
         let faturamento = 0;
@@ -788,6 +803,34 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         }
         setIsRefinementOpen(false);
     };
+    
+    const customFilterFields = useMemo(() => {
+        if (!supportData || !supportData.files) return [];
+        const fields = new Set<string>();
+        Object.values(supportData.files).flat().forEach(file => {
+            if (!file?.fileContent) return;
+            try {
+                const { rows } = parseSupportFile(file);
+                if (rows.length > 0) {
+                    const firstRow = rows[0];
+                    for (const header in firstRow) {
+                        const friendlyName = file.friendlyNames[header] || header;
+                        fields.add(friendlyName);
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing file for filters", e);
+            }
+        });
+        return Array.from(fields);
+    }, [supportData]);
+
+    const handleCustomFilterChange = (key: string, value: string) => {
+        setCustomFilters(prev => ({
+            ...prev,
+            [normalizeLabel(key)]: value,
+        }));
+    };
 
     // Options for filters
     const marketplaces = useMemo(() => Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
@@ -882,50 +925,67 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                         <CardTitle className="text-lg">Filtros Adicionais</CardTitle>
                     </div>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="relative lg:col-span-1">
-                      <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="search"
-                        placeholder="Buscar por SKU, Pedido ou ID..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                      />
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative lg:col-span-1">
+                        <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Buscar por SKU, Pedido ou ID..."
+                            className="pl-9"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        </div>
+                        <Select value={marketplaceFilter} onValueChange={setMarketplaceFilter} disabled={sales.length === 0}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Filtrar por Marketplace" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos os Marketplaces</SelectItem>
+                                {marketplaces.map(mp => (
+                                    <SelectItem key={mp} value={mp}>{mp}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={stateFilter} onValueChange={setStateFilter} disabled={sales.length === 0}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Filtrar por Estado" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos os Estados</SelectItem>
+                                {states.map(s => (
+                                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={accountFilter} onValueChange={setAccountFilter} disabled={sales.length === 0}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Filtrar por Conta" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as Contas</SelectItem>
+                                {accounts.map(acc => (
+                                    <SelectItem key={acc} value={acc}>{acc}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <Select value={marketplaceFilter} onValueChange={setMarketplaceFilter} disabled={sales.length === 0}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Filtrar por Marketplace" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos os Marketplaces</SelectItem>
-                            {marketplaces.map(mp => (
-                                <SelectItem key={mp} value={mp}>{mp}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Select value={stateFilter} onValueChange={setStateFilter} disabled={sales.length === 0}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Filtrar por Estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos os Estados</SelectItem>
-                            {states.map(s => (
-                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                     <Select value={accountFilter} onValueChange={setAccountFilter} disabled={sales.length === 0}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Filtrar por Conta" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todas as Contas</SelectItem>
-                            {accounts.map(acc => (
-                                <SelectItem key={acc} value={acc}>{acc}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    {customFilterFields.length > 0 && (
+                        <div>
+                             <h4 className="text-sm font-medium text-muted-foreground mb-2">Filtros Personalizados (Dados de Apoio)</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {customFilterFields.map(field => (
+                                    <Input
+                                        key={field}
+                                        placeholder={`Filtrar por ${field}...`}
+                                        value={customFilters[normalizeLabel(field)] || ''}
+                                        onChange={(e) => handleCustomFilterChange(field, e.target.value)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
