@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Package, Search, ExternalLink } from 'lucide-react';
+import { Loader2, Package, Search, ExternalLink, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { searchMercadoLivreAction } from '@/app/actions';
@@ -110,6 +110,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                 <TableBody>
                   {filteredResults.map((p: any) => {
                      const displayName = (p.name ?? "").trim() || "Produto do Mercado Livre";
+                     const isModelMatch = product.model?.toLowerCase() === p.model?.toLowerCase();
                      return (
                         <TableRow key={p.id}>
                             <TableCell>
@@ -146,6 +147,12 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                         <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
                                     )}
                                 </div>
+                                {isModelMatch && (
+                                    <div className="mt-2 flex items-center gap-2 text-green-600 font-semibold text-sm">
+                                        <CheckCircle className="h-5 w-5" />
+                                        <span>Correspondência de modelo</span>
+                                    </div>
+                                )}
                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
                                         {p.shipping_logistic_type === "fulfillment" && <FullIcon />}
