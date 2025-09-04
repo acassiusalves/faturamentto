@@ -205,20 +205,21 @@ export default function CatalogoPdfPage() {
     };
 
     const formatCurrency = (value: number | string) => {
-        let numericValue: number;
-        if (typeof value === 'string') {
-            numericValue = parseFloat(value.replace('.', '').replace(',', '.'));
-        } else {
-            numericValue = value;
-        }
-
-        if (isNaN(numericValue)) return 'N/A';
-        
-        return numericValue.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-        });
-    }
+      let numericValue: number;
+      if (typeof value === 'string') {
+        // Assume o formato "22.35" e converte para número
+        numericValue = parseFloat(value);
+      } else {
+        numericValue = value;
+      }
+    
+      if (isNaN(numericValue)) return 'N/A';
+    
+      return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(numericValue);
+    };
 
     const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
@@ -322,7 +323,7 @@ export default function CatalogoPdfPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedProducts.map((product, index) => {
-                                        const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
+                                        const unitPrice = parseFloat(product.price || '0');
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
                                         return (
                                              <React.Fragment key={index}>
