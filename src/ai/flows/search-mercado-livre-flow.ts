@@ -11,6 +11,8 @@ import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 import { searchMercadoLivreProducts } from '@/services/mercadolivre';
+import { loadAppSettings } from '@/services/firestore';
+
 
 const CatalogProductSchema = z.object({
   id: z.string().describe('The Mercado Livre product ID (e.g., MLB12345678).'),
@@ -22,7 +24,6 @@ const CatalogProductSchema = z.object({
 
 const SearchMercadoLivreInputSchema = z.object({
   productName: z.string().describe('The name of the product to search for.'),
-  apiKey: z.string().optional(),
 });
 
 const SearchMercadoLivreOutputSchema = z.object({
@@ -37,7 +38,12 @@ const RefinedQuerySchema = z.object({
 export async function searchMercadoLivre(
   input: z.infer<typeof SearchMercadoLivreInputSchema>
 ): Promise<z.infer<typeof SearchMercadoLivreOutputSchema>> {
-  const ai = getAi(input.apiKey);
+  const settings = await loadAppSettings();
+  const apiKey = settings?.geminiApiKey;
+  if (!apiKey) {
+    throw new Error('A chave de API do Gemini não está configurada no sistema.');
+  }
+  const ai = getAi(apiKey);
 
   const searchTool = ai.defineTool(
     {
