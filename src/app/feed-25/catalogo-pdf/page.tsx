@@ -108,11 +108,11 @@ export default function CatalogoPdfPage() {
         if (state.result) {
             const items = state.result.products.map(p => ({
               ...p,
-              // fallback determinístico imediato:
               refinedQuery: buildSearchQuery({
                 name: p.name,
+                description: p.description,
                 model: p.model,
-                brand: p.brand || brand,   // usa a marca do input se o PDF não trouxe
+                brand: p.brand || brand,
               }),
             }));
             setAllProducts(prev => [...prev, ...items]);
@@ -208,7 +208,6 @@ const handleRefineAllSearches = async () => {
   const tasks = allProducts.map((product, index) => async () => {
     const brandForProduct = product.brand || brand;
 
-    // sempre temos um fallback determinístico ótimo
     const fallback = buildSearchQuery({
       name: `${product.name} ${product.description || ""}`,
       model: product.model,
@@ -217,25 +216,16 @@ const handleRefineAllSearches = async () => {
 
     try {
       const fd = new FormData();
-      fd.append("productName", product.name);
+      fd.append("productName", `${product.name} ${product.description || ""}`.trim());
       fd.append("productModel", product.model);
       fd.append("productBrand", brandForProduct);
 
       const resp = await refineSearchTermAction({ result: null, error: null }, fd);
       const raw = resp?.result?.refinedQuery?.trim() || "";
 
-      // 1) limpa o candidato: só mantém termos que EXISTEM no texto original
-      const candidateClean = intersectCandidateWithSource(
-        raw,
-        product.name,
-        product.description || "",
-        product.model,
-        brandForProduct
-      );
-
-      // 2) enforcement final SEM NUNCA usar o raw como "name" principal
       const enforced = buildSearchQuery({
-        name: candidateClean ? `${product.name} ${candidateClean}` : `${product.name} ${product.description || ""}`,
+        name: `${product.name} ${product.description || ""}`,
+        description: "",
         model: product.model,
         brand: brandForProduct,
       });
@@ -250,7 +240,9 @@ const handleRefineAllSearches = async () => {
 
   setAllProducts((curr) => {
     const next = [...curr];
-    for (const r of results) next[r.index].refinedQuery = r.refined;
+    for (const r of results) {
+      next[r.index].refinedQuery = r.refined;
+    }
     return next;
   });
 

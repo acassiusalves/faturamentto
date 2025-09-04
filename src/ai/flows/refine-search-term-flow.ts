@@ -24,9 +24,8 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
   const settings = await loadAppSettings();
   const apiKey = settings?.geminiApiKey;
 
-  // Se não houver chave de API, retorna o fallback determinístico
+  const fallbackQuery = buildSearchQuery({ name: input.productName, model: input.productModel, brand: input.productBrand });
   if (!apiKey) {
-    const fallbackQuery = buildSearchQuery({ name: input.productName, model: input.productModel, brand: input.productBrand });
     return { refinedQuery: fallbackQuery };
   }
 
@@ -59,19 +58,18 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
             const { output } = await prompt(flowInput);
             const candidate = output?.refinedQuery?.trim() || "";
 
-            // Enforcement final usando o utilitário, garantindo que o nome original seja a base.
             const enforcedQuery = buildSearchQuery({
-                name: candidate || flowInput.productName,
-                model: flowInput.productModel,
-                brand: flowInput.productBrand,
+              name: `${flowInput.productName} ${candidate}`,
+              description: "", 
+              model: flowInput.productModel,
+              brand: flowInput.productBrand,
             });
 
             return { refinedQuery: enforcedQuery };
         } catch (e) {
             console.error("AI refinement failed, using fallback", e);
-            // Fallback em caso de erro da IA
-            const fallbackQuery = buildSearchQuery({ name: flowInput.productName, model: flowInput.productModel, brand: flowInput.productBrand });
-            return { refinedQuery: fallbackQuery };
+            const fallback = buildSearchQuery({ name: flowInput.productName, model: flowInput.productModel, brand: flowInput.productBrand });
+            return { refinedQuery: fallback };
         }
     }
   );
