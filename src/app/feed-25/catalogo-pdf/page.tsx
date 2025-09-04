@@ -9,17 +9,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
+import { analyzeCatalogAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
 
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).toString();
+// 🔧 SOLUÇÃO: use a mesma origem (/public)
+if (typeof window !== "undefined") {
+    const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    const WORKER_URL = `${BASE_PATH}/pdf.worker.mjs`;
+    (pdfjs as any).GlobalWorkerOptions.workerSrc = WORKER_URL;
+}
 
 const analyzeInitialState: {
   result: AnalyzeCatalogOutput | null;
@@ -321,4 +323,3 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
-
