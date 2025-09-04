@@ -291,11 +291,12 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
     const pdfContent = formData.get('pdfContent') as string;
     const pageNumber = Number(formData.get('pageNumber'));
     const totalPages = Number(formData.get('totalPages'));
+    const brand = formData.get('brand') as string | undefined;
 
     if (!pdfContent) throw new Error("O conteúdo do PDF não pode estar vazio.");
     if (isNaN(pageNumber) || isNaN(totalPages)) throw new Error("Número de página inválido.");
 
-    const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages });
+    const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand });
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e.message || "Falha ao analisar o catálogo." };

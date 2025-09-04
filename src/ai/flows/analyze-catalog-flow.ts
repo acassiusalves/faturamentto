@@ -36,9 +36,10 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
           prompt: `
             Você é um especialista em extrair informações de catálogos de produtos em PDF.
             Sua tarefa é analisar o texto da página {{pageNumber}} de um total de {{totalPages}} páginas.
+            {{#if brand}}O catálogo é da marca '{{brand}}'. Concentre-se em produtos desta marca.{{/if}}
 
             Para cada produto encontrado APENAS NESTA PÁGINA, extraia as seguintes informações:
-            - name: O nome completo do produto.
+            - name: O nome completo do produto. Se a marca for informada, inclua-a no nome.
             - model: O modelo específico do produto (ex: "CS-C20", "CS-M31BTL").
             - description: Uma breve descrição do produto, se disponível (incluindo cor, memória, etc.).
             - price: O preço do produto. Formate o preço como uma string com ponto como separador decimal (ex: "22.35", "27.50"). NÃO use vírgula.

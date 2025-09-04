@@ -14,13 +14,10 @@ import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
+import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 
-
-// 🔧 SOLUÇÃO: use a mesma origem (/public)
 if (typeof window !== "undefined") {
-    const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
-    const WORKER_URL = `${BASE_PATH}/pdf.worker.mjs`;
-    (pdfjs as any).GlobalWorkerOptions.workerSrc = WORKER_URL;
+  setupPdfjsWorker();
 }
 
 const analyzeInitialState: {
@@ -53,6 +50,7 @@ export default function CatalogoPdfPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isParsing, setIsParsing] = useState(false);
     const [allProducts, setAllProducts] = useState<SearchableProduct[]>([]);
+    const [brand, setBrand] = useState('');
     
     const [isProcessing, startTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
@@ -80,6 +78,7 @@ export default function CatalogoPdfPage() {
         formData.append('pdfContent', pageText);
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
+        formData.append('brand', brand);
     
         startTransition(() => {
           formAction(formData);
@@ -93,7 +92,7 @@ export default function CatalogoPdfPage() {
           description: 'Falha ao ler o texto do PDF nesta página.',
         });
       }
-    }, [pdfDoc, formAction, startTransition, toast]);
+    }, [pdfDoc, formAction, startTransition, toast, brand]);
 
 
     useEffect(() => {
@@ -215,9 +214,15 @@ export default function CatalogoPdfPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="pdf-upload">Arquivo do Catálogo (.pdf)</Label>
-                            <Input id="pdf-upload" type="file" accept="application/pdf" onChange={handleFileChange} />
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="pdf-upload">Arquivo do Catálogo (.pdf)</Label>
+                                <Input id="pdf-upload" type="file" accept="application/pdf" onChange={handleFileChange} />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="brand">Marca</Label>
+                                <Input id="brand" placeholder="Ex: Xiaomi" value={brand} onChange={(e) => setBrand(e.target.value)} />
+                            </div>
                         </div>
                     </form>
                 </CardContent>

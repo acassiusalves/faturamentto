@@ -506,6 +506,7 @@ export const AnalyzeCatalogInputSchema = z.object({
   pdfContent: z.string().describe('The full text content extracted from a single PDF page.'),
   pageNumber: z.number().describe('The current page number being analyzed.'),
   totalPages: z.number().describe('The total number of pages in the PDF.'),
+  brand: z.string().optional().describe('The brand of the products in the catalog.'),
 });
 export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
 
