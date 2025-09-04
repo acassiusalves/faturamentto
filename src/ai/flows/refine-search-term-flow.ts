@@ -44,22 +44,27 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
             Sua tarefa é criar um termo de busca curto e eficiente a partir dos detalhes do produto fornecido.
 
             Regras:
-            1.  Remova informações genéricas como "Caixa de som", "Kit", "para PC/Notebook", "Smartphone", "6W", "RGB", etc.
-            2.  Mantenha a marca e o modelo, pois são essenciais.
-            3.  Se houver um código de modelo (ex: "CS-C20"), ele é a parte mais importante.
-            4.  O termo final deve ser o mais limpo e direto possível.
+            1.  **Mantenha o essencial:** Mantenha a marca, o modelo e o tipo principal do produto (ex: "Caixa de som", "Teclado Gamer").
+            2.  **Remova o supérfluo:** Remova detalhes genéricos e de marketing como "para PC/Notebook", "Smartphone", "6W", "RGB", "versão global", "multimídia", "sem fio", "Padrão Brasileiro", etc.
+            3.  **Priorize o código:** O código do modelo (ex: "CS-C20", "BK-G800") é a parte mais importante.
+            4.  **Seja direto:** O termo final deve ser o mais limpo e direto possível.
 
             Produto Original: '{{productName}}'
             {{#if productBrand}}Marca: '{{productBrand}}'{{/if}}
             {{#if productModel}}Modelo: '{{productModel}}'{{/if}}
             
-            Exemplo:
+            Exemplo 1:
             - Entrada: "Caixa de som smart para PC/Notebook/Smartphone 6W EXBOM CS-C20"
-            - Saída: "EXBOM CS-C20"
+            - Saída: "Caixa de som EXBOM CS-C20"
 
+            Exemplo 2:
             - Entrada: "Kit gaming teclado metal com mouse LED RGB ABNT2 Padrão Brasileiro EXBOM BK-G800"
-            - Saída: "EXBOM BK-G800"
+            - Saída: "Teclado gamer EXBOM BK-G800"
             
+            Exemplo 3:
+            - Entrada: "Teclado e Mouse Combo sem fio 2.4G preto"
+            - Saída: "Teclado Mouse Combo"
+
             Gere o termo de busca otimizado.
           `,
         });
