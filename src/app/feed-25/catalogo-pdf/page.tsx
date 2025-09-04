@@ -176,6 +176,22 @@ export default function CatalogoPdfPage() {
         }
     };
     
+const norm = (s = "") =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const toTokens = (s = "") =>
+  norm(s).replace(/[^\w\s-]/g, " ").split(/\s+/).filter(Boolean);
+
+const intersectCandidateWithSource = (candidate: string, ...sources: string[]) => {
+  const sourceSet = new Set(sources.flatMap(toTokens));
+  const cand = toTokens(candidate);
+  const kept = cand.filter((t) => sourceSet.has(t));
+  // medida de sobreposição
+  const overlap = kept.length / Math.max(1, cand.length);
+  // se overlap for baixo, descarta o candidato inteiro
+  if (overlap < 0.3) return "";
+  return kept.join(" ");
+};
+
 const runInBatches = async <T,>(tasks: Array<() => Promise<T>>, size = 4) => {
   const out: T[] = [];
   for (let i = 0; i < tasks.length; i += size) {
@@ -191,9 +207,10 @@ const handleRefineAllSearches = async () => {
 
   const tasks = allProducts.map((product, index) => async () => {
     const brandForProduct = product.brand || brand;
-    // fallback determinístico (caso a IA falhe)
-    const base = buildSearchQuery({
-      name: product.name,
+
+    // sempre temos um fallback determinístico ótimo
+    const fallback = buildSearchQuery({
+      name: `${product.name} ${product.description || ""}`,
       model: product.model,
       brand: brandForProduct,
     });
@@ -207,17 +224,25 @@ const handleRefineAllSearches = async () => {
       const resp = await refineSearchTermAction({ result: null, error: null }, fd);
       const raw = resp?.result?.refinedQuery?.trim() || "";
 
-      // ENFORCEMENT: garante presença de marca+modelo e keywords do nome
+      // 1) limpa o candidato: só mantém termos que EXISTEM no texto original
+      const candidateClean = intersectCandidateWithSource(
+        raw,
+        product.name,
+        product.description || "",
+        product.model,
+        brandForProduct
+      );
+
+      // 2) enforcement final SEM NUNCA usar o raw como "name" principal
       const enforced = buildSearchQuery({
-        name: raw || product.name,   // se a IA devolveu pouco, misturamos com o nome
+        name: candidateClean ? `${product.name} ${candidateClean}` : `${product.name} ${product.description || ""}`,
         model: product.model,
         brand: brandForProduct,
       });
 
       return { index, refined: enforced };
-    } catch (e) {
-      // fallback em caso de erro na IA
-      return { index, refined: base };
+    } catch {
+      return { index, refined: fallback };
     }
   });
 
@@ -225,14 +250,12 @@ const handleRefineAllSearches = async () => {
 
   setAllProducts((curr) => {
     const next = [...curr];
-    for (const r of results) {
-      next[r.index].refinedQuery = r.refined;
-    }
+    for (const r of results) next[r.index].refinedQuery = r.refined;
     return next;
   });
 
   setIsRefining(false);
-  toast({ title: "Termos de busca refinados!", description: "Todos os termos foram padronizados e garantidos." });
+  toast({ title: "Termos de busca refinados!", description: "Todos os termos foram validados contra o nome original." });
 };
 
     

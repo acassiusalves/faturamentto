@@ -61,10 +61,11 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
 
             // Enforcement final usando o utilitário
             const enforcedQuery = buildSearchQuery({
-                name: candidate || flowInput.productName, // Usa o nome original como base se a IA retornar pouco
-                model: flowInput.productModel,
-                brand: flowInput.productBrand,
+                name: input.productName, // nunca entregue o raw puro como "name"
+                model: input.productModel,
+                brand: input.productBrand,
             });
+
 
             return { refinedQuery: enforcedQuery };
         } catch (e) {
