@@ -19,6 +19,7 @@ import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/co
 interface SearchableProduct {
     name: string;
     model: string;
+    refinedQuery?: string;
     description: string;
     price: string;
     imageUrl?: string;
@@ -51,7 +52,8 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     if (isOpen && product) {
         startTransition(() => {
             const formData = new FormData();
-            formData.append('productName', `${product.name} ${product.model}`);
+            const searchTerm = product.refinedQuery || `${product.name} ${product.model}`;
+            formData.append('productName', searchTerm);
             formData.append('quantity', '10');
             formAction(formData);
         });
@@ -71,7 +73,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Resultados da Busca: <span className="text-primary">{product.name}</span></DialogTitle>
+          <DialogTitle>Resultados da Busca: <span className="text-primary">{product.refinedQuery || product.name}</span></DialogTitle>
           <DialogDescription>
             Exibindo os anúncios encontrados no Mercado Livre para o termo de busca.
           </DialogDescription>
