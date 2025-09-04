@@ -15,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
+import { buildSearchQuery } from "@/lib/search-query";
 
 if (typeof window !== "undefined") {
   setupPdfjsWorker();
@@ -105,7 +106,17 @@ export default function CatalogoPdfPage() {
             setIsAnalyzingAll(false); 
         }
         if (state.result) {
-            setAllProducts(prev => [...prev, ...state.result!.products.map(p => ({...p}))]);
+            const items = state.result.products.map(p => ({
+              ...p,
+              // fallback determinístico imediato:
+              refinedQuery: buildSearchQuery({
+                name: p.name,
+                model: p.model,
+                brand: p.brand || brand,   // usa a marca do input se o PDF não trouxe
+              }),
+            }));
+            setAllProducts(prev => [...prev, ...items]);
+
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {

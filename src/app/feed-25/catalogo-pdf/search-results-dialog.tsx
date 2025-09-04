@@ -19,6 +19,7 @@ import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/co
 interface SearchableProduct {
     name: string;
     model: string;
+    brand?: string;
     refinedQuery?: string;
     description: string;
     price: string;
@@ -51,14 +52,14 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
   useEffect(() => {
     if (isOpen && product) {
         startTransition(() => {
+            const searchTerm = product.refinedQuery || [product.brand, product.name, product.model].filter(Boolean).join(" ");
             const formData = new FormData();
-            const searchTerm = product.refinedQuery || `${product.name} ${product.model}`;
             formData.append('productName', searchTerm);
             formData.append('quantity', '10');
             formAction(formData);
         });
     }
-  }, [isOpen, product, formAction]);
+  }, [isOpen, product, formAction, startTransition]);
   
   const filteredResults = useMemo(() => {
     if (!searchState.result) return [];
