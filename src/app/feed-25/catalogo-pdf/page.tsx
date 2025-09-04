@@ -35,6 +35,7 @@ interface CatalogProduct {
     description: string;
     price: string;
     imageUrl?: string;
+    quantityPerBox?: number;
 }
 
 export interface SearchableProduct extends CatalogProduct {
@@ -215,12 +216,6 @@ export default function CatalogoPdfPage() {
         });
     };
 
-    const extractQuantity = (description: string): number => {
-        if (!description) return 1;
-        const match = description.match(/(\d+)\s*(PCS|CX|UN)/i);
-        return match ? parseInt(match[1], 10) : 1;
-    };
-
     const formatCurrency = (value: number | string) => {
         let numericValue: number;
         if (typeof value === 'string') {
@@ -320,15 +315,16 @@ export default function CatalogoPdfPage() {
                                         <TableHead className="w-2/5">Produto</TableHead>
                                         <TableHead>Modelo</TableHead>
                                         <TableHead>Marca</TableHead>
+                                        <TableHead>Preço Unit.</TableHead>
+                                        <TableHead>Total Cx</TableHead>
                                         <TableHead className="w-1/5">Termo de Busca (IA)</TableHead>
-                                        <TableHead className="text-right">Preço Unit.</TableHead>
                                         <TableHead className="text-center">Ações</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {allProducts.map((product, index) => {
                                         const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
-                                        
+                                        const totalBox = unitPrice * (product.quantityPerBox || 1);
                                         return (
                                              <React.Fragment key={index}>
                                                 <TableRow>
@@ -344,13 +340,15 @@ export default function CatalogoPdfPage() {
                                                             className="h-8"
                                                         />
                                                     </TableCell>
-                                                    <TableCell>
+                                                     <TableCell>
                                                         <Input 
                                                             value={product.brand || brand || ''}
                                                             readOnly
                                                             className="h-8 bg-muted/50"
                                                         />
                                                     </TableCell>
+                                                    <TableCell className="font-mono">{formatCurrency(unitPrice)}</TableCell>
+                                                    <TableCell className="font-mono font-semibold">{formatCurrency(totalBox)}</TableCell>
                                                     <TableCell>
                                                         <Input
                                                             value={product.refinedQuery || ''}
@@ -359,7 +357,6 @@ export default function CatalogoPdfPage() {
                                                             className="h-8"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="text-right font-mono">{formatCurrency(unitPrice)}</TableCell>
                                                     <TableCell className="text-center">
                                                         <Button size="sm" onClick={() => handleSearchOffers(product)}>
                                                             <Search className="mr-2" />

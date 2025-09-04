@@ -516,6 +516,7 @@ export const ProductSchema = z.object({
   description: z.string().describe('A brief description of the product, including details like color, memory, etc.'),
   price: z.string().describe('The price of the product, formatted as a string (e.g., "1.299,00").'),
   imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),
+  quantityPerBox: z.number().optional().describe('The number of units per box, if mentioned.'),
 });
 export type ProductSchema = z.infer<typeof ProductSchema>;
 
