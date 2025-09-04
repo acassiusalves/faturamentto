@@ -101,7 +101,9 @@ export default function CatalogoPdfPage() {
           .join(' ');
     
         const formData = new FormData();
-        formData.append('pdfContent', pageText);
+        // Correção: Envia o conteúdo mesmo que esteja vazio.
+        // A IA no backend já está instruída a lidar com isso.
+        formData.append('pdfContent', pageText || ' '); 
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
         formData.append('brand', brand);
@@ -254,6 +256,7 @@ export default function CatalogoPdfPage() {
         for (let i = 0; i < allProducts.length; i++) {
             const product = allProducts[i];
             const progressPercentage = ((i + 1) / allProducts.length) * 100;
+            setBatchSearchProgress(progressPercentage);
             setBatchSearchStatus(`Buscando ${i + 1} de ${allProducts.length}: ${product.name}`);
 
             const formData = new FormData();
