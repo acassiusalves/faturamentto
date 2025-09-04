@@ -55,7 +55,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
             const searchTerm = product.refinedQuery || [product.brand, product.name, product.model].filter(Boolean).join(" ");
             const formData = new FormData();
             formData.append('productName', searchTerm);
-            formData.append('quantity', '10');
+            formData.append('quantity', '50');
             formAction(formData);
         });
     }
@@ -189,3 +189,5 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     </Dialog>
   );
 }
+
+    

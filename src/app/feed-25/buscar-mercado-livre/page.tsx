@@ -50,7 +50,7 @@ const listingTypeMap: Record<string, string> = {
 export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const [quantity, setQuantity] = useState(10);
+    const [quantity, setQuantity] = useState(50);
     const [state, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
     const [isTransitioning, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
@@ -111,11 +111,11 @@ export default function BuscarMercadoLivrePage() {
                 const shippingMatch = shippingFilter.length === 0 || shippingFilter.includes(p.shipping_type);
                 const brandMatch = brandFilter.length === 0 || brandFilter.includes(p.brand);
                 
-                const storeMatch =
-                    officialStoreFilter.length === 0 ||
-                    (officialStoreFilter.includes("yes") && !!p.official_store_id) ||
-                    (officialStoreFilter.includes("no") && !p.official_store_id);
-                const storeOk = officialStoreFilter.length === 2 ? true : storeMatch;
+                const storeOk =
+                  officialStoreFilter.length === 0 ||
+                  officialStoreFilter.length === 2 ||
+                  (officialStoreFilter.includes("yes") && !!p.official_store_id) ||
+                  (officialStoreFilter.includes("no") && !p.official_store_id);
 
                 const activeMatch = !showOnlyActive || p.price > 0;
 
@@ -378,3 +378,5 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
+
+    
