@@ -55,9 +55,19 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
   
   const filteredResults = useMemo(() => {
     const results = (searchState.result as any[]) || [];
-    if (!showOnlyActive) return results;
-    return results.filter((p: any) => p.price > 0);
-  }, [searchState.result, showOnlyActive]);
+
+    const sortedByModelMatch = [...results].sort((a, b) => {
+        const aIsMatch = product.model?.toLowerCase() === a.model?.toLowerCase();
+        const bIsMatch = product.model?.toLowerCase() === b.model?.toLowerCase();
+        if (aIsMatch && !bIsMatch) return -1;
+        if (!aIsMatch && bIsMatch) return 1;
+        return 0;
+    });
+
+    if (!showOnlyActive) return sortedByModelMatch;
+    
+    return sortedByModelMatch.filter((p: any) => p.price > 0);
+  }, [searchState.result, showOnlyActive, product.model]);
   
   const isSearching = isSearchingAction || isPending;
 
