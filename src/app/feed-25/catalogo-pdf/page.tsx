@@ -208,12 +208,6 @@ const handleRefineAllSearches = async () => {
   const tasks = allProducts.map((product, index) => async () => {
     const brandForProduct = product.brand || brand;
 
-    const fallback = buildSearchQuery({
-      name: `${product.name} ${product.description || ""}`,
-      model: product.model,
-      brand: brandForProduct,
-    });
-
     try {
       const fd = new FormData();
       fd.append("productName", `${product.name} ${product.description || ""}`.trim());
@@ -222,7 +216,7 @@ const handleRefineAllSearches = async () => {
 
       const resp = await refineSearchTermAction({ result: null, error: null }, fd);
       const raw = resp?.result?.refinedQuery?.trim() || "";
-
+      
       const enforced = buildSearchQuery({
         name: `${product.name} ${product.description || ""}`,
         description: "",
@@ -232,6 +226,11 @@ const handleRefineAllSearches = async () => {
 
       return { index, refined: enforced };
     } catch {
+       const fallback = buildSearchQuery({
+        name: `${product.name} ${product.description || ""}`,
+        model: product.model,
+        brand: brandForProduct,
+      });
       return { index, refined: fallback };
     }
   });
@@ -357,10 +356,6 @@ const handleRefineAllSearches = async () => {
                                     Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
                                 </CardDescription>
                             </div>
-                            <Button onClick={handleRefineAllSearches} disabled={isRefining}>
-                                {isRefining ? <Loader2 className="animate-spin mr-2" /> : <Wand2 className="mr-2"/>}
-                                Refinar Termos com IA
-                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
