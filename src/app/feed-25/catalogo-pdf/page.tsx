@@ -21,6 +21,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 if (typeof window !== "undefined") {
@@ -71,7 +72,7 @@ export default function CatalogoPdfPage() {
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
     const [selectedProductForSearch, setSelectedProductForSearch] = useState<SearchableProduct | null>(null);
 
-    // Pagination State
+    // Pagination State for extracted products
     const [productsPageIndex, setProductsPageIndex] = useState(0);
     const [productsPageSize, setProductsPageSize] = useState(10);
     
@@ -80,6 +81,10 @@ export default function CatalogoPdfPage() {
     const [batchSearchProgress, setBatchSearchProgress] = useState(0);
     const [batchSearchResults, setBatchSearchResults] = useState<any[]>([]);
     const [batchSearchStatus, setBatchSearchStatus] = useState('');
+
+    // Pagination state for grouped results
+    const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
+    const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
 
 
     const analyzePage = useCallback(async (pageNumber: number) => {
@@ -223,7 +228,7 @@ export default function CatalogoPdfPage() {
         numericValue = value;
       }
     
-      if (isNaN(numericValue)) return 'N/A';
+      if (isNaN(numericValue)) return 'R$ 0,00';
     
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -234,7 +239,7 @@ export default function CatalogoPdfPage() {
     const isProcessingAny = isParsing || isProcessing;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
-    const pageCount = useMemo(() => Math.ceil(allProducts.length / productsPageSize), [allProducts.length, productsPageSize]);
+    const productsPageCount = useMemo(() => Math.ceil(allProducts.length / productsPageSize), [allProducts.length, productsPageSize]);
     const paginatedProducts = useMemo(() => {
         const startIndex = productsPageIndex * productsPageSize;
         return allProducts.slice(startIndex, startIndex + productsPageSize);
@@ -249,7 +254,6 @@ export default function CatalogoPdfPage() {
         for (let i = 0; i < allProducts.length; i++) {
             const product = allProducts[i];
             const progressPercentage = ((i + 1) / allProducts.length) * 100;
-            setBatchSearchProgress(progressPercentage);
             setBatchSearchStatus(`Buscando ${i + 1} de ${allProducts.length}: ${product.name}`);
 
             const formData = new FormData();
@@ -278,6 +282,25 @@ export default function CatalogoPdfPage() {
         setIsBatchSearching(false);
         setBatchSearchStatus('Busca concluída!');
     };
+
+    const groupedBatchResults = useMemo(() => {
+        const groups = new Map<string, any[]>();
+        batchSearchResults.forEach(offer => {
+            const modelKey = offer.model || 'Outros Modelos';
+            if (!groups.has(modelKey)) {
+                groups.set(modelKey, []);
+            }
+            groups.get(modelKey)!.push(offer);
+        });
+        return Array.from(groups.entries());
+    }, [batchSearchResults]);
+    
+    const groupedResultPageCount = useMemo(() => Math.ceil(groupedBatchResults.length / groupedResultPageSize), [groupedBatchResults.length, groupedResultPageSize]);
+    const paginatedGroupedResults = useMemo(() => {
+        const startIndex = groupedResultPageIndex * groupedResultPageSize;
+        return groupedBatchResults.slice(startIndex, startIndex + groupedResultPageSize);
+    }, [groupedBatchResults, groupedResultPageIndex, groupedResultPageSize]);
+
 
     return (
         <>
@@ -456,59 +479,101 @@ export default function CatalogoPdfPage() {
                                 </Select>
                             </div>
                             <div className="text-sm font-medium">
-                                Página {productsPageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                                Página {productsPageIndex + 1} de {productsPageCount > 0 ? productsPageCount : 1}
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(0)} disabled={productsPageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
                                 <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageIndex - 1)} disabled={productsPageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageIndex + 1)} disabled={productsPageIndex >= pageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
-                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(pageCount - 1)} disabled={productsPageIndex >= pageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageIndex + 1)} disabled={productsPageIndex >= productsPageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setProductsPageIndex(productsPageCount - 1)} disabled={productsPageIndex >= productsPageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
                             </div>
                         </div>
                     </CardFooter>
                  </Card>
             )}
 
-            {batchSearchResults.length > 0 && (
+             {groupedBatchResults.length > 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <PackageSearch />
                             Produtos Encontrados com Correspondência de Modelo
                         </CardTitle>
-                         <CardDescription>
+                        <CardDescription>
                             A busca automática encontrou estes anúncios no Mercado Livre que correspondem ao modelo dos produtos extraídos.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Produto Original (Catálogo)</TableHead>
-                                        <TableHead>Anúncio Encontrado no ML</TableHead>
-                                        <TableHead>Preço</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {batchSearchResults.map((offer, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell className="font-semibold">{offer.originalProductName}</TableCell>
-                                            <TableCell>
-                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline flex items-center gap-1">
-                                                    {offer.name} <ExternalLink className="h-3 w-3"/>
-                                                </Link>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    Marca: {offer.brand} | Modelo: {offer.model}
+                        <Accordion type="multiple" className="space-y-4">
+                            {paginatedGroupedResults.map(([model, offers]) => (
+                                <AccordionItem key={model} value={model} className="border rounded-lg">
+                                    <AccordionTrigger className="p-4 hover:no-underline font-semibold">
+                                        {model} ({offers.length} anúncios)
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 pt-0">
+                                        <div className="space-y-4">
+                                            {offers.map((offer) => (
+                                                <div key={offer.id} className="flex items-center gap-4 p-2 border-b last:border-b-0">
+                                                    <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
+                                                        {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
+                                                    </div>
+                                                    <div className="flex-grow">
+                                                        <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
+                                                            {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                        </Link>
+                                                        <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
+                                                        <div className="text-xs text-muted-foreground mt-1">
+                                                            Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right font-semibold text-lg text-primary">
+                                                        {formatCurrency(offer.price)}
+                                                    </div>
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="font-mono font-semibold">{formatCurrency(offer.price)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
                     </CardContent>
+                    <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="text-sm text-muted-foreground">
+                            Total de {groupedBatchResults.length} modelos.
+                        </div>
+                        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">Itens por página</p>
+                                <Select
+                                    value={`${groupedResultPageSize}`}
+                                    onValueChange={(value) => {
+                                        setGroupedResultPageSize(Number(value));
+                                        setGroupedResultPageIndex(0);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={groupedResultPageSize.toString()} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[5, 10, 20].map((size) => (
+                                            <SelectItem key={size} value={`${size}`}>
+                                                {size}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-sm font-medium">
+                                Página {groupedResultPageIndex + 1} de {groupedResultPageCount > 0 ? groupedResultPageCount : 1}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setGroupedResultPageIndex(0)} disabled={groupedResultPageIndex === 0} > <ChevronsLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setGroupedResultPageIndex(groupedResultPageIndex - 1)} disabled={groupedResultPageIndex === 0} > <ChevronLeft className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setGroupedResultPageIndex(groupedResultPageIndex + 1)} disabled={groupedResultPageIndex >= groupedResultPageCount - 1} > <ChevronRight className="h-4 w-4" /> </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setGroupedResultPageIndex(groupedResultPageCount - 1)} disabled={groupedResultPageIndex >= groupedResultPageCount - 1} > <ChevronsRight className="h-4 w-4" /> </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
                 </Card>
             )}
 
