@@ -11,6 +11,7 @@ import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 import { loadAppSettings } from '@/services/firestore';
+import { buildSearchQuery } from '@/lib/search-query';
 import {
     RefineSearchTermInputSchema,
     RefineSearchTermOutputSchema,
@@ -22,9 +23,13 @@ import {
 export async function refineSearchTerm(input: RefineSearchTermInput): Promise<RefineSearchTermOutput> {
   const settings = await loadAppSettings();
   const apiKey = settings?.geminiApiKey;
+
+  // Se não houver chave de API, retorna o fallback determinístico
   if (!apiKey) {
-    throw new Error('A chave de API do Gemini não está configurada no sistema.');
+    const fallbackQuery = buildSearchQuery({ name: input.productName, model: input.productModel, brand: input.productBrand });
+    return { refinedQuery: fallbackQuery };
   }
+
   const ai = getAi(apiKey);
   
   const refineFlow = ai.defineFlow(
@@ -40,41 +45,36 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
           input: { schema: RefineSearchTermInputSchema },
           output: { schema: RefineSearchTermOutputSchema },
           prompt: `
-            Você é um especialista em otimizar termos de busca para o Mercado Livre.
-            Sua tarefa é criar um termo de busca curto e eficiente a partir dos detalhes do produto fornecido.
-
+            Gere um termo curto para BUSCAR no Mercado Livre.
             Regras:
-            1.  **Mantenha o essencial:** Mantenha a marca, o modelo e o tipo principal do produto (ex: "Caixa de som", "Teclado Gamer").
-            2.  **Remova o supérfluo:** Remova detalhes genéricos e de marketing como "para PC/Notebook", "Smartphone", "6W", "RGB", "versão global", "multimídia", "sem fio", "Padrão Brasileiro", etc.
-            3.  **Priorize o código:** O código do modelo (ex: "CS-C20", "BK-G800") é a parte mais importante.
-            4.  **Seja direto:** O termo final deve ser o mais limpo e direto possível.
-
-            Produto Original: '{{productName}}'
-            {{#if productBrand}}Marca: '{{productBrand}}'{{/if}}
-            {{#if productModel}}Modelo: '{{productModel}}'{{/if}}
-            
-            Exemplo 1 (CORRETO):
-            - Entrada: "Caixa de som smart para PC/Notebook/Smartphone 6W EXBOM CS-C20"
-            - Saída: "Caixa de som EXBOM CS-C20"
-
-            Exemplo 2 (CORRETO):
-            - Entrada: "Kit gaming teclado metal com mouse LED RGB ABNT2 Padrão Brasileiro EXBOM BK-G800"
-            - Saída: "Teclado gamer EXBOM BK-G800"
-            
-            Exemplo 3 (ERRADO):
-            - Entrada: "Caixa de som smart para PC/Notebook EXBOM CS-C54"
-            - Saída: "EXBOM CS-C54" (Isto está errado. O tipo "Caixa de som" foi removido).
-            - Correção: A saída deveria ser "Caixa de som EXBOM CS-C54".
-
-            Gere o termo de busca otimizado e correto.
+            - DEVE conter a marca (se fornecida) e o modelo (se fornecido).
+            - DEVE incluir pelo menos 2 palavras relevantes do nome do produto.
+            - Sem stopwords, nem pontuação; máx. 90 chars.
+            Responda JSON: {"refinedQuery":"..."}
+            Dados: name={{productName}}, model={{productModel}}, brand={{productBrand}}
           `,
         });
+        
+        try {
+            const { output } = await prompt(flowInput);
+            const candidate = output?.refinedQuery?.trim() || "";
 
-        const { output } = await prompt(flowInput);
-        return output!;
+            // Enforcement final usando o utilitário
+            const enforcedQuery = buildSearchQuery({
+                name: candidate || flowInput.productName, // Usa o nome original como base se a IA retornar pouco
+                model: flowInput.productModel,
+                brand: flowInput.productBrand,
+            });
+
+            return { refinedQuery: enforcedQuery };
+        } catch (e) {
+            console.error("AI refinement failed, using fallback", e);
+            // Fallback em caso de erro da IA
+            const fallbackQuery = buildSearchQuery({ name: flowInput.productName, model: flowInput.productModel, brand: flowInput.productBrand });
+            return { refinedQuery: fallbackQuery };
+        }
     }
   );
   
   return refineFlow(input);
 }
-

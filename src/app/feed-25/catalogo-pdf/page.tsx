@@ -176,34 +176,64 @@ export default function CatalogoPdfPage() {
         }
     };
     
-    const handleRefineAllSearches = async () => {
-        setIsRefining(true);
-        const promises = allProducts.map(async (product, index) => {
-            const formData = new FormData();
-            formData.append('productName', product.name);
-            formData.append('productModel', product.model);
-            formData.append('productBrand', brand);
-            const result = await refineSearchTermAction({ result: null, error: null }, formData);
-            return { index, result };
-        });
+const runInBatches = async <T,>(tasks: Array<() => Promise<T>>, size = 4) => {
+  const out: T[] = [];
+  for (let i = 0; i < tasks.length; i += size) {
+    const chunk = tasks.slice(i, i + size);
+    const res = await Promise.all(chunk.map((fn) => fn()));
+    out.push(...res);
+  }
+  return out;
+};
 
-        const results = await Promise.all(promises);
-        
-        setAllProducts(currentProducts => {
-            const newProducts = [...currentProducts];
-            results.forEach(({ index, result }) => {
-                if (result.result?.refinedQuery) {
-                    newProducts[index].refinedQuery = result.result.refinedQuery;
-                } else if (result.error) {
-                    console.error(`Error refining product ${index}:`, result.error);
-                }
-            });
-            return newProducts;
-        });
-        
-        setIsRefining(false);
-        toast({ title: "Termos de busca refinados!", description: "A IA otimizou os termos para busca no Mercado Livre." });
-    };
+const handleRefineAllSearches = async () => {
+  setIsRefining(true);
+
+  const tasks = allProducts.map((product, index) => async () => {
+    const brandForProduct = product.brand || brand;
+    // fallback determinístico (caso a IA falhe)
+    const base = buildSearchQuery({
+      name: product.name,
+      model: product.model,
+      brand: brandForProduct,
+    });
+
+    try {
+      const fd = new FormData();
+      fd.append("productName", product.name);
+      fd.append("productModel", product.model);
+      fd.append("productBrand", brandForProduct);
+
+      const resp = await refineSearchTermAction({ result: null, error: null }, fd);
+      const raw = resp?.result?.refinedQuery?.trim() || "";
+
+      // ENFORCEMENT: garante presença de marca+modelo e keywords do nome
+      const enforced = buildSearchQuery({
+        name: raw || product.name,   // se a IA devolveu pouco, misturamos com o nome
+        model: product.model,
+        brand: brandForProduct,
+      });
+
+      return { index, refined: enforced };
+    } catch (e) {
+      // fallback em caso de erro na IA
+      return { index, refined: base };
+    }
+  });
+
+  const results = await runInBatches(tasks, 4);
+
+  setAllProducts((curr) => {
+    const next = [...curr];
+    for (const r of results) {
+      next[r.index].refinedQuery = r.refined;
+    }
+    return next;
+  });
+
+  setIsRefining(false);
+  toast({ title: "Termos de busca refinados!", description: "Todos os termos foram padronizados e garantidos." });
+};
 
     
     const handleSearchOffers = useCallback((product: SearchableProduct) => {
