@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, refineSearchTermAction } from '@/app/actions';
+import { analyzeCatalogAction, refineSearchTermAction, searchMercadoLivreAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,6 +17,10 @@ import { SearchResultsDialog } from './search-results-dialog';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 import { buildSearchQuery } from "@/lib/search-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 
 if (typeof window !== "undefined") {
@@ -70,6 +74,13 @@ export default function CatalogoPdfPage() {
     // Pagination State
     const [productsPageIndex, setProductsPageIndex] = useState(0);
     const [productsPageSize, setProductsPageSize] = useState(10);
+    
+    // Batch Search State
+    const [isBatchSearching, setIsBatchSearching] = useState(false);
+    const [batchSearchProgress, setBatchSearchProgress] = useState(0);
+    const [batchSearchResults, setBatchSearchResults] = useState<any[]>([]);
+    const [batchSearchStatus, setBatchSearchStatus] = useState('');
+
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -207,7 +218,6 @@ export default function CatalogoPdfPage() {
     const formatCurrency = (value: number | string) => {
       let numericValue: number;
       if (typeof value === 'string') {
-        // Assume o formato "22.35" e converte para número
         numericValue = parseFloat(value);
       } else {
         numericValue = value;
@@ -230,6 +240,36 @@ export default function CatalogoPdfPage() {
         return allProducts.slice(startIndex, startIndex + productsPageSize);
     }, [allProducts, productsPageIndex, productsPageSize]);
 
+    const handleBatchSearch = async () => {
+        if (isBatchSearching || allProducts.length === 0) return;
+        setIsBatchSearching(true);
+        setBatchSearchResults([]);
+        setBatchSearchProgress(0);
+
+        for (let i = 0; i < allProducts.length; i++) {
+            const product = allProducts[i];
+            const progress = ((i + 1) / allProducts.length) * 100;
+            setBatchSearchProgress(progress);
+            setBatchSearchStatus(`Buscando ${i + 1} de ${allProducts.length}: ${product.name}`);
+
+            const formData = new FormData();
+            formData.append('productName', product.refinedQuery || product.name);
+            formData.append('quantity', '50');
+            
+            const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
+            if (result.result) {
+                const matchingOffer = result.result.find((offer: any) => offer.model?.toLowerCase() === product.model?.toLowerCase());
+                if (matchingOffer) {
+                    setBatchSearchResults(prev => [...prev, { ...matchingOffer, originalProductName: product.name }]);
+                }
+            }
+            // Pequeno delay para não sobrecarregar a API
+            await new Promise(res => setTimeout(res, 200));
+        }
+
+        setIsBatchSearching(false);
+        setBatchSearchStatus('Busca concluída!');
+    };
 
     return (
         <>
@@ -305,7 +345,17 @@ export default function CatalogoPdfPage() {
                                     Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
                                 </CardDescription>
                             </div>
+                            <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
+                                {isBatchSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                Buscar todos no ML
+                            </Button>
                         </div>
+                        {isBatchSearching && (
+                            <div className="space-y-2 mt-4">
+                                <Progress value={batchSearchProgress} />
+                                <p className="text-sm text-muted-foreground text-center">{batchSearchStatus}</p>
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                          <div className="rounded-md border">
@@ -410,6 +460,50 @@ export default function CatalogoPdfPage() {
                     </CardFooter>
                  </Card>
             )}
+
+            {batchSearchResults.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <PackageSearch />
+                            Produtos Encontrados com Correspondência de Modelo
+                        </CardTitle>
+                         <CardDescription>
+                            A busca automática encontrou estes anúncios no Mercado Livre que correspondem ao modelo dos produtos extraídos.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Produto Original (Catálogo)</TableHead>
+                                        <TableHead>Anúncio Encontrado no ML</TableHead>
+                                        <TableHead>Preço</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {batchSearchResults.map((offer, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="font-semibold">{offer.originalProductName}</TableCell>
+                                            <TableCell>
+                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline flex items-center gap-1">
+                                                    {offer.name} <ExternalLink className="h-3 w-3"/>
+                                                </Link>
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Marca: {offer.brand} | Modelo: {offer.model}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono font-semibold">{formatCurrency(offer.price)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
         </main>
 
         {selectedProductForSearch && (
