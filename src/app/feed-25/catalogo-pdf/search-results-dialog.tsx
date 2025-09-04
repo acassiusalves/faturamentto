@@ -15,16 +15,8 @@ import Link from 'next/link';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
+import type { SearchableProduct } from './page';
 
-interface SearchableProduct {
-    name: string;
-    model: string;
-    brand?: string;
-    refinedQuery?: string;
-    description: string;
-    price: string;
-    imageUrl?: string;
-}
 
 interface SearchResultsDialogProps {
   isOpen: boolean;
@@ -62,9 +54,9 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
   }, [isOpen, product, formAction, startTransition]);
   
   const filteredResults = useMemo(() => {
-    if (!searchState.result) return [];
-    if (!showOnlyActive) return searchState.result;
-    return searchState.result.filter((p: any) => p.price > 0);
+    const results = (searchState.result as any[]) || [];
+    if (!showOnlyActive) return results;
+    return results.filter((p: any) => p.price > 0);
   }, [searchState.result, showOnlyActive]);
   
   const isSearching = isSearchingAction || isPending;
@@ -189,5 +181,3 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     </Dialog>
   );
 }
-
-    
