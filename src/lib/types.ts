@@ -525,12 +525,14 @@ export const AnalyzeCatalogOutputSchema = z.object({
 export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
 
 // Refine Search Term Types
-export interface RefineSearchTermInput {
-  productName: string;
-  productModel?: string;
-  productBrand?: string;
-}
+export const RefineSearchTermInputSchema = z.object({
+  productName: z.string().describe('The full, original name of the product.'),
+  productModel: z.string().optional().describe('The specific model of the product.'),
+  productBrand: z.string().optional().describe('The brand of the product.'),
+});
+export type RefineSearchTermInput = z.infer<typeof RefineSearchTermInputSchema>;
 
-export interface RefineSearchTermOutput {
-  refinedQuery: string;
-}
+export const RefineSearchTermOutputSchema = z.object({
+  refinedQuery: z.string().describe('The optimized search term for Mercado Livre, containing only essential keywords.'),
+});
+export type RefineSearchTermOutput = z.infer<typeof RefineSearchTermOutputSchema>;
