@@ -47,7 +47,8 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
             - quantityPerBox: Se a descrição mencionar a quantidade de itens por caixa (ex: "50 PCS / CX"), extraia esse número. Se não for mencionado, deixe em branco.
             - imageUrl: Se uma URL de imagem for mencionada, use-a. Caso contrário, deixe em branco.
 
-            Ignore qualquer texto que não seja uma listagem de produto (ex: introduções, índices, informações de contato, cabeçalhos ou rodapés repetitivos).
+            CRÍTICO: Se a página for uma capa, índice, ou não contiver produtos, retorne um objeto JSON com a chave "products" sendo um array vazio (ex: {"products": []}).
+            Ignore qualquer texto que não seja uma listagem de produto (ex: introduções, informações de contato, cabeçalhos ou rodapés repetitivos).
 
             Texto da Página {{pageNumber}} para análise:
             \`\`\`
