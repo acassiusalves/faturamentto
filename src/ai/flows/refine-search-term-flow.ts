@@ -53,19 +53,20 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
             {{#if productBrand}}Marca: '{{productBrand}}'{{/if}}
             {{#if productModel}}Modelo: '{{productModel}}'{{/if}}
             
-            Exemplo 1:
+            Exemplo 1 (CORRETO):
             - Entrada: "Caixa de som smart para PC/Notebook/Smartphone 6W EXBOM CS-C20"
             - Saída: "Caixa de som EXBOM CS-C20"
 
-            Exemplo 2:
+            Exemplo 2 (CORRETO):
             - Entrada: "Kit gaming teclado metal com mouse LED RGB ABNT2 Padrão Brasileiro EXBOM BK-G800"
             - Saída: "Teclado gamer EXBOM BK-G800"
             
-            Exemplo 3:
-            - Entrada: "Teclado e Mouse Combo sem fio 2.4G preto"
-            - Saída: "Teclado Mouse Combo"
+            Exemplo 3 (ERRADO):
+            - Entrada: "Caixa de som smart para PC/Notebook EXBOM CS-C54"
+            - Saída: "EXBOM CS-C54" (Isto está errado. O tipo "Caixa de som" foi removido).
+            - Correção: A saída deveria ser "Caixa de som EXBOM CS-C54".
 
-            Gere o termo de busca otimizado.
+            Gere o termo de busca otimizado e correto.
           `,
         });
 
@@ -76,3 +77,4 @@ export async function refineSearchTerm(input: RefineSearchTermInput): Promise<Re
   
   return refineFlow(input);
 }
+
