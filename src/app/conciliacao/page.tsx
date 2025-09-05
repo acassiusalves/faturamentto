@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, setMonth, getYear } from "date-fns";
 import { ptBR } from 'date-fns/locale';
-import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket, CheckCircle, Edit } from 'lucide-react';
+import { Loader2, DollarSign, FileSpreadsheet, Percent, Link, Target, Settings, Search, Filter, Calculator, TrendingDown, TrendingUp, BarChart3, Ticket, CheckCircle, Edit, PlusCircle, XCircle } from 'lucide-react';
 import type { Sale, SupportData, PickedItemLog, CustomCalculation, FormulaItem, Product } from '@/lib/types';
 import { SalesTable } from '@/components/sales-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,6 +24,7 @@ import { TicketDialog } from '@/components/ticket-dialog';
 import { Progress } from '@/components/ui/progress';
 import { CostRefinementDialog } from '@/components/cost-refinement-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { MultiSelect, type Option } from '@/components/ui/multi-select';
 
 
 // Helper to generate months
@@ -293,6 +294,11 @@ const coerceAnyDateToISO = (raw: any): string | null => {
 const isoToBRDate = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
+interface DynamicFilter {
+    id: string;
+    column: string;
+    values: string[];
+}
 
 export default function ConciliationPage() {
     const [sales, setSales] = useState<Sale[]>([]);
@@ -316,7 +322,7 @@ export default function ConciliationPage() {
     const [marketplaceFilter, setMarketplaceFilter] = useState("all");
     const [stateFilter, setStateFilter] = useState("all");
     const [accountFilter, setAccountFilter] = useState("all");
-    const [customFilters, setCustomFilters] = useState<Record<string, string>>({});
+    const [dynamicFilters, setDynamicFilters] = useState<DynamicFilter[]>([{ id: `filter-${Date.now()}`, column: '', values: [] }]);
 
 
     // Custom Calculations
@@ -439,6 +445,13 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
     if (calc.targetMarketplace && (sale as any).marketplace_name !== calc.targetMarketplace) {
       saleWithCost.customData[calc.id] = 0;
       return;
+    }
+
+    // Se o status do pedido for "cancelado" e a regra estiver ativa, zera o cálculo
+    const status = sale.sheetData?.['status'] || sale.status || '';
+    if (calc.ignoreIfCancelled && String(status).toLowerCase().includes('cancelado')) {
+        saleWithCost.customData[calc.id] = 0;
+        return;
     }
 
     try {
@@ -597,20 +610,20 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         
         let finalSales = processedSales.map(applyCustomCalculations);
 
-        // Apply custom filters
-        const activeCustomFilters = Object.entries(customFilters).filter(([, value]) => value);
-        if(activeCustomFilters.length > 0) {
+        // Apply dynamic custom filters
+        const activeDynamicFilters = dynamicFilters.filter(f => f.column && f.values.length > 0);
+        if (activeDynamicFilters.length > 0) {
             finalSales = finalSales.filter(sale => {
-                return activeCustomFilters.every(([key, value]) => {
-                    const saleValue = (sale.sheetData?.[key] ?? '').toString().toLowerCase();
-                    return saleValue.includes(value.toLowerCase());
-                })
-            })
+                return activeDynamicFilters.every(filter => {
+                    const saleValue = String(sale.sheetData?.[filter.column] ?? '').toLowerCase();
+                    return filter.values.some(v => saleValue.includes(v.toLowerCase()));
+                });
+            });
         }
 
         return finalSales;
 
-    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations, customFilters]);
+    }, [sales, dateRange, supportData, searchTerm, marketplaceFilter, stateFilter, accountFilter, applyCustomCalculations, dynamicFilters]);
     
     const summaryStats = useMemo(() => {
         let faturamento = 0;
@@ -810,26 +823,50 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         Object.values(supportData.files).flat().forEach(file => {
             if (!file?.fileContent) return;
             try {
-                const { rows } = parseSupportFile(file);
-                if (rows.length > 0) {
-                    const firstRow = rows[0];
-                    for (const header in firstRow) {
-                        const friendlyName = file.friendlyNames[header] || header;
-                        fields.add(friendlyName);
-                    }
+                if(file.friendlyNames) {
+                    Object.values(file.friendlyNames).forEach(name => {
+                       if (name) fields.add(name);
+                    });
                 }
             } catch (e) {
                 console.error("Error parsing file for filters", e);
             }
         });
-        return Array.from(fields);
+        return Array.from(fields).sort((a,b) => a.localeCompare(b));
     }, [supportData]);
 
-    const handleCustomFilterChange = (key: string, value: string) => {
-        setCustomFilters(prev => ({
-            ...prev,
-            [normalizeLabel(key)]: value,
+    const handleDynamicFilterChange = (id: string, key: 'column' | 'values', value: string | string[]) => {
+        setDynamicFilters(prev => prev.map(f => {
+            if (f.id === id) {
+                if (key === 'column') {
+                    // Reset values when column changes
+                    return { ...f, column: value as string, values: [] };
+                }
+                return { ...f, [key]: value };
+            }
+            return f;
         }));
+    };
+
+    const addDynamicFilter = () => {
+        setDynamicFilters(prev => [...prev, { id: `filter-${Date.now()}`, column: '', values: [] }]);
+    };
+
+    const removeDynamicFilter = (id: string) => {
+        setDynamicFilters(prev => prev.filter(f => f.id !== id));
+    };
+
+    const getOptionsForColumn = (columnName: string): Option[] => {
+        if (!columnName) return [];
+        const normalizedColName = normalizeLabel(columnName);
+        const valueSet = new Set<string>();
+        filteredSales.forEach(sale => {
+            const val = sale.sheetData?.[normalizedColName];
+            if (val !== undefined && val !== null && String(val).trim() !== '') {
+                valueSet.add(String(val));
+            }
+        });
+        return Array.from(valueSet).sort().map(v => ({ label: v, value: v }));
     };
 
     // Options for filters
@@ -971,19 +1008,49 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                             </SelectContent>
                         </Select>
                     </div>
-                    {customFilterFields.length > 0 && (
-                        <div>
-                             <h4 className="text-sm font-medium text-muted-foreground mb-2">Filtros Personalizados (Dados de Apoio)</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {customFilterFields.map(field => (
-                                    <Input
-                                        key={field}
-                                        placeholder={`Filtrar por ${field}...`}
-                                        value={customFilters[normalizeLabel(field)] || ''}
-                                        onChange={(e) => handleCustomFilterChange(field, e.target.value)}
-                                    />
+                     {customFilterFields.length > 0 && (
+                        <div className="pt-4 space-y-4">
+                            <h4 className="text-sm font-medium text-muted-foreground">Filtros Personalizados (Dados de Apoio)</h4>
+                            <div className="space-y-2">
+                                {dynamicFilters.map((filter, index) => (
+                                    <div key={filter.id} className="flex flex-col sm:flex-row items-center gap-2 p-2 border rounded-md bg-muted/50">
+                                        <Select
+                                            value={filter.column}
+                                            onValueChange={(value) => handleDynamicFilterChange(filter.id, 'column', value)}
+                                        >
+                                            <SelectTrigger className="w-full sm:w-[240px] bg-background">
+                                                <SelectValue placeholder="Selecione uma coluna..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {customFilterFields.map(field => (
+                                                    <SelectItem key={field} value={normalizeLabel(field)}>{field}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        
+                                        <MultiSelect
+                                            options={getOptionsForColumn(filter.column)}
+                                            value={filter.values}
+                                            onChange={(values) => handleDynamicFilterChange(filter.id, 'values', values)}
+                                            placeholder="Selecione valores..."
+                                            className="flex-1"
+                                        />
+                                        
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => removeDynamicFilter(filter.id)}
+                                            disabled={dynamicFilters.length === 1}
+                                        >
+                                            <XCircle className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
                                 ))}
                             </div>
+                            <Button variant="secondary" size="sm" onClick={addDynamicFilter}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Adicionar Filtro
+                            </Button>
                         </div>
                     )}
                 </CardContent>
