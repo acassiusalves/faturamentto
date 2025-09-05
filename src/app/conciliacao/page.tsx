@@ -1110,6 +1110,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                 }}
                 order={selectedSaleForTicket}
                 onSaveChanges={handleUpdateSaleData}
+                customCalculations={customCalculations}
             />
         )}
         </>
