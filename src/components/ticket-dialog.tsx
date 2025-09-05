@@ -18,6 +18,8 @@ import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Package, FileText, Banknote, Truck, MessageSquare, FileSpreadsheet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from './ui/scroll-area';
+
 
 interface TicketDialogProps {
   isOpen: boolean;
@@ -54,15 +56,15 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Detalhes do Pedido: #{saleData.order_id}</DialogTitle>
                     <DialogDescription>
                         Exibindo todas as informações detalhadas para o pedido da loja <span className="font-semibold">{saleData.order_code}</span>.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
-                    <Tabs defaultValue="general">
+                <div className="py-4 flex-grow overflow-hidden">
+                    <Tabs defaultValue="general" className="h-full flex flex-col">
                         <TabsList className={`grid w-full ${hasSheetData ? 'grid-cols-7' : 'grid-cols-6'}`}>
                             <TabsTrigger value="general">Geral</TabsTrigger>
                             <TabsTrigger value="client">Cliente</TabsTrigger>
@@ -75,7 +77,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                         <TabsContent value="general" className="mt-4">
                             <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><FileText size={18}/> Informações Gerais</CardTitle></CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-x-8">
+                                <CardContent className="grid grid-cols-2 gap-x-8 gap-y-4">
                                      <DetailItem label="Nº Pedido Loja" value={saleData.order_code} />
                                      <DetailItem label="Data do Pedido" value={formatDate(saleData.payment_approved_date)} />
                                      <DetailItem label="Data Prevista" value="N/A" />
@@ -86,7 +88,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                        <TabsContent value="client">
+                        <TabsContent value="client" className="mt-4">
                              <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><User size={18}/> Informações do Cliente</CardTitle></CardHeader>
                                 <CardContent className="grid grid-cols-2 gap-x-8">
@@ -101,7 +103,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                         <TabsContent value="items">
+                         <TabsContent value="items" className="mt-4">
                              <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><Package size={18}/> Itens do Pedido</CardTitle></CardHeader>
                                 <CardContent>
@@ -112,7 +114,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                         <TabsContent value="financial">
+                         <TabsContent value="financial" className="mt-4">
                              <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><Banknote size={18}/> Informações Financeiras</CardTitle></CardHeader>
                                 <CardContent>
@@ -123,7 +125,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                        <TabsContent value="transport">
+                        <TabsContent value="transport" className="mt-4">
                             <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><Truck size={18}/> Informações de Transporte</CardTitle></CardHeader>
                                 <CardContent>
@@ -132,7 +134,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                        <TabsContent value="notes">
+                        <TabsContent value="notes" className="mt-4">
                             <Card>
                                 <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquare size={18}/> Observações</CardTitle></CardHeader>
                                 <CardContent>
@@ -141,13 +143,17 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                             </Card>
                         </TabsContent>
                          {hasSheetData && (
-                            <TabsContent value="sheet" className="mt-4">
-                                <Card>
+                            <TabsContent value="sheet" className="mt-4 flex-grow overflow-hidden">
+                                <Card className="h-full flex flex-col">
                                     <CardHeader><CardTitle className="flex items-center gap-2"><FileSpreadsheet size={18}/> Dados da Planilha</CardTitle></CardHeader>
-                                    <CardContent className="grid grid-cols-2 gap-x-8">
-                                        {Object.entries(saleData.sheetData).map(([key, value]) => (
-                                            <DetailItem key={key} label={key} value={String(value)} />
-                                        ))}
+                                    <CardContent className="flex-grow overflow-hidden">
+                                         <ScrollArea className="h-full">
+                                            <div className="grid grid-cols-2 gap-x-8 pr-4">
+                                                {Object.entries(saleData.sheetData).map(([key, value]) => (
+                                                    <DetailItem key={key} label={key} value={String(value)} />
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
                                     </CardContent>
                                 </Card>
                             </TabsContent>
