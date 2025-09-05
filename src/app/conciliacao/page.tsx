@@ -383,7 +383,7 @@ export default function ConciliationPage() {
         loadSupportDataForMonth();
     }, [dateRange, loadSupportDataForMonth]);
 
-    const pickingLogsMap = useMemo(() => {
+    const productCostSource = useMemo(() => {
         const map = new Map<string, { cost: number; isManual: boolean }>();
         pickingLogs.forEach(log => {
             const currentCost = map.get(log.orderNumber)?.cost || 0;
@@ -431,11 +431,24 @@ const getNumericField = (saleWithCost: any, key: string): number => {
 const pushValue = (values: number[], v: number) => {
   values.push(Number.isFinite(v) ? v : 0);
 };
+
+  const calculateTotalCost = useCallback((sale: Sale): number => {
+    const productCost = productCostSource.get((sale as any).order_code)?.cost || 0;
+    const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
+    return productCost + iderisCosts;
+  }, [productCostSource]);
+
+  const calculateNetRevenue = useCallback((sale: Sale): number => {
+    const totalCost = calculateTotalCost(sale);
+    const grossRevenue = (sale as any).value_with_shipping || 0;
+    return grossRevenue - totalCost;
+  }, [calculateTotalCost]);
+
 // === SUBSTITUA sua applyCustomCalculations por esta versão ===
 const applyCustomCalculations = useCallback((sale: Sale): Sale => {
   const saleWithCost: any = {
     ...sale,
-    product_cost: pickingLogsMap.get((sale as any).order_code)?.cost || 0,
+    product_cost: productCostSource.get((sale as any).order_code)?.cost || 0,
     customData: { ...(sale as any).customData || {} },
   };
 
@@ -520,7 +533,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
   }
 
   return saleWithCost as Sale;
-}, [pickingLogsMap, customCalculations]);
+}, [productCostSource, customCalculations]);
 
     const filteredSales = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
@@ -858,18 +871,6 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         return Array.from(valueSet).sort().map(v => ({ label: v, value: v }));
     };
 
-    const calculateTotalCost = useCallback((sale: Sale): number => {
-        const productCost = productCostSource.get((sale as any).order_code)?.cost || 0;
-        const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
-        return productCost + iderisCosts;
-      }, [productCostSource]);
-    
-      const calculateNetRevenue = useCallback((sale: Sale): number => {
-        const totalCost = calculateTotalCost(sale);
-        const grossRevenue = (sale as any).value_with_shipping || 0;
-        return grossRevenue - totalCost;
-      }, [calculateTotalCost]);
-
     // Options for filters
     const marketplaces = useMemo(() => Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
     const states = useMemo(() => Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
@@ -1066,7 +1067,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               calculateNetRevenue={calculateNetRevenue}
               formatCurrency={formatCurrency}
               isLoading={isLoading}
-              productCostSource={pickingLogsMap}
+              productCostSource={productCostSource}
               customCalculations={customCalculations}
               onOpenTicket={handleOpenTicketDialog}
             />
@@ -1096,7 +1097,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
             isOpen={isRefinementOpen}
             onClose={() => setIsRefinementOpen(false)}
             onSave={handleSaveRefinedCosts}
-            sales={filteredSales.filter(s => !(pickingLogsMap.has((s as any).order_code)))}
+            sales={filteredSales.filter(s => !(productCostSource.has((s as any).order_code)))}
             products={products}
         />
         
