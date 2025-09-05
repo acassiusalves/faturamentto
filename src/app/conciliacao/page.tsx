@@ -858,6 +858,18 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         return Array.from(valueSet).sort().map(v => ({ label: v, value: v }));
     };
 
+    const calculateTotalCost = useCallback((sale: Sale): number => {
+        const productCost = productCostSource.get((sale as any).order_code)?.cost || 0;
+        const iderisCosts = ((sale as any).fee_order || 0) + ((sale as any).fee_shipment || 0);
+        return productCost + iderisCosts;
+      }, [productCostSource]);
+    
+      const calculateNetRevenue = useCallback((sale: Sale): number => {
+        const totalCost = calculateTotalCost(sale);
+        const grossRevenue = (sale as any).value_with_shipping || 0;
+        return grossRevenue - totalCost;
+      }, [calculateTotalCost]);
+
     // Options for filters
     const marketplaces = useMemo(() => Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
     const states = useMemo(() => Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean))).sort((a,b) => a.localeCompare(b)), [sales]);
@@ -1102,4 +1114,3 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         </>
     );
 }
-
