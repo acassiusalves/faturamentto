@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -94,8 +95,9 @@ export function CostDialog({
   
   const calculateTotalAddedCosts = () => {
     if (!sale) return 0;
+    const grossRevenue = (sale as any).value_with_shipping || 0;
     return costs.reduce((acc, cost) => {
-       const costValue = cost.isPercentage ? (sale.grossRevenue * cost.value) / 100 : cost.value;
+       const costValue = cost.isPercentage ? (grossRevenue * cost.value) / 100 : cost.value;
        return acc + costValue;
     }, 0);
   }

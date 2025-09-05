@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -16,15 +17,19 @@ import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Package, FileText, Banknote, Truck, MessageSquare, FileSpreadsheet } from 'lucide-react';
+import { User, Package, FileText, Banknote, Truck, MessageSquare, FileSpreadsheet, Save, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface TicketDialogProps {
   isOpen: boolean;
   onClose: () => void;
   order: Sale | null;
+  onSaveChanges: (saleId: string, updatedData: Partial<Sale>) => void;
 }
 
 const formatDate = (dateString?: string) => {
@@ -48,11 +53,50 @@ const DetailItem = ({ label, value }: { label: string; value: React.ReactNode })
     </div>
 );
 
-export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
+export function TicketDialog({ isOpen, onClose, order, onSaveChanges }: TicketDialogProps) {
+    const { toast } = useToast();
+    const [activeTab, setActiveTab] = useState("general");
+    const [editedSheetData, setEditedSheetData] = useState<Record<string, any> | undefined>(undefined);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (order) {
+            setEditedSheetData({ ...(order as any).sheetData });
+            setActiveTab("general");
+        }
+    }, [order]);
+
     if (!order) return null;
 
     const saleData = order as any;
     const hasSheetData = saleData.sheetData && Object.keys(saleData.sheetData).length > 0;
+    
+    const handleSheetDataChange = (key: string, value: string) => {
+        setEditedSheetData(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSaveClick = async () => {
+        setIsSaving(true);
+        try {
+            await onSaveChanges(order.id, { sheetData: editedSheetData });
+            toast({
+                title: "Dados da Planilha Atualizados!",
+                description: "As alterações foram salvas no pedido."
+            });
+            onClose();
+        } catch (e) {
+            toast({
+                variant: 'destructive',
+                title: "Erro ao Salvar",
+                description: "Não foi possível salvar as alterações."
+            })
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const hasChanges = JSON.stringify(editedSheetData) !== JSON.stringify(saleData.sheetData);
+
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -64,7 +108,7 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 flex-grow overflow-hidden">
-                    <Tabs defaultValue="general" className="h-full flex flex-col">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                         <TabsList className={`grid w-full ${hasSheetData ? 'grid-cols-7' : 'grid-cols-6'}`}>
                             <TabsTrigger value="general">Geral</TabsTrigger>
                             <TabsTrigger value="client">Cliente</TabsTrigger>
@@ -148,9 +192,16 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                                     <CardHeader><CardTitle className="flex items-center gap-2"><FileSpreadsheet size={18}/> Dados da Planilha</CardTitle></CardHeader>
                                     <CardContent className="flex-grow overflow-hidden">
                                          <ScrollArea className="h-full">
-                                            <div className="grid grid-cols-2 gap-x-8 pr-4">
-                                                {Object.entries(saleData.sheetData).map(([key, value]) => (
-                                                    <DetailItem key={key} label={key} value={String(value)} />
+                                            <div className="space-y-4 pr-4">
+                                                {Object.entries(editedSheetData || {}).map(([key, value]) => (
+                                                   <div key={key} className="space-y-1">
+                                                        <Label htmlFor={`sheet-${key}`} className="capitalize">{key.replace(/_/g, ' ')}</Label>
+                                                        <Input
+                                                            id={`sheet-${key}`}
+                                                            value={value as string}
+                                                            onChange={(e) => handleSheetDataChange(key, e.target.value)}
+                                                        />
+                                                   </div>
                                                 ))}
                                             </div>
                                         </ScrollArea>
@@ -162,8 +213,16 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Fechar</Button>
+                     {activeTab === 'sheet' && hasChanges && (
+                        <Button onClick={handleSaveClick} disabled={isSaving}>
+                            {isSaving && <Loader2 className="animate-spin mr-2" />}
+                            <Save className="mr-2" />
+                            Salvar Alterações
+                        </Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+

@@ -45,6 +45,7 @@ const defaultCalculations: CustomCalculation[] = [
             { type: 'column', value: 'product_cost', label: 'Custo do Produto' },
         ],
         isPercentage: false,
+        ignoreIfCancelled: true
     },
 ];
 
@@ -712,39 +713,23 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     };
     
-    const calculateTotalCost = (sale: Sale): number => {
-        const productCost = pickingLogsMap.get((sale as any).order_code)?.cost || 0;
-        const manualCosts = sale.costs?.reduce((acc, cost) => {
-             const costValue = cost.isPercentage ? (((sale as any).value_with_shipping || 0) * cost.value) / 100 : cost.value;
-            return acc + costValue;
-        }, 0) || 0;
-        return productCost + manualCosts;
-    };
-
-    const calculateNetRevenue = (sale: Sale): number => {
-        const baseProfit = (sale as any).left_over || 0;
-        const totalAddedCosts = calculateTotalCost(sale);
-        
-        const productCost = pickingLogsMap.get((sale as any).order_code)?.cost || 0;
-        const manualCosts = totalAddedCosts - productCost;
-
-        return baseProfit - productCost - manualCosts;
-    };
-    
-    const updateSaleCosts = (saleId: string, newCosts: Sale['costs']) => {
-        let updatedSales: Sale[] = [];
+    const handleUpdateSaleData = (saleId: string, updatedData: Partial<Sale>) => {
+        let saleToUpdate: Sale | undefined;
         setSales(prevSales => {
-          updatedSales = prevSales.map(sale =>
-            sale.id === saleId ? { ...sale, costs: newCosts } : sale
-          );
-          return updatedSales;
+          const newSales = prevSales.map(sale => {
+            if (sale.id === saleId) {
+              saleToUpdate = { ...sale, ...updatedData };
+              return saleToUpdate;
+            }
+            return sale;
+          });
+          return newSales;
         });
-        const saleToUpdate = updatedSales.find(s => s.id === saleId);
         if (saleToUpdate) {
-            saveSales([saleToUpdate]);
+            saveSales([saleToUpdate]); // Firestore save
         }
     };
-
+    
     const handleSaveCustomCalculation = async (calculation: Omit<CustomCalculation, 'id'> & { id?: string }) => {
         let newCalculations: CustomCalculation[];
         
@@ -1064,7 +1049,7 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
               data={filteredSales}
               products={products}
               supportData={supportData}
-              onUpdateSaleCosts={updateSaleCosts}
+              onUpdateSaleData={handleUpdateSaleData}
               calculateTotalCost={calculateTotalCost}
               calculateNetRevenue={calculateNetRevenue}
               formatCurrency={formatCurrency}
@@ -1111,8 +1096,10 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
                     setSelectedSaleForTicket(null);
                 }}
                 order={selectedSaleForTicket}
+                onSaveChanges={handleUpdateSaleData}
             />
         )}
         </>
     );
 }
+

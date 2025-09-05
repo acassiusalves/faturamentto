@@ -40,7 +40,7 @@ interface SalesTableProps {
   data: Sale[];
   products: Product[];
   supportData: SupportData | null;
-  onUpdateSaleCosts: (saleId: string, newCosts: Sale['costs']) => void;
+  onUpdateSaleData: (saleId: string, updatedData: Partial<Sale>) => void;
   calculateTotalCost: (sale: Sale) => number;
   calculateNetRevenue: (sale: Sale) => number;
   formatCurrency: (value: number) => string;
@@ -89,7 +89,7 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
-export function SalesTable({ data, products, supportData, onUpdateSaleCosts, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false, onOpenTicket }: SalesTableProps) {
+export function SalesTable({ data, products, supportData, onUpdateSaleData, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false, onOpenTicket }: SalesTableProps) {
   const router = useRouter();
   const [currentSales, setCurrentSales] = useState<Sale[]>(data);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -310,7 +310,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
   const formatDate = (dateString: string | null) => {
       if (!dateString) return 'N/A';
       try {
-          if (/^\\d{4}-\\d{2}/.test(dateString)) {
+          if (/^\d{4}-\d{2}/.test(dateString)) {
             const date = new Date(dateString);
             return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
           }
@@ -744,7 +744,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
           isOpen={!!selectedSale}
           onClose={() => setSelectedSale(null)}
           onSave={(newCosts) => {
-            onUpdateSaleCosts(selectedSale.id, newCosts);
+            onUpdateSaleData(selectedSale.id, { costs: newCosts });
             setSelectedSale(null);
           }}
           formatCurrency={formatCurrency}
