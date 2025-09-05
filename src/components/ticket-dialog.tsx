@@ -93,11 +93,18 @@ export function TicketDialog({ isOpen, onClose, order, onSaveChanges, customCalc
              if(JSON.stringify(editedCustomData) !== JSON.stringify(saleData.customData)) {
                 updatedData.customData = editedCustomData;
             }
-            await onSaveChanges(order.id, updatedData);
-            toast({
-                title: "Dados da Planilha Atualizados!",
-                description: "As alterações foram salvas no pedido."
-            });
+            if (Object.keys(updatedData).length > 0) {
+              await onSaveChanges(order.id, updatedData);
+              toast({
+                  title: "Dados da Planilha Atualizados!",
+                  description: "As alterações foram salvas no pedido."
+              });
+            } else {
+              toast({
+                title: "Nenhuma Alteração",
+                description: "Nenhuma mudança foi detectada para salvar."
+              })
+            }
             onClose();
         } catch (e) {
             toast({
@@ -126,7 +133,7 @@ export function TicketDialog({ isOpen, onClose, order, onSaveChanges, customCalc
                 </DialogHeader>
                 <div className="py-4 flex-grow overflow-hidden">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                        <TabsList className={`grid w-full ${hasSheetData ? 'grid-cols-7' : 'grid-cols-6'}`}>
+                        <TabsList className={`grid w-full ${hasSheetData ? 'grid-cols-8' : 'grid-cols-7'}`}>
                             <TabsTrigger value="general">Geral</TabsTrigger>
                             <TabsTrigger value="client">Cliente</TabsTrigger>
                             <TabsTrigger value="items">Itens</TabsTrigger>
@@ -252,7 +259,7 @@ export function TicketDialog({ isOpen, onClose, order, onSaveChanges, customCalc
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Fechar</Button>
-                     {(activeTab === 'sheet' || activeTab === 'system') && hasChanges && (
+                     {(hasChanges) && (
                         <Button onClick={handleSaveClick} disabled={isSaving}>
                             {isSaving && <Loader2 className="animate-spin mr-2" />}
                             <Save className="mr-2" />
