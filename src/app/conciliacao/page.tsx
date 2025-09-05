@@ -755,6 +755,10 @@ const applyCustomCalculations = useCallback((sale: Sale): Sale => {
         if (finalCalculation.targetMarketplace === 'all') {
             delete finalCalculation.targetMarketplace;
         }
+        if (typeof finalCalculation.ignoreIfCancelled === 'undefined') {
+            finalCalculation.ignoreIfCancelled = false;
+        }
+
 
         if (finalCalculation.id) { // Editing existing
             newCalculations = customCalculations.map(c => c.id === finalCalculation.id ? { ...c, ...finalCalculation } : c);

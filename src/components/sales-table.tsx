@@ -561,7 +561,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                     </TableHead>
                                 ))
                         )}
-                        {!isDashboard && <TableHead className="text-center whitespace-nowrap">Ações</TableHead>}
+                        
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -569,7 +569,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                     paginatedData.map((sale) => {
                             const columnsToRender = isDashboard ? orderedAndVisibleColumns : orderedAndVisibleColumns;
                         return (
-                        <TableRow key={sale.id}>
+                        <TableRow key={sale.id} onClick={() => !isDashboard && onOpenTicket?.(sale)} className={cn(!isDashboard && 'cursor-pointer')}>
                             {columnsToRender.map(field => {
                             let cellContent: any;
                             let isPercentage = field.isPercentage || false;
@@ -606,7 +606,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-6 w-6"
-                                                    onClick={() => handleRefreshStatus(sale)}
+                                                    onClick={(e) => { e.stopPropagation(); handleRefreshStatus(sale); }}
                                                     disabled={isRefreshingStatus === (sale as any).order_id}
                                                 >
                                                     {isRefreshingStatus === (sale as any).order_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -648,19 +648,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
                                 </TableCell>
                             )
                             })}
-
-                            {!isDashboard && onOpenTicket && (
-                            <TableCell className="text-center whitespace-nowrap space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => onOpenTicket(sale)}
-                                >
-                                  <Ticket className="mr-2 h-4 w-4" />
-                                  Abrir Ticket
-                                </Button>
-                            </TableCell>
-                            )}
                         </TableRow>
                         );
                     })
