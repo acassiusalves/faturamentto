@@ -766,4 +766,3 @@ export function SalesTable({ data, products, supportData, onUpdateSaleCosts, cal
     </TooltipProvider>
   );
 }
-

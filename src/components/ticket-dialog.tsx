@@ -52,11 +52,11 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Ticket />
-                        Abrindo Ticket para o Pedido: {(order as any).order_code}
+                        Detalhes do Pedido: {(order as any).order_code}
                     </DialogTitle>
-                    <DialogDescription>Crie um novo ticket de atendimento para resolver o problema do cliente.</DialogDescription>
+                    <DialogDescription>Visualize todos os detalhes da venda selecionada.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-6">
+                <div className="py-4 space-y-6 max-h-[70vh] overflow-y-auto">
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <Card className="lg:col-span-1">
                             <CardHeader>
@@ -101,47 +101,9 @@ export function TicketDialog({ isOpen, onClose, order }: TicketDialogProps) {
                             </CardContent>
                         </Card>
                     </div>
-                     
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Dados do Atendimento</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               <div className="space-y-2">
-                                    <Label htmlFor="devolucao-status">Status da devolução</Label>
-                                     <Select>
-                                        <SelectTrigger id="devolucao-status">
-                                            <SelectValue placeholder="Selecione um status..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="aguardando-envio">Aguardando envio do cliente</SelectItem>
-                                            <SelectItem value="em-transito">Em trânsito para o centro</SelectItem>
-                                            <SelectItem value="recebido">Recebido</SelectItem>
-                                            <SelectItem value="em-analise">Em análise</SelectItem>
-                                            <SelectItem value="finalizado">Finalizado</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                               </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="chamado">Chamado</Label>
-                                    <Input id="chamado" placeholder="Insira o nº do chamado" />
-                               </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="observacoes">Observações</Label>
-                                <Textarea id="observacoes" placeholder="Adicione notas sobre o atendimento..." rows={4} />
-                            </div>
-                        </CardContent>
-                    </Card>
-
                 </div>
                  <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancelar</Button>
-                    <Button disabled>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Criar Ticket
-                    </Button>
+                    <Button variant="outline" onClick={onClose}>Fechar</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
