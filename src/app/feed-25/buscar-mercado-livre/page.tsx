@@ -35,7 +35,8 @@ interface ProductResult {
     category_id: string;
     listing_type_id: string;
     seller_nickname: string;
-    official_store_id: string;
+    official_store_id: number | null;
+    is_official_store: boolean;
     offerCount: number;
     reputation?: {
         level_id: string | null;
@@ -112,7 +113,7 @@ export default function BuscarMercadoLivrePage() {
             if (p.brand) {
                 brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1;
             }
-            if (p.official_store_id) {
+            if (p.is_official_store) {
                 storeCounts.official++;
             } else {
                 storeCounts.nonOfficial++;
@@ -146,8 +147,8 @@ export default function BuscarMercadoLivrePage() {
                 const storeOk =
                   officialStoreFilter.length === 0 ||
                   officialStoreFilter.length === 2 ||
-                  (officialStoreFilter.includes("yes") && !!p.official_store_id) ||
-                  (officialStoreFilter.includes("no") && !p.official_store_id);
+                  (officialStoreFilter.includes("yes") && p.is_official_store) ||
+                  (officialStoreFilter.includes("no") && !p.is_official_store);
 
                 const activeMatch = !showOnlyActive || p.price > 0;
 
@@ -331,7 +332,7 @@ export default function BuscarMercadoLivrePage() {
                                                         <Users className="h-3 w-3" />
                                                         <span><b>{product.offerCount}</b> ofertas neste catálogo</span>
                                                     </div>
-                                                    {product.official_store_id && (
+                                                    {product.is_official_store && (
                                                         <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
                                                     )}
 
@@ -443,5 +444,4 @@ export default function BuscarMercadoLivrePage() {
             )}
         </main>
     );
-
-    
+}

@@ -9,7 +9,7 @@ import {lookupProducts} from '@/ai/flows/lookup-products';
 import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
-import { fetchOrderLabel } from '@/services/ideris';
+import { fetchOrderLabel, getCategoryTrends } from '@/services/ideris';
 import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
@@ -108,6 +108,10 @@ export async function searchMercadoLivreAction(
             const winner = winnerByCat.get(p.id);
             const offerCount = await getCatalogOfferCount(p.id, accessToken);
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
+            
+            const officialStoreId = typeof reputationData?.official_store_id === 'number'
+                ? reputationData.official_store_id
+                : null;
 
             return {
                 id: p.id,
@@ -121,9 +125,10 @@ export async function searchMercadoLivreAction(
                 shipping_logistic_type: winner?.shipping?.logistic_type || "",
                 free_shipping: !!winner?.shipping?.free_shipping,
                 listing_type_id: winner?.listing_type_id || "",
-                category_id: winner?.category_id || "",
+                category_id: winner?.category_id || p.category_id,
                 seller_nickname: reputationData?.nickname || "N/A",
-                official_store_id: reputationData?.official_store_id || null,
+                official_store_id: officialStoreId,
+                is_official_store: Boolean(officialStoreId),
                 offerCount: offerCount,
                 reputation: reputationData,
             };
