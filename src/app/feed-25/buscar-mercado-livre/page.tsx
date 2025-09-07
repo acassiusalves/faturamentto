@@ -71,7 +71,8 @@ export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [quantity, setQuantity] = useState(50);
-    const [state, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
+    const [state, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
+    const [isPending, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
 
     // Filter states
@@ -154,10 +155,12 @@ export default function BuscarMercadoLivrePage() {
             });
             return;
         }
-        const formData = new FormData();
-        formData.append('productName', searchTerm);
-        formData.append('quantity', String(quantity));
-        formAction(formData);
+        startTransition(() => {
+            const formData = new FormData();
+            formData.append('productName', searchTerm);
+            formData.append('quantity', String(quantity));
+            formAction(formData);
+        });
     };
     
     const pageCount = useMemo(() => {
@@ -180,6 +183,8 @@ export default function BuscarMercadoLivrePage() {
             setPageIndex(0);
         }
     }, [filteredResults, pageIndex, pageCount]);
+    
+    const isSearching = isSearchingAction || isPending;
 
 
     return (
