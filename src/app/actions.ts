@@ -48,6 +48,17 @@ interface ZplMapping {
     }
   }
 }
+
+async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<number | null> {
+  if (!itemId) return null;
+  const url = `https://api.mercadolibre.com/items/${itemId}?fields=official_store_id`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return (typeof j?.official_store_id === "number") ? j.official_store_id : null;
+}
+
+
 // Server Actions
 export async function searchMercadoLivreAction(
   _prevState: any,
@@ -106,12 +117,17 @@ export async function searchMercadoLivreAction(
     const enrichedResults = await Promise.all(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
-            const offerCount = await getCatalogOfferCount(p.id, accessToken);
+
+            // 1ª tentativa: o próprio winner já tem official_store_id
+            let officialStoreId: number | null =
+              (typeof winner?.official_store_id === "number") ? winner.official_store_id : null;
+
+            // 2º fallback: buscar no /items/{id} somente se faltar
+            if (!officialStoreId && winner?.id) {
+              officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
+            }
+
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
-            
-            const officialStoreId = typeof reputationData?.official_store_id === 'number'
-                ? reputationData.official_store_id
-                : null;
 
             return {
                 id: p.id,
@@ -125,12 +141,24 @@ export async function searchMercadoLivreAction(
                 shipping_logistic_type: winner?.shipping?.logistic_type || "",
                 free_shipping: !!winner?.shipping?.free_shipping,
                 listing_type_id: winner?.listing_type_id || "",
-                category_id: winner?.category_id || p.category_id,
+                category_id: winner?.category_id || p.category_id || "",
                 seller_nickname: reputationData?.nickname || "N/A",
+
+                // 👇 agora, do item (com fallback), não do user
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
-                offerCount: offerCount,
-                reputation: reputationData,
+
+                offerCount: await getCatalogOfferCount(p.id, accessToken),
+
+                reputation: reputationData && {
+                  level_id: reputationData.level_id ?? null,
+                  power_seller_status: reputationData.power_seller_status ?? null,
+                  metrics: {
+                    claims_rate: reputationData.metrics?.claims_rate ?? 0,
+                    cancellations_rate: reputationData.metrics?.cancellations_rate ?? 0,
+                    delayed_rate: reputationData.metrics?.delayed_rate ?? 0,
+                  }
+                }
             };
         })
     );
@@ -392,3 +420,5 @@ export async function refineSearchTermAction(
     return { result: null, error: e.message || 'Falha ao refinar o termo de busca.' };
   }
 }
+
+    
