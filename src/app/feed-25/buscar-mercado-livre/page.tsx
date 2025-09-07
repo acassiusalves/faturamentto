@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -18,6 +18,7 @@ import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface ProductResult {
@@ -36,6 +37,15 @@ interface ProductResult {
     seller_nickname: string;
     official_store_id: string;
     offerCount: number;
+    reputation?: {
+        level_id: string | null;
+        power_seller_status: string | null;
+        metrics: {
+            claims_rate: number;
+            cancellations_rate: number;
+            delayed_rate: number;
+        }
+    }
 }
 
 const initialSearchState = {
@@ -47,6 +57,15 @@ const listingTypeMap: Record<string, string> = {
     "gold_special": "Clássico",
     "gold_pro": "Premium"
 };
+
+const reputationLevelMap: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    "5_green": { label: "MercadoLíder Platinum", color: "bg-green-500", icon: ShieldCheck },
+    "4_green": { label: "MercadoLíder Gold", color: "bg-yellow-400", icon: ShieldCheck },
+    "3_green": { label: "MercadoLíder", color: "bg-yellow-500", icon: ShieldCheck },
+    "2_orange": { label: "Reputação Laranja", color: "bg-orange-500", icon: Shield },
+    "1_red": { label: "Reputação Vermelha", color: "bg-red-500", icon: Shield },
+};
+
 
 export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
@@ -231,7 +250,7 @@ export default function BuscarMercadoLivrePage() {
                         selectedBrands={brandFilter}
                         setSelectedBrands={setBrandFilter}
                         storeFilter={officialStoreFilter}
-                        setStoreFilter={setOfficialStoreFilter}
+                        setStoreFilter={setStoreFilter}
                     />
 
                     <Card>
@@ -260,6 +279,8 @@ export default function BuscarMercadoLivrePage() {
                                     <TableBody>
                                         {paginatedResults.length > 0 ? paginatedResults.map(product => {
                                             const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
+                                            const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
+
                                             return (
                                             <TableRow key={product.id} className={cn(product.price === 0 && "opacity-50 bg-muted/50")}>
                                                 <TableCell>
@@ -301,6 +322,34 @@ export default function BuscarMercadoLivrePage() {
                                                         <Users className="h-3 w-3" />
                                                         <span><b>{product.offerCount}</b> ofertas neste catálogo</span>
                                                     </div>
+
+                                                    {product.reputation && (
+                                                        <TooltipProvider>
+                                                        <div className="mt-2 flex items-center gap-4 text-xs">
+                                                            {repLevel && (
+                                                                <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
+                                                                    <repLevel.icon className="mr-1 h-3 w-3"/>
+                                                                    {repLevel.label}
+                                                                </Badge>
+                                                            )}
+                                                            <div className="flex items-center gap-3">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                    <TooltipContent>Reclamações</TooltipContent>
+                                                                </Tooltip>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                    <TooltipContent>Cancelamentos</TooltipContent>
+                                                                </Tooltip>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                    <TooltipContent>Atrasos no Envio</TooltipContent>
+                                                                </Tooltip>
+                                                            </div>
+                                                        </div>
+                                                        </TooltipProvider>
+                                                    )}
+                                                    
                                                     <div className="flex flex-col items-start gap-1 mt-1.5">
                                                         <div className="flex items-center gap-1.5 text-sm font-semibold">
                                                             {product.shipping_logistic_type === "fulfillment" && <FullIcon />}

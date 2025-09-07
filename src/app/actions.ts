@@ -17,7 +17,7 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { searchMercadoLivreProducts as fetchMlProducts, generateNewAccessToken as getMlToken } from '@/services/mercadolivre';
+import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/services/mercadolivre';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
 import { getCatalogOfferCount } from '@/lib/ml';
@@ -56,29 +56,81 @@ export async function searchMercadoLivreAction(
   try {
     const productName = String(formData.get("productName") || "").trim();
     const quantity = Number(formData.get("quantity") || 50);
-
     const accessToken = await getMlToken();
-    const searchResult = await fetchMlProducts(productName, quantity, accessToken);
-
-    // Enrich with offer counts
-    const CONCURRENCY = 5;
-    let i = 0;
-    async function worker() {
-        while (i < searchResult.length) {
-            const idx = i++;
-            const prod = searchResult[idx];
-            if (!prod.catalog_product_id) continue;
-            try {
-                const total = await getCatalogOfferCount(prod.catalog_product_id, accessToken);
-                prod.offerCount = total;
-            } catch {
-                prod.offerCount = 0;
-            }
-        }
-    }
-    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
     
-    return { result: searchResult, error: null };
+    // 1. Search for catalog products
+    const searchUrl = new URL("https://api.mercadolibre.com/products/search");
+    searchUrl.searchParams.set("q", productName);
+    searchUrl.searchParams.set("status", "active");
+    searchUrl.searchParams.set("site_id", "MLB");
+    searchUrl.searchParams.set("limit", String(quantity));
+
+    const res = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const msg = await res.text();
+      return { result: null, error: `Erro na busca de catálogo: ${msg}` };
+    }
+    const data = await res.json();
+    const catalogProducts = data?.results || [];
+
+    if (catalogProducts.length === 0) {
+      return { result: [], error: null };
+    }
+
+    // 2. Fetch winner item for each catalog product
+    const CONCURRENCY = 8;
+    const winnerByCat = new Map<string, any>();
+    for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
+      const batch = catalogProducts.slice(i, i + CONCURRENCY);
+      await Promise.allSettled(
+        batch.map(async (p: any) => {
+          const url = `https://api.mercadolibre.com/products/${p.id}/items?limit=1`;
+          const r = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" });
+          if (r.ok) {
+            const j = await r.json();
+            const winner = j?.results?.[0];
+            if (winner) winnerByCat.set(p.id, winner);
+          }
+        })
+      );
+    }
+    
+    // 3. Fetch seller reputations
+    const sellerIds = Array.from(new Set(Array.from(winnerByCat.values()).map(w => w?.seller_id).filter(Boolean)));
+    const reputations = await getSellersReputation(sellerIds, accessToken);
+
+    // 4. Enrich results with offer count, winner info, and reputation
+    const enrichedResults = await Promise.all(
+        catalogProducts.map(async (p: any) => {
+            const winner = winnerByCat.get(p.id);
+            const offerCount = await getCatalogOfferCount(p.id, accessToken);
+            const reputation = winner?.seller_id ? reputations[winner.seller_id] : null;
+
+            return {
+                id: p.id,
+                catalog_product_id: p.id,
+                name: (p.name || "").trim(),
+                thumbnail: p.pictures?.[0]?.secure_url || p.pictures?.[0]?.url || "",
+                brand: p.attributes?.find((a: any) => a.id === "BRAND")?.value_name || "",
+                model: p.attributes?.find((a: any) => a.id === "MODEL")?.value_name || "",
+                price: winner?.price ?? 0,
+                shipping_type: winner?.shipping?.logistic_type || "",
+                shipping_logistic_type: winner?.shipping?.logistic_type || "",
+                free_shipping: !!winner?.shipping?.free_shipping,
+                listing_type_id: winner?.listing_type_id || "",
+                category_id: winner?.category_id || "",
+                seller_nickname: winner?.seller?.nickname || "N/A",
+                official_store_id: winner?.official_store_id || null,
+                offerCount: offerCount,
+                reputation: reputation,
+            };
+        })
+    );
+    
+    return { result: enrichedResults, error: null };
 
   } catch (e: any) {
     return { result: null, error: e?.message || "Falha inesperada" };

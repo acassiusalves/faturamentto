@@ -51,133 +51,53 @@ async function getValidAccessToken(): Promise<string> {
   return await generateNewAccessToken();
 }
 
-// util: extrai valor de atributo por ids
-function getAttr(attrs: any[] | undefined, ids: string[]): string {
-  const a = (attrs || []).find((x: any) => ids.includes(x?.id));
-  return a?.value_name || a?.values?.[0]?.name || "";
-}
-const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, "https://") : "");
 
-// === FUNÇÃO PRINCIPAL ===
-export async function searchMercadoLivreProducts(query: string, quantity: number, accessToken: string): Promise<any[]> {
-  const headers = { Authorization: `Bearer ${accessToken}` };
-  const site = "MLB";
-
-  // Mapeamentos amigáveis
-  const freightMap: Record<string, string> = {
-    "drop_off": "Correios",
-    "xd_drop_off": "Correios",
-    "xd_pick_up": "Correios",
-    "fulfillment": "Full ML",
-    "cross_docking": "Agência ML",
-    "pick_up": "Retirada",
-    "prepaid": "Frete pré-pago",
-    "self_service": "Sem Mercado Envios",
-    "custom": "A combinar"
-  };
-
-  const listingTypeMap: Record<string, string> = {
-    "gold_special": "Clássico",
-    "gold_pro": "Premium"
-  };
-
-  // 1) catálogos
-  const searchUrl = `https://api.mercadolibre.com/products/search?status=active&site_id=${site}&q=${encodeURIComponent(
-    query
-  )}&limit=${quantity}`;
-
-  const searchRes = await fetch(searchUrl, { method: "GET", headers, cache: "no-store" as RequestCache });
-  const searchData = await searchRes.json();
-  if (!searchRes.ok) {
-    throw new Error(`Erro na busca de produtos: ${searchData?.message || searchRes.status}`);
-  }
-  const catalogProducts: any[] = Array.isArray(searchData?.results) ? searchData.results : [];
-  if (catalogProducts.length === 0) return [];
-
-  // 2) vencedor por catálogo
-  const CONCURRENCY = 8;
-  const winnerByCat = new Map<string, any>();
-  
-  for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
-    const batch = catalogProducts.slice(i, i + CONCURRENCY);
-    await Promise.allSettled(
-      batch.map(async (p) => {
-        const url = `https://api.mercadolibre.com/products/${p.id}/items?limit=1`;
-        const r = await fetch(url, { method: "GET", headers, cache: "no-store" as RequestCache });
-        if (!r.ok) return;
-        const j = await r.json();
-        const winner = j?.results?.[0];
-        if (winner) winnerByCat.set(p.id, winner);
-      })
-    );
-  }
-
-  // 3) apelidos de vendedores (opcional)
-  const sellerIds = Array.from(
-    new Set(Array.from(winnerByCat.values()).map((w: any) => w?.seller_id).filter(Boolean))
-  );
-  const sellerNickById = new Map<number, string>();
-  for (let i = 0; i < sellerIds.length; i += CONCURRENCY) {
-    const part = sellerIds.slice(i, i + CONCURRENCY);
-    await Promise.allSettled(
-      part.map(async (sid: number) => {
-        const u = `https://api.mercadolibre.com/users/${sid}`;
-        const r = await fetch(u, { method: "GET", headers, cache: "no-store" as RequestCache });
-        if (!r.ok) return;
-        const j = await r.json();
-        if (j?.id) sellerNickById.set(j.id, j.nickname || "");
-      })
-    );
-  }
-
-  // 4) montar saída final
-  return catalogProducts.map((p) => {
-    const attrs = Array.isArray(p?.attributes) ? p.attributes : [];
-    const brand =
-      p?.brand ||
-      getAttr(attrs, ["BRAND", "MARCA"]) ||
-      "";
-    const model =
-      p?.model ||
-      getAttr(attrs, ["MODEL", "MODELO", "ALPHANUMERIC_MODEL", "MODEL_NUMBER"]) ||
-      "";
-
-    const thumb =
-      p?.secure_thumbnail ||
-      p?.thumbnail ||
-      (Array.isArray(p?.pictures) && (p.pictures[0]?.secure_url || p.pictures[0]?.url)) ||
-      "";
-
-    const winner = winnerByCat.get(p.id);
-    const price =
-      winner?.price ??
-      winner?.prices?.prices?.[0]?.amount ??
-      0;
-      
-    const rawListingType = winner?.listing_type_id || "";
-    const rawFreightType = winner?.shipping?.logistic_type || "";
-
-    return {
-      // catálogo
-      id: p.id, // id do catálogo
-      catalog_product_id: p.id,
-      name: (p.name || "").trim(),
-      status: p.status || "active",
-      brand,
-      model,
-      thumbnail: toHttps(thumb),
-
-      // anúncio vencedor (se houver)
-      price: Number(price) || 0,
-      shipping_type: freightMap[rawFreightType] || rawFreightType || "",
-      shipping_logistic_type: rawFreightType,
-      free_shipping: !!winner?.shipping?.free_shipping,
-      listing_type_id: listingTypeMap[rawListingType] || rawListingType || "",
-      category_id: winner?.category_id ?? "",
-      official_store_id: winner?.official_store_id ?? null,
-      seller_id: winner?.seller_id ?? "",
-      seller_nickname: winner?.seller_id ? (sellerNickById.get(winner.seller_id) || "") : "",
-      offerCount: 0, // Será preenchido pela action
-    };
+async function getUser(sellerId: string, token: string) {
+  const r = await fetch(`https://api.mercadolibre.com/users/${sellerId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
   });
+  if (!r.ok) throw new Error(`users HTTP ${r.status}`);
+  return r.json();
+}
+
+export async function getSellersReputation(sellerIds: string[], token: string) {
+  // dedup
+  const ids = [...new Set(sellerIds)].filter(Boolean);
+
+  const CONCURRENCY = 8;
+  let i = 0;
+  const out: Record<string, any> = {};
+
+  async function worker() {
+    while (i < ids.length) {
+      const idx = i++;
+      const id = ids[idx];
+      try {
+        const u = await getUser(id, token);
+        const rep = u?.seller_reputation || {};
+
+        out[id] = {
+          nickname: u?.nickname,
+          registration_date: u?.registration_date,
+          level_id: rep?.level_id,
+          power_seller_status: rep?.power_seller_status,
+          ratings: rep?.transactions?.ratings,
+          completed_total: rep?.transactions?.completed,
+          canceled_total: rep?.transactions?.canceled,
+          metrics: {
+            claims_rate: rep?.metrics?.claims?.rate ?? 0,
+            cancellations_rate: rep?.metrics?.cancellations?.rate ?? 0,
+            delayed_rate: rep?.metrics?.delayed_handling_time?.rate ?? 0,
+            sales_completed_period: rep?.metrics?.sales?.completed ?? 0,
+          },
+        };
+      } catch (e) {
+        out[id] = { error: String(e) };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  return out;
 }
