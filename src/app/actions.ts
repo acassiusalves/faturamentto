@@ -20,7 +20,20 @@ import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
 import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/services/mercadolivre';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
-import { getCatalogOfferCount } from '@/lib/ml';
+
+
+async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
+    if (!productId) return 0;
+    try {
+        const url = `https://api.mercadolibre.com/products/${productId}/items?limit=0`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
+        if (!res.ok) return 0;
+        const data = await res.json();
+        return data?.paging?.total || 0;
+    } catch {
+        return 0;
+    }
+}
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -420,5 +433,24 @@ export async function refineSearchTermAction(
     return { result: null, error: e.message || 'Falha ao refinar o termo de busca.' };
   }
 }
+
+async function analyzeFeedAction(prevState: { result: any; error: string | null; }, formData: FormData): Promise<{ result: any; error: string | null; }> {
+    try {
+        const feedData = JSON.parse(formData.get('feedData') as string);
+        const apiKey = formData.get('apiKey') as string | undefined;
+        const modelName = formData.get('modelName') as string | undefined;
+
+        if (!feedData || feedData.length === 0) {
+            return { result: null, error: 'Nenhum dado de feed para analisar.' };
+        }
+        
+        const result = await analyzeFeed({ products: feedData, apiKey, modelName });
+        return { result, error: null };
+
+    } catch (e: any) {
+        return { result: null, error: e.message || "Falha ao analisar o feed com a IA." };
+    }
+}
+    
 
     
