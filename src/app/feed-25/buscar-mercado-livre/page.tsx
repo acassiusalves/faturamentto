@@ -66,6 +66,18 @@ const reputationLevelMap: Record<string, { label: string; color: string; icon: R
     "1_red": { label: "Reputação Vermelha", color: "bg-red-500", icon: Shield },
 };
 
+const freightMap: Record<string, string> = {
+    "drop_off": "Correios",
+    "xd_drop_off": "Correios",
+    "xd_pick_up": "Correios",
+    "fulfillment": "Full ML",
+    "cross_docking": "Agência ML",
+    "pick_up": "Retirada",
+    "prepaid": "Frete pré-pago",
+    "self_service": "Sem Mercado Envios",
+    "custom": "A combinar"
+};
+
 
 export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
@@ -113,7 +125,7 @@ export default function BuscarMercadoLivrePage() {
         return {
             shippingOptionsWithCounts: shippingOptions.map(opt => ({
                 value: opt,
-                label: opt,
+                label: freightMap[opt] || opt,
                 count: shippingCounts[opt]
             })),
             brandOptionsWithCounts: brandOptions.map(opt => ({
@@ -431,4 +443,5 @@ export default function BuscarMercadoLivrePage() {
             )}
         </main>
     );
-}
+
+    
