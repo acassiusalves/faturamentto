@@ -326,14 +326,14 @@ export default function BuscarMercadoLivrePage() {
                                                                 {product.seller_nickname}
                                                             </Link>
                                                         ) : ''}
-                                                        {product.official_store_id && (
-                                                            <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
-                                                        )}
                                                     </div>
                                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
                                                         <span><b>{product.offerCount}</b> ofertas neste catálogo</span>
                                                     </div>
+                                                    {product.official_store_id && (
+                                                        <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
+                                                    )}
 
                                                     {product.reputation && (
                                                         <TooltipProvider>
