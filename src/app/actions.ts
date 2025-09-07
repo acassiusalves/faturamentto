@@ -17,23 +17,11 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/services/mercadolivre';
+import { generateNewAccessToken as getMlToken, getSellersReputation, getCatalogOfferCount } from '@/services/mercadolivre';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
 
 
-async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
-    if (!productId) return 0;
-    try {
-        const url = `https://api.mercadolibre.com/products/${productId}/items?limit=0`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
-        if (!res.ok) return 0;
-        const data = await res.json();
-        return data?.paging?.total || 0;
-    } catch {
-        return 0;
-    }
-}
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
