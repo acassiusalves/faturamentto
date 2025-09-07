@@ -250,7 +250,7 @@ export default function BuscarMercadoLivrePage() {
                         selectedBrands={brandFilter}
                         setSelectedBrands={setBrandFilter}
                         storeFilter={officialStoreFilter}
-                        setStoreFilter={setStoreFilter}
+                        setStoreFilter={setOfficialStoreFilter}
                     />
 
                     <Card>
