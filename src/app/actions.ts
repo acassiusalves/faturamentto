@@ -17,9 +17,10 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { searchMercadoLivreProducts } from '@/services/mercadolivre';
+import { searchMercadoLivreProducts as fetchMlProducts, generateNewAccessToken as getMlToken } from '@/services/mercadolivre';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
+import { getCatalogOfferCount } from '@/lib/ml';
 
 // === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
 // Substitui todo o sistema anterior por uma abordagem mais determinística
@@ -54,36 +55,31 @@ export async function searchMercadoLivreAction(
 ) {
   try {
     const productName = String(formData.get("productName") || "").trim();
-    const quantity = Number(formData.get("quantity") || 10);
-    const searchResult = await searchMercadoLivreProducts(productName, quantity);
-    
-    const result = (searchResult || []).map((item: any) => {
-      const name =
-        (item.name ?? "").toString().trim() ||
-        (item?.attributes?.find((a:any)=>a.id==="TITLE")?.value_name ?? "").toString().trim() ||
-        String(item.id);
-    
-      return {
-        id: item.id,
-        name,
-        status: item.status || '',
-        catalog_product_id: item.catalog_product_id || '',
-        brand: item.brand || '',
-        model: item.model || '',
-        thumbnail: item.thumbnail,
-        price: item.price ?? 0,
-        shipping_type: item.shipping_type || '',
-        free_shipping: !!item.free_shipping,
-        shipping_logistic_type: item.shipping_logistic_type,
-        category_id: item.category_id ?? '',
-        listing_type_id: item.listing_type_id ?? '',
-        seller_id: item.seller_id ?? '',
-        seller_nickname: item.seller_nickname ?? '',
-        official_store_id: item.official_store_id ?? '',
-      };
-    });
+    const quantity = Number(formData.get("quantity") || 50);
 
-    return { result, error: null };
+    const accessToken = await getMlToken();
+    const searchResult = await fetchMlProducts(productName, quantity, accessToken);
+
+    // Enrich with offer counts
+    const CONCURRENCY = 5;
+    let i = 0;
+    async function worker() {
+        while (i < searchResult.length) {
+            const idx = i++;
+            const prod = searchResult[idx];
+            if (!prod.catalog_product_id) continue;
+            try {
+                const total = await getCatalogOfferCount(prod.catalog_product_id, accessToken);
+                prod.offerCount = total;
+            } catch {
+                prod.offerCount = 0;
+            }
+        }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    
+    return { result: searchResult, error: null };
+
   } catch (e: any) {
     return { result: null, error: e?.message || "Falha inesperada" };
   }

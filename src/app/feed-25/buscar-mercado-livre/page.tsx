@@ -35,7 +35,7 @@ interface ProductResult {
     listing_type_id: string;
     seller_nickname: string;
     official_store_id: string;
-    offerCount: number; // Novo campo
+    offerCount: number;
 }
 
 const initialSearchState = {
@@ -383,5 +383,3 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
-
-    

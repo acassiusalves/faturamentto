@@ -16,10 +16,7 @@ const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // O token do ML dura 6 horas, usa
 /**
  * Obtém um novo access_token usando o refresh_token.
  */
-async function getValidAccessToken(): Promise<string> {
-  if (inMemoryAccessToken && inMemoryAccessToken.expiresAt > Date.now()) {
-    return inMemoryAccessToken.token;
-  }
+export async function generateNewAccessToken(): Promise<string> {
   const settings = await loadAppSettings();
   const creds = settings?.mercadoLivre;
   if (!creds?.refreshToken || !creds?.appId || !creds?.clientSecret || !creds?.redirectUri) {
@@ -47,6 +44,13 @@ async function getValidAccessToken(): Promise<string> {
   return data.access_token;
 }
 
+async function getValidAccessToken(): Promise<string> {
+  if (inMemoryAccessToken && inMemoryAccessToken.expiresAt > Date.now()) {
+    return inMemoryAccessToken.token;
+  }
+  return await generateNewAccessToken();
+}
+
 // util: extrai valor de atributo por ids
 function getAttr(attrs: any[] | undefined, ids: string[]): string {
   const a = (attrs || []).find((x: any) => ids.includes(x?.id));
@@ -55,8 +59,7 @@ function getAttr(attrs: any[] | undefined, ids: string[]): string {
 const toHttps = (u?: string) => (u ? u.replace(/^http:\/\//, "https://") : "");
 
 // === FUNÇÃO PRINCIPAL ===
-export async function searchMercadoLivreProducts(query: string, quantity: number): Promise<any[]> {
-  const accessToken = await getValidAccessToken();
+export async function searchMercadoLivreProducts(query: string, quantity: number, accessToken: string): Promise<any[]> {
   const headers = { Authorization: `Bearer ${accessToken}` };
   const site = "MLB";
 
@@ -91,11 +94,10 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
   const catalogProducts: any[] = Array.isArray(searchData?.results) ? searchData.results : [];
   if (catalogProducts.length === 0) return [];
 
-  // 2) vencedor por catálogo e contagem de ofertas
+  // 2) vencedor por catálogo
   const CONCURRENCY = 8;
   const winnerByCat = new Map<string, any>();
-  const offerCountByCat = new Map<string, number>(); // Novo: para guardar a contagem
-
+  
   for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
     const batch = catalogProducts.slice(i, i + CONCURRENCY);
     await Promise.allSettled(
@@ -104,10 +106,6 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
         const r = await fetch(url, { method: "GET", headers, cache: "no-store" as RequestCache });
         if (!r.ok) return;
         const j = await r.json();
-        
-        // Salva a contagem total de ofertas
-        offerCountByCat.set(p.id, j?.paging?.total ?? 0);
-        
         const winner = j?.results?.[0];
         if (winner) winnerByCat.set(p.id, winner);
       })
@@ -168,7 +166,6 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
       brand,
       model,
       thumbnail: toHttps(thumb),
-      offerCount: offerCountByCat.get(p.id) || 0, // Novo campo
 
       // anúncio vencedor (se houver)
       price: Number(price) || 0,
@@ -180,6 +177,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
       official_store_id: winner?.official_store_id ?? null,
       seller_id: winner?.seller_id ?? "",
       seller_nickname: winner?.seller_id ? (sellerNickById.get(winner.seller_id) || "") : "",
+      offerCount: 0, // Será preenchido pela action
     };
   });
 }
