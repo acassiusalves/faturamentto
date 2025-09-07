@@ -299,7 +299,7 @@ export default function BuscarMercadoLivrePage() {
                                                     </div>
                                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
-                                                        <span>{product.offerCount} ofertas neste catálogo</span>
+                                                        <span><b>{product.offerCount}</b> ofertas neste catálogo</span>
                                                     </div>
                                                     <div className="flex flex-col items-start gap-1 mt-1.5">
                                                         <div className="flex items-center gap-1.5 text-sm font-semibold">
