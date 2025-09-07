@@ -5,7 +5,37 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import type { MLCategory } from '@/lib/ml';
+
+// --- Lógica da API movida para o cliente ---
+const ML_API = 'https://api.mercadolibre.com';
+
+export interface MLCategory { id: string; name: string; }
+
+export interface MLCategoryInfo {
+  id: string;
+  name: string;
+  path_from_root?: Array<{ id: string; name: string }>;
+  children_categories?: Array<{ id: string; name: string; total_items_in_this_category?: number }>;
+}
+
+async function getRootCategories(siteId = 'MLB'): Promise<MLCategory[]> {
+  const res = await fetch(`${ML_API}/sites/${siteId}/categories`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`ML categories root error: ${res.status}`);
+  return await res.json();
+}
+
+async function getCategoryInfo(categoryId: string): Promise<MLCategoryInfo> {
+  const res = await fetch(`${ML_API}/categories/${categoryId}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`ML category info error (${categoryId}): ${res.status}`);
+  return await res.json();
+}
+
+async function getCategoryChildren(categoryId: string) {
+  const info = await getCategoryInfo(categoryId);
+  return info.children_categories ?? [];
+}
+// --- Fim da lógica da API ---
+
 
 export default function BuscarCategoriaMercadoLivrePage() {
   const [rootCats, setRootCats] = useState<MLCategory[]>([]);
@@ -18,17 +48,8 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setIsLoading(true);
     setLastError(null);
     try {
-      const response = await fetch('/api/ml/categories');
-      const text = await response.text(); // <- pra inspecionar quando não for JSON
-      try {
-        const data = JSON.parse(text);
-        if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
-        setRootCats(data.categories || []);
-      } catch (parseErr) {
-        console.error('Resposta não JSON da API:', text);
-        setLastError('A rota /api/ml/categories não retornou JSON. Verifique a estrutura do projeto.');
-        setRootCats([]);
-      }
+      const data = await getRootCategories('MLB');
+      setRootCats(data || []);
     } catch (error: any) {
       console.error("Failed to fetch root categories:", error);
       setLastError(error?.message || 'Erro ao carregar categorias.');
@@ -42,11 +63,9 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setIsLoading(true);
     setLastError(null);
     try {
-      const response = await fetch(`/api/ml/categories?parent=${catId}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+      const data = await getCategoryChildren(catId);
       setSelectedCat(catId);
-      setChildCats(data.categories || []);
+      setChildCats(data || []);
     } catch (error: any) {
       console.error(`Failed to load children for ${catId}:`, error);
       setLastError(error?.message || 'Erro ao carregar subcategorias.');
