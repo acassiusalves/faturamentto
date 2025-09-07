@@ -1,14 +1,8 @@
 
-'use server';
-
-// lib/ml.ts (server)
+// lib/ml.ts
 const ML_API = 'https://api.mercadolibre.com';
 
-export interface MLCategory {
-  id: string;
-  name: string;
-}
-
+export interface MLCategory { id: string; name: string; }
 export interface MLCategoryInfo {
   id: string;
   name: string;
@@ -41,7 +35,6 @@ export async function getCategoryAncestors(categoryId: string) {
   const info = await getCategoryInfo(categoryId);
   return info.path_from_root ?? [];
 }
-
 
 /**
  * Fetches the total number of active offers for a given catalog product ID.

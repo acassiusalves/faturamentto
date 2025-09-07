@@ -1,11 +1,12 @@
 
+// app/api/ml/categories/route.ts
 import { NextResponse } from 'next/server';
 import { getRootCategories, getCategoryChildren, getCategoryAncestors } from '@/lib/ml';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const parent = searchParams.get('parent'); // se vazio → topo
+    const parent = searchParams.get('parent');
 
     if (!parent) {
       const root = await getRootCategories('MLB');
@@ -20,10 +21,11 @@ export async function GET(req: Request) {
     return NextResponse.json({
       level: 'children',
       parent,
-      ancestors,     // breadcrumb
+      ancestors,
       categories: children,
     });
   } catch (e: any) {
+    console.error('GET /api/ml/categories error:', e);
     return NextResponse.json({ error: e?.message || 'Erro' }, { status: 500 });
   }
 }
