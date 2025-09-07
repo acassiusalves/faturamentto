@@ -54,7 +54,8 @@ export const navLinks = [
         { href: "/feed-25", label: "Processador de Listas", icon: Sparkles },
         { href: "/feed-25/lista", label: "Feed Comparativo", icon: ListChecks },
         { href: "/feed-25/catalogo-pdf", label: "Catálogo PDF", icon: BookImage },
-        { href: "/feed-25/buscar-mercado-livre", label: "Buscar Mercado Livre", icon: Search },
+        { href: "/feed-25/buscar-mercado-livre", label: "Buscar Produtos", icon: Search },
+        { href: "/feed-25/buscar-categoria-mercado-livre", label: "Buscar Categoria", icon: Search },
       ]
     },
 ];
@@ -95,6 +96,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/feed-25/lista': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/feed-25/catalogo-pdf': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/feed-25/buscar-mercado-livre': ['admin', 'financeiro', 'expedicao', 'sac'],
+    '/feed-25/buscar-categoria-mercado-livre': ['admin', 'financeiro', 'expedicao', 'sac'],
     '/avisos': ['admin'],
     '/anuncios': ['admin'],
     '/etiquetas': ['admin'],

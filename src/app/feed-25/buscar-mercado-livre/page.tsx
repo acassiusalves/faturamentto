@@ -18,7 +18,7 @@ import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface ProductResult {
@@ -72,7 +72,6 @@ export default function BuscarMercadoLivrePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [quantity, setQuantity] = useState(50);
     const [state, formAction, isSearching] = useActionState(searchMercadoLivreAction, initialSearchState);
-    const [isTransitioning, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
 
     // Filter states
@@ -155,15 +154,11 @@ export default function BuscarMercadoLivrePage() {
             });
             return;
         }
-        startTransition(() => {
-            const formData = new FormData();
-            formData.append('productName', searchTerm);
-            formData.append('quantity', String(quantity));
-            formAction(formData);
-        });
+        const formData = new FormData();
+        formData.append('productName', searchTerm);
+        formData.append('quantity', String(quantity));
+        formAction(formData);
     };
-
-    const isPending = isSearching || isTransitioning;
     
     const pageCount = useMemo(() => {
         return Math.ceil((filteredResults.length || 0) / pageSize);
@@ -224,22 +219,22 @@ export default function BuscarMercadoLivrePage() {
                                 className="w-full sm:w-28"
                             />
                         </div>
-                        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-                            {isPending ? <Loader2 className="animate-spin" /> : <Search />}
+                        <Button type="submit" disabled={isSearching} className="w-full sm:w-auto">
+                            {isSearching ? <Loader2 className="animate-spin" /> : <Search />}
                             Buscar
                         </Button>
                     </form>
                 </CardContent>
             </Card>
             
-            {isPending && (
+            {isSearching && (
                 <div className="flex justify-center items-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32} />
                     <p className="ml-4">Buscando no Mercado Livre...</p>
                 </div>
             )}
             
-            {state?.result && !isPending && (
+            {state?.result && !isSearching && (
                  <div className="grid grid-cols-1 md:grid-cols-[256px,1fr] gap-6">
                     <FiltersSidebar
                         shippingOptions={shippingOptionsWithCounts}
@@ -424,7 +419,7 @@ export default function BuscarMercadoLivrePage() {
                 </div>
             )}
             
-            {state?.error && !isPending && (
+            {state?.error && !isSearching && (
                 <div className="text-destructive font-semibold p-4 border border-destructive/50 rounded-md bg-destructive/10">
                     Erro: {state.error}
                 </div>
