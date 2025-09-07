@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useActionState, useTransition, useMemo, useEffect } from 'react';
@@ -278,6 +277,11 @@ export default function BuscarMercadoLivrePage() {
                                     <Switch id="active-only-switch" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
                                 </div>
                             </div>
+                             {!isSearching && state?.result && (
+                              <div className="text-xs text-muted-foreground pt-2">
+                                oficiais: <b>{state.result.filter(r => r.is_official_store).length}</b> / {state.result.length}
+                              </div>
+                            )}
                         </CardHeader>
                         <CardContent>
                             <div className="rounded-md border overflow-auto">
