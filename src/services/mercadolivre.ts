@@ -79,6 +79,7 @@ export async function getSellersReputation(sellerIds: string[], token: string) {
 
         out[id] = {
           nickname: u?.nickname,
+          official_store_id: u?.official_store_id,
           registration_date: u?.registration_date,
           level_id: rep?.level_id,
           power_seller_status: rep?.power_seller_status,

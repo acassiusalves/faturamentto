@@ -107,7 +107,7 @@ export async function searchMercadoLivreAction(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
             const offerCount = await getCatalogOfferCount(p.id, accessToken);
-            const reputation = winner?.seller_id ? reputations[winner.seller_id] : null;
+            const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
 
             return {
                 id: p.id,
@@ -122,10 +122,10 @@ export async function searchMercadoLivreAction(
                 free_shipping: !!winner?.shipping?.free_shipping,
                 listing_type_id: winner?.listing_type_id || "",
                 category_id: winner?.category_id || "",
-                seller_nickname: winner?.seller?.nickname || "N/A",
-                official_store_id: winner?.official_store_id || null,
+                seller_nickname: reputationData?.nickname || "N/A",
+                official_store_id: reputationData?.official_store_id || null,
                 offerCount: offerCount,
-                reputation: reputation,
+                reputation: reputationData,
             };
         })
     );
