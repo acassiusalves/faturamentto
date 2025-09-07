@@ -91,9 +91,11 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
   const catalogProducts: any[] = Array.isArray(searchData?.results) ? searchData.results : [];
   if (catalogProducts.length === 0) return [];
 
-  // 2) vencedor por catálogo
+  // 2) vencedor por catálogo e contagem de ofertas
   const CONCURRENCY = 8;
   const winnerByCat = new Map<string, any>();
+  const offerCountByCat = new Map<string, number>(); // Novo: para guardar a contagem
+
   for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
     const batch = catalogProducts.slice(i, i + CONCURRENCY);
     await Promise.allSettled(
@@ -102,6 +104,10 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
         const r = await fetch(url, { method: "GET", headers, cache: "no-store" as RequestCache });
         if (!r.ok) return;
         const j = await r.json();
+        
+        // Salva a contagem total de ofertas
+        offerCountByCat.set(p.id, j?.paging?.total ?? 0);
+        
         const winner = j?.results?.[0];
         if (winner) winnerByCat.set(p.id, winner);
       })
@@ -162,6 +168,7 @@ export async function searchMercadoLivreProducts(query: string, quantity: number
       brand,
       model,
       thumbnail: toHttps(thumb),
+      offerCount: offerCountByCat.get(p.id) || 0, // Novo campo
 
       // anúncio vencedor (se houver)
       price: Number(price) || 0,

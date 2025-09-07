@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,6 +35,7 @@ interface ProductResult {
     listing_type_id: string;
     seller_nickname: string;
     official_store_id: string;
+    offerCount: number; // Novo campo
 }
 
 const initialSearchState = {
@@ -295,6 +296,10 @@ export default function BuscarMercadoLivrePage() {
                                                         {product.official_store_id && (
                                                             <Badge variant="secondary" className="ml-2">Loja Oficial</Badge>
                                                         )}
+                                                    </div>
+                                                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                                        <Users className="h-3 w-3" />
+                                                        <span>{product.offerCount} ofertas neste catálogo</span>
                                                     </div>
                                                     <div className="flex flex-col items-start gap-1 mt-1.5">
                                                         <div className="flex items-center gap-1.5 text-sm font-semibold">
