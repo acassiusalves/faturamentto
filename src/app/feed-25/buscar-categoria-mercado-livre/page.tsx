@@ -11,24 +11,34 @@ export default function BuscarCategoriaMercadoLivrePage() {
     const [rootCats, setRootCats] = useState<MLCategory[]>([]);
     const [childCats, setChildCats] = useState<MLCategory[]>([]);
     const [selectedCat, setSelectedCat] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        // carrega topo na primeira renderização
-        fetch('/api/ml/categories')
-            .then(r => r.json())
-            .then(data => setRootCats(data.categories || []))
-            .catch(() => setRootCats([]))
-            .finally(() => setIsLoading(false));
-    }, []);
+    async function fetchRootCategories() {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/ml/categories');
+            const data = await response.json();
+            setRootCats(data.categories || []);
+        } catch (error) {
+            console.error("Failed to fetch root categories:", error);
+            setRootCats([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }
 
     async function loadChildren(catId: string) {
         setIsLoading(true);
-        const r = await fetch(`/api/ml/categories?parent=${catId}`);
-        const data = await r.json();
-        setSelectedCat(catId);
-        setChildCats(data.categories || []);
-        setIsLoading(false);
+        try {
+            const r = await fetch(`/api/ml/categories?parent=${catId}`);
+            const data = await r.json();
+            setSelectedCat(catId);
+            setChildCats(data.categories || []);
+        } catch (error) {
+            console.error(`Failed to load children for ${catId}:`, error);
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     return (
@@ -40,11 +50,25 @@ export default function BuscarCategoriaMercadoLivrePage() {
                 </p>
             </div>
 
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Iniciar Busca</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={fetchRootCategories} disabled={isLoading}>
+                         {isLoading && rootCats.length === 0 ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                         ) : null}
+                        Listar Todas as Categorias
+                    </Button>
+                </CardContent>
+            </Card>
+
             {isLoading && rootCats.length === 0 ? (
                  <div className="flex justify-center items-center h-48">
                     <Loader2 className="animate-spin text-primary" size={32}/>
                  </div>
-            ) : (
+            ) : rootCats.length > 0 && (
                 <Card>
                     <CardHeader className="py-3">
                         <CardTitle className="text-base">Categorias (Topo)</CardTitle>
@@ -57,6 +81,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                             variant={selectedCat === c.id ? 'default' : 'secondary'}
                             size="sm"
                             onClick={() => loadChildren(c.id)}
+                            disabled={isLoading}
                             >
                             {c.name}
                             </Button>
@@ -72,7 +97,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                     <CardDescription>Refine ainda mais</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-wrap gap-2">
-                        {isLoading ? (
+                        {isLoading && childCats.length === 0 ? (
                              <div className="flex justify-center items-center h-24 w-full">
                                 <Loader2 className="animate-spin text-primary"/>
                              </div>
@@ -82,6 +107,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                                 key={c.id}
                                 variant="outline"
                                 size="sm"
+                                disabled={isLoading}
                                 >
                                 {c.name}
                                 </Button>
