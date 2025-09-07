@@ -102,3 +102,16 @@ export async function getSellersReputation(sellerIds: string[], token: string) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   return out;
 }
+
+export async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
+    if (!productId) return 0;
+    try {
+        const url = `https://api.mercadolibre.com/products/${productId}/items?limit=0`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
+        if (!res.ok) return 0;
+        const data = await res.json();
+        return data?.paging?.total || 0;
+    } catch {
+        return 0;
+    }
+}
