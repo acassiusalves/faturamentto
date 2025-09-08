@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles } from 'lucide-react';
@@ -164,6 +164,17 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setCurrentAutomationTask("Análise concluída!");
     setIsAutomating(false);
   };
+  
+    const automationTotals = useMemo(() => {
+        if (!automationResults.length) {
+            return { totalTrends: 0, totalBestsellers: 0 };
+        }
+
+        const totalTrends = automationResults.reduce((acc, result) => acc + result.trends.length, 0);
+        const totalBestsellers = automationResults.reduce((acc, result) => acc + result.bestsellers.length, 0);
+
+        return { totalTrends, totalBestsellers };
+    }, [automationResults]);
 
 
   const handleReset = () => {
@@ -390,13 +401,21 @@ export default function BuscarCategoriaMercadoLivrePage() {
         {automationResults.length > 0 && (
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                        <Sparkles className="text-primary"/>
-                        Análise Automatizada de Subcategorias
-                    </CardTitle>
-                    <CardDescription>
-                        Resultados da busca por tendências e mais vendidos em todas as subcategorias de "{ancestors[ancestors.length - 1]?.name}".
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div>
+                            <CardTitle className="text-2xl font-headline flex items-center gap-3">
+                                <Sparkles className="text-primary"/>
+                                Análise Automatizada de Subcategorias
+                            </CardTitle>
+                            <CardDescription>
+                                Resultados da busca por tendências e mais vendidos em todas as subcategorias de "{ancestors[ancestors.length - 1]?.name}".
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm font-medium whitespace-nowrap">
+                            <Badge variant="outline">Total de Tendências: {automationTotals.totalTrends}</Badge>
+                            <Badge variant="outline">Total de Anúncios: {automationTotals.totalBestsellers}</Badge>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" className="w-full space-y-4">
