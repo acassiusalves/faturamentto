@@ -1,4 +1,3 @@
-
 // src/app/api/ml/bestsellers/route.ts
 import { NextResponse } from 'next/server';
 
