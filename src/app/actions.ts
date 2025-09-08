@@ -9,7 +9,7 @@ import {lookupProducts} from '@/ai/flows/lookup-products';
 import { saveAppSettings, loadAppSettings } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
-import { fetchOrderLabel, getCategoryTrends } from '@/services/ideris';
+import { fetchOrderLabel } from '@/services/ideris';
 import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
 import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
 import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
@@ -17,7 +17,8 @@ import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
 import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { generateNewAccessToken as getMlToken, getSellersReputation, getCatalogOfferCount } from '@/services/mercadolivre';
+import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/services/mercadolivre';
+import { getCatalogOfferCount } from '@/lib/ml';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
 
