@@ -65,7 +65,8 @@ export default function CatalogoPdfPage() {
     const [allProducts, setAllProducts] = useState<SearchableProduct[]>([]);
     const [brand, setBrand] = useState('');
     
-    const [isProcessing, startTransition] = useTransition();
+    const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
+    const [isTrendingPending, startTrendingTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
@@ -111,7 +112,7 @@ export default function CatalogoPdfPage() {
         formData.append('totalPages', String(pdfDoc.numPages));
         formData.append('brand', brand);
     
-        startTransition(() => {
+        startAnalyzeTransition(() => {
           formAction(formData);
         });
       } catch (err) {
@@ -123,7 +124,7 @@ export default function CatalogoPdfPage() {
           description: 'Falha ao ler o texto do PDF nesta página.',
         });
       }
-    }, [pdfDoc, formAction, startTransition, toast, brand]);
+    }, [pdfDoc, formAction, startAnalyzeTransition, toast, brand]);
 
 
     useEffect(() => {
@@ -158,13 +159,16 @@ export default function CatalogoPdfPage() {
                 setIsAnalyzingAll(false);
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state, brand, toast, currentPage, isAnalyzingAll, pdfDoc?.numPages]);
 
     useEffect(() => {
         if (allProducts.length === 0) return;
         const trendFormData = new FormData();
         trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
-        trendingAction(trendFormData);
+        startTrendingTransition(() => {
+            trendingAction(trendFormData);
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [allProducts]);
     
@@ -178,14 +182,14 @@ export default function CatalogoPdfPage() {
     }, [trendingState]);
 
     useEffect(() => {
-        if (isAnalyzingAll && !isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
+        if (isAnalyzingAll && !isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
             analyzePage(currentPage);
         }
          if (isAnalyzingAll && currentPage > (pdfDoc?.numPages || 0)) {
             setIsAnalyzingAll(false); 
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, isAnalyzingAll, isProcessing]);
+    }, [currentPage, isAnalyzingAll, isAnalyzingPending]);
 
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,7 +218,7 @@ export default function CatalogoPdfPage() {
     };
 
     const handleAnalyzeAllClick = () => {
-        if (!isProcessing) {
+        if (!isAnalyzingPending) {
             setCurrentPage(1);
             setAllProducts([]);
             setTrendingProductNames(new Set());
@@ -223,7 +227,7 @@ export default function CatalogoPdfPage() {
     };
     
     const handleAnalyzeNextClick = () => {
-        if (!isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
+        if (!isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
            analyzePage(currentPage);
            setCurrentPage(p => p + 1);
         }
@@ -268,7 +272,7 @@ export default function CatalogoPdfPage() {
       }).format(numericValue);
     };
 
-    const isProcessingAny = isParsing || isProcessing;
+    const isProcessingAny = isParsing || isAnalyzingPending;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
     const productsPageCount = useMemo(() => Math.ceil(allProducts.length / productsPageSize), [allProducts.length, productsPageSize]);
