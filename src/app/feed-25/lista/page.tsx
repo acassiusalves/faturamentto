@@ -29,7 +29,7 @@ import {
 import { analyzeFeedAction } from '@/app/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings } from '@/services/firestore';
 
