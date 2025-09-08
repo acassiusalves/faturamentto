@@ -89,6 +89,7 @@ export default function BuscarMercadoLivrePage() {
     const [state, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
     const [isPending, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
+    const [progress, setProgress] = useState(0);
 
     // Filter states
     const [shippingFilter, setShippingFilter] = useState<string[]>([]);
@@ -200,6 +201,20 @@ export default function BuscarMercadoLivrePage() {
     }, [filteredResults, pageIndex, pageCount]);
     
     const isSearching = isSearchingAction || isPending;
+    
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (isSearching) {
+            setProgress(10); // Start with a small progress
+            timer = setInterval(() => {
+                setProgress(prev => (prev >= 90 ? 90 : prev + 5)); // Increment but stop at 90
+            }, 500);
+        } else {
+            setProgress(100); // Complete on finish
+            setTimeout(() => setProgress(0), 1000); // Reset after a short delay
+        }
+        return () => clearInterval(timer);
+    }, [isSearching]);
 
 
     return (
@@ -250,7 +265,7 @@ export default function BuscarMercadoLivrePage() {
             {isSearching && (
                 <div className="flex flex-col items-center justify-center h-48 space-y-4">
                     <p className="font-semibold">Buscando no Mercado Livre...</p>
-                    <Progress value={50} className="w-full max-w-sm animate-pulse" />
+                    <Progress value={progress} className="w-full max-w-sm transition-all duration-500" />
                 </div>
             )}
             
@@ -457,4 +472,3 @@ export default function BuscarMercadoLivrePage() {
     );
 }
 
-    
