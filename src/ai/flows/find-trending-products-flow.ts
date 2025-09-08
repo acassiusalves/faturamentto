@@ -55,8 +55,16 @@ export async function findTrendingProducts(
       Você é um analista de e-commerce.
       Sua tarefa é comparar uma lista de nomes de produtos com uma lista de palavras-chave de tendências de busca.
       Para cada produto da lista de entrada, verifique se ele corresponde a uma ou mais palavras-chave da lista de tendências.
+
+      CRITÉRIO DE CORRESPONDÊNCIA:
+      Um produto está "em alta" SOMENTE SE o nome do produto contiver uma palavra-chave principal que também está presente na tendência.
+      Exemplo:
+      - Produto: "Kit Gamer Teclado e Mouse"
+      - Tendência: "mouse gamer" -> CORRESPONDE (ambos têm "mouse")
+      - Tendência: "headset gamer" -> NÃO CORRESPONDE (produto não é um "headset")
+
+      Seja rigoroso: um produto só está em alta se seu nome tiver uma forte correlação com uma ou mais palavras-chave, incluindo a correspondência de pelo menos uma palavra principal.
       Retorne APENAS os produtos que você considera estarem em alta, junto com a lista de palavras-chave que corresponderam.
-      Seja rigoroso: um produto só está em alta se seu nome tiver uma forte correlação com uma ou mais palavras-chave.
 
       Lista de Produtos para Análise:
       {{#each productNames}}
