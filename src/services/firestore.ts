@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -703,9 +704,14 @@ export const loadInitialStockForToday = async (): Promise<number> => {
 // --- ML ANALYSIS ---
 export const saveMlAnalysis = async (analysis: Omit<SavedMlAnalysis, 'id'>): Promise<void> => {
   const docId = analysis.mainCategoryId;
+  if (!docId) {
+      throw new Error("mainCategoryId é obrigatório para salvar a análise.");
+  }
   const analysisRef = doc(db, 'ml-analysis', docId);
-  await setDoc(analysisRef, toFirestore({ ...analysis, id: docId }), { merge: true });
+  const dataToSave = { ...analysis, id: docId };
+  await setDoc(analysisRef, toFirestore(dataToSave), { merge: true });
 };
+
 
 export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
   const analysisCol = collection(db, 'ml-analysis');
@@ -717,4 +723,21 @@ export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
 export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
   const docRef = doc(db, 'ml-analysis', analysisId);
   await deleteDoc(docRef);
+};
+
+// --- Permanent Entry Log ---
+export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Promise<EntryLog[]> => {
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
+
+    let q = query(logCol, orderBy('entryDate', 'desc'));
+
+    if (dateRange?.from) {
+        q = query(q, where('entryDate', '>=', Timestamp.fromDate(startOfDay(dateRange.from)).toDate().toISOString()));
+    }
+    if (dateRange?.to) {
+        q = query(q, where('entryDate', '<=', Timestamp.fromDate(endOfDay(dateRange.to)).toDate().toISOString()));
+    }
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
 };
