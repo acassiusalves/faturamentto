@@ -50,15 +50,27 @@ async function enrichItems(ids: string[]) {
     const r = await fetchMaybeAuth(`${ML_API}/items?ids=${batch.join(",")}`);
     if (!r.ok) continue;
     const rows = await r.json();
+
     for (const row of rows || []) {
       const it = row?.body;
       if (!it?.id) continue;
+
+      const thumb =
+        it.secure_thumbnail ||
+        it.thumbnail ||
+        (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
+        null;
+
+      const link =
+        it.permalink ||
+        (it.id ? `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}` : null);
+
       out[it.id] = {
         id: it.id,
-        title: it.title,
-        price: it.price,
-        thumbnail: it.thumbnail || it.pictures?.[0]?.url || "",
-        permalink: it.permalink || `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}`,
+        title: it.title ?? "",
+        price: Number.isFinite(it.price) ? it.price : 0,
+        thumbnail: thumb,           // << null quando não existe
+        permalink: link,            // << null quando não existe
       };
     }
   }

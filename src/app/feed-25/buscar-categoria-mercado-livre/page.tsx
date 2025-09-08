@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -17,8 +18,8 @@ interface BestSellerItem {
   position: number | null;
   title: string;
   price: number;
-  thumbnail: string;
-  permalink: string;
+  thumbnail: string | null;
+  permalink: string | null;
 }
 
 
@@ -252,27 +253,57 @@ export default function BuscarCategoriaMercadoLivrePage() {
                       </div>
                     ) : bestSellers.length > 0 ? (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                        {bestSellers.map(item => (
-                          <Link href={item.permalink} key={item.id} target="_blank" className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                        {bestSellers.map(item => {
+                          const cardInner = (
+                            <>
                               <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                                  <Image 
-                                      src={item.thumbnail}
-                                      alt={item.title}
-                                      fill
-                                      sizes="64px"
-                                      className="object-contain"
-                                      data-ai-hint="product image"
+                                {item.thumbnail ? (
+                                  <Image
+                                    src={item.thumbnail}
+                                    alt={item.title}
+                                    fill
+                                    sizes="64px"
+                                    className="object-contain"
+                                    data-ai-hint="product image"
                                   />
+                                ) : (
+                                  // placeholder simples
+                                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">sem foto</div>
+                                )}
                               </div>
-                               <div className="flex-grow min-w-0">
-                                <p className="font-semibold text-sm leading-tight line-clamp-2" title={item.title}>{item.title}</p>
-                                <Badge variant="outline" className="mt-1">#{item.position}</Badge>
-                            </div>
-                            <div className="font-bold text-primary text-lg">
+
+                              <div className="flex-grow min-w-0">
+                                <p className="font-semibold text-sm leading-tight line-clamp-2" title={item.title}>
+                                  {item.title}
+                                </p>
+                                {item.position != null && <Badge variant="outline" className="mt-1">#{item.position}</Badge>}
+                              </div>
+
+                              <div className="font-bold text-primary text-lg">
                                 {formatCurrency(item.price)}
+                              </div>
+                            </>
+                          );
+
+                          return item.permalink ? (
+                            <Link
+                              href={item.permalink}
+                              key={item.id}
+                              target="_blank"
+                              className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                            >
+                              {cardInner}
+                            </Link>
+                          ) : (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-4 p-2 rounded-lg border bg-card"
+                              title="Sem link disponível"
+                            >
+                              {cardInner}
                             </div>
-                          </Link>
-                        ))}
+  );
+})}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-10">
