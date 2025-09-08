@@ -121,23 +121,43 @@ export default function BuscarCategoriaMercadoLivrePage() {
   }
   
    const runAutomation = async () => {
-    if (!childCats.length) return;
+    if (!selectedCat) return;
+
     setIsAutomating(true);
-    setAutomationResults([]);
     setAutomationProgress(0);
 
-    for (let i = 0; i < childCats.length; i++) {
-        const subCat = childCats[i];
-        setCurrentAutomationTask(`Analisando: ${subCat.name}`);
-        const { trends, bestsellers } = await fetchCategoryData(subCat.id);
-        
-        setAutomationResults(prev => [...prev, {
-            category: subCat,
-            trends,
-            bestsellers
-        }]);
+    const mainCategory = ancestors[ancestors.length - 1];
+    if (!mainCategory) {
+        setIsAutomating(false);
+        return;
+    }
 
-        setAutomationProgress(((i + 1) / childCats.length) * 100);
+    // Initialize results with the main category's data which is already loaded
+    setAutomationResults([{
+        category: mainCategory,
+        trends: trends,
+        bestsellers: bestSellers
+    }]);
+
+    const categoriesToProcess = [...childCats];
+    const totalSteps = categoriesToProcess.length;
+
+    for (let i = 0; i < totalSteps; i++) {
+        const subCat = categoriesToProcess[i];
+        setCurrentAutomationTask(`Analisando: ${subCat.name}`);
+        
+        try {
+            const { trends, bestsellers } = await fetchCategoryData(subCat.id);
+            setAutomationResults(prev => [...prev, {
+                category: subCat,
+                trends,
+                bestsellers
+            }]);
+        } catch (error) {
+            console.error(`Falha ao buscar dados para a subcategoria ${subCat.name}:`, error);
+        }
+
+        setAutomationProgress(((i + 1) / totalSteps) * 100);
         await new Promise(res => setTimeout(res, 300)); // Small delay to avoid API rate limits
     }
 
@@ -231,7 +251,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         <CardTitle className="text-base">Subcategorias</CardTitle>
                         <CardDescription>Refine sua busca ou analise todas abaixo.</CardDescription>
                     </div>
-                     <Button onClick={runAutomation} disabled={isAutomating || childCats.length === 0}>
+                     <Button onClick={runAutomation} disabled={isAutomating}>
                         {isAutomating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                         Analisar Subcategorias
                     </Button>
