@@ -21,7 +21,7 @@ import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries } from '@/services/firestore';
+import { loadAppSettings, loadProducts, saveFeedEntry } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -30,8 +30,6 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/auth-context';
 
 
@@ -479,25 +477,6 @@ export default function FeedPage() {
             handleSavePrompt(formData);
           });
       };
-      
-      const [storesForSelectedDate, setStoresForSelectedDate] = useState<string[]>([]);
-      
-      useEffect(() => {
-          async function fetchFeedForDate() {
-              if (!date) return;
-              const formattedDate = format(date, 'yyyy-MM-dd');
-              const entries = await loadAllFeedEntries();
-              const stores = entries
-                  .filter(entry => entry.date === formattedDate)
-                  .map(entry => entry.storeName);
-              setStoresForSelectedDate(stores);
-          }
-          fetchFeedForDate();
-      }, [date]);
-    
-      const pendingStores = useMemo(() => {
-        return availableStores.filter(store => !storesForSelectedDate.includes(store));
-      }, [availableStores, storesForSelectedDate]);
 
 
     return (
@@ -749,11 +728,9 @@ export default function FeedPage() {
                                             <SelectValue placeholder="Selecione uma loja" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {pendingStores.length > 0 ? pendingStores.map(store => (
+                                            {availableStores.map(store => (
                                                 <SelectItem key={store} value={store}>{store}</SelectItem>
-                                            )) : (
-                                                <div className="p-2 text-sm text-muted-foreground">Nenhuma loja pendente para hoje.</div>
-                                            )}
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>

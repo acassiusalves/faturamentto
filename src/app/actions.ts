@@ -536,7 +536,7 @@ export async function refineSearchTermAction(
   }
 }
 
-async function analyzeFeedAction(prevState: { result: any; error: string | null; }, formData: FormData): Promise<{ result: any; error: string | null; }> {
+export async function analyzeFeedAction(prevState: { result: any; error: string | null; }, formData: FormData): Promise<{ result: any; error: string | null; }> {
     try {
         const feedData = JSON.parse(formData.get('feedData') as string);
         const apiKey = formData.get('apiKey') as string | undefined;
