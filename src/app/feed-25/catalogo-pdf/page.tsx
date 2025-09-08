@@ -125,11 +125,43 @@ export default function CatalogoPdfPage() {
       }
     }, [pdfDoc, formAction, startAnalyzeTransition, toast, brand]);
 
+     useEffect(() => {
+        if (state.error) {
+            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+            setIsAnalyzingAll(false);
+            return;
+        }
+
+        if (state.result && state.result.products.length > 0) {
+            const newProducts = state.result.products.map(p => ({
+                ...p,
+                refinedQuery: buildSearchQuery({
+                    name: p.name,
+                    description: p.description,
+                    model: p.model,
+                    brand: p.brand || brand,
+                }),
+            }));
+
+            setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
+        }
+
+        if (isAnalyzingAll) {
+            if (currentPage < (pdfDoc?.numPages || 0)) {
+                setCurrentPage(p => p + 1);
+            } else {
+                setIsAnalyzingAll(false);
+            }
+        }
+    }, [state, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
+    
     useEffect(() => {
       if (trendingState.trendingProducts) {
         const trendingMap = new Map<string, string[]>();
         trendingState.trendingProducts.forEach(p => {
-          trendingMap.set(p.productName, p.matchedKeywords);
+          if (p.productName && p.matchedKeywords) {
+            trendingMap.set(p.productName, p.matchedKeywords);
+          }
         });
         
         setAllProducts(prevProducts => 
@@ -157,42 +189,8 @@ export default function CatalogoPdfPage() {
          if (isAnalyzingAll && currentPage > (pdfDoc?.numPages || 0)) {
             setIsAnalyzingAll(false); 
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, isAnalyzingAll, isAnalyzingPending]);
+    }, [currentPage, isAnalyzingAll, isAnalyzingPending, analyzePage, pdfDoc?.numPages]);
 
-    useEffect(() => {
-      if (state.error) {
-        toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-        setIsAnalyzingAll(false);
-        return;
-      }
-    
-      if (state.result && state.result.products.length > 0) {
-        const newProducts = state.result.products.map(p => ({
-          ...p,
-          refinedQuery: buildSearchQuery({
-            name: p.name,
-            description: p.description,
-            model: p.model,
-            brand: p.brand || brand,
-          }),
-        }));
-    
-        setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
-    
-        if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-          setCurrentPage(p => p + 1);
-        } else {
-          setIsAnalyzingAll(false);
-        }
-      } else if (state.result) { // Page was analyzed but no products found
-        if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-          setCurrentPage(p => p + 1);
-        } else {
-          setIsAnalyzingAll(false);
-        }
-      }
-    }, [state, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
