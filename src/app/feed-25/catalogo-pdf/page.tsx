@@ -145,7 +145,7 @@ export default function CatalogoPdfPage() {
               }),
             }));
 
-            setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
+            setAllProducts(prev => [...prev, ...newProducts]);
 
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
@@ -160,17 +160,7 @@ export default function CatalogoPdfPage() {
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state, brand, toast, currentPage, isAnalyzingAll, pdfDoc?.numPages]);
-
-    useEffect(() => {
-        if (allProducts.length === 0) return;
-        const trendFormData = new FormData();
-        trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
-        startTrendingTransition(() => {
-            trendingAction(trendFormData);
-        });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [allProducts]);
+    }, [state, brand, toast]);
     
     useEffect(() => {
         if (trendingState.trendingProductNames) {
@@ -270,6 +260,22 @@ export default function CatalogoPdfPage() {
         style: 'currency',
         currency: 'BRL',
       }).format(numericValue);
+    };
+
+    const handleCheckTrends = () => {
+        if (allProducts.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Nenhum produto extraído',
+                description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
+            });
+            return;
+        }
+        const trendFormData = new FormData();
+        trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
+        startTrendingTransition(() => {
+            trendingAction(trendFormData);
+        });
     };
 
     const isProcessingAny = isParsing || isAnalyzingPending;
@@ -414,10 +420,16 @@ export default function CatalogoPdfPage() {
                                     Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
                                 </CardDescription>
                             </div>
-                            <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
-                                {isBatchSearching ? <Loader2 className="animate-spin" /> : <Search />}
-                                Buscar todos no ML
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={handleCheckTrends} disabled={isTrendingPending} variant="outline">
+                                    {isTrendingPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
+                                    Verificar Tendências
+                                </Button>
+                                <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
+                                    {isBatchSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                    Buscar todos no ML
+                                </Button>
+                            </div>
                         </div>
                         {isBatchSearching && (
                             <div className="space-y-2 mt-4">
