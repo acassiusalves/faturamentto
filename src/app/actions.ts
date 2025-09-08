@@ -60,6 +60,88 @@ async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<
   return (typeof j?.official_store_id === "number") ? j.official_store_id : null;
 }
 
+// Pega visitas de uma lista de item IDs (MLB123, MLB456, ...)
+// O endpoint aceita query string com vários ids (lotes). 
+// Aceita também filtros por data; abaixo uso últimos 30 dias.
+async function fetchItemsVisits(
+  itemIds: string[],
+  accessToken?: string,         // usamos se precisar
+  days: number = 30
+): Promise<Record<string, number>> {
+  if (itemIds.length === 0) return {};
+
+  // limite de lote conservador (a API costuma aceitar ~50 por chamada)
+  const CHUNK = 50;
+  const out: Record<string, number> = {};
+  const dateTo   = new Date();
+  const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // formata yyyy-mm-dd (a API aceita ISO sem hora)
+  const toDateStr   = dateTo.toISOString().slice(0,10);
+  const fromDateStr = dateFrom.toISOString().slice(0,10);
+
+  for (let i = 0; i < itemIds.length; i += CHUNK) {
+    const batch = itemIds.slice(i, i + CHUNK);
+    const url = new URL("https://api.mercadolibre.com/items/visits");
+    url.searchParams.set("ids", batch.join(","));
+    // Use filtro de período (opcional). Se quiser “lifetime”, remova:
+    url.searchParams.set("date_from", fromDateStr);
+    url.searchParams.set("date_to", toDateStr);
+
+    // 1ª tentativa sem token (geralmente funciona). Se 401/403, tenta com token.
+    let r = await fetch(url.toString(), { cache: "no-store" });
+    if (r.status === 401 || r.status === 403) {
+      r = await fetch(url.toString(), {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        cache: "no-store",
+      });
+    }
+    if (!r.ok) {
+      // não quebra a página — só segue sem visitas para esse lote
+      continue;
+    }
+    const data = await r.json();
+    // Normalização: respostas comuns são array de objetos { id, total_visits } ou { item_id, visits }
+    for (const row of (Array.isArray(data) ? data : [])) {
+      const id = row.id ?? row.item_id ?? row.itemId ?? row.code ?? null;
+      const visits =
+        row.total_visits ?? row.visits ?? row.total ?? 0;
+      if (id) out[id] = Number.isFinite(visits) ? Number(visits) : 0;
+    }
+  }
+  return out;
+}
+
+async function fetchItemSellerAddress(
+  itemId: string,
+  token: string
+): Promise<{
+  state_id: string | null;
+  state_name: string | null;
+  city_id: string | null;
+  city_name: string | null;
+}> {
+  if (!itemId) {
+    return { state_id: null, state_name: null, city_id: null, city_name: null };
+  }
+  const url = `https://api.mercadolibre.com/items/${itemId}?fields=seller_address`;
+  const r = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!r.ok) {
+    return { state_id: null, state_name: null, city_id: null, city_name: null };
+  }
+  const j = await r.json();
+  const s = j?.seller_address;
+  return {
+    state_id: s?.state?.id ?? null,
+    state_name: s?.state?.name ?? null,
+    city_id: s?.city?.id ?? null,
+    city_name: s?.city?.name ?? null,
+  };
+}
+
 
 // Server Actions
 export async function searchMercadoLivreAction(
@@ -111,6 +193,12 @@ export async function searchMercadoLivreAction(
       );
     }
     
+    const winnerItemIds = Array.from(winnerByCat.values())
+      .map(w => w?.id)
+      .filter(Boolean) as string[];
+
+    const visitsByItem = await fetchItemsVisits(winnerItemIds, accessToken, 30);
+
     // 3. Fetch seller reputations
     const sellerIds = Array.from(new Set(Array.from(winnerByCat.values()).map(w => w?.seller_id).filter(Boolean)));
     const reputations = await getSellersReputation(sellerIds, accessToken);
@@ -119,18 +207,22 @@ export async function searchMercadoLivreAction(
     const enrichedResults = await Promise.all(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
+            const visits_30d = winner?.id ? (visitsByItem[winner.id] ?? 0) : 0;
 
-            // 1ª tentativa: o próprio winner já tem official_store_id
+            // official store (como já estava)
             let officialStoreId: number | null =
               (typeof winner?.official_store_id === "number") ? winner.official_store_id : null;
-
-            // 2º fallback: buscar no /items/{id} somente se faltar
             if (!officialStoreId && winner?.id) {
               officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
             }
 
+            // 🔹 NOVO: estado/cidade do vendedor a partir do winner item
+            let sellerAddress = { state_id: null, state_name: null, city_id: null, city_name: null };
+            if (winner?.id) {
+              sellerAddress = await fetchItemSellerAddress(winner.id, accessToken);
+            }
+
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
-            
             const counted = await getCatalogOfferCount(p.id, accessToken);
             const offerCount = counted > 0 ? counted : (winner ? 1 : 0);
 
@@ -149,11 +241,17 @@ export async function searchMercadoLivreAction(
                 category_id: winner?.category_id || p.category_id || "",
                 seller_nickname: reputationData?.nickname || "N/A",
 
-                // 👇 agora, do item (com fallback), não do user
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
 
-                offerCount: offerCount,
+                // 🔹 NOVOS CAMPOS
+                seller_state: sellerAddress.state_name,
+                seller_state_id: sellerAddress.state_id,
+                seller_city: sellerAddress.city_name,
+                seller_city_id: sellerAddress.city_id,
+
+                offerCount,
+                visits_30d,
 
                 reputation: reputationData && {
                   level_id: reputationData.level_id ?? null,

@@ -49,6 +49,10 @@ interface ProductResult {
             delayed_rate: number;
         }
     }
+    seller_state?: string | null;
+    seller_state_id?: string | null;
+    seller_city?: string | null;
+    seller_city_id?: string | null;
 }
 
 const initialSearchState = {
@@ -343,13 +347,26 @@ export default function BuscarMercadoLivrePage() {
                                                     <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
                                                     <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
                                                     <div className="text-xs text-muted-foreground mt-1">
-                                                        Vendedor: 
+                                                        Vendedor:
                                                         {product.seller_nickname ? (
-                                                            <Link href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`} target="_blank" className="text-blue-600 hover:underline ml-1">
-                                                                {product.seller_nickname}
+                                                            <Link
+                                                            href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
+                                                            target="_blank"
+                                                            className="text-blue-600 hover:underline ml-1"
+                                                            >
+                                                            {product.seller_nickname}
                                                             </Link>
-                                                        ) : ''}
+                                                        ) : null}
                                                     </div>
+
+                                                    {(product.seller_city || product.seller_state) && (
+                                                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                                                        {product.seller_city
+                                                          ? `${product.seller_city}${product.seller_state ? " • " : ""}`
+                                                          : ""}
+                                                        {product.seller_state || ""}
+                                                      </div>
+                                                    )}
                                                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
                                                         <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
