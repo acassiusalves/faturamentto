@@ -558,16 +558,16 @@ export async function analyzeFeedAction(prevState: { result: any; error: string 
 export async function findTrendingProductsAction(
   _prevState: any,
   formData: FormData
-): Promise<{ trendingProductNames: string[] | null; error: string | null }> {
+): Promise<{ trendingProducts: any[] | null; error: string | null }> {
   try {
     const productNames = JSON.parse(formData.get('productNames') as string) as string[];
     if (!productNames || productNames.length === 0) {
-      return { trendingProductNames: [], error: null };
+      return { trendingProducts: [], error: null };
     }
     const result = await findTrendingProducts(productNames);
-    return { trendingProductNames: result.trendingProductNames, error: null };
+    return { trendingProducts: result.trendingProducts, error: null };
   } catch (e: any) {
-    return { trendingProductNames: null, error: e.message || "Falha ao verificar tendências." };
+    return { trendingProducts: null, error: e.message || "Falha ao verificar tendências." };
   }
 }
 export { findTrendingProductsAction as findTrendingProducts };

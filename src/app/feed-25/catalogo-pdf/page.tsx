@@ -23,6 +23,7 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { searchMercadoLivreAction } from '@/app/actions';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 if (typeof window !== "undefined") {
@@ -52,7 +53,8 @@ export interface SearchableProduct extends CatalogProduct {
     isSearching?: boolean;
     searchError?: string;
     foundProducts?: any[];
-    isTrending?: boolean; // Novo campo
+    isTrending?: boolean;
+    matchedKeywords?: string[];
 }
 
 
@@ -70,7 +72,7 @@ export default function CatalogoPdfPage() {
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
-    const [trendingState, trendingAction] = useActionState(findTrendingProductsAction, { trendingProductNames: null, error: null });
+    const [trendingState, trendingAction] = useActionState(findTrendingProductsAction, { trendingProducts: null, error: null });
     
     // State for search dialog
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
@@ -89,9 +91,6 @@ export default function CatalogoPdfPage() {
     // Pagination state for grouped results
     const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
-
-    const [trendingProductNames, setTrendingProductNames] = useState<Set<string>>(new Set());
-
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -126,50 +125,30 @@ export default function CatalogoPdfPage() {
       }
     }, [pdfDoc, formAction, startAnalyzeTransition, toast, brand]);
 
-
     useEffect(() => {
-        if (state.error) {
-            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-            setIsAnalyzingAll(false);
-            return;
-        }
-
-        if (state.result && state.result.products.length > 0) {
-            const newProducts = state.result.products.map(p => ({
-              ...p,
-              refinedQuery: buildSearchQuery({
-                name: p.name,
-                description: p.description,
-                model: p.model,
-                brand: p.brand || brand,
-              }),
-            }));
-
-            setAllProducts(prev => [...prev, ...newProducts]);
-
-            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-                setCurrentPage(p => p + 1);
-            } else {
-                 setIsAnalyzingAll(false);
-            }
-        } else if (state.result) {
-            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-                setCurrentPage(p => p + 1);
-            } else {
-                setIsAnalyzingAll(false);
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state, brand, toast]);
-    
-    useEffect(() => {
-        if (trendingState.trendingProductNames) {
-            setTrendingProductNames(new Set(trendingState.trendingProductNames));
-        }
-        if(trendingState.error) {
-            console.error("Erro ao buscar tendências:", trendingState.error);
-        }
-    }, [trendingState]);
+      if (trendingState.trendingProducts) {
+        const trendingMap = new Map<string, string[]>();
+        trendingState.trendingProducts.forEach(p => {
+          trendingMap.set(p.productName, p.matchedKeywords);
+        });
+        
+        setAllProducts(prevProducts => 
+          prevProducts.map(p => ({
+            ...p,
+            isTrending: trendingMap.has(p.name),
+            matchedKeywords: trendingMap.get(p.name) || [],
+          }))
+        );
+      }
+      if (trendingState.error) {
+        console.error("Erro ao buscar tendências:", trendingState.error);
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao Verificar Tendências',
+          description: trendingState.error
+        });
+      }
+    }, [trendingState, toast]);
 
     useEffect(() => {
         if (isAnalyzingAll && !isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
@@ -181,6 +160,39 @@ export default function CatalogoPdfPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPage, isAnalyzingAll, isAnalyzingPending]);
 
+    useEffect(() => {
+      if (state.error) {
+        toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+        setIsAnalyzingAll(false);
+        return;
+      }
+    
+      if (state.result && state.result.products.length > 0) {
+        const newProducts = state.result.products.map(p => ({
+          ...p,
+          refinedQuery: buildSearchQuery({
+            name: p.name,
+            description: p.description,
+            model: p.model,
+            brand: p.brand || brand,
+          }),
+        }));
+    
+        setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
+    
+        if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+          setCurrentPage(p => p + 1);
+        } else {
+          setIsAnalyzingAll(false);
+        }
+      } else if (state.result) { // Page was analyzed but no products found
+        if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+          setCurrentPage(p => p + 1);
+        } else {
+          setIsAnalyzingAll(false);
+        }
+      }
+    }, [state, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
@@ -191,7 +203,6 @@ export default function CatalogoPdfPage() {
             setCurrentPage(1);
             setPdfDoc(null);
             setIsAnalyzingAll(false);
-            setTrendingProductNames(new Set());
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
                 const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
@@ -211,7 +222,6 @@ export default function CatalogoPdfPage() {
         if (!isAnalyzingPending) {
             setCurrentPage(1);
             setAllProducts([]);
-            setTrendingProductNames(new Set());
             setIsAnalyzingAll(true);
         }
     };
@@ -456,7 +466,7 @@ export default function CatalogoPdfPage() {
                                     {paginatedProducts.map((product, index) => {
                                         const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
-                                        const isTrending = trendingProductNames.has(product.name);
+                                        const trendingKeywords = product.matchedKeywords || [];
 
                                         return (
                                              <React.Fragment key={index}>
@@ -467,10 +477,22 @@ export default function CatalogoPdfPage() {
                                                           <p className="font-semibold">{product.name}</p>
                                                           <p className="text-xs text-muted-foreground">{product.description}</p>
                                                         </div>
-                                                        {isTrending && (
-                                                            <div className="flex items-center gap-2 text-green-600 font-semibold text-sm whitespace-nowrap">
-                                                                em alta <TrendingUp className="h-5 w-5" />
-                                                            </div>
+                                                        {product.isTrending && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger>
+                                                                        <div className="flex items-center gap-2 text-green-600 font-semibold text-sm whitespace-nowrap cursor-pointer">
+                                                                            em alta <TrendingUp className="h-5 w-5" />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p className="font-semibold">Buscas no Mercado Livre</p>
+                                                                        <ul className="list-disc list-inside">
+                                                                            {trendingKeywords.map(kw => <li key={kw}>{kw}</li>)}
+                                                                        </ul>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
                                                         )}
                                                       </div>
                                                     </TableCell>
