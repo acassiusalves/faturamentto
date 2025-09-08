@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, Home, ShoppingCart } from 'lucide-react';
+import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles } from 'lucide-react';
 import type { MLCategory } from '@/lib/ml';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Progress } from '@/components/ui/progress';
 
 
 // Interface para os itens mais vendidos
@@ -19,6 +21,12 @@ interface BestSellerItem {
   price: number;
   thumbnail: string | null;
   permalink: string | null;
+}
+
+interface AutomatedResult {
+    category: MLCategory;
+    trends: { keyword: string }[];
+    bestsellers: BestSellerItem[];
 }
 
 
@@ -33,6 +41,12 @@ export default function BuscarCategoriaMercadoLivrePage() {
   const [isLoadingTrends, setIsLoadingTrends] = useState(false);
   const [bestSellers, setBestSellers] = useState<BestSellerItem[]>([]);
   const [isLoadingBestSellers, setIsLoadingBestSellers] = useState(false);
+  
+  // State for automation
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automationProgress, setAutomationProgress] = useState(0);
+  const [automationResults, setAutomationResults] = useState<AutomatedResult[]>([]);
+  const [currentAutomationTask, setCurrentAutomationTask] = useState("");
 
 
   async function fetchRootCategories() {
@@ -41,6 +55,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setChildCats([]);
     setAncestors([]);
     setSelectedCat(null);
+    setAutomationResults([]);
     try {
       const response = await fetch('/api/ml/categories');
       const text = await response.text(); 
@@ -61,10 +76,30 @@ export default function BuscarCategoriaMercadoLivrePage() {
       setIsLoading(false);
     }
   }
+  
+  async function fetchCategoryData(catId: string): Promise<{ trends: { keyword: string }[], bestsellers: BestSellerItem[] }> {
+    const [trendsResponse, bestsellersResponse] = await Promise.all([
+        fetch(`/api/ml/trends?category=${catId}&climb=1`),
+        fetch(`/api/ml/bestsellers?category=${catId}&limit=24`)
+    ]);
+
+    const trendsData = await trendsResponse.json();
+    const bestsellersData = await bestsellersResponse.json();
+
+    if (!trendsResponse.ok) console.error(`Erro trends para ${catId}:`, trendsData.error);
+    if (!bestsellersResponse.ok) console.error(`Erro bestsellers para ${catId}:`, bestsellersData.error);
+
+    return {
+        trends: trendsData.trends || [],
+        bestsellers: bestsellersData.items || []
+    };
+}
+
 
   async function loadChildren(catId: string) {
     setIsLoading(true);
     setLastError(null);
+    setAutomationResults([]);
     try {
       const response = await fetch(`/api/ml/categories?parent=${catId}`);
       const data = await response.json();
@@ -72,43 +107,44 @@ export default function BuscarCategoriaMercadoLivrePage() {
       setSelectedCat(catId);
       setChildCats(data.categories || []);
       setAncestors(data.ancestors || []);
+      
+      const { trends, bestsellers } = await fetchCategoryData(catId);
+      setTrends(trends);
+      setBestSellers(bestsellers);
+
     } catch (error: any) {
       console.error(`Failed to load children for ${catId}:`, error);
       setLastError(error?.message || 'Erro ao carregar subcategorias.');
     } finally {
       setIsLoading(false);
     }
-
-    // carrega tendências em paralelo (com "climb" = 1 para fallback no pai)
-    setIsLoadingTrends(true);
-    try {
-      const r = await fetch(`/api/ml/trends?category=${catId}&climb=1`);
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-      setTrends(j.trends || []);
-    } catch (e: any) {
-      console.error('Erro trends:', e);
-      setTrends([]);
-    } finally {
-      setIsLoadingTrends(false);
-    }
-
-    // Carrega os mais vendidos
-    setIsLoadingBestSellers(true);
-    try {
-        const r = await fetch(`/api/ml/bestsellers?category=${catId}&limit=24`);
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-        const items: BestSellerItem[] = Array.isArray(j) ? j : (j.items || []);
-        setBestSellers(items);
-    } catch (e: any) {
-        console.error('Erro bestsellers:', e);
-        setBestSellers([]);
-    } finally {
-        setIsLoadingBestSellers(false);
-    }
-
   }
+  
+   const runAutomation = async () => {
+    if (!childCats.length) return;
+    setIsAutomating(true);
+    setAutomationResults([]);
+    setAutomationProgress(0);
+
+    for (let i = 0; i < childCats.length; i++) {
+        const subCat = childCats[i];
+        setCurrentAutomationTask(`Analisando: ${subCat.name}`);
+        const { trends, bestsellers } = await fetchCategoryData(subCat.id);
+        
+        setAutomationResults(prev => [...prev, {
+            category: subCat,
+            trends,
+            bestsellers
+        }]);
+
+        setAutomationProgress(((i + 1) / childCats.length) * 100);
+        await new Promise(res => setTimeout(res, 300)); // Small delay to avoid API rate limits
+    }
+
+    setCurrentAutomationTask("Análise concluída!");
+    setIsAutomating(false);
+  };
+
 
   const handleReset = () => {
     setRootCats([]);
@@ -118,6 +154,9 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setLastError(null);
     setTrends([]);
     setBestSellers([]);
+    setAutomationResults([]);
+    setIsAutomating(false);
+    setAutomationProgress(0);
   };
 
   return (
@@ -187,8 +226,22 @@ export default function BuscarCategoriaMercadoLivrePage() {
                       </React.Fragment>
                     ))}
                   </div>
-                  <CardTitle className="text-base">Subcategorias</CardTitle>
-                  <CardDescription>Refine ainda mais sua busca.</CardDescription>
+                   <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="text-base">Subcategorias</CardTitle>
+                        <CardDescription>Refine sua busca ou analise todas abaixo.</CardDescription>
+                    </div>
+                     <Button onClick={runAutomation} disabled={isAutomating || childCats.length === 0}>
+                        {isAutomating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                        Analisar Subcategorias
+                    </Button>
+                  </div>
+                   {isAutomating && (
+                        <div className="pt-4 space-y-2">
+                            <Progress value={automationProgress} />
+                            <p className="text-xs text-center text-muted-foreground">{currentAutomationTask}</p>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   {isLoading && childCats.length === 0 ? (
@@ -209,8 +262,8 @@ export default function BuscarCategoriaMercadoLivrePage() {
 
               <Card>
                 <CardHeader className="py-3">
-                  <CardTitle className="text-base">Tendências desta categoria</CardTitle>
-                  <CardDescription>Palavras mais buscadas pelos compradores</CardDescription>
+                  <CardTitle className="text-base">Tendências da Categoria Principal</CardTitle>
+                  <CardDescription>Palavras mais buscadas em "{ancestors[ancestors.length - 1]?.name}"</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   {isLoadingTrends ? (
@@ -242,9 +295,9 @@ export default function BuscarCategoriaMercadoLivrePage() {
              <Card>
                 <CardHeader className="py-4">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <ShoppingCart /> Mais Vendidos na Categoria
+                    <ShoppingCart /> Mais Vendidos na Categoria Principal
                   </CardTitle>
-                  <CardDescription>Produtos populares nesta categoria para inspiração.</CardDescription>
+                  <CardDescription>Produtos populares em "{ancestors[ancestors.length - 1]?.name}" para inspiração.</CardDescription>
                 </CardHeader>
                 <CardContent>
                    {isLoadingBestSellers ? (
@@ -254,24 +307,20 @@ export default function BuscarCategoriaMercadoLivrePage() {
                     ) : bestSellers.length > 0 ? (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                         {bestSellers.map(item => {
-                          const thumb = item.thumbnail ? item.thumbnail.replace('-I.jpg', '-O.jpg') : null;
-                          const href  = item.permalink ?? `https://produto.mercadolivre.com.br/${item.id.replace('MLB', 'MLB-')}`;
-
                           const cardInner = (
                             <>
                               <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                                {thumb ? (
+                                {item.thumbnail ? (
                                   <Image
-                                    src={thumb}
+                                    src={item.thumbnail}
                                     alt={item.title}
                                     fill
                                     sizes="64px"
                                     className="object-contain"
+                                    data-ai-hint="product image"
                                   />
                                 ) : (
-                                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
-                                    sem foto
-                                  </div>
+                                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">sem foto</div>
                                 )}
                               </div>
 
@@ -288,15 +337,23 @@ export default function BuscarCategoriaMercadoLivrePage() {
                             </>
                           );
 
-                          return (
+                          return item.permalink ? (
                             <Link
-                              href={href}
+                              href={item.permalink}
                               key={item.id}
                               target="_blank"
                               className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                             >
                               {cardInner}
                             </Link>
+                          ) : (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-4 p-2 rounded-lg border bg-card"
+                              title="Sem link disponível"
+                            >
+                              {cardInner}
+                            </div>
                           );
                         })}
                       </div>
@@ -309,6 +366,59 @@ export default function BuscarCategoriaMercadoLivrePage() {
              </Card>
         </div>
       )}
+
+        {automationResults.length > 0 && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-2xl font-headline flex items-center gap-3">
+                        <Sparkles className="text-primary"/>
+                        Análise Automatizada de Subcategorias
+                    </CardTitle>
+                    <CardDescription>
+                        Resultados da busca por tendências e mais vendidos em todas as subcategorias de "{ancestors[ancestors.length - 1]?.name}".
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Accordion type="multiple" className="w-full space-y-4">
+                        {automationResults.map(({ category, trends, bestsellers }) => (
+                            <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                                <Card>
+                                     <AccordionTrigger className="p-4 hover:no-underline font-semibold text-lg w-full justify-between">
+                                        {category.name}
+                                        <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+                                            <span>{trends.length} tendências</span>
+                                            <span>{bestsellers.length} mais vendidos</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 pt-0">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div>
+                                                <h4 className="font-semibold mb-2 flex items-center gap-2"><TrendingUp/> Tendências</h4>
+                                                <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[50px]">
+                                                    {trends.length > 0 ? trends.map(t => <Badge key={t.keyword} variant="secondary">{t.keyword}</Badge>) : <p className="text-xs text-muted-foreground">Nenhuma tendência encontrada.</p>}
+                                                </div>
+                                            </div>
+                                             <div>
+                                                <h4 className="font-semibold mb-2 flex items-center gap-2"><ShoppingCart/> Mais Vendidos</h4>
+                                                <div className="space-y-2 p-2 border rounded-md max-h-80 overflow-y-auto">
+                                                    {bestsellers.length > 0 ? bestsellers.map(item => (
+                                                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                                                            <span className="font-bold w-6 text-right">#{item.position}</span>
+                                                            <p className="flex-1 truncate" title={item.title}>{item.title}</p>
+                                                            <span className="font-semibold text-primary">{formatCurrency(item.price)}</span>
+                                                        </div>
+                                                    )) : <p className="text-xs text-muted-foreground">Nenhum item encontrado.</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AccordionContent>
+                                </Card>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </CardContent>
+            </Card>
+        )}
     </main>
   );
 }
