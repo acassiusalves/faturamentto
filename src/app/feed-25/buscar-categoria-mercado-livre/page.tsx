@@ -14,11 +14,11 @@ import { formatCurrency, cn } from '@/lib/utils';
 // Interface para os itens mais vendidos
 interface BestSellerItem {
   id: string;
-  type: string;
-  position: number;
-  thumbnail: string;
+  position: number | null;
   title: string;
   price: number;
+  thumbnail: string | null;
+  permalink: string | null;
 }
 
 
@@ -96,10 +96,11 @@ export default function BuscarCategoriaMercadoLivrePage() {
     // Carrega os mais vendidos
     setIsLoadingBestSellers(true);
     try {
-        const r = await fetch(`/api/ml/bestsellers?category=${catId}`);
+        const r = await fetch(`/api/ml/bestsellers?category=${catId}&limit=24`);
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-        setBestSellers(j || []);
+        const items: BestSellerItem[] = Array.isArray(j) ? j : (j.items || []);
+        setBestSellers(items);
     } catch (e: any) {
         console.error('Erro bestsellers:', e);
         setBestSellers([]);
@@ -252,27 +253,52 @@ export default function BuscarCategoriaMercadoLivrePage() {
                       </div>
                     ) : bestSellers.length > 0 ? (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                        {bestSellers.map(item => (
-                          <Link href={`https://produto.mercadolivre.com.br/${item.id.replace('MLB', 'MLB-')}`} key={item.id} target="_blank" className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                        {bestSellers.map(item => {
+                          const thumb = item.thumbnail ? item.thumbnail.replace('-I.jpg', '-O.jpg') : null;
+                          const href  = item.permalink ?? `https://produto.mercadolivre.com.br/${item.id.replace('MLB', 'MLB-')}`;
+
+                          const cardInner = (
+                            <>
                               <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
-                                  <Image 
-                                      src={item.thumbnail.replace('-I.jpg', '-O.jpg')}
-                                      alt={item.title}
-                                      fill
-                                      sizes="64px"
-                                      className="object-contain"
-                                      data-ai-hint="product image"
+                                {thumb ? (
+                                  <Image
+                                    src={thumb}
+                                    alt={item.title}
+                                    fill
+                                    sizes="64px"
+                                    className="object-contain"
                                   />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+                                    sem foto
+                                  </div>
+                                )}
                               </div>
-                               <div className="flex-grow min-w-0">
-                                <p className="font-semibold text-sm leading-tight line-clamp-2" title={item.title}>{item.title}</p>
-                                <Badge variant="outline" className="mt-1">#{item.position}</Badge>
-                            </div>
-                            <div className="font-bold text-primary text-lg">
+
+                              <div className="flex-grow min-w-0">
+                                <p className="font-semibold text-sm leading-tight line-clamp-2" title={item.title}>
+                                  {item.title}
+                                </p>
+                                {item.position != null && <Badge variant="outline" className="mt-1">#{item.position}</Badge>}
+                              </div>
+
+                              <div className="font-bold text-primary text-lg">
                                 {formatCurrency(item.price)}
-                            </div>
-                          </Link>
-                        ))}
+                              </div>
+                            </>
+                          );
+
+                          return (
+                            <Link
+                              href={href}
+                              key={item.id}
+                              target="_blank"
+                              className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                            >
+                              {cardInner}
+                            </Link>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-10">
