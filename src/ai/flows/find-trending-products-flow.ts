@@ -52,20 +52,24 @@ export async function findTrendingProducts(
     input: { schema: TrendingProductsInputSchema },
     output: { schema: TrendingProductsOutputSchema },
     prompt: `
-      Você é um analista de dados rigoroso. Sua tarefa é comparar uma lista de nomes de produtos com uma lista de palavras-chave de tendências.
+      Você é um analista de e-commerce especialista em interpretar a intenção de busca dos usuários.
+      Sua tarefa é comparar uma lista de nomes de produtos com uma lista de palavras-chave de tendências.
 
-      CRITÉRIO DE CORRESPONDÊNCIA ESTRITO:
-      Um produto está "em alta" SOMENTE SE o substantivo principal que define o tipo do produto estiver presente TANTO no nome do produto QUANTO na palavra-chave da tendência.
+      CRITÉRIO DE CORRESPONDÊNCIA BASEADO NA INTENÇÃO:
+      Um produto está "em alta" SE a palavra-chave da tendência se refere À COMPRA DO PRODUTO PRINCIPAL, e não a um acessório, peça ou consumível para ele.
 
-      Exemplos:
-      - Produto: "Kit Gamer Teclado e Mouse"
-        - Tendência: "mouse gamer" -> CORRESPONDE (ambos têm "mouse").
-        - Tendência: "teclado mecânico" -> CORRESPONDE (ambos têm "teclado").
-      - Produto: "Caixa de som bluetooth"
-        - Tendência: "headset gamer" -> NÃO CORRESPONDE (A palavra "headset" não está no nome do produto. Não associe por serem ambos de áudio).
-        - Tendência: "caixa som jbl" -> CORRESPONDE (ambos têm "caixa" e "som").
-      
-      Seja extremamente literal. Ignore qualquer correlação semântica ou de categoria.
+      Exemplo Prático:
+      - Nome do Produto: "Caixa de som Gamer RGB luz para Smartphone/Notebook/PC 6W"
+      - Tendências de Pesquisa:
+        - "caixa de som multilaser" -> SIM, CORRESPONDE (Busca pelo produto, com uma marca)
+        - "caixa de som para pc" -> SIM, CORRESPONDE (Busca pelo produto, com um uso específico)
+        - "caixa de som de musica" -> SIM, CORRESPONDE (Busca pelo produto)
+        - "caixa de som amplificada" -> SIM, CORRESPONDE (Busca por um tipo do produto)
+        - "fio para caixa de som" -> NÃO, NÃO CORRESPONDE (Busca por um acessório)
+        - "cabo caixa de som" -> NÃO, NÃO CORRESPONDE (Busca por um acessório)
+        - "bateria para caixa de som" -> NÃO, NÃO CORRESPONDE (Busca por uma peça)
+
+      Analise a intenção de cada palavra-chave de tendência em relação a cada produto.
       Retorne APENAS os produtos que você considera estarem em alta, junto com a lista de palavras-chave que corresponderam.
 
       Lista de Produtos para Análise:
@@ -73,7 +77,7 @@ export async function findTrendingProducts(
       - {{{this}}}
       {{/each}}
 
-      Lista de Palavras-chave em Alta:
+      Lista de Palavras-chave em Alta para Comparar:
       {{{json trendKeywords}}}
     `,
   });
@@ -87,3 +91,4 @@ export async function findTrendingProducts(
     return { trendingProducts: [] };
   }
 }
+
