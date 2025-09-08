@@ -69,11 +69,10 @@ export default function CatalogoPdfPage() {
     const [brand, setBrand] = useState('');
     
     const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
-    const [isTrendingPending, startTrendingTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
-    const [trendingState, trendingAction] = useActionState(findTrendingProductsAction, { trendingProducts: null, error: null });
+    const [trendingState, trendingAction, isTrendingActionPending] = useActionState(findTrendingProductsAction, { trendingProducts: null, error: null });
     
     // State for search dialog
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
@@ -150,7 +149,7 @@ export default function CatalogoPdfPage() {
         if (isAnalyzingAll) {
             const nextPage = currentPage + 1;
             if (nextPage <= (pdfDoc?.numPages || 0)) {
-                setTimeout(() => setCurrentPage(nextPage), 2000); // Pausa de 2 segundos
+                setTimeout(() => setCurrentPage(nextPage), 2000);
             } else {
                 setIsAnalyzingAll(false);
             }
@@ -284,13 +283,11 @@ export default function CatalogoPdfPage() {
         }
         
         console.log('🚀 Executando action de tendências...');
-        startTrendingTransition(() => {
-            const trendFormData = new FormData();
-            const productNames = allProducts.map(p => p.name);
-            trendFormData.append('productNames', JSON.stringify(productNames));
-            console.log('📝 Nomes enviados:', productNames);
-            trendingAction(trendFormData);
-        });
+        const trendFormData = new FormData();
+        const productNames = allProducts.map(p => p.name);
+        trendFormData.append('productNames', JSON.stringify(productNames));
+        console.log('📝 Nomes enviados:', productNames);
+        trendingAction(trendFormData);
     };
 
     const isProcessingAny = isParsing || isAnalyzingPending;
@@ -436,8 +433,8 @@ export default function CatalogoPdfPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button onClick={handleCheckTrends} disabled={isTrendingPending} variant="outline">
-                                    {isTrendingPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
+                                <Button onClick={handleCheckTrends} disabled={isTrendingActionPending} variant="outline">
+                                    {isTrendingActionPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
                                     Verificar Tendências
                                 </Button>
                                 <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
