@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useActionState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -69,6 +68,7 @@ export default function CatalogoPdfPage() {
     const [brand, setBrand] = useState('');
     
     const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
+    const [isTrendingPending, startTrendingTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
@@ -283,11 +283,13 @@ export default function CatalogoPdfPage() {
         }
         
         console.log('🚀 Executando action de tendências...');
-        const trendFormData = new FormData();
-        const productNames = allProducts.map(p => p.name);
-        trendFormData.append('productNames', JSON.stringify(productNames));
-        console.log('📝 Nomes enviados:', productNames);
-        trendingAction(trendFormData);
+        startTrendingTransition(() => {
+            const trendFormData = new FormData();
+            const productNames = allProducts.map(p => p.name);
+            trendFormData.append('productNames', JSON.stringify(productNames));
+            console.log('📝 Nomes enviados:', productNames);
+            trendingAction(trendFormData);
+        });
     };
 
     const isProcessingAny = isParsing || isAnalyzingPending;
@@ -433,8 +435,8 @@ export default function CatalogoPdfPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button onClick={handleCheckTrends} disabled={isTrendingActionPending} variant="outline">
-                                    {isTrendingActionPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
+                                <Button onClick={handleCheckTrends} disabled={isTrendingActionPending || isTrendingPending} variant="outline">
+                                    {(isTrendingActionPending || isTrendingPending) ? <Loader2 className="animate-spin" /> : <TrendingUp />}
                                     Verificar Tendências
                                 </Button>
                                 <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
@@ -674,3 +676,5 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
+
+    
