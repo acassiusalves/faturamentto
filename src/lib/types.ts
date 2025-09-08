@@ -539,3 +539,32 @@ export const RefineSearchTermOutputSchema = z.object({
   refinedQuery: z.string().describe('The optimized search term for Mercado Livre, containing only essential keywords.'),
 });
 export type RefineSearchTermOutput = z.infer<typeof RefineSearchTermOutputSchema>;
+
+
+export interface MLCategory {
+  id: string;
+  name: string;
+}
+
+export interface BestSellerItem {
+  id: string;
+  position: number | null;
+  title: string;
+  price: number;
+  thumbnail: string | null;
+  permalink: string | null;
+}
+
+export interface MlAnalysisResult {
+    category: MLCategory;
+    trends: { keyword: string }[];
+    bestsellers: BestSellerItem[];
+}
+
+export interface SavedMlAnalysis {
+  id: string;
+  createdAt: string; // ISO date
+  mainCategoryName: string;
+  mainCategoryId: string;
+  results: MlAnalysisResult[];
+}

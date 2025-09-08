@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -699,4 +699,18 @@ export const loadInitialStockForToday = async (): Promise<number> => {
     const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
     const snapshot = await getCountFromServer(inventoryCol);
     return snapshot.data().count;
+};
+
+// --- ML ANALYSIS ---
+export const saveMlAnalysis = async (analysis: Omit<SavedMlAnalysis, 'id'>): Promise<void> => {
+  const analysisCol = collection(db, 'ml-analysis');
+  const docRef = doc(analysisCol);
+  await setDoc(docRef, toFirestore({ ...analysis, id: docRef.id }));
+};
+
+export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
+  const analysisCol = collection(db, 'ml-analysis');
+  const q = query(analysisCol, orderBy('createdAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as SavedMlAnalysis);
 };

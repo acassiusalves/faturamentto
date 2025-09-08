@@ -5,13 +5,15 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles, Save } from 'lucide-react';
-import type { MLCategory } from '@/lib/ml';
+import type { MLCategory, SavedMlAnalysis, MlAnalysisResult } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Progress } from '@/components/ui/progress';
+import { saveMlAnalysis } from '@/services/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Interface para os itens mais vendidos
@@ -32,6 +34,7 @@ interface AutomatedResult {
 
 
 export default function BuscarCategoriaMercadoLivrePage() {
+  const { toast } = useToast();
   const [rootCats, setRootCats] = useState<MLCategory[]>([]);
   const [childCats, setChildCats] = useState<MLCategory[]>([]);
   const [ancestors, setAncestors] = useState<MLCategory[]>([]);
@@ -45,6 +48,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
   
   // State for automation
   const [isAutomating, setIsAutomating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [automationProgress, setAutomationProgress] = useState(0);
   const [automationResults, setAutomationResults] = useState<AutomatedResult[]>([]);
   const [currentAutomationTask, setCurrentAutomationTask] = useState("");
@@ -178,6 +182,38 @@ export default function BuscarCategoriaMercadoLivrePage() {
     
         return { totalTrends, totalBestsellers };
     }, [automationResults]);
+
+    const handleSaveAnalysis = async () => {
+        if (automationResults.length === 0) {
+            toast({ variant: 'destructive', title: 'Nenhum dado para salvar' });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const mainCategory = automationResults[0].category;
+            const dataToSave: Omit<SavedMlAnalysis, 'id'> = {
+                createdAt: new Date().toISOString(),
+                mainCategoryId: mainCategory.id,
+                mainCategoryName: mainCategory.name,
+                results: automationResults.map(r => ({
+                    category: r.category,
+                    trends: r.trends,
+                    bestsellers: r.bestsellers,
+                })),
+            };
+            await saveMlAnalysis(dataToSave);
+            toast({
+                title: 'Análise Salva!',
+                description: 'Você pode consultar os dados na página de Arquivo -> Dados Mercado Livre.',
+            });
+        } catch (error) {
+            console.error('Failed to save analysis:', error);
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar a análise.' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
 
   const handleReset = () => {
@@ -460,8 +496,8 @@ export default function BuscarCategoriaMercadoLivrePage() {
                     </Accordion>
                 </CardContent>
                 <CardFooter className="justify-end">
-                    <Button>
-                        <Save className="mr-2 h-4 w-4" />
+                    <Button onClick={handleSaveAnalysis} disabled={isSaving}>
+                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Salvar Análise
                     </Button>
                 </CardFooter>
