@@ -126,42 +126,42 @@ export default function BuscarCategoriaMercadoLivrePage() {
 
     setIsAutomating(true);
     setAutomationProgress(0);
-    setAutomationResults([]); // Limpa resultados anteriores
+    setAutomationResults([]);
+    setCurrentAutomationTask("Preparando análise…");
 
-    const mainCategory = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
-    if (!mainCategory) {
-        setIsAutomating(false);
-        return;
-    }
+    // Quem é a "categoria principal"?
+    // Se sua API retorna ancestors como caminho até a categoria atual,
+    // o último item normalmente é a própria categoria selecionada.
+    const mainCategory =
+      ancestors.length > 0
+        ? ancestors[ancestors.length - 1]
+        : childCats.find(c => c.id === selectedCat) ?? { id: selectedCat, name: "Categoria selecionada" } as MLCategory;
 
-    // Adiciona a categoria principal primeiro
-    const mainCategoryData = {
-        category: mainCategory,
-        trends: trends,
-        bestsellers: bestSellers
-    };
-    setAutomationResults([mainCategoryData]);
+    // ⚠️ Busque os dados da categoria principal AGORA (não use o estado)!
+    setCurrentAutomationTask(`Coletando dados: ${mainCategory.name}`);
+    const { trends: mainTrends, bestsellers: mainBestsellers } = await fetchCategoryData(mainCategory.id);
 
+    // Salve a categoria principal como 1º resultado
+    setAutomationResults([{ category: mainCategory, trends: mainTrends, bestsellers: mainBestsellers }]);
+
+    // Agora processe as subcategorias
     const categoriesToProcess = [...childCats];
     const totalSteps = categoriesToProcess.length;
-
     for (let i = 0; i < totalSteps; i++) {
-        const subCat = categoriesToProcess[i];
+      const subCat = categoriesToProcess[i];
+      try {
         setCurrentAutomationTask(`Analisando: ${subCat.name}`);
-        
-        try {
-            const { trends, bestsellers } = await fetchCategoryData(subCat.id);
-            setAutomationResults(prev => [...prev, {
-                category: subCat,
-                trends,
-                bestsellers
-            }]);
-        } catch (error) {
-            console.error(`Falha ao buscar dados para a subcategoria ${subCat.name}:`, error);
-        }
+        const { trends, bestsellers } = await fetchCategoryData(subCat.id);
 
-        setAutomationProgress(((i + 1) / totalSteps) * 100);
-        await new Promise(res => setTimeout(res, 300)); // Small delay to avoid API rate limits
+        setAutomationResults(prev => [...prev, { category: subCat, trends, bestsellers }]);
+      } catch (e) {
+        console.error(`Falha ao buscar dados para ${subCat.name}:`, e);
+        // opcional: ainda assim, acrescente a subcategoria com arrays vazios:
+        setAutomationResults(prev => [...prev, { category: subCat, trends: [], bestsellers: [] }]);
+      }
+
+      setAutomationProgress(((i + 1) / Math.max(totalSteps, 1)) * 100);
+      await new Promise(r => setTimeout(r, 300));
     }
 
     setCurrentAutomationTask("Análise concluída!");
@@ -470,4 +470,3 @@ export default function BuscarCategoriaMercadoLivrePage() {
     </main>
   );
 }
-
