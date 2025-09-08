@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { generateNewAccessToken as getMlToken } from '@/services/mercadolivre';
 
@@ -66,18 +67,6 @@ export async function getCategoryAncestors(categoryId: string) {
   return info.path_from_root ?? [];
 }
 
-export async function getCategoryTrends(categoryId: string): Promise<{ keyword: string }[]> {
-  const res = await fetch(`${ML_API}/trends/MLB/${categoryId}`, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`ML trends error (${categoryId}): ${res.status}`);
-  }
-  // a resposta pode vir como {keyword} | {q} | string — normalizamos aqui mesmo
-  const raw = await res.json();
-  return (raw || [])
-    .map((t: any) => ({ keyword: t?.keyword ?? t?.q ?? String(t ?? '') }))
-    .filter(t => t.keyword);
-}
-
 export async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
     if (!productId) return 0;
     try {
@@ -89,4 +78,51 @@ export async function getCatalogOfferCount(productId: string, accessToken: strin
     } catch {
         return 0;
     }
+}
+
+/** Busca tendências de uma categoria. Tenta sem token; se 403, re-tenta com Bearer.
+ *  Retorna sempre no shape { keyword: string }[]  */
+export async function getCategoryTrends(
+  categoryId: string,
+  limit = 50
+): Promise<{ keyword: string }[]> {
+  const url = `${ML_API}/trends/MLB/${categoryId}?limit=${limit}`;
+
+  // 1ª tentativa: sem token, com User-Agent (via fetchJson)
+  let res = await fetch(url, {
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'YourApp/1.0 (+contato@exemplo.com)',
+    },
+  });
+
+  // 2ª tentativa: se 403, re-tenta com token do ML
+  if (res.status === 403) {
+    try {
+      const token = await getMlToken();
+      res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'YourApp/1.0 (+contato@exemplo.com)',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      // se não conseguir token, deixa cair pro erro abaixo
+    }
+  }
+
+  // Alguns IDs não têm trends -> pode vir 404; trate como lista vazia
+  if (res.status === 404) return [];
+
+  if (!res.ok) {
+    throw new Error(`ML trends error (${categoryId}): ${res.status}`);
+  }
+
+  const raw = await res.json();
+  return (raw || [])
+    .map((t: any) => ({ keyword: t?.keyword ?? t?.q ?? String(t ?? '') }))
+    .filter((t) => t.keyword);
 }

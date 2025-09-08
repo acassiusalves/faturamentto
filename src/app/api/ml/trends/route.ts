@@ -12,19 +12,20 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
     const climb = searchParams.get('climb') === '1';
+    const limit = Number(searchParams.get('limit') ?? 50);
 
     if (!category) {
       return NextResponse.json({ error: 'category é obrigatório' }, { status: 400 });
     }
 
     // 1) tenta na própria categoria
-    let trends = await getCategoryTrends(category);
+    let trends = await getCategoryTrends(category, limit);
 
     // 2) se vazio e climb=1, sobe a árvore até achar algo
     if (climb && trends.length === 0) {
       const ancestors = await getCategoryAncestors(category); // do root ao atual
       for (let i = ancestors.length - 2; i >= 0; i--) {
-        trends = await getCategoryTrends(ancestors[i].id);
+        trends = await getCategoryTrends(ancestors[i].id, limit);
         if (trends.length > 0) break;
       }
     }
