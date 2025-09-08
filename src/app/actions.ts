@@ -560,14 +560,26 @@ export async function findTrendingProductsAction(
   formData: FormData
 ): Promise<{ trendingProducts: any[] | null; error: string | null }> {
   try {
-    const productNames = JSON.parse(formData.get('productNames') as string);
+    console.log('🎯 Action findTrendingProductsAction executada');
+    
+    const productNamesStr = formData.get('productNames') as string;
+    console.log('📥 Dados recebidos (raw):', productNamesStr);
+    
+    const productNames = JSON.parse(productNamesStr);
+    console.log('📋 Nomes de produtos parseados:', productNames);
+    
     if (!Array.isArray(productNames) || productNames.length === 0) {
+      console.log('❌ Array de produtos inválido ou vazio');
       return { trendingProducts: [], error: 'Nenhum nome de produto fornecido.' };
     }
+    
+    console.log('🔄 Chamando findTrendingProducts...');
     const result = await findTrendingProducts(productNames);
+    console.log('✅ Resultado da busca de tendências:', result);
+    
     return { trendingProducts: result.trendingProducts, error: null };
   } catch (e: any) {
-    console.error("Error in findTrendingProductsAction:", e);
+    console.error("❌ Erro em findTrendingProductsAction:", e);
     return { trendingProducts: null, error: e.message || "Falha ao verificar tendências." };
   }
 }

@@ -100,14 +100,31 @@ function matches(productName: string, trend: string): boolean {
 }
 
 export async function findTrendingProducts(productNames: string[]): Promise<TrendingProductsOutput> {
+  console.log('🏭 Flow findTrendingProducts iniciado');
+  console.log('📦 Produtos recebidos:', productNames);
+  
   const trendKeywords = await loadAllTrendKeywords();
-  if (!trendKeywords?.length || !productNames?.length) return { trendingProducts: [] };
+  console.log('🔑 Tendências carregadas:', trendKeywords);
+  
+  if (!trendKeywords?.length || !productNames?.length) {
+    console.log('❌ Sem tendências ou produtos:', { trendKeywords: trendKeywords?.length, productNames: productNames?.length });
+    return { trendingProducts: [] };
+  }
 
   const out: TrendingProductsOutput['trendingProducts'] = [];
   for (const name of productNames) {
     const hits: string[] = [];
-    for (const kw of trendKeywords) if (matches(name, kw)) hits.push(kw);
-    if (hits.length) out.push({ productName: name, matchedKeywords: hits });
+    for (const kw of trendKeywords) {
+      if (matches(name, kw)) {
+        hits.push(kw);
+        console.log(`✅ Match encontrado: "${name}" <-> "${kw}"`);
+      }
+    }
+    if (hits.length) {
+      out.push({ productName: name, matchedKeywords: hits });
+    }
   }
+  
+  console.log('🎯 Resultado final do flow:', out);
   return { trendingProducts: out };
 }

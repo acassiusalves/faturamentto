@@ -270,7 +270,11 @@ export default function CatalogoPdfPage() {
     };
 
     const handleCheckTrends = () => {
+        console.log('🔍 Iniciando verificação de tendências...');
+        console.log('📦 Produtos para análise:', allProducts.map(p => p.name));
+        
         if (allProducts.length === 0) {
+            console.log('❌ Nenhum produto encontrado');
             toast({
                 variant: 'destructive',
                 title: 'Nenhum produto extraído',
@@ -278,9 +282,13 @@ export default function CatalogoPdfPage() {
             });
             return;
         }
+        
+        console.log('🚀 Executando action de tendências...');
         startTrendingTransition(() => {
             const trendFormData = new FormData();
-            trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
+            const productNames = allProducts.map(p => p.name);
+            trendFormData.append('productNames', JSON.stringify(productNames));
+            console.log('📝 Nomes enviados:', productNames);
             trendingAction(trendFormData);
         });
     };
