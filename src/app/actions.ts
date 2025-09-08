@@ -142,6 +142,38 @@ async function fetchItemsSellerAddresses(
   return out;
 }
 
+// Fallback: pega endereço do vendedor via /users/{seller_id}
+async function fetchUsersAddress(
+  sellerIds: number[],
+  token: string
+): Promise<Record<number, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }>> {
+  const out: Record<number, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }> = {};
+  const uniq = Array.from(new Set(sellerIds)).filter(Boolean);
+  if (!uniq.length) return out;
+
+  const CONCURRENCY = 8;
+  for (let i = 0; i < uniq.length; i += CONCURRENCY) {
+    const batch = uniq.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      batch.map(async (sid) => {
+        const r = await fetch(`https://api.mercadolibre.com/users/${sid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        const a = j?.address ?? {};
+        out[sid] = {
+          state_id: a?.state?.id ?? null,
+          state_name: a?.state?.name ?? null,
+          city_id: a?.city?.id ?? null,
+          city_name: a?.city?.name ?? null,
+        };
+      })
+    );
+  }
+  return out;
+}
 
 
 // Server Actions
@@ -198,8 +230,15 @@ export async function searchMercadoLivreAction(
       .map(w => w?.id)
       .filter(Boolean) as string[];
 
-    // ENDEREÇOS em lote (estado/cidade) para cada winner item
     const sellerAddrByItemId = await fetchItemsSellerAddresses(winnerItemIds, accessToken);
+
+    const sellerIdsNeedingFallback = Array.from(winnerByCat.values())
+      .filter(w => w?.id && !sellerAddrByItemId[w.id])
+      .map(w => w.seller_id)
+      .filter(Boolean) as number[];
+
+    const userAddrBySellerId = await fetchUsersAddress(sellerIdsNeedingFallback, accessToken);
+
 
     const visitsByItem = await fetchItemsVisits(winnerItemIds, accessToken, 30);
 
@@ -220,9 +259,9 @@ export async function searchMercadoLivreAction(
               officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
             }
 
-            // 🔹 ENDEREÇO via batch map
             const sellerAddress =
               (winner?.id && sellerAddrByItemId[winner.id]) ||
+              (winner?.seller_id && userAddrBySellerId[winner.seller_id]) ||
               { state_id: null, state_name: null, city_id: null, city_name: null };
 
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
@@ -547,4 +586,3 @@ async function analyzeFeedAction(prevState: { result: any; error: string | null;
     
 
     
-
