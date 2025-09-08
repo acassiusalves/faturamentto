@@ -126,19 +126,21 @@ export default function BuscarCategoriaMercadoLivrePage() {
 
     setIsAutomating(true);
     setAutomationProgress(0);
+    setAutomationResults([]); // Limpa resultados anteriores
 
-    const mainCategory = ancestors[ancestors.length - 1];
+    const mainCategory = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
     if (!mainCategory) {
         setIsAutomating(false);
         return;
     }
 
-    // Initialize results with the main category's data which is already loaded
-    setAutomationResults([{
+    // Adiciona a categoria principal primeiro
+    const mainCategoryData = {
         category: mainCategory,
         trends: trends,
         bestsellers: bestSellers
-    }]);
+    };
+    setAutomationResults([mainCategoryData]);
 
     const categoriesToProcess = [...childCats];
     const totalSteps = categoriesToProcess.length;
@@ -167,7 +169,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
   };
   
     const automationTotals = useMemo(() => {
-        if (automationResults.length <= 1 && childCats.length > 0) {
+        if (automationResults.length === 0) {
             return { totalTrends: 0, totalBestsellers: 0 };
         }
     
@@ -175,7 +177,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
         const totalBestsellers = automationResults.reduce((acc, result) => acc + (result.bestsellers?.length || 0), 0);
     
         return { totalTrends, totalBestsellers };
-    }, [automationResults, childCats]);
+    }, [automationResults]);
 
 
   const handleReset = () => {
