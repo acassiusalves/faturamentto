@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles } from 'lucide-react';
+import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles, Save } from 'lucide-react';
 import type { MLCategory } from '@/lib/ml';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -166,15 +167,15 @@ export default function BuscarCategoriaMercadoLivrePage() {
   };
   
     const automationTotals = useMemo(() => {
-        if (!automationResults.length) {
+        if (automationResults.length <= 1 && childCats.length > 0) {
             return { totalTrends: 0, totalBestsellers: 0 };
         }
-
-        const totalTrends = automationResults.reduce((acc, result) => acc + result.trends.length, 0);
-        const totalBestsellers = automationResults.reduce((acc, result) => acc + result.bestsellers.length, 0);
-
+    
+        const totalTrends = automationResults.reduce((acc, result) => acc + (result.trends?.length || 0), 0);
+        const totalBestsellers = automationResults.reduce((acc, result) => acc + (result.bestsellers?.length || 0), 0);
+    
         return { totalTrends, totalBestsellers };
-    }, [automationResults]);
+    }, [automationResults, childCats]);
 
 
   const handleReset = () => {
@@ -262,7 +263,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         <CardTitle className="text-base">Subcategorias</CardTitle>
                         <CardDescription>Refine sua busca ou analise todas abaixo.</CardDescription>
                     </div>
-                     <Button onClick={runAutomation} disabled={isAutomating}>
+                     <Button onClick={runAutomation} disabled={isAutomating || childCats.length === 0}>
                         {isAutomating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                         Analisar Subcategorias
                     </Button>
@@ -456,8 +457,15 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         ))}
                     </Accordion>
                 </CardContent>
+                <CardFooter className="justify-end">
+                    <Button>
+                        <Save className="mr-2 h-4 w-4" />
+                        Salvar Análise
+                    </Button>
+                </CardFooter>
             </Card>
         )}
     </main>
   );
 }
+
