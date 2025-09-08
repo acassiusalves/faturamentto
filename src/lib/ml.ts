@@ -67,17 +67,43 @@ export async function getCategoryAncestors(categoryId: string) {
   return info.path_from_root ?? [];
 }
 
-export async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
-    if (!productId) return 0;
-    try {
-        const url = `https://api.mercadolibre.com/products/${productId}/items?limit=0`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
-        if (!res.ok) return 0;
-        const data = await res.json();
-        return data?.paging?.total || 0;
-    } catch {
-        return 0;
+export async function getCatalogOfferCount(
+  productId: string,
+  accessToken?: string
+): Promise<number> {
+  if (!productId) return 0;
+  const base = `https://api.mercadolibre.com/products/${productId}/items?limit=1`;
+
+  async function hit(url: string, withToken: boolean) {
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'User-Agent': 'YourApp/1.0 (+contato@exemplo.com)',
+    };
+    if (withToken && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    return fetch(url, { headers, cache: 'no-store' });
+  }
+
+  try {
+    // 1ª tentativa: sem token
+    let res = await hit(base, false);
+
+    // 2ª tentativa: com token se 403/401
+    if (res.status === 403 || res.status === 401) {
+      res = await hit(base, true);
     }
+    if (!res.ok) {
+      // logar para depurar, mas devolver 0 para não quebrar UI
+      console.warn(`offerCount ${productId}: HTTP ${res.status}`);
+      return 0;
+    }
+
+    const data = await res.json();
+    const total = data?.paging?.total ?? (Array.isArray(data?.results) ? data.results.length : 0);
+    return Number.isFinite(total) ? total : 0;
+  } catch (e) {
+    console.warn(`offerCount ${productId} error:`, e);
+    return 0;
+  }
 }
 
 /** Busca tendências de uma categoria. Tenta sem token; se 403, re-tenta com Bearer.

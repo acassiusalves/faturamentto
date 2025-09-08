@@ -130,6 +130,9 @@ export async function searchMercadoLivreAction(
             }
 
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
+            
+            const counted = await getCatalogOfferCount(p.id, accessToken);
+            const offerCount = counted > 0 ? counted : (winner ? 1 : 0);
 
             return {
                 id: p.id,
@@ -150,7 +153,7 @@ export async function searchMercadoLivreAction(
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
 
-                offerCount: await getCatalogOfferCount(p.id, accessToken),
+                offerCount: offerCount,
 
                 reputation: reputationData && {
                   level_id: reputationData.level_id ?? null,

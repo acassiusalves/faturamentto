@@ -335,7 +335,7 @@ export default function BuscarMercadoLivrePage() {
                                                     </div>
                                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
-                                                        <span><b>{product.offerCount}</b> ofertas neste catálogo</span>
+                                                        <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas neste catálogo</span>
                                                     </div>
                                                     {product.is_official_store && (
                                                         <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
