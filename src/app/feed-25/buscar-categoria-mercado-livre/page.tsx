@@ -24,6 +24,7 @@ interface BestSellerItem {
   price: number;
   thumbnail: string | null;
   permalink: string | null;
+  model?: string;
 }
 
 interface AutomatedResult {
@@ -133,22 +134,16 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setAutomationResults([]);
     setCurrentAutomationTask("Preparando análise…");
 
-    // Quem é a "categoria principal"?
-    // Se sua API retorna ancestors como caminho até a categoria atual,
-    // o último item normalmente é a própria categoria selecionada.
     const mainCategory =
       ancestors.length > 0
         ? ancestors[ancestors.length - 1]
         : childCats.find(c => c.id === selectedCat) ?? { id: selectedCat, name: "Categoria selecionada" } as MLCategory;
 
-    // ⚠️ Busque os dados da categoria principal AGORA (não use o estado)!
     setCurrentAutomationTask(`Coletando dados: ${mainCategory.name}`);
     const { trends: mainTrends, bestsellers: mainBestsellers } = await fetchCategoryData(mainCategory.id);
 
-    // Salve a categoria principal como 1º resultado
     setAutomationResults([{ category: mainCategory, trends: mainTrends, bestsellers: mainBestsellers }]);
 
-    // Agora processe as subcategorias
     const categoriesToProcess = [...childCats];
     const totalSteps = categoriesToProcess.length;
     for (let i = 0; i < totalSteps; i++) {
@@ -160,7 +155,6 @@ export default function BuscarCategoriaMercadoLivrePage() {
         setAutomationResults(prev => [...prev, { category: subCat, trends, bestsellers }]);
       } catch (e) {
         console.error(`Falha ao buscar dados para ${subCat.name}:`, e);
-        // opcional: ainda assim, acrescente a subcategoria com arrays vazios:
         setAutomationResults(prev => [...prev, { category: subCat, trends: [], bestsellers: [] }]);
       }
 
@@ -392,6 +386,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                                 <p className="font-semibold text-sm leading-tight line-clamp-2" title={item.title}>
                                   {item.title}
                                 </p>
+                                {item.model && <p className="text-xs text-muted-foreground mt-1">Modelo: {item.model}</p>}
                                 {item.position != null && <Badge variant="outline" className="mt-1">#{item.position}</Badge>}
                               </div>
 

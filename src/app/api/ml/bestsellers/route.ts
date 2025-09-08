@@ -43,7 +43,7 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
   // --- ITEM: /items?ids=... (em lote)
   if (items.length) {
     const CHUNK = 20;
-    const ATTRS = "id,title,price,secure_thumbnail,thumbnail,permalink,pictures";
+    const ATTRS = "id,title,price,secure_thumbnail,thumbnail,permalink,pictures,attributes";
     for (let i = 0; i < items.length; i += CHUNK) {
       const batch = items.slice(i, i + CHUNK);
       const r = await fetchMaybeAuth(`${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`);
@@ -57,12 +57,16 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
           it.thumbnail ||
           (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
           null;
+        
+        const model = it.attributes?.find((a: any) => a.id === "MODEL")?.value_name || "";
+
         out[it.id] = {
           id: it.id,
           title: it.title ?? "",
           price: Number.isFinite(it.price) ? it.price : 0,
           thumbnail: thumb,
           permalink: it.permalink || `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}`,
+          model: model
         };
       }
     }
@@ -75,20 +79,22 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
       const batch = products.slice(i, i + CONC);
       await Promise.all(
         batch.map(async (pid) => {
-          // detalhes do produto (nome + fotos)
-          const pR = await fetchMaybeAuth(`${ML_API}/products/${pid}?attributes=name,pictures`);
+          // detalhes do produto (nome + fotos + atributos)
+          const pR = await fetchMaybeAuth(`${ML_API}/products/${pid}?attributes=name,pictures,attributes`);
           // um item “winner” para pegar o preço
           const iR = await fetchMaybeAuth(`${ML_API}/products/${pid}/items?limit=1`);
 
           let title = "";
           let thumbnail: string | null = null;
           let price = 0;
+          let model = "";
 
           if (pR.ok) {
             const p = await pR.json();
             title = p?.name ?? "";
             const pic = p?.pictures?.[0];
             thumbnail = pic?.secure_url || pic?.url || null;
+            model = p?.attributes?.find((a: any) => a.id === 'MODEL')?.value_name || '';
           }
 
           if (iR.ok) {
@@ -105,6 +111,7 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
             title,
             price,
             thumbnail,
+            model,
             // na planilha você linka para a página de catálogo (p/PRODUCT)
             permalink: `https://www.mercadolivre.com.br/p/${pid}`,
           };
