@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import type { MLCategory } from '@/lib/ml';
+import { Badge } from '@/components/ui/badge';
 
 export default function BuscarCategoriaMercadoLivrePage() {
   const [rootCats, setRootCats] = useState<MLCategory[]>([]);
@@ -13,6 +14,8 @@ export default function BuscarCategoriaMercadoLivrePage() {
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [trends, setTrends] = useState<{ keyword: string }[]>([]);
+  const [isLoadingTrends, setIsLoadingTrends] = useState(false);
 
   async function fetchRootCategories() {
     setIsLoading(true);
@@ -52,6 +55,20 @@ export default function BuscarCategoriaMercadoLivrePage() {
       setLastError(error?.message || 'Erro ao carregar subcategorias.');
     } finally {
       setIsLoading(false);
+    }
+
+    // carrega tendências em paralelo (com "climb" = 1 para fallback no pai)
+    setIsLoadingTrends(true);
+    try {
+      const r = await fetch(`/api/ml/trends?category=${catId}&climb=1`);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setTrends(j.trends || []);
+    } catch (e: any) {
+      console.error('Erro trends:', e);
+      setTrends([]);
+    } finally {
+      setIsLoadingTrends(false);
     }
   }
 
@@ -102,27 +119,66 @@ export default function BuscarCategoriaMercadoLivrePage() {
       )}
 
       {selectedCat && (
-        <Card className="border-dashed">
-          <CardHeader className="py-3">
-            <CardTitle className="text-base">Subcategorias</CardTitle>
-            <CardDescription>Refine ainda mais</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {isLoading && childCats.length === 0 ? (
-              <div className="flex justify-center items-center h-24 w-full">
-                <Loader2 className="animate-spin text-primary"/>
-              </div>
-            ) : childCats.length > 0 ? (
-              childCats.map(c => (
-                <Button key={c.id} variant="outline" size="sm" disabled={isLoading}>
-                  {c.name}
-                </Button>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma subcategoria encontrada.</p>
-            )}
-          </CardContent>
-        </Card>
+        <>
+          {/* Subcategorias (você já tem esse card) */}
+          <Card className="border-dashed">
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Subcategorias</CardTitle>
+              <CardDescription>Refine ainda mais</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {isLoading && childCats.length === 0 ? (
+                <div className="flex justify-center items-center h-24 w-full">
+                  <Loader2 className="animate-spin text-primary"/>
+                </div>
+              ) : childCats.length > 0 ? (
+                childCats.map(c => (
+                  <Button key={c.id} variant="outline" size="sm" onClick={() => loadChildren(c.id)}>
+                    {c.name}
+                  </Button>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhuma subcategoria encontrada.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tendências da categoria selecionada */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Tendências desta categoria</CardTitle>
+              <CardDescription>Palavras mais buscadas pelos compradores</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {isLoadingTrends ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="animate-spin h-4 w-4" /> Carregando tendências…
+                </div>
+              ) : trends.length > 0 ? (
+                trends.slice(0, 24).map((t, i) => (
+                  <Button
+                    key={t.keyword + i}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      // aqui você decide: abrir sua tela de busca usando esse termo,
+                      // ou copiar para clipboard etc. Exemplo dispara uma rota de busca:
+                      window.open(`/feed-25/buscar-mercado-livre?term=${encodeURIComponent(t.keyword)}`, '_blank');
+                    }}
+                  >
+                    {t.keyword}
+                  </Button>
+                  // Se preferir "chips" use:
+                  // <Badge key={...} variant="secondary" className="cursor-default">{t.keyword}</Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma tendência encontrada para esta categoria (ou nos ancestrais).
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
     </main>
   );
