@@ -129,10 +129,10 @@ export default function CatalogoPdfPage() {
     useEffect(() => {
         if (state.error) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-            setIsAnalyzingAll(false); 
+            setIsAnalyzingAll(false);
             return;
         }
-    
+
         if (state.result && state.result.products.length > 0) {
             const newProducts = state.result.products.map(p => ({
               ...p,
@@ -143,21 +143,13 @@ export default function CatalogoPdfPage() {
                 brand: p.brand || brand,
               }),
             }));
-            
-            setAllProducts(prevProducts => {
-                const updatedProductsList = [...prevProducts, ...newProducts];
-                const trendFormData = new FormData();
-                trendFormData.append('productNames', JSON.stringify(updatedProductsList.map(p => p.name)));
-                startTransition(() => {
-                    trendingAction(trendFormData);
-                });
-                return updatedProductsList;
-            });
-    
+
+            setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
+
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {
-                 setIsAnalyzingAll(false); 
+                 setIsAnalyzingAll(false);
             }
         } else if (state.result) {
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
@@ -166,8 +158,15 @@ export default function CatalogoPdfPage() {
                 setIsAnalyzingAll(false);
             }
         }
+    }, [state, brand, toast, currentPage, isAnalyzingAll, pdfDoc?.numPages]);
+
+    useEffect(() => {
+        if (allProducts.length === 0) return;
+        const trendFormData = new FormData();
+        trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
+        trendingAction(trendFormData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state]);
+    }, [allProducts]);
     
     useEffect(() => {
         if (trendingState.trendingProductNames) {
