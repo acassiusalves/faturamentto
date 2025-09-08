@@ -5,6 +5,7 @@ import { generateNewAccessToken as getMlToken } from "@/services/mercadolivre";
 const ML_API = "https://api.mercadolibre.com";
 
 async function fetchMaybeAuth(url: string) {
+  // tenta sem token e, se 401/403, tenta com token
   let r = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
   if (r.status === 401 || r.status === 403) {
     try {
@@ -19,115 +20,104 @@ async function fetchMaybeAuth(url: string) {
 }
 
 async function getHighlights(site: string, category: string) {
-  // ✅ endpoint correto
+  // devolve id, type, position
   const url = `${ML_API}/highlights/${site}/category/${category}`;
   const r = await fetchMaybeAuth(url);
-  if (!r.ok) return null;
-  const data = await r.json();
-  const content = Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
-  const items = content
-    .map((row: any) => ({ id: row?.id || row?.item_id, position: row?.position ?? null }))
-    .filter((x: any) => x?.id);
-  return items.length ? items : null;
+  if (!r.ok) return [];
+  const j = await r.json();
+  const content = Array.isArray(j?.content) ? j.content : Array.isArray(j) ? j : [];
+  return content
+    .map((row: any) => ({
+      id: row?.id || row?.item_id,
+      type: row?.type || null, // "ITEM" | "PRODUCT"
+      position: row?.position ?? null,
+    }))
+    .filter((x: any) => x.id);
 }
 
-async function getSearchSorted(site: string, category: string, limit: number) {
-  const url = new URL(`${ML_API}/sites/${site}/search`);
-  url.searchParams.set("category", category);
-  url.searchParams.set("sort", "sold_quantity_desc");
-  url.searchParams.set("limit", String(limit));
-  const r = await fetchMaybeAuth(url.toString());
-  if (!r.ok) return null;
-  const data = await r.json();
-  const results = Array.isArray(data?.results) ? data.results : [];
-  return results.map((r: any, i: number) => ({ id: r.id, position: i + 1 }));
-}
-
-async function enrichItems(ids: string[]) {
+async function enrichItemsByType(base: Array<{ id: string; type: string; position: number | null }>, site: string, limit: number) {
   const out: Record<string, any> = {};
-  const CHUNK = 20;
-  const ATTRS = [
-    "id",
-    "title",
-    "price",
-    "secure_thumbnail",
-    "thumbnail",
-    "permalink",
-    "pictures"
-  ].join(",");
+  const items = base.filter(b => b.type === "ITEM").map(b => b.id);
+  const products = base.filter(b => b.type === "PRODUCT").map(b => b.id);
 
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const batch = ids.slice(i, i + CHUNK);
-
-    // 1) tenta em lote pedindo os campos explicitamente
-    let r = await fetchMaybeAuth(
-      `${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`
-    );
-    if (!r.ok) continue;
-
-    const rows = await r.json();
-    const missing: string[] = [];
-
-    for (const row of rows || []) {
-      const it = row?.body;
-      if (!it?.id) continue;
-
-      // normaliza imagem
-      const thumb =
-        it.secure_thumbnail ||
-        it.thumbnail ||
-        (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
-        null;
-
-      // normaliza link
-      const link =
-        it.permalink ||
-        (it.id ? `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}` : null);
-
-      const title = it.title ?? "";
-      const price = Number.isFinite(it.price) ? it.price : NaN;
-
-      // se ficou faltando título/preço/thumbnail, marca pra fallback 1-a-1
-      if (!title || !Number.isFinite(price) || !thumb) missing.push(it.id);
-
-      out[it.id] = {
-        id: it.id,
-        title,
-        price: Number.isFinite(price) ? price : 0,
-        thumbnail: thumb,
-        permalink: link,
-      };
-    }
-
-    // 2) fallback individual para os que vieram “capados”
-    for (const id of missing) {
-      if (out[id] && out[id].title && out[id].price > 0 && out[id].thumbnail) continue;
-      const one = await fetchMaybeAuth(`${ML_API}/items/${id}?attributes=${encodeURIComponent(ATTRS)}`);
-      if (!one.ok) continue;
-      const it = await one.json();
-
-      const thumb =
-        it.secure_thumbnail ||
-        it.thumbnail ||
-        (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
-        out[id]?.thumbnail ||
-        null;
-
-      const link =
-        it.permalink ||
-        out[id]?.permalink ||
-        `https://produto.mercadolivre.com.br/${id.replace("MLB", "MLB-")}`;
-
-      out[id] = {
-        id,
-        title: it.title ?? out[id]?.title ?? "",
-        price: Number.isFinite(it.price) ? it.price : (out[id]?.price ?? 0),
-        thumbnail: thumb,
-        permalink: link,
-      };
+  // --- ITEM: /items?ids=... (em lote)
+  if (items.length) {
+    const CHUNK = 20;
+    const ATTRS = "id,title,price,secure_thumbnail,thumbnail,permalink,pictures";
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const batch = items.slice(i, i + CHUNK);
+      const r = await fetchMaybeAuth(`${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`);
+      if (!r.ok) continue;
+      const rows = await r.json();
+      for (const row of rows || []) {
+        const it = row?.body;
+        if (!it?.id) continue;
+        const thumb =
+          it.secure_thumbnail ||
+          it.thumbnail ||
+          (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
+          null;
+        out[it.id] = {
+          id: it.id,
+          title: it.title ?? "",
+          price: Number.isFinite(it.price) ? it.price : 0,
+          thumbnail: thumb,
+          permalink: it.permalink || `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}`,
+        };
+      }
     }
   }
-  return out;
+
+  // --- PRODUCT: /products/{id} + /products/{id}/items?limit=1
+  if (products.length) {
+    const CONC = 8;
+    for (let i = 0; i < products.length; i += CONC) {
+      const batch = products.slice(i, i + CONC);
+      await Promise.all(
+        batch.map(async (pid) => {
+          // detalhes do produto (nome + fotos)
+          const pR = await fetchMaybeAuth(`${ML_API}/products/${pid}?attributes=name,pictures`);
+          // um item “winner” para pegar o preço
+          const iR = await fetchMaybeAuth(`${ML_API}/products/${pid}/items?limit=1`);
+
+          let title = "";
+          let thumbnail: string | null = null;
+          let price = 0;
+
+          if (pR.ok) {
+            const p = await pR.json();
+            title = p?.name ?? "";
+            const pic = p?.pictures?.[0];
+            thumbnail = pic?.secure_url || pic?.url || null;
+          }
+
+          if (iR.ok) {
+            const j = await iR.json();
+            // resposta costuma vir como { results: [ { id, price, ... } ] }
+            const winner = j?.results?.[0] || (Array.isArray(j) ? j[0] : null);
+            if (winner) {
+              if (Number.isFinite(winner.price)) price = winner.price;
+            }
+          }
+
+          out[pid] = {
+            id: pid,
+            title,
+            price,
+            thumbnail,
+            // na planilha você linka para a página de catálogo (p/PRODUCT)
+            permalink: `https://www.mercadolivre.com.br/p/${pid}`,
+          };
+        })
+      );
+    }
+  }
+
+  // devolve na ordem e com a posição
+  return base
+    .slice(0, limit)
+    .map((b) => ({ position: b.position, ...out[b.id] }))
+    .filter((x) => x?.id);
 }
 
 export async function GET(req: Request) {
@@ -141,22 +131,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "category é obrigatório" }, { status: 400 });
     }
 
-    // 1) tenta highlights corretos
-    let base = await getHighlights(site, category);
+    const base = await getHighlights(site, category);
+    if (!base.length) return NextResponse.json({ site, category, items: [] });
 
-    // 2) fallback para busca ordenada por vendidos
-    if (!base || base.length === 0) base = await getSearchSorted(site, category, limit);
-
-    if (!base || base.length === 0) return NextResponse.json({ site, category, items: [] });
-
-    // 3) enriquecer com título/preço/thumb/permalink
-    const ids = base.slice(0, limit).map((b: any) => b.id);
-    const map = await enrichItems(ids);
-    const items = base
-      .slice(0, limit)
-      .map((b: any) => ({ position: b.position, ...map[b.id] }))
-      .filter((x: any) => x?.id);
-
+    const items = await enrichItemsByType(base, site, limit);
     return NextResponse.json({ site, category, items });
   } catch (e: any) {
     console.error("GET /api/ml/bestsellers error:", e);
