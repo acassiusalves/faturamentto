@@ -186,6 +186,31 @@ export const deleteProduct = async (productId: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
+export const updateProductAveragePrices = async (updates: { sku: string; averagePrice: number }[]): Promise<void> => {
+    const productsCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'products');
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+    let updatedCount = 0;
+
+    for (const update of updates) {
+        const q = query(productsCol, where('sku', '==', update.sku), limit(1));
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+            const docRef = snapshot.docs[0].ref;
+            batch.update(docRef, {
+                averagePrice: update.averagePrice,
+                averagePriceUpdatedAt: now
+            });
+            updatedCount++;
+        }
+    }
+    
+    if (updatedCount > 0) {
+        await batch.commit();
+    }
+};
+
 
 // --- PRODUCT SETTINGS ---
 export const loadProductSettings = async (categoryId: string): Promise<ProductCategorySettings | null> => {
@@ -745,37 +770,29 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
 // --- TRENDS FOR CATALOG ---
 export async function loadAllTrendKeywords(): Promise<string[]> {
   try {
-    console.log('🔍 Carregando análises do ML...');
     const analyses = await loadMlAnalyses();
-    console.log('📊 Análises encontradas:', analyses.length);
     
     if (analyses.length === 0) {
-      console.log('❌ Nenhuma análise encontrada no banco');
       return [];
     }
     
     const allKeywords = new Set<string>();
     
     analyses.forEach((analysis, index) => {
-      console.log(`📈 Análise ${index + 1}:`, analysis.mainCategoryName);
       analysis.results.forEach((result, resultIndex) => {
-        console.log(`  📂 Resultado ${resultIndex + 1}:`, result.category.name, `(${result.trends.length} tendências)`);
         result.trends.forEach(trend => {
           if (trend.keyword && trend.keyword.trim()) {
             allKeywords.add(trend.keyword.trim());
-            console.log(`    🏷️ Tendência: "${trend.keyword}"`);
           }
         });
       });
     });
     
     const keywords = Array.from(allKeywords);
-    console.log('🎯 Total de tendências únicas:', keywords.length);
-    console.log('📝 Todas as tendências:', keywords);
     
     return keywords;
   } catch (error) {
-    console.error('❌ Erro ao carregar tendências:', error);
+    console.error('Erro ao carregar tendências:', error);
     return [];
   }
 }

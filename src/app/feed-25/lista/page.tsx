@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useActionState } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -26,10 +27,10 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
   } from "@/components/ui/alert-dialog";
-import { analyzeFeedAction } from '@/app/actions';
+import { analyzeFeedAction, saveAveragePricesAction } from '@/app/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings } from '@/services/firestore';
 
@@ -95,6 +96,12 @@ export default function FeedListPage() {
     const [analysisState, formAction, isAnalyzing] = useActionState(analyzeFeedAction, {
         result: null,
         error: null,
+    });
+
+    const [savePricesState, savePricesAction, isSavingPrices] = useActionState(saveAveragePricesAction, {
+        success: false,
+        error: null,
+        count: 0
     });
     
     const fetchFeedData = async () => {
@@ -164,6 +171,22 @@ export default function FeedListPage() {
             });
         }
     }, [analysisState, toast]);
+
+    useEffect(() => {
+        if (savePricesState.success && savePricesState.count > 0) {
+            toast({
+                title: 'Sucesso!',
+                description: `${savePricesState.count} preços médios foram salvos no cadastro de produtos.`
+            });
+        }
+        if (savePricesState.error) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Salvar Médias',
+                description: savePricesState.error,
+            });
+        }
+    }, [savePricesState, toast]);
     
     const { comparisonData, uniqueStores, entriesForSelectedDate, incorrectOffers } = useMemo(() => {
         const productMap = new Map<string, Omit<ComparisonProduct, 'prices' | 'averagePrice' | 'minPrice' | 'maxPrice' | 'storeCount'> & { prices: Map<string, number | null> }>();
@@ -401,6 +424,25 @@ export default function FeedListPage() {
         XLSX.writeFile(wb, `comparativo_precos.xlsx`);
     };
 
+    const handleSaveAverages = () => {
+        const dataToSave = comparisonData
+            .filter(p => p.sku && p.averagePrice > 0)
+            .map(p => ({ sku: p.sku, averagePrice: p.averagePrice }));
+
+        if (dataToSave.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Nenhum dado para salvar',
+                description: 'Não há produtos com preço médio calculado para salvar.'
+            });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('averagePrices', JSON.stringify(dataToSave));
+        savePricesAction(formData);
+    }
+
 
     const formatCurrency = (value: number | null) => {
         if (value === null || isNaN(value)) return '-';
@@ -485,6 +527,10 @@ export default function FeedListPage() {
                                     <Download className="mr-2 h-4 w-4" />
                                     Exportar XLSX
                                  </Button>
+                                <Button variant="secondary" onClick={handleSaveAverages} disabled={isSavingPrices || comparisonData.length === 0}>
+                                    {isSavingPrices ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Salvar Médias
+                                </Button>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" className="w-full sm:w-auto" disabled={entriesForSelectedDate === 0}>

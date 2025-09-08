@@ -6,7 +6,7 @@ import type {PipelineResult} from '@/lib/types';
 import {organizeList, type OrganizeListInput} from '@/ai/flows/organize-list';
 import {standardizeList, type StandardizeListInput} from '@/ai/flows/standardize-list';
 import {lookupProducts} from '@/ai/flows/lookup-products';
-import { saveAppSettings, loadAppSettings } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
 import { fetchOrderLabel } from '@/services/ideris';
@@ -560,26 +560,37 @@ export async function findTrendingProductsAction(
   formData: FormData
 ): Promise<{ trendingProducts: any[] | null; error: string | null }> {
   try {
-    console.log('🎯 Action findTrendingProductsAction executada');
-    
-    const productNamesStr = formData.get('productNames') as string;
-    console.log('📥 Dados recebidos (raw):', productNamesStr);
-    
-    const productNames = JSON.parse(productNamesStr);
-    console.log('📋 Nomes de produtos parseados:', productNames);
-    
+    const productNames = JSON.parse(formData.get('productNames') as string);
     if (!Array.isArray(productNames) || productNames.length === 0) {
-      console.log('❌ Array de produtos inválido ou vazio');
       return { trendingProducts: [], error: 'Nenhum nome de produto fornecido.' };
     }
-    
-    console.log('🔄 Chamando findTrendingProducts...');
     const result = await findTrendingProducts(productNames);
-    console.log('✅ Resultado da busca de tendências:', result);
-    
     return { trendingProducts: result.trendingProducts, error: null };
   } catch (e: any) {
-    console.error("❌ Erro em findTrendingProductsAction:", e);
+    console.error("Error in findTrendingProductsAction:", e);
     return { trendingProducts: null, error: e.message || "Falha ao verificar tendências." };
   }
+}
+
+export async function saveAveragePricesAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ success: boolean; error: string | null; count: number }> {
+    try {
+        const dataToSaveStr = formData.get('averagePrices') as string;
+        if (!dataToSaveStr) {
+            throw new Error("Nenhum dado de preço médio para salvar.");
+        }
+        
+        const dataToSave: { sku: string; averagePrice: number }[] = JSON.parse(dataToSaveStr);
+        if (!Array.isArray(dataToSave) || dataToSave.length === 0) {
+            return { success: true, error: null, count: 0 };
+        }
+        
+        await updateProductAveragePrices(dataToSave);
+        
+        return { success: true, error: null, count: dataToSave.length };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Falha ao salvar preços médios.", count: 0 };
+    }
 }

@@ -23,6 +23,8 @@ export interface Product {
   attributes: Record<string, string>;
   createdAt: string;
   associatedSkus?: string[];
+  averagePrice?: number;
+  averagePriceUpdatedAt?: string;
 }
 
 export interface InventoryItem {
@@ -267,6 +269,7 @@ export interface CustomCalculation {
         targetColumn: string;
         operator: '+' | '-';
     };
+    ignoreIfCancelled?: boolean;
 }
 
 // -- Approval Request Types --
