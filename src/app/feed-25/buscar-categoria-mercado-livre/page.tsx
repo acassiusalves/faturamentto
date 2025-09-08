@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -15,11 +14,11 @@ import { formatCurrency, cn } from '@/lib/utils';
 // Interface para os itens mais vendidos
 interface BestSellerItem {
   id: string;
-  type: string;
-  position: number;
-  thumbnail: string;
+  position: number | null;
   title: string;
   price: number;
+  thumbnail: string;
+  permalink: string;
 }
 
 
@@ -97,10 +96,10 @@ export default function BuscarCategoriaMercadoLivrePage() {
     // Carrega os mais vendidos
     setIsLoadingBestSellers(true);
     try {
-        const r = await fetch(`/api/ml/bestsellers?category=${catId}`);
+        const r = await fetch(`/api/ml/bestsellers?category=${catId}&limit=24`);
         const j = await r.json();
         if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-        setBestSellers(j || []);
+        setBestSellers(j.items || []);
     } catch (e: any) {
         console.error('Erro bestsellers:', e);
         setBestSellers([]);
@@ -254,10 +253,10 @@ export default function BuscarCategoriaMercadoLivrePage() {
                     ) : bestSellers.length > 0 ? (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                         {bestSellers.map(item => (
-                          <Link href={`https://produto.mercadolivre.com.br/${item.id.replace('MLB', 'MLB-')}`} key={item.id} target="_blank" className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                          <Link href={item.permalink} key={item.id} target="_blank" className="flex items-center gap-4 p-2 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
                               <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
                                   <Image 
-                                      src={item.thumbnail.replace('-I.jpg', '-O.jpg')}
+                                      src={item.thumbnail}
                                       alt={item.title}
                                       fill
                                       sizes="64px"
