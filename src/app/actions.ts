@@ -112,35 +112,36 @@ async function fetchItemsVisits(
   return out;
 }
 
-async function fetchItemSellerAddress(
-  itemId: string,
+// Busca seller_address em LOTE para vários items (mais estável/rápido que 1-a-1)
+async function fetchItemsSellerAddresses(
+  itemIds: string[],
   token: string
-): Promise<{
-  state_id: string | null;
-  state_name: string | null;
-  city_id: string | null;
-  city_name: string | null;
-}> {
-  if (!itemId) {
-    return { state_id: null, state_name: null, city_id: null, city_name: null };
+): Promise<Record<string, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }>> {
+  const out: Record<string, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }> = {};
+  if (!itemIds.length) return out;
+
+  const CHUNK = 20; // seguro para /items?ids=
+  for (let i = 0; i < itemIds.length; i += CHUNK) {
+    const batch = itemIds.slice(i, i + CHUNK);
+    const url = `https://api.mercadolibre.com/items?ids=${batch.join(",")}&attributes=id,seller_address`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+    if (!r.ok) continue;
+    const rows = await r.json();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const body = row?.body;
+      if (!body?.id) continue;
+      const s = body?.seller_address || {};
+      out[body.id] = {
+        state_id: s?.state?.id ?? null,
+        state_name: s?.state?.name ?? null,
+        city_id: s?.city?.id ?? null,
+        city_name: s?.city?.name ?? null,
+      };
+    }
   }
-  const url = `https://api.mercadolibre.com/items/${itemId}?fields=seller_address`;
-  const r = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!r.ok) {
-    return { state_id: null, state_name: null, city_id: null, city_name: null };
-  }
-  const j = await r.json();
-  const s = j?.seller_address;
-  return {
-    state_id: s?.state?.id ?? null,
-    state_name: s?.state?.name ?? null,
-    city_id: s?.city?.id ?? null,
-    city_name: s?.city?.name ?? null,
-  };
+  return out;
 }
+
 
 
 // Server Actions
@@ -197,6 +198,9 @@ export async function searchMercadoLivreAction(
       .map(w => w?.id)
       .filter(Boolean) as string[];
 
+    // ENDEREÇOS em lote (estado/cidade) para cada winner item
+    const sellerAddrByItemId = await fetchItemsSellerAddresses(winnerItemIds, accessToken);
+
     const visitsByItem = await fetchItemsVisits(winnerItemIds, accessToken, 30);
 
     // 3. Fetch seller reputations
@@ -216,11 +220,10 @@ export async function searchMercadoLivreAction(
               officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
             }
 
-            // 🔹 NOVO: estado/cidade do vendedor a partir do winner item
-            let sellerAddress = { state_id: null, state_name: null, city_id: null, city_name: null };
-            if (winner?.id) {
-              sellerAddress = await fetchItemSellerAddress(winner.id, accessToken);
-            }
+            // 🔹 ENDEREÇO via batch map
+            const sellerAddress =
+              (winner?.id && sellerAddrByItemId[winner.id]) ||
+              { state_id: null, state_name: null, city_id: null, city_name: null };
 
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
             const counted = await getCatalogOfferCount(p.id, accessToken);
@@ -544,3 +547,4 @@ async function analyzeFeedAction(prevState: { result: any; error: string | null;
     
 
     
+
