@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, refineSearchTerm } from '@/app/actions';
+import { analyzeCatalogAction, findTrendingProducts as findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,7 +22,6 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
 import { searchMercadoLivreAction } from '@/app/actions';
 
 
@@ -70,6 +69,7 @@ export default function CatalogoPdfPage() {
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     
     const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
+    const [trendingState, trendingAction] = useActionState(findTrendingProductsAction, { trendingProductNames: null, error: null });
     
     // State for search dialog
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
@@ -127,47 +127,58 @@ export default function CatalogoPdfPage() {
 
 
     useEffect(() => {
-      if (state.error) {
-          toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-          setIsAnalyzingAll(false); 
-          return;
-      }
-  
-      if (state.result && state.result.products.length > 0) {
-          const newProducts = state.result.products.map(p => ({
-            ...p,
-            refinedQuery: buildSearchQuery({
-              name: p.name,
-              description: p.description,
-              model: p.model,
-              brand: p.brand || brand,
-            }),
-          }));
-  
-          // Passo 1: Atualizar a lista de produtos.
-          const updatedProductsList = [...allProducts, ...newProducts];
-          setAllProducts(updatedProductsList);
-  
-          // Passo 2: Após a atualização do estado, chamar a verificação de tendências.
-          const namesToCheck = updatedProductsList.map(p => p.name);
-          findTrendingProducts(namesToCheck).then(trendingResult => {
-              setTrendingProductNames(new Set(trendingResult.trendingProductNames));
-          });
-  
-          // Continua o processo de análise de todas as páginas, se aplicável.
-          if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-              setCurrentPage(p => p + 1);
-          } else {
-               setIsAnalyzingAll(false); 
-          }
-      } else if (state.result) { // Se não houver produtos, mas a análise foi bem-sucedida
-          if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-              setCurrentPage(p => p + 1);
-          } else {
-              setIsAnalyzingAll(false);
-          }
-      }
-  }, [state, toast, isAnalyzingAll, currentPage, pdfDoc?.numPages, brand, allProducts]);
+        if (state.error) {
+            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+            setIsAnalyzingAll(false); 
+            return;
+        }
+    
+        if (state.result && state.result.products.length > 0) {
+            const newProducts = state.result.products.map(p => ({
+              ...p,
+              refinedQuery: buildSearchQuery({
+                name: p.name,
+                description: p.description,
+                model: p.model,
+                brand: p.brand || brand,
+              }),
+            }));
+            
+            // Etapa 1: Atualizar a lista de produtos.
+            const updatedProductsList = [...allProducts, ...newProducts];
+            setAllProducts(updatedProductsList);
+            
+            // Etapa 2: Chamar a verificação de tendências após a atualização do estado.
+            const trendFormData = new FormData();
+            trendFormData.append('productNames', JSON.stringify(updatedProductsList.map(p => p.name)));
+            startTransition(() => {
+                trendingAction(trendFormData);
+            });
+    
+            // Continua o processo de análise de todas as páginas, se aplicável.
+            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+                setCurrentPage(p => p + 1);
+            } else {
+                 setIsAnalyzingAll(false); 
+            }
+        } else if (state.result) { // Se não houver produtos, mas a análise foi bem-sucedida
+            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+                setCurrentPage(p => p + 1);
+            } else {
+                setIsAnalyzingAll(false);
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state]);
+    
+    useEffect(() => {
+        if (trendingState.trendingProductNames) {
+            setTrendingProductNames(new Set(trendingState.trendingProductNames));
+        }
+        if(trendingState.error) {
+            console.error("Erro ao buscar tendências:", trendingState.error);
+        }
+    }, [trendingState]);
 
     useEffect(() => {
         if (isAnalyzingAll && !isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
@@ -321,6 +332,7 @@ export default function CatalogoPdfPage() {
     }, [batchSearchResults]);
     
     const groupedResultPageCount = useMemo(() => Math.ceil(groupedBatchResults.length / groupedResultPageSize), [groupedBatchResults.length, groupedResultPageSize]);
+    
     const paginatedGroupedResults = useMemo(() => {
         const startIndex = groupedResultPageIndex * groupedResultPageSize;
         return groupedBatchResults.slice(startIndex, startIndex + groupedResultPageSize);
