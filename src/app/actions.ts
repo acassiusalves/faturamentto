@@ -60,58 +60,6 @@ async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<
   return (typeof j?.official_store_id === "number") ? j.official_store_id : null;
 }
 
-// Pega visitas de uma lista de item IDs (MLB123, MLB456, ...)
-// O endpoint aceita query string com vários ids (lotes). 
-// Aceita também filtros por data; abaixo uso últimos 30 dias.
-async function fetchItemsVisits(
-  itemIds: string[],
-  accessToken?: string,         // usamos se precisar
-  days: number = 30
-): Promise<Record<string, number>> {
-  if (itemIds.length === 0) return {};
-
-  // limite de lote conservador (a API costuma aceitar ~50 por chamada)
-  const CHUNK = 50;
-  const out: Record<string, number> = {};
-  const dateTo   = new Date();
-  const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-  // formata yyyy-mm-dd (a API aceita ISO sem hora)
-  const toDateStr   = dateTo.toISOString().slice(0,10);
-  const fromDateStr = dateFrom.toISOString().slice(0,10);
-
-  for (let i = 0; i < itemIds.length; i += CHUNK) {
-    const batch = itemIds.slice(i, i + CHUNK);
-    const url = new URL("https://api.mercadolibre.com/items/visits");
-    url.searchParams.set("ids", batch.join(","));
-    // Use filtro de período (opcional). Se quiser “lifetime”, remova:
-    url.searchParams.set("date_from", fromDateStr);
-    url.searchParams.set("date_to", toDateStr);
-
-    // 1ª tentativa sem token (geralmente funciona). Se 401/403, tenta com token.
-    let r = await fetch(url.toString(), { cache: "no-store" });
-    if (r.status === 401 || r.status === 403) {
-      r = await fetch(url.toString(), {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        cache: "no-store",
-      });
-    }
-    if (!r.ok) {
-      // não quebra a página — só segue sem visitas para esse lote
-      continue;
-    }
-    const data = await r.json();
-    // Normalização: respostas comuns são array de objetos { id, total_visits } ou { item_id, visits }
-    for (const row of (Array.isArray(data) ? data : [])) {
-      const id = row.id ?? row.item_id ?? row.itemId ?? row.code ?? null;
-      const visits =
-        row.total_visits ?? row.visits ?? row.total ?? 0;
-      if (id) out[id] = Number.isFinite(visits) ? Number(visits) : 0;
-    }
-  }
-  return out;
-}
-
 // Busca seller_address em LOTE para vários items (mais estável/rápido que 1-a-1)
 async function fetchItemsSellerAddresses(
   itemIds: string[],
@@ -143,11 +91,23 @@ async function fetchItemsSellerAddresses(
 }
 
 // Fallback: pega endereço do vendedor via /users/{seller_id}
+// Aceita tanto "name" quanto o código bruto (ex.: "BR-SP")
 async function fetchUsersAddress(
   sellerIds: number[],
   token: string
-): Promise<Record<number, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }>> {
-  const out: Record<number, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }> = {};
+): Promise<Record<number, {
+  state_id: string | null;
+  state_name: string | null;
+  city_id: string | null;
+  city_name: string | null;
+}>> {
+  const out: Record<number, {
+    state_id: string | null;
+    state_name: string | null;
+    city_id: string | null;
+    city_name: string | null;
+  }> = {};
+
   const uniq = Array.from(new Set(sellerIds)).filter(Boolean);
   if (!uniq.length) return out;
 
@@ -163,11 +123,26 @@ async function fetchUsersAddress(
         if (!r.ok) return;
         const j = await r.json();
         const a = j?.address ?? {};
+
+        // pode vir { state: "BR-SP", city: "São Paulo" } ou objects com { id, name }
+        const stateRaw = a?.state;
+        const cityRaw  = a?.city;
+
+        const stateName =
+          (typeof stateRaw === "object" ? stateRaw?.name : stateRaw) ?? null;
+        const stateId =
+          (typeof stateRaw === "object" ? stateRaw?.id   : null) ?? null;
+
+        const cityName  =
+          (typeof cityRaw  === "object" ? cityRaw?.name  : cityRaw) ?? null;
+        const cityId    =
+          (typeof cityRaw  === "object" ? cityRaw?.id    : null) ?? null;
+
         out[sid] = {
-          state_id: a?.state?.id ?? null,
-          state_name: a?.state?.name ?? null,
-          city_id: a?.city?.id ?? null,
-          city_name: a?.city?.name ?? null,
+          state_id: stateId,
+          state_name: stateName, // pode ser "BR-SP" se não houver name
+          city_id: cityId,
+          city_name: cityName,
         };
       })
     );
@@ -239,9 +214,6 @@ export async function searchMercadoLivreAction(
 
     const userAddrBySellerId = await fetchUsersAddress(sellerIdsNeedingFallback, accessToken);
 
-
-    const visitsByItem = await fetchItemsVisits(winnerItemIds, accessToken, 30);
-
     // 3. Fetch seller reputations
     const sellerIds = Array.from(new Set(Array.from(winnerByCat.values()).map(w => w?.seller_id).filter(Boolean)));
     const reputations = await getSellersReputation(sellerIds, accessToken);
@@ -250,7 +222,6 @@ export async function searchMercadoLivreAction(
     const enrichedResults = await Promise.all(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
-            const visits_30d = winner?.id ? (visitsByItem[winner.id] ?? 0) : 0;
 
             // official store (como já estava)
             let officialStoreId: number | null =
@@ -293,7 +264,6 @@ export async function searchMercadoLivreAction(
                 seller_city_id: sellerAddress.city_id,
 
                 offerCount,
-                visits_30d,
 
                 reputation: reputationData && {
                   level_id: reputationData.level_id ?? null,
@@ -583,6 +553,8 @@ async function analyzeFeedAction(prevState: { result: any; error: string | null;
         return { result: null, error: e.message || "Falha ao analisar o feed com a IA." };
     }
 }
+    
+
     
 
     

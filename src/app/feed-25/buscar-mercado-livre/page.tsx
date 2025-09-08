@@ -39,7 +39,6 @@ interface ProductResult {
     official_store_id: number | null;
     is_official_store: boolean;
     offerCount: number;
-    visits_30d?: number;
     reputation?: {
         level_id: string | null;
         power_seller_status: string | null;
@@ -370,10 +369,6 @@ export default function BuscarMercadoLivrePage() {
                                                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
                                                         <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
-                                                        <span className="mx-1">•</span>
-                                                        <span title="Visitas (últimos 30 dias)">
-                                                          <b>{product.visits_30d ?? 0}</b> visitas
-                                                        </span>
                                                     </div>
                                                     {product.is_official_store && (
                                                         <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
@@ -489,3 +484,4 @@ export default function BuscarMercadoLivrePage() {
     );
 }
 
+    
