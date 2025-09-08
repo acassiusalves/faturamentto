@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 
 
 interface ProductResult {
@@ -38,6 +39,7 @@ interface ProductResult {
     official_store_id: number | null;
     is_official_store: boolean;
     offerCount: number;
+    visits_30d?: number;
     reputation?: {
         level_id: string | null;
         power_seller_status: string | null;
@@ -246,9 +248,9 @@ export default function BuscarMercadoLivrePage() {
             </Card>
             
             {isSearching && (
-                <div className="flex justify-center items-center h-48">
-                    <Loader2 className="animate-spin text-primary" size={32} />
-                    <p className="ml-4">Buscando no Mercado Livre...</p>
+                <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                    <p className="font-semibold">Buscando no Mercado Livre...</p>
+                    <Progress value={50} className="w-full max-w-sm animate-pulse" />
                 </div>
             )}
             
@@ -333,9 +335,13 @@ export default function BuscarMercadoLivrePage() {
                                                             </Link>
                                                         ) : ''}
                                                     </div>
-                                                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                                         <Users className="h-3 w-3" />
-                                                        <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas neste catálogo</span>
+                                                        <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
+                                                        <span className="mx-1">•</span>
+                                                        <span title="Visitas (últimos 30 dias)">
+                                                          <b>{product.visits_30d ?? 0}</b> visitas
+                                                        </span>
                                                     </div>
                                                     {product.is_official_store && (
                                                         <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
