@@ -279,9 +279,9 @@ export default function CatalogoPdfPage() {
             });
             return;
         }
-        const trendFormData = new FormData();
-        trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
         startTrendingTransition(() => {
+            const trendFormData = new FormData();
+            trendFormData.append('productNames', JSON.stringify(allProducts.map(p => p.name)));
             trendingAction(trendFormData);
         });
     };
