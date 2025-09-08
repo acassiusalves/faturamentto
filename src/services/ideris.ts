@@ -410,10 +410,3 @@ export async function fetchOrdersStatus(
     
     return response.data?.result?.obj || [];
 }
-
-export async function getCategoryTrends(categoryId: string): Promise<any> {
-  const token = await getValidAccessToken(process.env.IDERIS_PRIVATE_KEY || '');
-  const url = `https://api.mercadolibre.com/trends/MLB/${categoryId}`;
-  const response = await fetchWithToken(url, token);
-  return response.data;
-}

@@ -66,6 +66,18 @@ export async function getCategoryAncestors(categoryId: string) {
   return info.path_from_root ?? [];
 }
 
+export async function getCategoryTrends(categoryId: string): Promise<{ keyword: string }[]> {
+  const res = await fetch(`${ML_API}/trends/MLB/${categoryId}`, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`ML trends error (${categoryId}): ${res.status}`);
+  }
+  // a resposta pode vir como {keyword} | {q} | string — normalizamos aqui mesmo
+  const raw = await res.json();
+  return (raw || [])
+    .map((t: any) => ({ keyword: t?.keyword ?? t?.q ?? String(t ?? '') }))
+    .filter(t => t.keyword);
+}
+
 export async function getCatalogOfferCount(productId: string, accessToken: string): Promise<number> {
     if (!productId) return 0;
     try {

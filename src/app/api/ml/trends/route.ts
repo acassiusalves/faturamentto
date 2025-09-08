@@ -1,15 +1,6 @@
-
 // src/app/api/ml/trends/route.ts
 import { NextResponse } from 'next/server';
-import { getCategoryAncestors } from '@/lib/ml';
-import { getCategoryTrends } from '@/services/ideris'; // <- use a função que você já tem
-
-// normaliza a resposta qualquer que seja o shape: {keyword} | {q} | string
-function normalizeTrends(raw: any[]): { keyword: string }[] {
-  return (raw || [])
-    .map((t: any) => ({ keyword: t?.keyword ?? t?.q ?? String(t ?? '') }))
-    .filter(t => t.keyword);
-}
+import { getCategoryAncestors, getCategoryTrends } from '@/lib/ml';
 
 /**
  * GET /api/ml/trends?category=MLBxxxxx&climb=1
@@ -27,16 +18,13 @@ export async function GET(req: Request) {
     }
 
     // 1) tenta na própria categoria
-    let raw = await getCategoryTrends(category);
-    let trends = normalizeTrends(raw);
+    let trends = await getCategoryTrends(category);
 
     // 2) se vazio e climb=1, sobe a árvore até achar algo
     if (climb && trends.length === 0) {
       const ancestors = await getCategoryAncestors(category); // do root ao atual
       for (let i = ancestors.length - 2; i >= 0; i--) {
-        const parentId = ancestors[i].id;
-        raw = await getCategoryTrends(parentId);
-        trends = normalizeTrends(raw);
+        trends = await getCategoryTrends(ancestors[i].id);
         if (trends.length > 0) break;
       }
     }
