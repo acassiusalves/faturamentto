@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Loader2, TrendingUp, ShoppingCart, Trash2 } from 'lucide-react';
+import { Database, Loader2, TrendingUp, ShoppingCart, Trash2, Search } from 'lucide-react';
 import type { SavedMlAnalysis } from '@/lib/types';
 import { loadMlAnalyses, deleteMlAnalysis } from '@/services/firestore';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -16,11 +16,13 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 export default function DadosMercadoLivrePage() {
   const [analyses, setAnalyses] = useState<SavedMlAnalysis[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchAnalyses = useCallback(async () => {
     setIsLoading(true);
@@ -32,6 +34,20 @@ export default function DadosMercadoLivrePage() {
   useEffect(() => {
     fetchAnalyses();
   }, [fetchAnalyses]);
+
+  const filteredAnalyses = useMemo(() => {
+    if (!searchTerm.trim()) {
+        return analyses;
+    }
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return analyses.filter(analysis => 
+        analysis.results.some(result => 
+            result.trends.some(trend => 
+                trend.keyword.toLowerCase().includes(lowercasedTerm)
+            )
+        )
+    );
+  }, [analyses, searchTerm]);
   
   const handleDelete = async (id: string) => {
       try {
@@ -75,16 +91,27 @@ export default function DadosMercadoLivrePage() {
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Dados Salvos do Mercado Livre</h1>
-        <p className="text-muted-foreground">
-          Consulte e gerencie os dados salvos das suas análises de categoria do Mercado Livre.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+            <h1 className="text-3xl font-bold font-headline">Dados Salvos do Mercado Livre</h1>
+            <p className="text-muted-foreground">
+              Consulte e gerencie os dados salvos das suas análises de categoria do Mercado Livre.
+            </p>
+        </div>
+        <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input 
+                placeholder="Buscar por tendência..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
       </div>
 
-       {analyses.length > 0 ? (
+       {filteredAnalyses.length > 0 ? (
             <Accordion type="multiple" className="w-full space-y-4">
-                {analyses.map(analysis => (
+                {filteredAnalyses.map(analysis => (
                     <AccordionItem value={analysis.id} key={analysis.id} className="border-b-0">
                         <Card>
                              <div className="flex items-center w-full p-4">
@@ -159,16 +186,16 @@ export default function DadosMercadoLivrePage() {
         ) : (
             <Card>
                 <CardHeader>
-                    <CardTitle>Nenhuma Análise Salva</CardTitle>
+                    <CardTitle>Nenhuma Análise Encontrada</CardTitle>
                     <CardDescription>
-                        Ainda não há dados salvos da ferramenta "Buscar Categoria no Mercado Livre".
+                        Não foram encontrados resultados para o termo "{searchTerm}".
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground border-2 border-dashed rounded-lg">
                         <Database className="h-16 w-16 mb-4" />
-                        <p className="font-semibold">Nenhum dado salvo ainda.</p>
-                        <p>Vá para a página de busca para realizar e salvar uma análise.</p>
+                        <p className="font-semibold">Nenhum dado encontrado.</p>
+                        <p>Tente um termo de busca diferente ou realize uma nova análise na página de busca.</p>
                     </div>
                 </CardContent>
             </Card>
