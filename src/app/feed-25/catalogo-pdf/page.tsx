@@ -147,8 +147,9 @@ export default function CatalogoPdfPage() {
         }
 
         if (isAnalyzingAll) {
-            if (currentPage < (pdfDoc?.numPages || 0)) {
-                setCurrentPage(p => p + 1);
+            const nextPage = currentPage + 1;
+            if (nextPage <= (pdfDoc?.numPages || 0)) {
+                setTimeout(() => setCurrentPage(nextPage), 2000); // Pausa de 2 segundos
             } else {
                 setIsAnalyzingAll(false);
             }
@@ -185,9 +186,6 @@ export default function CatalogoPdfPage() {
     useEffect(() => {
         if (isAnalyzingAll && !isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
             analyzePage(currentPage);
-        }
-         if (isAnalyzingAll && currentPage > (pdfDoc?.numPages || 0)) {
-            setIsAnalyzingAll(false); 
         }
     }, [currentPage, isAnalyzingAll, isAnalyzingPending, analyzePage, pdfDoc?.numPages]);
 
