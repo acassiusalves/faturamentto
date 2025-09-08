@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
+import { analyzeCatalogAction, refineSearchTerm } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,6 +23,7 @@ import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
+import { searchMercadoLivreAction } from '@/app/actions';
 
 
 if (typeof window !== "undefined") {
@@ -126,44 +127,47 @@ export default function CatalogoPdfPage() {
 
 
     useEffect(() => {
-        if (state.error) {
-            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
-            setIsAnalyzingAll(false); 
-        }
-        if (state.result && state.result.products.length > 0) {
-            const newProducts = state.result.products.map(p => ({
-              ...p,
-              refinedQuery: buildSearchQuery({
-                name: p.name,
-                description: p.description,
-                model: p.model,
-                brand: p.brand || brand,
-              }),
-            }));
-
-            setAllProducts(prev => {
-                const combined = [...prev, ...newProducts];
-                // Check for trends after adding new products
-                const namesToCheck = combined.map(p => p.name);
-                findTrendingProducts(namesToCheck).then(trendingResult => {
-                    setTrendingProductNames(new Set(trendingResult.trendingProductNames));
-                });
-                return combined;
-            });
-
-            if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-                setCurrentPage(p => p + 1);
-            } else {
-                 setIsAnalyzingAll(false); 
-            }
-        } else if (state.result && isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
-            // Se não houver produtos, apenas avance para a próxima página
-             setCurrentPage(p => p + 1);
-        } else if (state.result) {
-            setIsAnalyzingAll(false);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [state]);
+      if (state.error) {
+          toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+          setIsAnalyzingAll(false); 
+          return;
+      }
+  
+      if (state.result && state.result.products.length > 0) {
+          const newProducts = state.result.products.map(p => ({
+            ...p,
+            refinedQuery: buildSearchQuery({
+              name: p.name,
+              description: p.description,
+              model: p.model,
+              brand: p.brand || brand,
+            }),
+          }));
+  
+          // Passo 1: Atualizar a lista de produtos.
+          const updatedProductsList = [...allProducts, ...newProducts];
+          setAllProducts(updatedProductsList);
+  
+          // Passo 2: Após a atualização do estado, chamar a verificação de tendências.
+          const namesToCheck = updatedProductsList.map(p => p.name);
+          findTrendingProducts(namesToCheck).then(trendingResult => {
+              setTrendingProductNames(new Set(trendingResult.trendingProductNames));
+          });
+  
+          // Continua o processo de análise de todas as páginas, se aplicável.
+          if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+              setCurrentPage(p => p + 1);
+          } else {
+               setIsAnalyzingAll(false); 
+          }
+      } else if (state.result) { // Se não houver produtos, mas a análise foi bem-sucedida
+          if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+              setCurrentPage(p => p + 1);
+          } else {
+              setIsAnalyzingAll(false);
+          }
+      }
+  }, [state, toast, isAnalyzingAll, currentPage, pdfDoc?.numPages, brand, allProducts]);
 
     useEffect(() => {
         if (isAnalyzingAll && !isProcessing && currentPage <= (pdfDoc?.numPages || 0)) {
