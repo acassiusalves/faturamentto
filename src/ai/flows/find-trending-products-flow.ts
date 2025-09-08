@@ -52,18 +52,20 @@ export async function findTrendingProducts(
     input: { schema: TrendingProductsInputSchema },
     output: { schema: TrendingProductsOutputSchema },
     prompt: `
-      Você é um analista de e-commerce.
-      Sua tarefa é comparar uma lista de nomes de produtos com uma lista de palavras-chave de tendências de busca.
-      Para cada produto da lista de entrada, verifique se ele corresponde a uma ou mais palavras-chave da lista de tendências.
+      Você é um analista de dados rigoroso. Sua tarefa é comparar uma lista de nomes de produtos com uma lista de palavras-chave de tendências.
 
-      CRITÉRIO DE CORRESPONDÊNCIA:
-      Um produto está "em alta" SOMENTE SE o nome do produto contiver uma palavra-chave principal que também está presente na tendência.
-      Exemplo:
+      CRITÉRIO DE CORRESPONDÊNCIA ESTRITO:
+      Um produto está "em alta" SOMENTE SE o substantivo principal que define o tipo do produto estiver presente TANTO no nome do produto QUANTO na palavra-chave da tendência.
+
+      Exemplos:
       - Produto: "Kit Gamer Teclado e Mouse"
-      - Tendência: "mouse gamer" -> CORRESPONDE (ambos têm "mouse")
-      - Tendência: "headset gamer" -> NÃO CORRESPONDE (produto não é um "headset")
-
-      Seja rigoroso: um produto só está em alta se seu nome tiver uma forte correlação com uma ou mais palavras-chave, incluindo a correspondência de pelo menos uma palavra principal.
+        - Tendência: "mouse gamer" -> CORRESPONDE (ambos têm "mouse").
+        - Tendência: "teclado mecânico" -> CORRESPONDE (ambos têm "teclado").
+      - Produto: "Caixa de som bluetooth"
+        - Tendência: "headset gamer" -> NÃO CORRESPONDE (A palavra "headset" não está no nome do produto. Não associe por serem ambos de áudio).
+        - Tendência: "caixa som jbl" -> CORRESPONDE (ambos têm "caixa" e "som").
+      
+      Seja extremamente literal. Ignore qualquer correlação semântica ou de categoria.
       Retorne APENAS os produtos que você considera estarem em alta, junto com a lista de palavras-chave que corresponderam.
 
       Lista de Produtos para Análise:
