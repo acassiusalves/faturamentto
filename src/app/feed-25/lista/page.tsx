@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useActionState } from 'react';
+import { useState, useEffect, useMemo, useActionState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -92,6 +92,7 @@ export default function FeedListPage() {
     const [modelName, setModelName] = useState('gemini-1.5-flash-latest');
     const [progress, setProgress] = useState(0);
     const { toast } = useToast();
+    const [isPending, startTransition] = useTransition();
 
     const [analysisState, formAction, isAnalyzing] = useActionState(analyzeFeedAction, {
         result: null,
@@ -440,7 +441,9 @@ export default function FeedListPage() {
 
         const formData = new FormData();
         formData.append('averagePrices', JSON.stringify(dataToSave));
-        savePricesAction(formData);
+        startTransition(() => {
+          savePricesAction(formData);
+        });
     }
 
 
