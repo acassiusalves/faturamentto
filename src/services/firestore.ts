@@ -743,15 +743,24 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
 };
 
 // --- TRENDS FOR CATALOG ---
-export const loadAllTrendKeywords = async (): Promise<string[]> => {
-  const analyses = await loadMlAnalyses();
-  const keywordSet = new Set<string>();
-  analyses.forEach(analysis => {
-    analysis.results.forEach(result => {
-      result.trends.forEach(trend => {
-        keywordSet.add(trend.keyword.toLowerCase());
+export async function loadAllTrendKeywords(): Promise<string[]> {
+  try {
+    const analyses = await loadMlAnalyses();
+    const allKeywords = new Set<string>();
+    
+    analyses.forEach(analysis => {
+      analysis.results.forEach(result => {
+        result.trends.forEach(trend => {
+          if (trend.keyword && trend.keyword.trim()) {
+            allKeywords.add(trend.keyword.trim());
+          }
+        });
       });
     });
-  });
-  return Array.from(keywordSet);
-};
+    
+    return Array.from(allKeywords);
+  } catch (error) {
+    console.error('Erro ao carregar tendências:', error);
+    return [];
+  }
+}
