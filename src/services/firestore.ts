@@ -1,5 +1,4 @@
 
-
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -703,9 +702,9 @@ export const loadInitialStockForToday = async (): Promise<number> => {
 
 // --- ML ANALYSIS ---
 export const saveMlAnalysis = async (analysis: Omit<SavedMlAnalysis, 'id'>): Promise<void> => {
-  const analysisCol = collection(db, 'ml-analysis');
-  const docRef = doc(analysisCol);
-  await setDoc(docRef, toFirestore({ ...analysis, id: docRef.id }));
+  const docId = analysis.mainCategoryId;
+  const analysisRef = doc(db, 'ml-analysis', docId);
+  await setDoc(analysisRef, toFirestore({ ...analysis, id: docId }), { merge: true });
 };
 
 export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
@@ -713,4 +712,9 @@ export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
   const q = query(analysisCol, orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as SavedMlAnalysis);
+};
+
+export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
+  const docRef = doc(db, 'ml-analysis', analysisId);
+  await deleteDoc(docRef);
 };

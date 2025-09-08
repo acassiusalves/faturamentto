@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Loader2, TrendingUp, ShoppingCart } from 'lucide-react';
+import { Database, Loader2, TrendingUp, ShoppingCart, Trash2 } from 'lucide-react';
 import type { SavedMlAnalysis } from '@/lib/types';
-import { loadMlAnalyses } from '@/services/firestore';
+import { loadMlAnalyses, deleteMlAnalysis } from '@/services/firestore';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,10 +13,14 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DadosMercadoLivrePage() {
   const [analyses, setAnalyses] = useState<SavedMlAnalysis[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   const fetchAnalyses = useCallback(async () => {
     setIsLoading(true);
@@ -28,6 +32,23 @@ export default function DadosMercadoLivrePage() {
   useEffect(() => {
     fetchAnalyses();
   }, [fetchAnalyses]);
+  
+  const handleDelete = async (id: string) => {
+      try {
+          await deleteMlAnalysis(id);
+          setAnalyses(prev => prev.filter(item => item.id !== id));
+          toast({
+              title: "Análise Apagada!",
+              description: "A análise foi removida com sucesso.",
+          });
+      } catch (error) {
+           toast({
+              variant: "destructive",
+              title: "Erro ao Apagar",
+              description: "Não foi possível remover a análise.",
+          });
+      }
+  }
 
   const formatDate = (isoDate: string) => {
     try {
@@ -66,15 +87,39 @@ export default function DadosMercadoLivrePage() {
                 {analyses.map(analysis => (
                     <AccordionItem value={analysis.id} key={analysis.id} className="border-b-0">
                         <Card>
-                            <AccordionTrigger className="p-4 hover:no-underline font-semibold text-lg w-full justify-between">
-                                <div>
-                                    <span className="text-primary">{analysis.mainCategoryName}</span>
-                                    <p className="text-sm font-normal text-muted-foreground">{formatDate(analysis.createdAt)}</p>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-                                    <span>{analysis.results.length} subcategorias</span>
-                                </div>
-                            </AccordionTrigger>
+                             <div className="flex items-center w-full p-4">
+                                <AccordionTrigger className="p-0 hover:no-underline flex-1">
+                                    <div className="flex justify-between items-center w-full">
+                                        <div>
+                                            <span className="text-primary font-semibold text-lg">{analysis.mainCategoryName}</span>
+                                            <p className="text-sm font-normal text-muted-foreground">{formatDate(analysis.createdAt)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+                                            <span>{analysis.results.length} subcategorias</span>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="ml-4 text-destructive hover:text-destructive flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                            <Trash2 />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Apagar Análise?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta ação removerá permanentemente os dados da análise de "{analysis.mainCategoryName}". Deseja continuar?
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(analysis.id)}>Sim, Apagar</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+
                             <AccordionContent className="p-4 pt-0">
                                 {analysis.results.map(result => (
                                     <Card key={result.category.id} className="mb-4">
