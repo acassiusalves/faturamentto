@@ -553,6 +553,7 @@ export interface BestSellerItem {
   price: number;
   thumbnail: string | null;
   permalink: string | null;
+  model?: string;
 }
 
 export interface MlAnalysisResult {

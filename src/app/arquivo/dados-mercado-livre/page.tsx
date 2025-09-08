@@ -137,10 +137,13 @@ export default function DadosMercadoLivrePage() {
                                                 <h4 className="font-semibold mb-2 flex items-center gap-2"><ShoppingCart/> Mais Vendidos</h4>
                                                 <div className="space-y-2 p-2 border rounded-md max-h-80 overflow-y-auto">
                                                     {result.bestsellers.length > 0 ? result.bestsellers.map(item => (
-                                                        <div key={item.id} className="flex items-center gap-2 text-sm">
-                                                            <span className="font-bold w-6 text-right">#{item.position}</span>
-                                                            <p className="flex-1 truncate" title={item.title}>{item.title}</p>
-                                                            <span className="font-semibold text-primary">{formatCurrency(item.price)}</span>
+                                                        <div key={item.id} className="flex flex-col items-start gap-1 text-sm p-2 rounded-md bg-muted/50">
+                                                            <div className="flex justify-between w-full">
+                                                                <span className="font-bold w-6 text-left">#{item.position}</span>
+                                                                <p className="flex-1 truncate font-semibold" title={item.title}>{item.title}</p>
+                                                                <span className="font-semibold text-primary">{formatCurrency(item.price)}</span>
+                                                            </div>
+                                                            {item.model && <Badge variant="outline" className="ml-7">Modelo: {item.model}</Badge>}
                                                         </div>
                                                     )) : <p className="text-xs text-muted-foreground">Nenhum item encontrado.</p>}
                                                 </div>
