@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, findTrendingProducts as findTrendingProductsAction } from '@/app/actions';
+import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -144,24 +144,22 @@ export default function CatalogoPdfPage() {
               }),
             }));
             
-            // Etapa 1: Atualizar a lista de produtos.
-            const updatedProductsList = [...allProducts, ...newProducts];
-            setAllProducts(updatedProductsList);
-            
-            // Etapa 2: Chamar a verificação de tendências após a atualização do estado.
-            const trendFormData = new FormData();
-            trendFormData.append('productNames', JSON.stringify(updatedProductsList.map(p => p.name)));
-            startTransition(() => {
-                trendingAction(trendFormData);
+            setAllProducts(prevProducts => {
+                const updatedProductsList = [...prevProducts, ...newProducts];
+                const trendFormData = new FormData();
+                trendFormData.append('productNames', JSON.stringify(updatedProductsList.map(p => p.name)));
+                startTransition(() => {
+                    trendingAction(trendFormData);
+                });
+                return updatedProductsList;
             });
     
-            // Continua o processo de análise de todas as páginas, se aplicável.
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {
                  setIsAnalyzingAll(false); 
             }
-        } else if (state.result) { // Se não houver produtos, mas a análise foi bem-sucedida
+        } else if (state.result) {
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {

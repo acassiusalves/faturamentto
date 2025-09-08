@@ -570,6 +570,7 @@ export async function findTrendingProductsAction(
     return { trendingProductNames: null, error: e.message || "Falha ao verificar tendências." };
   }
 }
+export { findTrendingProductsAction as findTrendingProducts };
     
 
     
