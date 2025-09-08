@@ -306,12 +306,6 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         Analisar Subcategorias
                     </Button>
                   </div>
-                   {isAutomating && (
-                        <div className="pt-4 space-y-2">
-                            <Progress value={automationProgress} />
-                            <p className="text-xs text-center text-muted-foreground">{currentAutomationTask}</p>
-                        </div>
-                    )}
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   {isLoading && childCats.length === 0 ? (
@@ -495,8 +489,14 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         ))}
                     </Accordion>
                 </CardContent>
-                <CardFooter className="justify-end">
-                    <Button onClick={handleSaveAnalysis} disabled={isSaving}>
+                <CardFooter className="flex flex-col items-end gap-4">
+                    {isAutomating && (
+                        <div className="w-full space-y-2">
+                            <Progress value={automationProgress} />
+                            <p className="text-xs text-center text-muted-foreground">{currentAutomationTask}</p>
+                        </div>
+                    )}
+                    <Button onClick={handleSaveAnalysis} disabled={isSaving || isAutomating}>
                          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Salvar Análise
                     </Button>
