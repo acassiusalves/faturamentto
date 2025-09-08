@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { generateNewAccessToken as getMlToken } from "@/services/mercadolivre";
 
@@ -45,32 +46,84 @@ async function getSearchSorted(site: string, category: string, limit: number) {
 async function enrichItems(ids: string[]) {
   const out: Record<string, any> = {};
   const CHUNK = 20;
+  const ATTRS = [
+    "id",
+    "title",
+    "price",
+    "secure_thumbnail",
+    "thumbnail",
+    "permalink",
+    "pictures"
+  ].join(",");
+
   for (let i = 0; i < ids.length; i += CHUNK) {
     const batch = ids.slice(i, i + CHUNK);
-    const r = await fetchMaybeAuth(`${ML_API}/items?ids=${batch.join(",")}`);
+
+    // 1) tenta em lote pedindo os campos explicitamente
+    let r = await fetchMaybeAuth(
+      `${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`
+    );
     if (!r.ok) continue;
+
     const rows = await r.json();
+    const missing: string[] = [];
 
     for (const row of rows || []) {
       const it = row?.body;
       if (!it?.id) continue;
 
+      // normaliza imagem
       const thumb =
         it.secure_thumbnail ||
         it.thumbnail ||
         (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
         null;
 
+      // normaliza link
       const link =
         it.permalink ||
         (it.id ? `https://produto.mercadolivre.com.br/${it.id.replace("MLB", "MLB-")}` : null);
 
+      const title = it.title ?? "";
+      const price = Number.isFinite(it.price) ? it.price : NaN;
+
+      // se ficou faltando título/preço/thumbnail, marca pra fallback 1-a-1
+      if (!title || !Number.isFinite(price) || !thumb) missing.push(it.id);
+
       out[it.id] = {
         id: it.id,
-        title: it.title ?? "",
-        price: Number.isFinite(it.price) ? it.price : 0,
-        thumbnail: thumb,           // << null quando não existe
-        permalink: link,            // << null quando não existe
+        title,
+        price: Number.isFinite(price) ? price : 0,
+        thumbnail: thumb,
+        permalink: link,
+      };
+    }
+
+    // 2) fallback individual para os que vieram “capados”
+    for (const id of missing) {
+      if (out[id] && out[id].title && out[id].price > 0 && out[id].thumbnail) continue;
+      const one = await fetchMaybeAuth(`${ML_API}/items/${id}?attributes=${encodeURIComponent(ATTRS)}`);
+      if (!one.ok) continue;
+      const it = await one.json();
+
+      const thumb =
+        it.secure_thumbnail ||
+        it.thumbnail ||
+        (Array.isArray(it.pictures) && (it.pictures[0]?.secure_url || it.pictures[0]?.url)) ||
+        out[id]?.thumbnail ||
+        null;
+
+      const link =
+        it.permalink ||
+        out[id]?.permalink ||
+        `https://produto.mercadolivre.com.br/${id.replace("MLB", "MLB-")}`;
+
+      out[id] = {
+        id,
+        title: it.title ?? out[id]?.title ?? "",
+        price: Number.isFinite(it.price) ? it.price : (out[id]?.price ?? 0),
+        thumbnail: thumb,
+        permalink: link,
       };
     }
   }
