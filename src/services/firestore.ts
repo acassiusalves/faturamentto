@@ -741,3 +741,17 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
 };
+
+// --- TRENDS FOR CATALOG ---
+export const loadAllTrendKeywords = async (): Promise<string[]> => {
+  const analyses = await loadMlAnalyses();
+  const keywordSet = new Set<string>();
+  analyses.forEach(analysis => {
+    analysis.results.forEach(result => {
+      result.trends.forEach(trend => {
+        keywordSet.add(trend.keyword.toLowerCase());
+      });
+    });
+  });
+  return Array.from(keywordSet);
+};

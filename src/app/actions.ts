@@ -21,6 +21,7 @@ import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/se
 import { getCatalogOfferCount } from '@/lib/ml';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
+import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
 
 
 
@@ -552,6 +553,22 @@ export async function analyzeFeedAction(prevState: { result: any; error: string 
     } catch (e: any) {
         return { result: null, error: e.message || "Falha ao analisar o feed com a IA." };
     }
+}
+
+export async function findTrendingProductsAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ trendingProductNames: string[] | null; error: string | null }> {
+  try {
+    const productNames = JSON.parse(formData.get('productNames') as string) as string[];
+    if (!productNames || productNames.length === 0) {
+      return { trendingProductNames: [], error: null };
+    }
+    const result = await findTrendingProducts(productNames);
+    return { trendingProductNames: result.trendingProductNames, error: null };
+  } catch (e: any) {
+    return { trendingProductNames: null, error: e.message || "Falha ao verificar tendências." };
+  }
 }
     
 

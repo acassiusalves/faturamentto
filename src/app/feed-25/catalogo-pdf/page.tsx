@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, searchMercadoLivreAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput } from '@/lib/types';
@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
 
 
 if (typeof window !== "undefined") {
@@ -51,6 +52,7 @@ export interface SearchableProduct extends CatalogProduct {
     isSearching?: boolean;
     searchError?: string;
     foundProducts?: any[];
+    isTrending?: boolean; // Novo campo
 }
 
 
@@ -86,6 +88,8 @@ export default function CatalogoPdfPage() {
     const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
 
+    const [trendingProductNames, setTrendingProductNames] = useState<Set<string>>(new Set());
+
 
     const analyzePage = useCallback(async (pageNumber: number) => {
       if (!pdfDoc || pageNumber > pdfDoc.numPages) {
@@ -101,8 +105,6 @@ export default function CatalogoPdfPage() {
           .join(' ');
     
         const formData = new FormData();
-        // Correção: Envia o conteúdo mesmo que esteja vazio.
-        // A IA no backend já está instruída a lidar com isso.
         formData.append('pdfContent', pageText || ' '); 
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
@@ -128,8 +130,8 @@ export default function CatalogoPdfPage() {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
             setIsAnalyzingAll(false); 
         }
-        if (state.result) {
-            const items = state.result.products.map(p => ({
+        if (state.result && state.result.products.length > 0) {
+            const newProducts = state.result.products.map(p => ({
               ...p,
               refinedQuery: buildSearchQuery({
                 name: p.name,
@@ -138,13 +140,27 @@ export default function CatalogoPdfPage() {
                 brand: p.brand || brand,
               }),
             }));
-            setAllProducts(prev => [...prev, ...items]);
+
+            setAllProducts(prev => {
+                const combined = [...prev, ...newProducts];
+                // Check for trends after adding new products
+                const namesToCheck = combined.map(p => p.name);
+                findTrendingProducts(namesToCheck).then(trendingResult => {
+                    setTrendingProductNames(new Set(trendingResult.trendingProductNames));
+                });
+                return combined;
+            });
 
             if (isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
                 setCurrentPage(p => p + 1);
             } else {
                  setIsAnalyzingAll(false); 
             }
+        } else if (state.result && isAnalyzingAll && currentPage < (pdfDoc?.numPages || 0)) {
+            // Se não houver produtos, apenas avance para a próxima página
+             setCurrentPage(p => p + 1);
+        } else if (state.result) {
+            setIsAnalyzingAll(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state]);
@@ -169,6 +185,7 @@ export default function CatalogoPdfPage() {
             setCurrentPage(1);
             setPdfDoc(null);
             setIsAnalyzingAll(false);
+            setTrendingProductNames(new Set());
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
                 const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
@@ -188,6 +205,7 @@ export default function CatalogoPdfPage() {
         if (!isProcessing) {
             setCurrentPage(1);
             setAllProducts([]);
+            setTrendingProductNames(new Set());
             setIsAnalyzingAll(true);
         }
     };
@@ -409,12 +427,23 @@ export default function CatalogoPdfPage() {
                                     {paginatedProducts.map((product, index) => {
                                         const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
+                                        const isTrending = trendingProductNames.has(product.name);
+
                                         return (
                                              <React.Fragment key={index}>
                                                 <TableRow>
                                                     <TableCell>
-                                                        <p className="font-semibold">{product.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{product.description}</p>
+                                                      <div className="flex items-center gap-4">
+                                                        <div>
+                                                          <p className="font-semibold">{product.name}</p>
+                                                          <p className="text-xs text-muted-foreground">{product.description}</p>
+                                                        </div>
+                                                        {isTrending && (
+                                                            <div className="flex items-center gap-2 text-green-600 font-semibold text-sm whitespace-nowrap">
+                                                                em alta <TrendingUp className="h-5 w-5" />
+                                                            </div>
+                                                        )}
+                                                      </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Input 
