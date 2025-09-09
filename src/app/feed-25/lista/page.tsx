@@ -78,6 +78,14 @@ interface IncorrectOffer {
     id: string;
 }
 
+// Interface para a nova lista de produtos sem SKU
+interface ProductWithoutSku {
+    name: string;
+    averagePrice: number | null;
+    storeCount: number;
+}
+
+
 const statusConfig: Record<ProductStatus, { variant: "default" | "destructive" | "secondary", text: string, icon?: React.ReactNode }> = {
     PRECO_OK: { variant: 'secondary', text: 'Preço OK' },
     ATENCAO: { variant: 'destructive', text: 'Atenção' },
@@ -193,7 +201,7 @@ export default function FeedListPage() {
     const { comparisonData, uniqueStores, entriesForSelectedDate, incorrectOffers, productsWithoutSku } = useMemo(() => {
         const productMap = new Map<string, Omit<ComparisonProduct, 'prices' | 'averagePrice' | 'minPrice' | 'maxPrice' | 'storeCount'> & { prices: Map<string, number | null> }>();
         const storeSet = new Set<string>();
-        const withoutSkuSet = new Map<string, {name: string, price: number | null, store: string}>();
+        const withoutSkuMap = new Map<string, { prices: number[] }>();
 
         const filteredFeed = selectedDate 
             ? allFeedData.filter(entry => entry.date === format(selectedDate, 'yyyy-MM-dd'))
@@ -209,13 +217,12 @@ export default function FeedListPage() {
                 const price = product.costPrice ? parseFloat(product.costPrice.replace(',', '.')) : NaN;
                 
                 if (!product.sku || product.sku.toUpperCase() === 'SEM CÓDIGO') {
-                    // Armazena o produto sem SKU de forma única pelo nome para evitar duplicatas na lista
-                    if(!withoutSkuSet.has(product.name.toLowerCase())) {
-                       withoutSkuSet.set(product.name.toLowerCase(), {
-                           name: product.name,
-                           price: isNaN(price) ? null : price,
-                           store: entry.storeName,
-                       });
+                    const lowerCaseName = product.name.toLowerCase();
+                    if (!withoutSkuMap.has(lowerCaseName)) {
+                        withoutSkuMap.set(lowerCaseName, { prices: [] });
+                    }
+                    if (!isNaN(price)) {
+                        withoutSkuMap.get(lowerCaseName)!.prices.push(price);
                     }
                     return;
                 }
@@ -236,6 +243,19 @@ export default function FeedListPage() {
                 existingProduct.prices.set(entry.storeName, isNaN(price) ? null : price);
             });
         });
+
+        const productsWithoutSku: ProductWithoutSku[] = [];
+        withoutSkuMap.forEach((data, name) => {
+            const priceSum = data.prices.reduce((a, b) => a + b, 0);
+            productsWithoutSku.push({
+                name,
+                averagePrice: data.prices.length > 0 ? priceSum / data.prices.length : null,
+                storeCount: data.prices.length
+            });
+        });
+        
+        productsWithoutSku.sort((a, b) => b.storeCount - a.storeCount);
+
 
         const comparisonData: ComparisonProduct[] = Array.from(productMap.values()).map(p => {
             const priceValues = Array.from(p.prices.values()).filter((price): price is number => price !== null);
@@ -291,7 +311,7 @@ export default function FeedListPage() {
             uniqueStores: Array.from(storeSet).sort(),
             entriesForSelectedDate,
             incorrectOffers,
-            productsWithoutSku: Array.from(withoutSkuSet.values()),
+            productsWithoutSku,
         };
     }, [allFeedData, selectedDate, analysisState.result]);
 
@@ -716,17 +736,19 @@ export default function FeedListPage() {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Produto Não Identificado</TableHead>
-                                                    <TableHead>Loja de Origem</TableHead>
-                                                    <TableHead className="text-right">Preço de Custo</TableHead>
+                                                    <TableHead className="text-center">Qtd. de Lojas</TableHead>
+                                                    <TableHead className="text-right">Preço Médio</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {productsWithoutSku.length > 0 ? (
                                                     productsWithoutSku.map((product, index) => (
                                                         <TableRow key={index}>
-                                                            <TableCell className="font-medium">{product.name}</TableCell>
-                                                            <TableCell><Badge variant="outline">{product.store}</Badge></TableCell>
-                                                            <TableCell className="text-right font-mono">{formatCurrency(product.price)}</TableCell>
+                                                            <TableCell className="font-medium capitalize">{product.name}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                <Badge variant="outline">{product.storeCount}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(product.averagePrice)}</TableCell>
                                                         </TableRow>
                                                     ))
                                                 ) : (
