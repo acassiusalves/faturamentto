@@ -10,121 +10,149 @@ const TrendingProductInfoSchema = z.object({
 });
 export type TrendingProductsOutput = { trendingProducts: z.infer<typeof TrendingProductInfoSchema>[] };
 
-// --- Normalização ---
-const ACCENT: Record<string,string> = { á:'a',à:'a',ã:'a',â:'a',ä:'a', é:'e',ê:'e',ë:'e', í:'i',î:'i',ï:'i', ó:'o',ô:'o',õ:'o',ö:'o', ú:'u',û:'u',ü:'u', ç:'c' };
-const stripAccents = (s:string)=> s.replace(/[^\u0000-\u007E]/g,c=>ACCENT[c] ?? c);
-const normalize = (s:string)=> stripAccents(s)
-  .toLowerCase()
-  .replace(/[^\p{L}\p{N}\s]/gu,' ')       // tira pontuação
-  .replace(/\s+/g,' ')
-  .trim();
 
-// Palavras inúteis pra decisão
-const STOP = new Set([
-  'para','de','da','do','das','dos','e','com','sem','por','pra','pro','a','o','os','as','no','na','nos','nas','em',
-  // ruídos comuns dos seus nomes:
-  'rgb','luz','gamer','multimidia','multimedia','smartphone','notebook','pc','fm','sd','aux','usb',
-  'led','abnt2','brasileiro','crakeado','sem','fio','2','4g','combo','mouse','teclado','kit','metal','com'
-]);
+type CatId =
+  | "audio.speakers"
+  | "printers"
+  | "gaming.consoles"
+  | "computers.laptops"
+  | "cameras"
+  | "office.registers";
 
-// Termos que INVALIDAM (acessórios/peças/consumíveis)
-const NEG = new Set(['fio','cabo','bateria','carregador','fonte','pelicula','capa','case','adaptador','suporte','refil','cartucho','fita']);
+type CatProfile = {
+  id: CatId;
+  typeSynonyms: string[];   // FRASES/TOKENS que caracterizam o TIPO daquele produto
+  includeTokens: string[];  // tokens que costumam aparecer em termos válidos dessa categoria
+};
 
-// Núcleos por categoria (ajuda a evitar falso positivo)
-const CORE_HINTS = new Set([
-  // áudio
-  'caixa','som','speaker','soundbar','bluetooth',
-  // periféricos
-  'teclado','mouse','teclado-mouse','combo',
-  // outros exemplos
-  'headset','fone'
-]);
+const CATS: CatProfile[] = [
+  {
+    id: "audio.speakers",
+    typeSynonyms: ["caixa de som","caixa som","alto falante","alto-falante","speaker","boombox","soundbar","caixa acustica","barra de som"],
+    includeTokens: ["bluetooth","bt","fm","radio","sd","aux","usb","led","rgb","bass","super bass","portatil","multimidia"]
+  },
+  { id: "printers",
+    typeSynonyms: ["impressora","multifuncional","cartucho","toner"],
+    includeTokens: ["epson","canon","hp","lexmark","brother","resina","sublimacao"]
+  },
+  { id: "gaming.consoles",
+    typeSynonyms: ["console","videogame","controle","joystick"],
+    includeTokens: ["xbox","playstation","ps4","ps5","nintendo","switch"]
+  },
+  { id: "computers.laptops",
+    typeSynonyms: ["notebook","laptop","macbook","ultrabook"],
+    includeTokens: ["ssd","memoria","carregador","magsafe","intel","amd","apple"]
+  },
+  { id: "cameras",
+    typeSynonyms: ["camera","lente","dslr","mirrorless","gopro"],
+    includeTokens: ["canon","nikon","sony","estanque","iso","sensor"]
+  },
+  { id: "office.registers",
+    typeSynonyms: ["caixa registradora","pdv","fiscal","cupom"],
+    includeTokens: ["elgin","daruma","tanca","ecf"]
+  },
+];
 
-// remove bloco inicial de SKU/brand (EXBOM, BK-G800 etc.) e pega “o nome de verdade”
-function stripSkuPrefix(name: string): string {
-  const raw = normalize(name);
-  // regra: corta os 1–3 primeiros tokens se forem “gritados” (tudo letra/num curta) típicos de SKU/marca
-  const tokens = raw.split(' ');
-  let i = 0, cut = 0;
-  while (i < tokens.length && cut < 3) {
-    const t = tokens[i];
-    const isSkuish = /^[a-z0-9\-]{2,8}$/.test(t) || /^[a-z]{3,}$/.test(t) && ['exbom','multilaser','jbl','hp','dell','lg','logitech'].includes(t);
-    if (isSkuish) { cut++; i++; } else break;
+const norm = (s:string) =>
+  s.toLowerCase()
+   .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+   .replace(/[^\p{L}\p{N}\s]/gu," ")
+   .replace(/\s+/g," ").trim();
+
+const hasAny = (txt:string, terms:string[]) =>
+  terms.some(t => norm(txt).includes(norm(t)));
+
+const jaccard = (a:string[], b:string[]) => {
+  const A=new Set(a), B=new Set(b);
+  const inter=[...A].filter(x=>B.has(x)).length;
+  const uni=new Set([...a,...b]).size||1;
+  return inter/uni;
+};
+
+const toks = (s:string) => norm(s).split(" ").filter(Boolean);
+
+// 1) descobre a categoria do PRODUTO
+function classifyProductCategory(text:string): CatProfile | null {
+  const n = norm(text);
+  // score por presença de typeSynonyms
+  const scored = CATS.map(c=>{
+    const hits = c.typeSynonyms.filter(t=>n.includes(norm(t))).length;
+    return { c, score: hits };
+  }).sort((a,b)=>b.score-a.score);
+
+  return scored[0].score > 0 ? scored[0].c : null;
+}
+
+// 2) filtra sugestões com contexto
+function filterTrendsContextual(productText:string, suggestions:string[], minScore=2) {
+  const cat = classifyProductCategory(productText);
+  if (!cat) {
+    // sem categoria detectada => aplica apenas similaridade básica
+    const base = toks(productText);
+    return [...new Set(suggestions)]
+      .map(term=>{
+        const sim = jaccard(base, toks(term));
+        const ok = sim >= 0.35;
+        return { term, score: ok ? sim*2 : -1, reasons: ok?["sim"]:[ "baixa similaridade" ] };
+      })
+      .filter(x=>x.score>=minScore)
+      .sort((a,b)=>b.score-a.score);
   }
-  const rest = tokens.slice(cut).join(' ').trim();
-  return rest || raw;
+
+  // negativos = tokens das OUTRAS categorias
+  const negatives = CATS.filter(c=>c.id!==cat.id)
+                        .flatMap(c=>[...c.typeSynonyms, ...c.includeTokens])
+                        .map(norm);
+
+  const baseTokens = toks(productText);
+  const typeNorm = cat.typeSynonyms.map(norm);
+  const includeNorm = cat.includeTokens.map(norm);
+
+  const unique = Array.from(new Set(suggestions.map(s=>s.trim()).filter(Boolean)));
+
+  const scored = unique.map(term=>{
+    const t = norm(term);
+    const reasons:string[] = [];
+    let score = 0;
+
+    // precisa ter o TIPO da categoria
+    if (hasAny(t, typeNorm)) { score += 2; reasons.push("tipo ok"); }
+    else { return { term, score: -50, reasons: ["sem tipo da categoria"] }; }
+
+    // sinais da categoria (ajudam)
+    includeNorm.forEach(tok => { if (t.includes(tok)) { score += 0.6; reasons.push(`sinal:${tok}`); } });
+
+    // se tiver fortes sinais de outra categoria E não tiver mais nada do nosso tipo, derruba
+    const hasNegative = negatives.some(neg => t.includes(neg));
+    if (hasNegative && !hasAny(t, typeNorm)) {
+      return { term, score: -999, reasons: ["sinal forte de outra categoria"] };
+    }
+
+    // similaridade com a descrição
+    const sim = jaccard(baseTokens, toks(term));
+    if (sim >= 0.40) { score += 1; reasons.push("sim>=0.40"); }
+    else if (sim >= 0.25) { score += 0.5; reasons.push("sim>=0.25"); }
+
+    return { term, score, reasons };
+  });
+
+  return scored.filter(s=>s.score>=minScore).sort((a,b)=>b.score-a.score);
 }
 
-function tokenizeCore(text: string): string[] {
-  const s = normalize(text);
-  return s.split(' ')
-    .filter(t => t && t.length > 2 && !STOP.has(t));
-}
-
-function isAccessory(tokens: string[]) {
-  return tokens.some(t => NEG.has(t));
-}
-
-function coreTokens(tokens: string[]) {
-  // foca no “substantivo” do produto
-  return tokens.filter(t => CORE_HINTS.has(t) || /^[a-z]{4,}$/.test(t));
-}
-
-function matches(productName: string, trend: string): boolean {
-  const base = stripSkuPrefix(productName);
-  const pTokens = tokenizeCore(base);
-  const tTokens = tokenizeCore(trend);
-
-  if (!pTokens.length || !tTokens.length) return false;
-  if (isAccessory(tTokens)) return false;
-
-  const pCore = new Set(coreTokens(pTokens));
-  const tSet  = new Set(tTokens);
-
-  // heurísticas
-  let overlap = 0;
-  for (const t of tSet) if (pCore.has(t)) overlap++;
-
-  const isCaixaSomP = pCore.has('caixa') && pCore.has('som');
-  const isCaixaSomT = tSet.has('caixa') && tSet.has('som');
-
-  if (isCaixaSomP && isCaixaSomT) return true;
-  if (overlap >= 2) return true;
-
-  // overlap == 1 mas o único termo é muito forte (ex.: "teclado" vs "teclado")
-  if (overlap === 1) {
-    for (const t of tSet) if (pCore.has(t) && CORE_HINTS.has(t)) return true;
-  }
-
-  return false;
-}
 
 export async function findTrendingProducts(productNames: string[]): Promise<TrendingProductsOutput> {
-  console.log('🏭 Flow findTrendingProducts iniciado');
-  console.log('📦 Produtos recebidos:', productNames);
-  
   const trendKeywords = await loadAllTrendKeywords();
-  console.log('🔑 Tendências carregadas:', trendKeywords);
-  
-  if (!trendKeywords?.length || !productNames?.length) {
-    console.log('❌ Sem tendências ou produtos:', { trendKeywords: trendKeywords?.length, productNames: productNames?.length });
-    return { trendingProducts: [] };
-  }
+  if (!trendKeywords?.length || !productNames?.length) return { trendingProducts: [] };
 
   const out: TrendingProductsOutput['trendingProducts'] = [];
+  
   for (const name of productNames) {
-    const hits: string[] = [];
-    for (const kw of trendKeywords) {
-      if (matches(name, kw)) {
-        hits.push(kw);
-        console.log(`✅ Match encontrado: "${name}" <-> "${kw}"`);
-      }
-    }
+    const filtered = filterTrendsContextual(name, trendKeywords);
+    const hits = filtered.map(f => f.term);
     if (hits.length) {
       out.push({ productName: name, matchedKeywords: hits });
     }
   }
-  
-  console.log('🎯 Resultado final do flow:', out);
+
   return { trendingProducts: out };
 }
