@@ -57,6 +57,18 @@ export interface SearchableProduct extends CatalogProduct {
     matchedKeywords?: string[];
 }
 
+// Helper para escolher o melhor termo de busca para tendências
+const trendQueryFor = (p: SearchableProduct) => {
+  // prioridade: refinedQuery (IA) > description (extraído do PDF) > name (marca+modelo)
+  const q =
+    (p.refinedQuery?.trim() ||
+     p.description?.trim() ||
+     p.name?.trim() ||
+     "").trim();
+
+  return q;
+};
+
 
 export default function CatalogoPdfPage() {
     const { toast } = useToast();
@@ -172,8 +184,8 @@ export default function CatalogoPdfPage() {
         setAllProducts(prevProducts => 
           prevProducts.map(p => ({
             ...p,
-            isTrending: trendingMap.has(p.name),
-            matchedKeywords: trendingMap.get(p.name) || [],
+            isTrending: trendingMap.has(trendQueryFor(p)),
+            matchedKeywords: trendingMap.get(trendQueryFor(p)) || [],
           }))
         );
       }
@@ -274,27 +286,27 @@ export default function CatalogoPdfPage() {
 
     const handleCheckTrends = () => {
         console.log('🔍 Iniciando verificação de tendências...');
-        console.log('📦 Produtos para análise:', allProducts.map(p => p.name));
-        
-        if (allProducts.length === 0) {
-            console.log('❌ Nenhum produto encontrado');
-            toast({
-                variant: 'destructive',
-                title: 'Nenhum produto extraído',
-                description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
-            });
-            return;
+      
+        // monta as consultas certas
+        const queries = allProducts.map(trendQueryFor);
+      
+        console.log('📝 Consultas enviadas:', queries);
+      
+        if (queries.length === 0) {
+          toast({
+            variant: 'destructive',
+            title: 'Nenhum produto extraído',
+            description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
+          });
+          return;
         }
-        
-        console.log('🚀 Executando action de tendências...');
+      
         startTrendingTransition(() => {
-            const trendFormData = new FormData();
-            const productNames = allProducts.map(p => p.name);
-            trendFormData.append('productNames', JSON.stringify(productNames));
-            console.log('📝 Nomes enviados:', productNames);
-            trendingAction(trendFormData);
+          const trendFormData = new FormData();
+          trendFormData.append('productNames', JSON.stringify(queries)); // mantém o mesmo campo esperado pela action
+          trendingAction(trendFormData);
         });
-    };
+      };
 
 
     const isProcessingAny = isParsing || isAnalyzingPending;
