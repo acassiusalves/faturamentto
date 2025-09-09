@@ -135,7 +135,6 @@ export default function CatalogoPdfPage() {
         if (state.result && state.result.products.length > 0) {
             const newProducts = state.result.products.map(p => ({
                 ...p,
-                name: p.name, // Garante que o nome descritivo seja usado
                 refinedQuery: buildSearchQuery({
                     name: p.name,
                     description: p.description,
@@ -144,7 +143,11 @@ export default function CatalogoPdfPage() {
                 }),
             }));
 
-            setAllProducts(prevProducts => [...prevProducts, ...newProducts]);
+            setAllProducts(prevProducts => {
+                const existingProductNames = new Set(prevProducts.map(prod => prod.name));
+                const uniqueNewProducts = newProducts.filter(prod => !existingProductNames.has(prod.name));
+                return [...prevProducts, ...uniqueNewProducts];
+            });
         }
 
         if (isAnalyzingAll) {
@@ -284,7 +287,6 @@ export default function CatalogoPdfPage() {
         }
         
         console.log('🚀 Executando action de tendências...');
-        
         startTrendingTransition(() => {
             const trendFormData = new FormData();
             const productNames = allProducts.map(p => p.name);
@@ -679,4 +681,3 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
-
