@@ -2,13 +2,13 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useActionState, useTransition } from 'react';
+import { useState, useEffect, useMemo, useActionState, useTransition, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save, PackageX, PackageCheck } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -33,6 +33,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings } from '@/services/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -189,9 +190,10 @@ export default function FeedListPage() {
         }
     }, [savePricesState, toast]);
     
-    const { comparisonData, uniqueStores, entriesForSelectedDate, incorrectOffers } = useMemo(() => {
+    const { comparisonData, uniqueStores, entriesForSelectedDate, incorrectOffers, productsWithoutSku } = useMemo(() => {
         const productMap = new Map<string, Omit<ComparisonProduct, 'prices' | 'averagePrice' | 'minPrice' | 'maxPrice' | 'storeCount'> & { prices: Map<string, number | null> }>();
         const storeSet = new Set<string>();
+        const withoutSkuSet = new Map<string, {name: string, price: number | null, store: string}>();
 
         const filteredFeed = selectedDate 
             ? allFeedData.filter(entry => entry.date === format(selectedDate, 'yyyy-MM-dd'))
@@ -204,7 +206,17 @@ export default function FeedListPage() {
                 storeSet.add(entry.storeName);
             }
             entry.products.forEach(product => {
+                const price = product.costPrice ? parseFloat(product.costPrice.replace(',', '.')) : NaN;
+                
                 if (!product.sku || product.sku.toUpperCase() === 'SEM CÓDIGO') {
+                    // Armazena o produto sem SKU de forma única pelo nome para evitar duplicatas na lista
+                    if(!withoutSkuSet.has(product.name.toLowerCase())) {
+                       withoutSkuSet.set(product.name.toLowerCase(), {
+                           name: product.name,
+                           price: isNaN(price) ? null : price,
+                           store: entry.storeName,
+                       });
+                    }
                     return;
                 }
 
@@ -221,7 +233,6 @@ export default function FeedListPage() {
                 if (product.name.length > existingProduct.name.length) {
                     existingProduct.name = product.name;
                 }
-                const price = product.costPrice ? parseFloat(product.costPrice.replace(',', '.')) : NaN;
                 existingProduct.prices.set(entry.storeName, isNaN(price) ? null : price);
             });
         });
@@ -280,6 +291,7 @@ export default function FeedListPage() {
             uniqueStores: Array.from(storeSet).sort(),
             entriesForSelectedDate,
             incorrectOffers,
+            productsWithoutSku: Array.from(withoutSkuSet.values()),
         };
     }, [allFeedData, selectedDate, analysisState.result]);
 
@@ -565,129 +577,170 @@ export default function FeedListPage() {
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between gap-2 mb-4">
-                               <div className="flex items-center gap-2">
-                                 <Tablets className="h-5 w-5 text-muted-foreground" />
-                                 <h3 className="text-lg font-semibold">Tabela de Preços</h3>
-                               </div>
-                               {incorrectOffers.length > 0 && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" className="text-destructive hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/50">
-                                            Excluir {incorrectOffers.length} oferta(s) incorreta(s)
-                                            <Trash2 className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Excluir Ofertas Incorretas?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Você tem certeza que deseja excluir as <strong>{incorrectOffers.length}</strong> ofertas sinalizadas como "Atenção"? Esta ação removerá os produtos das suas respectivas listas para esta data e não pode ser desfeita.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleDeleteIncorrectOffers}>
-                                                Sim, Excluir Ofertas
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                               )}
-                            </div>
-
-                            <div className="rounded-md border overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Produto</TableHead>
-                                            <TableHead className="text-right min-w-[120px] font-bold bg-muted/50">Média</TableHead>
-                                            <TableHead className="text-center min-w-[150px]">Status</TableHead>
-                                            {uniqueStores.map(store => (
-                                                <TableHead key={store} className="text-right min-w-[150px]">
-                                                   <div className="flex items-center justify-end gap-1">
-                                                        {store}
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive">
-                                                                    <Trash2 className="h-3 w-3"/>
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Apagar lista da loja "{store}"?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        Esta ação removerá permanentemente todos os dados de preço desta loja para o dia selecionado.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                    <AlertDialogAction onClick={() => handleDeleteStoreData(store)}>Sim, Apagar</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
-                                                </TableHead>
-                                            ))}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredData.length > 0 ? filteredData.map(product => (
-                                            <TableRow key={product.sku}>
-                                                <TableCell className="font-medium sticky left-0 bg-card z-10">
-                                                    <div className="font-bold">{product.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{product.sku} ({product.storeCount} lojas)</div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono font-bold bg-muted/50">
-                                                    <div className={cn(
-                                                        "rounded-md p-1",
-                                                        product.averagePrice !== 0 && {
-                                                            'bg-green-100 dark:bg-green-900/50': product.averagePrice === product.minPrice,
-                                                        }
-                                                    )}>
-                                                        {formatCurrency(product.averagePrice)}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {product.analysis && (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Badge variant={statusConfig[product.analysis.status].variant} className="cursor-help">
-                                                                    {statusConfig[product.analysis.status].text}
-                                                                    <Info className="ml-1.5 h-3 w-3" />
-                                                                </Badge>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p className="max-w-xs">{product.analysis.justification}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    )}
-                                                </TableCell>
-                                                {uniqueStores.map(store => {
-                                                    const price = product.prices[store] ?? null;
-                                                    const isMin = price !== null && price === product.minPrice;
-                                                    const isMax = price !== null && price === product.maxPrice;
-                                                    
-                                                    return (
-                                                        <TableCell key={store} className={cn("text-right font-mono", {
-                                                            'bg-green-100 dark:bg-green-800/30': isMin,
-                                                            'bg-red-100 dark:bg-red-800/30': isMax,
-                                                        })}>
-                                                            {formatCurrency(price)}
+                             <Tabs defaultValue="comparative" className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="comparative">
+                                        <Tablets className="mr-2" /> Tabela Comparativa ({comparisonData.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="no_sku">
+                                         <PackageX className="mr-2" /> Sem Código ({productsWithoutSku.length})
+                                    </TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="comparative" className="mt-4">
+                                     <div className="flex items-center justify-between gap-2 mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Tablets className="h-5 w-5 text-muted-foreground" />
+                                            <h3 className="text-lg font-semibold">Tabela de Preços</h3>
+                                        </div>
+                                       {incorrectOffers.length > 0 && (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" className="text-destructive hover:text-destructive hover:bg-red-50 dark:hover:bg-red-900/50">
+                                                    Excluir {incorrectOffers.length} oferta(s) incorreta(s)
+                                                    <Trash2 className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Excluir Ofertas Incorretas?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Você tem certeza que deseja excluir as <strong>{incorrectOffers.length}</strong> ofertas sinalizadas como "Atenção"? Esta ação removerá os produtos das suas respectivas listas para esta data e não pode ser desfeita.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={handleDeleteIncorrectOffers}>
+                                                        Sim, Excluir Ofertas
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                       )}
+                                    </div>
+                                    <div className="rounded-md border overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="min-w-[250px] sticky left-0 bg-card z-10">Produto</TableHead>
+                                                    <TableHead className="text-right min-w-[120px] font-bold bg-muted/50">Média</TableHead>
+                                                    <TableHead className="text-center min-w-[150px]">Status</TableHead>
+                                                    {uniqueStores.map(store => (
+                                                        <TableHead key={store} className="text-right min-w-[150px]">
+                                                           <div className="flex items-center justify-end gap-1">
+                                                                {store}
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive">
+                                                                            <Trash2 className="h-3 w-3"/>
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>Apagar lista da loja "{store}"?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>
+                                                                                Esta ação removerá permanentemente todos os dados de preço desta loja para o dia selecionado.
+                                                                            </AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => handleDeleteStoreData(store)}>Sim, Apagar</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            </div>
+                                                        </TableHead>
+                                                    ))}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {filteredData.length > 0 ? filteredData.map(product => (
+                                                    <TableRow key={product.sku}>
+                                                        <TableCell className="font-medium sticky left-0 bg-card z-10">
+                                                            <div className="font-bold">{product.name}</div>
+                                                            <div className="text-xs text-muted-foreground">{product.sku} ({product.storeCount} lojas)</div>
                                                         </TableCell>
-                                                    )
-                                                })}
-                                            </TableRow>
-                                        )) : (
-                                            <TableRow>
-                                                <TableCell colSpan={uniqueStores.length + 3} className="h-24 text-center">
-                                                    Nenhum produto encontrado para a data selecionada.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                                        <TableCell className="text-right font-mono font-bold bg-muted/50">
+                                                            <div className={cn(
+                                                                "rounded-md p-1",
+                                                                product.averagePrice !== 0 && {
+                                                                    'bg-green-100 dark:bg-green-900/50': product.averagePrice === product.minPrice,
+                                                                }
+                                                            )}>
+                                                                {formatCurrency(product.averagePrice)}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            {product.analysis && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Badge variant={statusConfig[product.analysis.status].variant} className="cursor-help">
+                                                                            {statusConfig[product.analysis.status].text}
+                                                                            <Info className="ml-1.5 h-3 w-3" />
+                                                                        </Badge>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p className="max-w-xs">{product.analysis.justification}</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                        </TableCell>
+                                                        {uniqueStores.map(store => {
+                                                            const price = product.prices[store] ?? null;
+                                                            const isMin = price !== null && price === product.minPrice;
+                                                            const isMax = price !== null && price === product.maxPrice;
+                                                            
+                                                            return (
+                                                                <TableCell key={store} className={cn("text-right font-mono", {
+                                                                    'bg-green-100 dark:bg-green-800/30': isMin,
+                                                                    'bg-red-100 dark:bg-red-800/30': isMax,
+                                                                })}>
+                                                                    {formatCurrency(price)}
+                                                                </TableCell>
+                                                            )
+                                                        })}
+                                                    </TableRow>
+                                                )) : (
+                                                    <TableRow>
+                                                        <TableCell colSpan={uniqueStores.length + 3} className="h-24 text-center">
+                                                            Nenhum produto encontrado para a data selecionada.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="no_sku" className="mt-4">
+                                     <div className="rounded-md border overflow-x-auto">
+                                         <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Produto Não Identificado</TableHead>
+                                                    <TableHead>Loja de Origem</TableHead>
+                                                    <TableHead className="text-right">Preço de Custo</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {productsWithoutSku.length > 0 ? (
+                                                    productsWithoutSku.map((product, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell className="font-medium">{product.name}</TableCell>
+                                                            <TableCell><Badge variant="outline">{product.store}</Badge></TableCell>
+                                                            <TableCell className="text-right font-mono">{formatCurrency(product.price)}</TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                ) : (
+                                                     <TableRow>
+                                                        <TableCell colSpan={3} className="h-24 text-center">
+                                                            Nenhum produto sem código encontrado nesta data.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                         </Table>
+                                     </div>
+                                </TabsContent>
+                             </Tabs>
                         </TooltipProvider>
                     ) : (
                         <div className="text-center py-10">
