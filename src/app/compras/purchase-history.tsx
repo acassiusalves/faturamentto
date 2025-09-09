@@ -154,6 +154,14 @@ export function PurchaseHistory() {
         });
     }
 
+    const handleRemoveItem = (tempIdToRemove: string) => {
+        setPendingItems(prev => prev.filter(item => item.tempId !== tempIdToRemove));
+        toast({
+            variant: "default",
+            title: "Item Removido",
+            description: "O item foi removido da lista. Clique em Salvar para confirmar.",
+        });
+    };
     
     const handleItemPaidChange = async (purchaseId: string, sku: string, isPaid: boolean) => {
         const purchaseToUpdate = history.find(p => p.id === purchaseId);
@@ -400,6 +408,25 @@ export function PurchaseHistory() {
                                                                     >
                                                                         <SplitSquareHorizontal className="h-4 w-4" />
                                                                     </Button>
+                                                                    <AlertDialog>
+                                                                        <AlertDialogTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                                                <XCircle className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </AlertDialogTrigger>
+                                                                        <AlertDialogContent>
+                                                                            <AlertDialogHeader>
+                                                                                <AlertDialogTitle>Remover este item?</AlertDialogTitle>
+                                                                                <AlertDialogDescription>
+                                                                                    Esta ação removerá o item "{item.productName}" desta lista de compras. A ação será permanente após salvar.
+                                                                                </AlertDialogDescription>
+                                                                            </AlertDialogHeader>
+                                                                            <AlertDialogFooter>
+                                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                <AlertDialogAction onClick={() => handleRemoveItem(item.tempId)}>Sim, Remover</AlertDialogAction>
+                                                                            </AlertDialogFooter>
+                                                                        </AlertDialogContent>
+                                                                    </AlertDialog>
                                                                 </TableCell>
                                                             )}
                                                         </TableRow>
