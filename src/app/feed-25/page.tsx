@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useActionState, useState, useEffect, useTransition, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useActionState, useTransition, useRef, useCallback } from 'react';
 import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 
@@ -21,7 +21,7 @@ import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts, saveFeedEntry } from '@/services/firestore';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -41,9 +41,9 @@ const STORES_STORAGE_KEY = 'storesDatabase';
 const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
 **LISTA BRUTA DO FORNECEDOR:**
-\'\'\'
+'''
 {{{productList}}}
-\'\'\'
+'''
 
 **REGRAS DE ORGANIZAÇÃO:**
 1.  **Um Produto Por Linha:** A regra principal é identificar cada produto e suas variações. Se um item como "iPhone 13" tem duas cores (Azul e Preto) listadas, ele deve ser transformado em duas linhas separadas na saída.
@@ -53,15 +53,15 @@ const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dado
 5.  **Formato de Quantidade:** Padronize a quantidade para o formato "1x " no início de cada linha. Se nenhuma quantidade for mencionada, assuma 1.
 
 **EXEMPLO DE ENTRADA:**
-\'\'\'
+'''
 Bom dia! Segue a lista:
 - 2x IPHONE 15 PRO MAX 256GB - AZUL/PRETO - 5.100,00
 - SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00
 - 1x POCO X6 5G 128GB/6GB RAM
-\'\'\'
+'''
 
 **EXEMPLO DE SAÍDA ESPERADA:**
-\'\'\'json
+'''json
 {
     "organizedList": [
         "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00",
@@ -70,7 +70,7 @@ Bom dia! Segue a lista:
         "1x POCO X6 5G 128GB/6GB RAM"
     ]
 }
-\'\'\'
+'''
 
 Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
 `;
@@ -78,9 +78,9 @@ Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, 
 const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado, focando apenas em marcas específicas.
 
     **LISTA ORGANIZADA PARA ANÁLISE:**
-    \'\'\'
+    '''
     {{{organizedList}}}
-    \'\'\'
+    '''
 
     **REGRAS DE PADRONIZAÇÃO:**
     1.  **Foco em Marcas Principais:** Processe e padronize **APENAS** produtos que sejam claramente das marcas **Xiaomi, Realme, Motorola ou Samsung**.
@@ -94,15 +94,15 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
     9.  **Tratamento de Erros:** Se uma linha (de uma marca prioritária) não puder ser padronizada por outro motivo (faltando preço, formato confuso), adicione-a à lista 'unprocessedItems' com uma breve justificativa.
 
     **EXEMPLO DE ENTRADA:**
-    \'\'\'
+    '''
     1x IPHONE 13 128GB AMERICANO A+ - ROSA - 2.000,00
     1x REDMI NOTE 14 PRO 5G 8/256GB - PRETO - 1.235,00
     1x Produto com defeito sem preço
     1x SAMSUNG GALAXY S23 128GB PRETO 5G - 3500.00
-    \'\'\'
+    '''
 
     **EXEMPLO DE SAÍDA ESPERADA:**
-    \'\'\'json
+    '''json
     {
         "standardizedList": [
             "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 5G 1.235,00",
@@ -119,7 +119,7 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
         }
         ]
     }
-    \'\'\'
+    '''
 
     Execute a análise e gere a lista padronizada e a lista de itens não processados. A saída deve ser um JSON válido.
     `;
@@ -127,14 +127,14 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
 const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
 
         **LISTA PADRONIZADA (Resultado do Passo 2):**
-        \'\'\'
+        '''
         {{{productList}}}
-        \'\'\'
+        '''
 
         **BANCO DE DADOS (Nome do Produto\tSKU):**
-        \'\'\'
+        '''
         {{{databaseList}}}
-        \'\'\'
+        '''
 
         **REGRAS DE PROCESSAMENTO E BUSCA:**
         1.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
@@ -154,7 +154,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
 
         **EXEMPLO DE SAÍDA ESPERADA:**
-        \'\'\'json
+        '''json
         {
           "details": [
             { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3100.00" },
@@ -164,7 +164,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
             { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630.00" }
           ]
         }
-        \'\'\'
+        '''
 
         Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `;
@@ -181,7 +181,7 @@ export default function FeedPage() {
     // Form inputs
     const [initialProductList, setInitialProductList] = useState('');
     const [storeName, setStoreName] = useState('');
-    const [availableStores, setAvailableStores] = useState<string[]>([]);
+    const [allAvailableStores, setAllAvailableStores] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>();
     const [geminiApiKey, setGeminiApiKey] = useState('');
 
@@ -199,6 +199,7 @@ export default function FeedPage() {
     // State for saving prompts
     const [savePromptState, handleSavePrompt] = useActionState(savePromptAction, { error: null });
     const [isSavingPrompt, startSavingPromptTransition] = useTransition();
+    const [existingFeedEntries, setExistingFeedEntries] = useState<FeedEntry[]>([]);
 
     
     useEffect(() => {
@@ -213,18 +214,32 @@ export default function FeedPage() {
               }
               const appSettings = await loadAppSettings();
               if (appSettings) {
-                setAvailableStores(appSettings.stores || []);
+                setAllAvailableStores(appSettings.stores || []);
                 setGeminiApiKey(appSettings.geminiApiKey || '');
                 if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
                 if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
                 if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
               }
+              const feedEntries = await loadAllFeedEntries();
+              setExistingFeedEntries(feedEntries);
+
             } catch (error) {
               console.error("Failed to load data", error);
             }
         }
         loadData();
     }, []);
+
+    const availableStoresForDate = useMemo(() => {
+        if (!date) return allAvailableStores;
+        const selectedDateStr = format(date, 'yyyy-MM-dd');
+        const storesWithEntryForDate = new Set(
+            existingFeedEntries
+                .filter(entry => entry.date === selectedDateStr)
+                .map(entry => entry.storeName)
+        );
+        return allAvailableStores.filter(store => !storesWithEntryForDate.has(store));
+    }, [allAvailableStores, existingFeedEntries, date]);
 
     useEffect(() => {
         if(savePromptState.error) {
@@ -728,9 +743,13 @@ export default function FeedPage() {
                                             <SelectValue placeholder="Selecione uma loja" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {availableStores.map(store => (
-                                                <SelectItem key={store} value={store}>{store}</SelectItem>
-                                            ))}
+                                            {availableStoresForDate.length > 0 ? (
+                                                availableStoresForDate.map(store => (
+                                                    <SelectItem key={store} value={store}>{store}</SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="" disabled>Nenhuma loja disponível para esta data</SelectItem>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
