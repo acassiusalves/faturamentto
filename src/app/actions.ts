@@ -1,27 +1,13 @@
 
 'use server';
 
-import {processListPipeline} from '@/ai/flows/process-list-flow';
-import type {PipelineResult} from '@/lib/types';
-import {organizeList, type OrganizeListInput} from '@/ai/flows/organize-list';
-import {standardizeList, type StandardizeListInput} from '@/ai/flows/standardize-list';
-import {lookupProducts} from '@/ai/flows/lookup-products';
+import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import { analyzeFeed } from '@/ai/flows/analyze-feed-flow';
-import { fetchOrderLabel } from '@/services/ideris';
-import { analyzeLabel } from '@/ai/flows/analyze-label-flow';
-import { analyzeZpl } from '@/ai/flows/analyze-zpl-flow';
-import { remixLabelData } from '@/ai/flows/remix-label-data-flow';
-import { remixZplData } from '@/ai/flows/remix-zpl-data-flow';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
-import { regenerateZpl, type RegenerateZplInput, type RegenerateZplOutput } from '@/ai/flows/regenerate-zpl-flow';
-import { analyzeCatalog } from '@/ai/flows/analyze-catalog-flow';
-import { generateNewAccessToken as getMlToken, getSellersReputation } from '@/services/mercadolivre';
+import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
-import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
-import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
 import { deterministicLookup } from "@/lib/matching";
 
 
@@ -294,9 +280,11 @@ export async function organizeListAction(
   try {
     const productList = formData.get('productList') as string;
     const apiKey = formData.get('apiKey') as string | undefined;
+    const modelName = formData.get('modelName') as string | undefined;
     const prompt_override = formData.get('prompt_override') as string | undefined;
     if (!productList) throw new Error("A lista de produtos não pode estar vazia.");
-    const result = await organizeList({ productList, apiKey, prompt_override });
+    const { organizeList } = await import('@/ai/flows/organize-list');
+    const result = await organizeList({ productList, apiKey, modelName, prompt_override });
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e.message || "Falha ao organizar a lista." };
@@ -309,10 +297,12 @@ export async function standardizeListAction(
 ): Promise<{ result: StandardizeListOutput | null; error: string | null }> {
   try {
     const organizedList = formData.get('organizedList') as string;
-     const apiKey = formData.get('apiKey') as string | undefined;
+    const apiKey = formData.get('apiKey') as string | undefined;
+    const modelName = formData.get('modelName') as string | undefined;
     const prompt_override = formData.get('prompt_override') as string | undefined;
     if (!organizedList) throw new Error("A lista organizada não pode estar vazia.");
-    const result = await standardizeList({ organizedList, apiKey, prompt_override });
+    const { standardizeList } = await import('@/ai/flows/standardize-list');
+    const result = await standardizeList({ organizedList, apiKey, modelName, prompt_override });
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e.message || "Falha ao padronizar a lista." };
@@ -341,6 +331,7 @@ export async function fetchLabelAction(_prevState: any, formData: FormData): Pro
     const format = formData.get('format') as 'PDF' | 'ZPL';
     
     try {
+        const { fetchOrderLabel } = await import('@/services/ideris');
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
           throw new Error("A chave da API da Ideris não está configurada.");
@@ -373,6 +364,7 @@ export async function analyzeLabelAction(_prevState: any, formData: FormData): P
     }
     
     try {
+        const { analyzeLabel } = await import('@/ai/flows/analyze-label-flow');
         const result = await analyzeLabel({ photoDataUri });
         return { analysis: result, error: null };
     } catch (e: any) {
@@ -387,6 +379,7 @@ export async function analyzeZplAction(_prevState: any, formData: FormData): Pro
     }
     
     try {
+        const { analyzeZpl } = await import('@/ai/flows/analyze-zpl-flow');
         const result = await analyzeZpl({ zplContent });
         return { analysis: result, error: null };
     } catch (e: any) {
@@ -407,6 +400,7 @@ export async function remixLabelDataAction(_prevState: any, formData: FormData):
     const originalValue = originalData[fieldToRemix];
     
     const settings = await loadAppSettings();
+    const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
 
     const result = await remixLabelData({
       fieldToRemix,
@@ -428,6 +422,7 @@ export async function remixZplDataAction(_prevState: any, formData: FormData): P
         if (!input) {
             throw new Error('Input ZPL para remix inválido.');
         }
+        const { remixZplData } = await import('@/ai/flows/remix-zpl-data-flow');
         const result = await remixZplData(input);
         return { result, error: null };
     } catch (e: any) {
@@ -435,7 +430,7 @@ export async function remixZplDataAction(_prevState: any, formData: FormData): P
     }
 }
 
-export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: RegenerateZplOutput | null; error: string | null }> {
+export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: any | null; error: string | null }> {
     const originalZpl = formData.get('originalZpl') as string;
     const editedDataStr = formData.get('editedData') as string;
     
@@ -444,8 +439,8 @@ export async function regenerateZplAction(_prevState: any, formData: FormData): 
             throw new Error('Dados insuficientes para regenerar a etiqueta.');
         }
         const editedData = JSON.parse(editedDataStr);
-        const input: RegenerateZplInput = { originalZpl, editedData };
-        const result = await regenerateZpl(input);
+        const { regenerateZpl } = await import('@/ai/flows/regenerate-zpl-flow');
+        const result = await regenerateZpl({ originalZpl, editedData });
         return { result, error: null };
     } catch (e: any) {
         return { result: null, error: e.message || 'Falha na regeneração da etiqueta ZPL.' };
@@ -493,11 +488,12 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
 
     if (!pdfContent) throw new Error("O conteúdo do PDF não pode estar vazio.");
     if (isNaN(pageNumber) || isNaN(totalPages)) throw new Error("Número de página inválido.");
-
+    
+    const { analyzeCatalog } = await import('@/ai/flows/analyze-catalog-flow');
     const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand });
     return { result, error: null };
   } catch (e: any) {
-    return { result: null, error: e.message || "Falha ao analisar o catálogo." };
+    return { result, error: e.message || "Falha ao analisar o catálogo." };
   }
 }
 
@@ -528,7 +524,8 @@ export async function refineSearchTermAction(
     if (!productName) {
       throw new Error('O nome do produto é obrigatório para refinar a busca.');
     }
-
+    
+    const { refineSearchTerm } = await import('@/ai/flows/refine-search-term-flow');
     const input: RefineSearchTermInput = { productName, productModel, productBrand };
     const result = await refineSearchTerm(input);
     return { result, error: null };
@@ -547,6 +544,7 @@ export async function analyzeFeedAction(prevState: { result: any; error: string 
             return { result: null, error: 'Nenhum dado de feed para analisar.' };
         }
         
+        const { analyzeFeed } = await import('@/ai/flows/analyze-feed-flow');
         const result = await analyzeFeed({ products: feedData, apiKey, modelName });
         return { result, error: null };
 
@@ -564,6 +562,7 @@ export async function findTrendingProductsAction(
     if (!Array.isArray(productNames) || productNames.length === 0) {
       return { trendingProducts: [], error: 'Nenhum nome de produto fornecido.' };
     }
+    const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');
     const result = await findTrendingProducts(productNames);
     return { trendingProducts: result.trendingProducts, error: null };
   } catch (e: any) {
