@@ -2,13 +2,11 @@
 
 import React, { useState, useActionState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Package, Search, ExternalLink, CheckCircle } from 'lucide-react';
+import { Loader2, Package, ExternalLink, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { searchMercadoLivreAction } from '@/app/actions';
@@ -32,7 +30,6 @@ const listingTypeMap: Record<string, string> = {
     "gold_pro": "Premium"
 };
 
-// Componente principal - usando default export
 export default function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
   const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
   const [isPending, startTransition] = useTransition();
@@ -189,6 +186,3 @@ export default function SearchResultsDialog({ isOpen, onClose, product }: Search
     </Dialog>
   );
 }
-
-// Named export também disponível para compatibilidade
-export { SearchResultsDialog };
