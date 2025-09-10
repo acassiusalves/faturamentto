@@ -48,7 +48,7 @@ const colorMap: Record<string,string> = {
 function stripTrailingPrice(s: string) {
   // remove: "1530", "1.530,00", "R$ 1.530", "545.00" etc no final
   return s.replace(
-    /\s*(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:[\,\.]\d{2})?\s*$/u,
+    /\s*(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})*|\d+)(?:[,.]\d{2})?\s*$/u,
     ""
   ).trim();
 }
@@ -133,7 +133,7 @@ function parseColor(token?: string) {
 
 function extractLastDigits(line: string): string {
   // pega o último número, remove separadores
-  const matches = line.match(/(\d[\d\.\,]*)\s*$/);
+  const matches = line.match(/(\d[\d.,]*)\s*$/);
   if (!matches) return "0";
   const digits = matches[1].replace(/[^\d]/g,"");
   return digits || "0";
