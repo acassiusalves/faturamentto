@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 
 // PDF.js dinâmico
 let pdfjs: any = null;
@@ -29,12 +30,8 @@ let pdfjs: any = null;
 const initPDFjs = async () => {
   if (typeof window !== "undefined" && !pdfjs) {
     try {
+      setupPdfjsWorker();
       const pdfjsLib = await import('pdfjs-dist');
-      
-      if (pdfjsLib.GlobalWorkerOptions) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
-      }
-      
       pdfjs = pdfjsLib;
       return pdfjsLib;
     } catch (error) {
