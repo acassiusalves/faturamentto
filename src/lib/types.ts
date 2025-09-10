@@ -513,7 +513,7 @@ export const AnalyzeCatalogInputSchema = z.object({
 });
 export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
 
-export const ProductSchema = z.object({
+export const CatalogProductSchema = z.object({
   name: z.string().describe('The full name of the product.'),
   model: z.string().describe('The specific model of the product (e.g., "Note 13 Pro", "Galaxy S24 Ultra").'),
   brand: z.string().describe('The brand of the product.'),
@@ -522,13 +522,21 @@ export const ProductSchema = z.object({
   imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),
   quantityPerBox: z.number().optional().describe('The number of units per box, if mentioned.'),
 });
-export type ProductSchema = z.infer<typeof ProductSchema>;
-
 
 export const AnalyzeCatalogOutputSchema = z.object({
-  products: z.array(ProductSchema).describe('A list of products extracted from the page.'),
+  products: z.array(CatalogProductSchema).describe('A list of products extracted from the page.'),
 });
 export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
+
+export interface SearchableProduct extends z.infer<typeof CatalogProductSchema> {
+    refinedQuery?: string;
+    isSearching?: boolean;
+    searchError?: string;
+    foundProducts?: any[];
+    isTrending?: boolean;
+    matchedKeywords?: string[];
+}
+
 
 // Refine Search Term Types
 export const RefineSearchTermInputSchema = z.object({
