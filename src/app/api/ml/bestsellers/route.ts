@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { generateNewAccessToken as getMlToken } from "@/services/mercadolivre";
+import { getMlToken } from "@/services/mercadolivre";
 
 const ML_API = "https://api.mercadolibre.com";
 

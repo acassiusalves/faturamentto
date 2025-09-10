@@ -1,105 +1,110 @@
 
+'use server';
 
-// @ts-nocheck
+import { loadAppSettings } from '@/services/firestore';
 
-import { loadAppSettings } from "./firestore";
-import type { MercadoLivreCredentials } from "@/lib/types";
+type MlTokenResponse = {
+  access_token: string;
+  expires_in: number; // em segundos (geralmente ~21600 = 6h)
+};
 
-// Cache em memória para o token de acesso
-let inMemoryAccessToken: {
-  token: string;
-  expiresAt: number;
-} | null = null;
+let _cachedToken: string | null = null;
+let _expiresAt = 0;
 
-const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // O token do ML dura 6 horas, usamos um pouco menos por segurança
-
-/**
- * Obtém um novo access_token usando o refresh_token.
- */
-export async function generateNewAccessToken(): Promise<string> {
-  const settings = await loadAppSettings();
-  const creds = settings?.mercadoLivre;
-  if (!creds?.refreshToken || !creds?.appId || !creds?.clientSecret || !creds?.redirectUri) {
-    throw new Error("Credenciais do Mercado Livre não configuradas.");
+export async function getMlToken(): Promise<string> {
+  // cache simples em memória do servidor
+  if (_cachedToken && Date.now() < _expiresAt - 60_000) {
+    return _cachedToken;
   }
 
-  const resp = await fetch("https://api.mercadolibre.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: creds.appId,
-      client_secret: creds.clientSecret,
-      refresh_token: creds.refreshToken,
-      redirect_uri: creds.redirectUri,
-    }).toString(),
-    cache: "no-store" as RequestCache,
-  });
+  const settings = await loadAppSettings().catch(() => null);
 
-  const data = await resp.json();
-  if (!resp.ok || !data?.access_token) {
-    throw new Error(`Falha ao atualizar token: ${data?.message || resp.status}`);
+  // 1) token “fixo” salvo nas settings (sem refresh)
+  if (settings?.mlAccessToken && !settings?.mlRefreshToken) {
+    _cachedToken = settings.mlAccessToken;
+    // vence em ~55min só pra não deixar infinito
+    _expiresAt = Date.now() + 55 * 60 * 1000;
+    return _cachedToken;
   }
-  inMemoryAccessToken = { token: data.access_token, expiresAt: Date.now() + TOKEN_LIFETIME_MS };
-  return data.access_token;
-}
 
-async function getValidAccessToken(): Promise<string> {
-  if (inMemoryAccessToken && inMemoryAccessToken.expiresAt > Date.now()) {
-    return inMemoryAccessToken.token;
+  // 2) fluxo oficial com refresh_token (recomendado)
+  const clientId = settings?.mlClientId || process.env.ML_CLIENT_ID;
+  const clientSecret = settings?.mlClientSecret || process.env.ML_CLIENT_SECRET;
+  const refreshToken = settings?.mlRefreshToken || process.env.ML_REFRESH_TOKEN;
+
+  if (clientId && clientSecret && refreshToken) {
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: String(clientId),
+      client_secret: String(clientSecret),
+      refresh_token: String(refreshToken),
+    });
+
+    const r = await fetch('https://api.mercadolibre.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      cache: 'no-store',
+    });
+
+    if (!r.ok) {
+      const msg = await r.text();
+      throw new Error(`Falha ao renovar token do Mercado Livre: ${msg}`);
+    }
+
+    const j = (await r.json()) as MlTokenResponse;
+    _cachedToken = j.access_token;
+    _expiresAt = Date.now() + (j.expires_in ?? 21600) * 1000;
+    return _cachedToken;
   }
-  return await generateNewAccessToken();
+
+  // 3) fallback env var com access token direto
+  const envToken = process.env.ML_ACCESS_TOKEN || process.env.NEXT_PUBLIC_ML_ACCESS_TOKEN;
+  if (envToken) {
+    _cachedToken = envToken;
+    _expiresAt = Date.now() + 55 * 60 * 1000;
+    return _cachedToken;
+  }
+
+  throw new Error(
+    'Token do Mercado Livre não configurado. Informe mlAccessToken OU (mlClientId, mlClientSecret, mlRefreshToken) nas App Settings, ou use ML_ACCESS_TOKEN nas env vars.'
+  );
 }
 
+/** Se já existir no arquivo, mantenha. Só certifique-se de exportar. */
+export async function getSellersReputation(
+  sellerIds: number[],
+  token: string
+): Promise<Record<number, any>> {
+  if (!sellerIds?.length) return {};
+  const uniq = Array.from(new Set(sellerIds)).filter(Boolean);
 
-async function getUser(sellerId: string, token: string) {
-  const r = await fetch(`https://api.mercadolibre.com/users/${sellerId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!r.ok) throw new Error(`users HTTP ${r.status}`);
-  return r.json();
-}
-
-export async function getSellersReputation(sellerIds: string[], token: string) {
-  // dedup
-  const ids = [...new Set(sellerIds)].filter(Boolean);
-
+  // consulta em lotes simples
+  const out: Record<number, any> = {};
   const CONCURRENCY = 8;
-  let i = 0;
-  const out: Record<string, any> = {};
-
-  async function worker() {
-    while (i < ids.length) {
-      const idx = i++;
-      const id = ids[idx];
-      try {
-        const u = await getUser(id, token);
-        const rep = u?.seller_reputation || {};
-
-        out[id] = {
-          nickname: u?.nickname,
-          official_store_id: u?.official_store_id,
-          registration_date: u?.registration_date,
-          level_id: rep?.level_id,
-          power_seller_status: rep?.power_seller_status,
-          ratings: rep?.transactions?.ratings,
-          completed_total: rep?.transactions?.completed,
-          canceled_total: rep?.transactions?.canceled,
+  for (let i = 0; i < uniq.length; i += CONCURRENCY) {
+    const batch = uniq.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(
+      batch.map(async (sid) => {
+        const r = await fetch(`https://api.mercadolibre.com/users/${sid}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        out[sid] = {
+          nickname: j?.nickname ?? null,
+          level_id: j?.seller_reputation?.level_id ?? null,
+          power_seller_status: j?.seller_reputation?.power_seller_status ?? null,
           metrics: {
-            claims_rate: rep?.metrics?.claims?.rate ?? 0,
-            cancellations_rate: rep?.metrics?.cancellations?.rate ?? 0,
-            delayed_rate: rep?.metrics?.delayed_handling_time?.rate ?? 0,
-            sales_completed_period: rep?.metrics?.sales?.completed ?? 0,
+            claims_rate: j?.seller_reputation?.metrics?.claims_rate ?? 0,
+            cancellations_rate: j?.seller_reputation?.metrics?.cancellations_rate ?? 0,
+            delayed_rate: j?.seller_reputation?.metrics?.delayed_rate ?? 0,
           },
         };
-      } catch (e) {
-        out[id] = { error: String(e) };
-      }
-    }
+      })
+    );
   }
-
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   return out;
 }
 
