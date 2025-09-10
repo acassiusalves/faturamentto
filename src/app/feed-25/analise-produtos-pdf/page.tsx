@@ -35,7 +35,7 @@ export default function AnaliseProdutosPdfPage() {
         try {
             const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
             // O worker é copiado para a pasta public pelo script postinstall em package.json
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.js`;
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.mjs`;
             setPdfjs(pdfjsLib);
         } catch (error) {
             console.error("Failed to load pdf.js", error);
