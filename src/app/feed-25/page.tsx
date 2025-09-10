@@ -196,7 +196,7 @@ export default function FeedPage() {
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
     const [step2Result, setStep2Result] = useState<StandardizeListOutput | null>(null);
-    const [step3Result, setStep3Result] = useState<{ details: any[], withCode: any[], noCode: any[] } | null>(null);
+    const [step3Result, setStep3Result] = useState<{ details: any[] } | null>(null);
     
     // States for prompt overrides
     const [organizePrompt, setOrganizePrompt] = useState(DEFAULT_ORGANIZE_PROMPT);
@@ -767,91 +767,83 @@ export default function FeedPage() {
             )}
 
             {step3Result && (
-                <>
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center gap-4">
-                                <Check className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                    <CardTitle className="font-headline text-xl">Passo 4: Salvar no Feed</CardTitle>
-                                    <CardDescription>Selecione a loja e a data para salvar este resultado no seu feed comparativo.</CardDescription>
-                                </div>
+                 <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-4">
+                            <Check className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                                <CardTitle className="font-headline text-xl">Passo 4: Salvar no Feed</CardTitle>
+                                <CardDescription>Selecione a loja e a data para salvar este resultado no seu feed comparativo.</CardDescription>
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="storeName-step" className="text-sm font-medium mb-2 block">Nome da Loja (Obrigatório)</Label>
-                                    <Select onValueChange={setStoreName} value={storeName}>
-                                        <SelectTrigger id="storeName-step">
-                                            <SelectValue placeholder="Selecione uma loja" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableStoresForDate.length > 0 ? (
-                                                availableStoresForDate.map(store => (
-                                                    <SelectItem key={store} value={store}>{store}</SelectItem>
-                                                ))
-                                            ) : (
-                                                <SelectItem value="" disabled>Nenhuma loja disponível para esta data</SelectItem>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="listDate-step" className="text-sm font-medium mb-2 block">Data da Lista</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !date && "text-muted-foreground"
-                                            )}
-                                            disabled={!date}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Escolha uma data</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                            mode="single"
-                                            selected={date}
-                                            onSelect={setDate}
-                                            initialFocus
-                                            locale={ptBR}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="storeName-step" className="text-sm font-medium mb-2 block">Nome da Loja (Obrigatório)</Label>
+                                <Select onValueChange={setStoreName} value={storeName}>
+                                    <SelectTrigger id="storeName-step">
+                                        <SelectValue placeholder="Selecione uma loja" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableStoresForDate.length > 0 ? (
+                                            availableStoresForDate.map(store => (
+                                                <SelectItem key={store} value={store}>{store}</SelectItem>
+                                            ))
+                                        ) : (
+                                            <SelectItem value="" disabled>Nenhuma loja disponível para esta data</SelectItem>
+                                        )}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <Button onClick={sendToFeed} disabled={!storeName || !step3Result}>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Enviar para o Feed
-                            </Button>
-                        </CardContent>
-                    </Card>
+                            <div>
+                                <Label htmlFor="listDate-step" className="text-sm font-medium mb-2 block">Data da Lista</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !date && "text-muted-foreground"
+                                        )}
+                                        disabled={!date}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Escolha uma data</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                        mode="single"
+                                        selected={date}
+                                        onSelect={setDate}
+                                        initialFocus
+                                        locale={ptBR}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
+                        <Button onClick={sendToFeed} disabled={!storeName || !step3Result}>
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Enviar para o Feed
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
 
-                    <Card className="mb-4">
-                        <CardHeader>
-                            <CardTitle>Com código ({step3Result.withCode.length})</CardTitle>
-                            <CardDescription>Itens casados com o banco</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ProductTable products={step3Result.withCode} />
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Sem código ({step3Result.noCode.length})</CardTitle>
-                            <CardDescription>Itens que precisam ser mapeados no banco</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ProductTable products={step3Result.noCode} />
-                        </CardContent>
-                    </Card>
-                </>
+            {step3Result && step3Result.details && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Resultado Final</CardTitle>
+                         <CardDescription>
+                            Lista de produtos após cruzamento com o banco de dados.
+                        </CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        <ProductTable products={step3Result.details} />
+                    </CardContent>
+                </Card>
             )}
         </main>
     );

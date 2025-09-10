@@ -1,4 +1,3 @@
-
 // src/lib/matching.ts
 import { deburr } from "lodash"; // se não usar lodash, cria um deburr simples ou remove acentos via normalize
 
@@ -232,7 +231,7 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
       if (!best || sc > best.score) best = { item, score: sc };
     }
     // limiar de confiança (ajusta se quiser)
-    const THRESHOLD = 7; // modelo(5)+storage(2) já passa; ou modelo(5)+ram(2)
+    const THRESHOLD = 6.5; 
     if (best && best.score >= THRESHOLD) {
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
