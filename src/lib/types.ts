@@ -518,7 +518,7 @@ export const ProductSchema = z.object({
   model: z.string().describe('The specific model of the product (e.g., "Note 13 Pro", "Galaxy S24 Ultra").'),
   brand: z.string().describe('The brand of the product.'),
   description: z.string().describe('A brief description of the product, including details like color, memory, etc.'),
-  price: z.string().describe('The price of the product, formatted as a string (e.g., "1.299,00").'),
+  price: z.string().describe('The price of the product, formatted as a string with a dot as decimal separator (e.g., "22.35").'),
   imageUrl: z.string().optional().describe('A placeholder image URL for the product.'),
   quantityPerBox: z.number().optional().describe('The number of units per box, if mentioned.'),
 });
