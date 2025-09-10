@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useActionState, useTransition, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
 import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 
@@ -204,10 +204,16 @@ export default function FeedPage() {
     const [lookupPrompt, setLookupPrompt] = useState(DEFAULT_LOOKUP_PROMPT);
 
     // State for saving prompts
-    const [savePromptState, handleSavePrompt] = useActionState(savePromptAction, { error: null, success: false });
+    const [savePromptState, setSavePromptState] = useState<{ error: string | null, success: boolean }>({ error: null, success: false });
     const [isSavingPrompt, startSavingPromptTransition] = useTransition();
     const [existingFeedEntries, setExistingFeedEntries] = useState<FeedEntry[]>([]);
 
+    const handleSavePrompt = (formData: FormData) => {
+        startSavingPromptTransition(async () => {
+            const result = await savePromptAction({ error: null, success: false }, formData);
+            setSavePromptState(result);
+        });
+    };
     
     useEffect(() => {
         // Set date on client-side only to avoid hydration mismatch
@@ -498,12 +504,10 @@ export default function FeedPage() {
       };
       
       const onSavePrompt = (promptKey: 'organizePrompt' | 'standardizePrompt' | 'lookupPrompt', promptValue: string) => {
-          startSavingPromptTransition(() => {
-            const formData = new FormData();
-            formData.append('promptKey', promptKey);
-            formData.append('promptValue', promptValue);
-            handleSavePrompt(formData);
-          });
+          const formData = new FormData();
+          formData.append('promptKey', promptKey);
+          formData.append('promptValue', promptValue);
+          handleSavePrompt(formData);
       };
 
 
