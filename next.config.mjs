@@ -1,7 +1,5 @@
 
-import type {NextConfig} from 'next';
-
-const nextConfig: NextConfig = {
+const nextConfig = {
   /* config options here */
   webpack(config) {
     // Carrega o 'worker' do pdfjs-dist
