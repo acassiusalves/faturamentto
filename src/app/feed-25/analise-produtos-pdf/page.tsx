@@ -40,7 +40,7 @@ const initPDFjs = async () => {
   if (typeof window !== "undefined" && !pdfjs) {
     try {
       setupPdfjsWorker();
-      const pdfjsLib = await import('pdfjs-dist');
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
       pdfjs = pdfjsLib;
       return pdfjsLib;
     } catch (error) {
