@@ -58,7 +58,6 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
 
         Execute a conversão, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `
-
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
     const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
