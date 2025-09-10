@@ -20,17 +20,17 @@ export async function getMlToken(): Promise<string> {
   const settings = await loadAppSettings().catch(() => null);
 
   // 1) token “fixo” salvo nas settings (sem refresh)
-  if (settings?.mlAccessToken && !settings?.mlRefreshToken) {
-    _cachedToken = settings.mlAccessToken;
+  if (settings?.mercadoLivre?.appId && !settings?.mercadoLivre?.refreshToken) {
+    _cachedToken = settings.mercadoLivre.appId;
     // vence em ~55min só pra não deixar infinito
     _expiresAt = Date.now() + 55 * 60 * 1000;
     return _cachedToken;
   }
 
   // 2) fluxo oficial com refresh_token (recomendado)
-  const clientId = settings?.mlClientId || process.env.ML_CLIENT_ID;
-  const clientSecret = settings?.mlClientSecret || process.env.ML_CLIENT_SECRET;
-  const refreshToken = settings?.mlRefreshToken || process.env.ML_REFRESH_TOKEN;
+  const clientId = settings?.mercadoLivre?.appId || process.env.ML_CLIENT_ID;
+  const clientSecret = settings?.mercadoLivre?.clientSecret || process.env.ML_CLIENT_SECRET;
+  const refreshToken = settings?.mercadoLivre?.refreshToken || process.env.ML_REFRESH_TOKEN;
 
   if (clientId && clientSecret && refreshToken) {
     const body = new URLSearchParams({
@@ -67,7 +67,7 @@ export async function getMlToken(): Promise<string> {
   }
 
   throw new Error(
-    'Token do Mercado Livre não configurado. Informe mlAccessToken OU (mlClientId, mlClientSecret, mlRefreshToken) nas App Settings, ou use ML_ACCESS_TOKEN nas env vars.'
+    'Token do Mercado Livre não configurado. Informe as credenciais na página de Mapeamento, ou use ML_ACCESS_TOKEN nas env vars.'
   );
 }
 
