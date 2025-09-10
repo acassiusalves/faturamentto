@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { BookImage, Loader2, Play } from 'lucide-react';
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf";
+import * as pdfjs from "pdfjs-dist";
 import { setupPdfjsWorker } from '@/lib/pdfjs-worker';
 import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
 import { analyzeCatalogAction } from '@/app/actions';
