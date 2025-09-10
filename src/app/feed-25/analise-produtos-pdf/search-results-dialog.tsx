@@ -10,10 +10,15 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { searchMercadoLivreAction } from '@/app/actions';
-import { Loader2, Package, Search } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { FullIcon, MercadoEnviosIcon } from '@/components/icons';
+import { cn } from '@/lib/utils';
 
 interface SearchResultsDialogProps {
     isOpen: boolean;
@@ -21,10 +26,16 @@ interface SearchResultsDialogProps {
     product: SearchableProduct | null;
 }
 
+const listingTypeMap: Record<string, string> = {
+    "gold_special": "Clássico",
+    "gold_pro": "Premium"
+};
+
 export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [results, setResults] = useState<any[]>([]);
+    const [showOnlyActive, setShowOnlyActive] = useState(true);
 
     useEffect(() => {
         if (isOpen && product) {
@@ -35,7 +46,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                 try {
                     const formData = new FormData();
                     formData.append('productName', product.refinedQuery || product.name);
-                    formData.append('quantity', '20');
+                    formData.append('quantity', '50'); // Fetch more results
                     const searchResult = await searchMercadoLivreAction({ result: null, error: null }, formData);
                     if (searchResult.error) {
                         throw new Error(searchResult.error);
@@ -53,15 +64,14 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         }
     }, [isOpen, product]);
 
-    const matchingResults = useMemo(() => {
-        if (!results || !product) return [];
-        return results.filter(r => r.model?.toLowerCase() === product.model?.toLowerCase());
-    }, [results, product]);
+    const filteredResults = useMemo(() => {
+        if (!results) return [];
+        if (showOnlyActive) {
+            return results.filter(r => r.price > 0);
+        }
+        return results;
+    }, [results, showOnlyActive]);
 
-    const otherResults = useMemo(() => {
-        if (!results || !product) return [];
-        return results.filter(r => r.model?.toLowerCase() !== product.model?.toLowerCase());
-    }, [results, product]);
 
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
@@ -70,13 +80,20 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Resultados da Busca no Mercado Livre</DialogTitle>
+                    <DialogTitle>Resultados da Busca: <span className="text-primary">{product?.refinedQuery || product?.name}</span></DialogTitle>
                     <DialogDescription>
-                        Buscando por: <span className="font-semibold text-primary">{product?.refinedQuery || product?.name}</span>
+                        Exibindo os anúncios encontrados no Mercado Livre para o termo de busca.
                     </DialogDescription>
                 </DialogHeader>
+                 <div className="flex items-center justify-between pb-4 border-b">
+                    <Badge variant="secondary">{filteredResults.length} anúncios listados</Badge>
+                     <div className="flex items-center space-x-2">
+                        <Switch id="active-only" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
+                        <Label htmlFor="active-only">Apenas ativos</Label>
+                    </div>
+                </div>
                 <div className="flex-grow overflow-y-auto pr-4">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full">
@@ -85,46 +102,55 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                     ) : error ? (
                         <div className="text-destructive font-medium">{error}</div>
                     ) : (
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="font-semibold mb-2">Resultados Correspondentes ({matchingResults.length})</h3>
-                                <div className="space-y-2">
-                                    {matchingResults.length > 0 ? matchingResults.map(offer => (
-                                         <div key={offer.id} className="flex items-center gap-4 p-2 border rounded-md">
-                                             <div className="relative h-16 w-16 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                                                {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" />}
+                        <Table>
+                             <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[100px]">Imagem</TableHead>
+                                    <TableHead>Nome do Produto</TableHead>
+                                    <TableHead className="text-right">Preço</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredResults.length > 0 ? filteredResults.map(offer => {
+                                    const isModelMatch = offer.model?.toLowerCase() === product?.model?.toLowerCase();
+                                    return (
+                                     <TableRow key={offer.id}>
+                                        <TableCell>
+                                            <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
+                                                {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image"/>}
                                             </div>
-                                            <div className="flex-grow">
-                                                <p className="font-medium line-clamp-2">{offer.name}</p>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1">
+                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
+                                                    {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                </Link>
+                                                <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
+                                                <p className="text-xs text-muted-foreground">Marca: {offer.brand} | Modelo: {offer.model}</p>
+                                                <p className="text-xs text-muted-foreground">Vendedor: <span className="font-semibold">{offer.seller_nickname}</span> {offer.is_official_store && <Badge variant="outline">Loja Oficial</Badge>}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {offer.shipping_logistic_type === 'fulfillment' ? <FullIcon /> : <MercadoEnviosIcon />}
+                                                    {offer.listing_type_id && <Badge variant="outline">{listingTypeMap[offer.listing_type_id] || offer.listing_type_id}</Badge>}
+                                                    {isModelMatch && (
+                                                        <Badge className="bg-green-100 text-green-700 hover:bg-green-200">
+                                                            <CheckCircle className="mr-1 h-3 w-3" />
+                                                            Correspondência de modelo
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="font-bold text-lg text-primary">{formatCurrency(offer.price)}</div>
-                                        </div>
-                                    )) : <p className="text-sm text-muted-foreground text-center py-4">Nenhuma correspondência exata encontrada para o modelo.</p>}
-                                </div>
-                            </div>
-                             <div>
-                                <h3 className="font-semibold mb-2">Outros Resultados ({otherResults.length})</h3>
-                                <div className="space-y-2">
-                                    {otherResults.map(offer => (
-                                         <div key={offer.id} className="flex items-center gap-4 p-2 border rounded-md opacity-70">
-                                            <div className="relative h-16 w-16 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                                                {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" />}
-                                            </div>
-                                            <div className="flex-grow">
-                                                <p className="font-medium line-clamp-2">{offer.name}</p>
-                                                 <div className="text-xs text-muted-foreground mt-1">
-                                                    Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
-                                                </div>
-                                            </div>
-                                            <div className="font-bold text-lg">{formatCurrency(offer.price)}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(offer.price)}</TableCell>
+                                     </TableRow>
+                                )}) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                            Nenhum anúncio encontrado para os filtros aplicados.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     )}
                 </div>
             </DialogContent>
