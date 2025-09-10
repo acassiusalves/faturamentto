@@ -109,12 +109,12 @@ export default function FeedListPage() {
     });
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-
-    const [savePricesState, savePricesAction, isSavingPrices] = useActionState(saveAveragePricesAction, {
+    const [savePricesState, setSavePricesState] = useState({
         success: false,
-        error: null,
+        error: null as string | null,
         count: 0
     });
+    const [isSavingPrices, startSavingPricesTransition] = useTransition();
 
     const handleAnalyze = (formData: FormData) => {
         setIsAnalyzing(true);
@@ -280,7 +280,7 @@ export default function FeedListPage() {
 
 
             // Check for analysis result and merge it
-            const analysisResult = analysisState.result?.analysis.find(a => a.sku === p.sku);
+            const analysisResult = analysisState.result?.analysis.find((a: any) => a.sku === p.sku);
 
             return {
                 ...p,
@@ -484,8 +484,9 @@ export default function FeedListPage() {
 
         const formData = new FormData();
         formData.append('averagePrices', JSON.stringify(dataToSave));
-        startTransition(() => {
-          savePricesAction(formData);
+        startSavingPricesTransition(async () => {
+          const result = await saveAveragePricesAction(formData);
+          setSavePricesState(result);
         });
     }
 
