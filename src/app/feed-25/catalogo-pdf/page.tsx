@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -25,8 +24,9 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 import dynamic from 'next/dynamic';
 
-const SearchResultsDialog = dynamic(() =>
-  import('./search-results-dialog').then((mod) => mod.SearchResultsDialog)
+const SearchResultsDialog = dynamic(
+  () => import('./search-results-dialog').then((mod) => mod.SearchResultsDialog),
+  { ssr: false }
 );
 
 
