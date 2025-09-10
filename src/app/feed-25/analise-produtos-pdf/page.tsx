@@ -27,7 +27,7 @@ import type { SearchableProduct } from './types';
 
 
 const SearchResultsDialog = dynamic(
-  () => import('./search-results-dialog'),
+  () => import('./search-results-dialog').then(m => m.default),
   { 
     ssr: false,
     loading: () => <div>Carregando...</div>
@@ -50,7 +50,6 @@ const initPDFjs = async () => {
   }
   return pdfjs;
 };
-
 
 const trendQueryFor = (p: SearchableProduct) => {
   const q =
