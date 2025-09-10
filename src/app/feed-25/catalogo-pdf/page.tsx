@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -12,7 +13,6 @@ import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions'
 import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { SearchResultsDialog } from './search-results-dialog';
 import { buildSearchQuery } from "@/lib/search-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Image from 'next/image';
@@ -23,6 +23,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
+import dynamic from 'next/dynamic';
+
+const SearchResultsDialog = dynamic(() =>
+  import('./search-results-dialog').then((mod) => mod.SearchResultsDialog)
+);
+
 
 // PDF.js dinâmico
 let pdfjs: any = null;
