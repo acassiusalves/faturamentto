@@ -36,8 +36,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
             *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
             *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
             *   \`costPrice\`: O preço de custo extraído como uma string, mantendo o formato original.
-        7.  **Tratamento de Listas Longas:** Se a 'Lista Padronizada' for muito extensa para processar completamente, processe o máximo de itens que puder, mas garanta que a saída JSON seja sempre um arquivo válido e bem-formado, sem objetos cortados pela metade. É melhor retornar menos itens do que um JSON quebrado.
-
+        
         **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
         1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
         2.  **Ignorar Outras Marcas:** Produtos de marcas que não sejam uma das quatro mencionadas acima devem ser completamente ignorados e não devem aparecer no resultado final.
@@ -55,6 +54,8 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
           ]
         }
         '''
+        
+        **INSTRUÇÃO FINAL ABSOLUTA:** É absolutamente crítico que o JSON de saída seja VÁLIDO. Se a lista for muito longa e você não conseguir processar todos os itens, PARE antes de atingir seu limite de tokens. É MELHOR retornar uma lista JSON mais curta e VÁLIDA do que uma lista completa e QUEBRADA. Não termine a resposta no meio de um objeto JSON.
 
         Execute a conversão, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `
