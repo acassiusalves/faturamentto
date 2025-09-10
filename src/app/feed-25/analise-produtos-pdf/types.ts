@@ -1,3 +1,4 @@
+
 export interface CatalogProduct {
   name: string;
   model: string;

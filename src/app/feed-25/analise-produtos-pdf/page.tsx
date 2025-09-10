@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, SearchableProduct } from './types';
+import type { AnalyzeCatalogOutput } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { buildSearchQuery } from "@/lib/search-query";
@@ -22,6 +23,7 @@ import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 import dynamic from 'next/dynamic';
+import type { SearchableProduct } from './types';
 
 
 const SearchResultsDialog = dynamic(
@@ -32,7 +34,6 @@ const SearchResultsDialog = dynamic(
   }
 );
 
-// PDF.js dinâmico
 let pdfjs: any = null;
 
 const initPDFjs = async () => {
@@ -50,6 +51,7 @@ const initPDFjs = async () => {
   return pdfjs;
 };
 
+
 const trendQueryFor = (p: SearchableProduct) => {
   const q =
     (p.refinedQuery?.trim() ||
@@ -60,7 +62,7 @@ const trendQueryFor = (p: SearchableProduct) => {
   return q;
 };
 
-export default function CatalogoPdfPage() {
+export default function AnaliseProdutosPdfPage() {
     const { toast } = useToast();
     const [file, setFile] = useState<File | null>(null);
     const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -420,7 +422,7 @@ export default function CatalogoPdfPage() {
                 <CardHeader>
                     <CardTitle className="font-headline text-2xl flex items-center gap-2">
                         <BookImage className="h-6 w-6" />
-                        Análise de Catálogo PDF
+                        Análise de Produtos em PDF
                     </CardTitle>
                     <CardDescription>
                        Faça o upload do seu catálogo em PDF e a IA irá extrair e listar os produtos para você, página por página.
