@@ -47,7 +47,7 @@ const colorMap: Record<string,string> = {
 // ADD: helpers
 function stripTrailingPrice(s: string) {
     // remove: "1530", "1.530,00", "R$ 1.530", "545.00" etc no final
-    return s.replace(/\s*(?:R\$\s*)?[\d.,]+\s*$/, "").trim();
+    return s.replace(/\s*(?:R\$\s*)?[\d.,]+\s*$/u, "").trim();
 }
 
 function applyColorSynonyms(s: string) {
@@ -220,10 +220,15 @@ export function parseDb(databaseList: string): DbItem[] {
 }
 
 function brandEq(a: string, b: string) { return a.toLowerCase() === b.toLowerCase(); }
+
 function modelEq(a: string, b: string) {
-  const clean = (s:string)=> s.replace(/\s+/g,"").toLowerCase();
-  return clean(a) === clean(b);
+  const cleanA = a.replace(/\s+/g,"").toLowerCase();
+  const cleanB = b.replace(/\s+/g,"").toLowerCase();
+  // Permite que o modelo do banco de dados (maior) contenha o modelo da lista (menor)
+  // Ex: "poco x7 pro" (banco) contém "x7 pro" (lista)
+  return cleanA.includes(cleanB) || cleanB.includes(cleanA);
 }
+
 
 function colorEq(a?: string, b?: string) {
   if (!a || !b) return true; // cor é fraca
@@ -235,7 +240,9 @@ function scoreMatch(std: StdLine, db: DbItem) {
   if (!brandEq(std.brand, db.brand)) return -999;
 
   let s = 0;
-  if (modelEq(std.modelBase, db.modelBase)) s += 5;
+  if (modelEq(std.modelBase, db.modelBase)) s += 5; // Match de modelo (flexível)
+  else return -999; // Se nem o modelo bater, descarta
+
   if (std.storage && std.storage === db.storage) s += 2;
   if (std.ram && std.ram === db.ram) s += 2;
 
@@ -256,38 +263,32 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
 } {
   const db = parseDb(databaseList);
 
-  // índice por nome normalizado (sem preço + sinônimos)
-  const dbByNorm = new Map<string, typeof db[number]>();
-  for (const item of db) {
-    dbByNorm.set(normalizeNameForCompare(item.name), item);
-  }
-
   const stdParsed = standardizedLines
     .map(parseStdLine)
     .filter((x): x is StdLine => !!x);
 
   const results: MatchResult[] = stdParsed.map(std => {
-    const normStdFull = normalizeNameForCompare(std.raw);
-
-    // 1) MATCH DIRETO POR NOME (ultra forte)
-    const direct = dbByNorm.get(normStdFull);
-    if (direct) {
-      return { sku: direct.sku, name: direct.name, costPrice: std.priceDigits, _score: 999 };
-    }
-
-    // 2) Fallback: score
     let best: {item: DbItem; score: number} | null = null;
-    for (const item of db) {
+    
+    // Filtra o banco de dados apenas para itens com atributos principais correspondentes
+    const candidates = db.filter(dbItem => 
+      brandEq(std.brand, dbItem.brand) &&
+      std.storage === dbItem.storage &&
+      std.ram === dbItem.ram
+    );
+
+    for (const item of candidates) {
       const sc = scoreMatch(std, item);
-      if (!best || sc > best.score) best = { item, score: sc };
+      if (!best || sc > best.score) {
+        best = { item, score: sc };
+      }
     }
 
-    const THRESHOLD = 6.5; 
+    const THRESHOLD = 7.5; // Limiar um pouco mais alto para garantir a qualidade do match
     if (best && best.score >= THRESHOLD) {
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
 
-    // SEM CÓDIGO: agora o name vem SEM o preço grudado
     return { sku: "SEM CÓDIGO", name: std.raw, costPrice: std.priceDigits, _score: best?.score ?? 0 };
   });
 
