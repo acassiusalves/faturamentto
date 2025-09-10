@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useActionState, useEffect, useMemo, useTransition } from 'react';
@@ -11,8 +12,21 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { formatCurrency, cn } from '@/lib/utils';
-import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
-import type { SearchableProduct } from './page';
+import type { SearchableProduct } from './types';
+
+// Opcional: Fallback para ícones customizados
+import {
+  FullIcon as _FullIcon,
+  FreteGratisIcon as _FreteGratisIcon,
+  CorreiosLogo as _CorreiosLogo,
+  MercadoEnviosIcon as _MercadoEnviosIcon
+} from '@/components/icons';
+
+const FullIcon = _FullIcon ?? (() => null);
+const FreteGratisIcon = _FreteGratisIcon ?? (() => null);
+const CorreiosLogo = _CorreiosLogo ?? (() => null);
+const MercadoEnviosIcon = _MercadoEnviosIcon ?? (() => null);
+
 
 interface SearchResultsDialogProps {
   isOpen: boolean;
@@ -30,7 +44,7 @@ const listingTypeMap: Record<string, string> = {
     "gold_pro": "Premium"
 };
 
-export default function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
+function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
   const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
   const [isPending, startTransition] = useTransition();
   const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -67,7 +81,7 @@ export default function SearchResultsDialog({ isOpen, onClose, product }: Search
   const isSearching = isSearchingAction || isPending;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Resultados da Busca: <span className="text-primary">{product.refinedQuery || product.name}</span></DialogTitle>
@@ -186,3 +200,5 @@ export default function SearchResultsDialog({ isOpen, onClose, product }: Search
     </Dialog>
   );
 }
+
+export default SearchResultsDialog;

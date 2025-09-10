@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -21,12 +22,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
-
-// Importação dinâmica do componente SearchResultsDialog
 import dynamic from 'next/dynamic';
+import type { SearchableProduct } from './types';
+
 
 const SearchResultsDialog = dynamic(
-  () => import('./search-results-dialog'),
+  () => import('./search-results-dialog').then(m => m.default),
   { 
     ssr: false,
     loading: () => <div>Carregando...</div>
@@ -50,25 +51,6 @@ const initPDFjs = async () => {
   }
   return pdfjs;
 };
-
-interface CatalogProduct {
-    name: string;
-    model: string;
-    brand: string;
-    description: string;
-    price: string;
-    imageUrl?: string;
-    quantityPerBox?: number;
-}
-
-export interface SearchableProduct extends CatalogProduct {
-    refinedQuery?: string;
-    isSearching?: boolean;
-    searchError?: string;
-    foundProducts?: any[];
-    isTrending?: boolean;
-    matchedKeywords?: string[];
-}
 
 const trendQueryFor = (p: SearchableProduct) => {
   const q =
