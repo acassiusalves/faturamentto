@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useActionState, useEffect, useMemo, useTransition } from 'react';
@@ -17,7 +16,6 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import type { SearchableProduct } from './page';
 
-
 interface SearchResultsDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,8 +32,7 @@ const listingTypeMap: Record<string, string> = {
     "gold_pro": "Premium"
 };
 
-
-export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
+function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
   const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
   const [isPending, startTransition] = useTransition();
   const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -70,7 +67,6 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
   }, [searchState.result, showOnlyActive, product.model]);
   
   const isSearching = isSearchingAction || isPending;
-
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -192,3 +188,9 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     </Dialog>
   );
 }
+
+// ADICIONE ESTA LINHA - Esta é a correção principal
+export default SearchResultsDialog;
+
+// Mantenha também o named export para compatibilidade
+export { SearchResultsDialog };
