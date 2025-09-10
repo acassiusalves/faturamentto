@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
@@ -44,7 +45,7 @@ async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
   if (!r.ok) return null;
   const j = await r.json();
-  return (typeof j?.official_store_id === "number") ? j.official_store_id : null;
+  return (typeof j?.official_store_id === "number") ? j?.official_store_id : null;
 }
 
 // Busca seller_address em LOTE para vários items (mais estável/rápido que 1-a-1)
