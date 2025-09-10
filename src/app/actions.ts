@@ -22,6 +22,7 @@ import { getCatalogOfferCount } from '@/lib/ml';
 import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { refineSearchTerm } from '@/ai/flows/refine-search-term-flow';
 import { findTrendingProducts } from '@/ai/flows/find-trending-products-flow';
+import { deterministicLookup } from "@/lib/matching";
 
 
 
@@ -323,16 +324,15 @@ export async function lookupProductsAction(
   formData: FormData
 ): Promise<{ result: LookupResult | null; error: string | null }> {
   try {
-    const productList = formData.get('productList') as string;
-    const databaseList = formData.get('databaseList') as string;
-     const apiKey = formData.get('apiKey') as string | undefined;
-    const prompt_override = formData.get('prompt_override') as string | undefined;
-    if (!productList) throw new Error("A lista de produtos não pode estar vazia.");
-    if (!databaseList) throw new Error("A base de dados de produtos não pode estar vazia.");
-    const result = await lookupProducts({ productList, databaseList, apiKey, prompt_override });
-    return { result, error: null };
-  } catch (e: any) {
-    return { result: null, error: e.message || "Falha ao buscar produtos no banco de dados." };
+    const productList = String(formData.get("productList") || "");
+    const databaseList = String(formData.get("databaseList") || "");
+    const lines = productList.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+    const { details, withCode, noCode } = deterministicLookup(lines, databaseList);
+
+    return { result: { details, withCode, noCode } as any, error: null };
+  } catch (e:any) {
+    return { result: null, error: e?.message || "Falha no lookup" };
   }
 }
 
