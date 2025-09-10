@@ -1,4 +1,3 @@
-
 'use server';
 
 import type { PipelineResult } from '@/lib/types';

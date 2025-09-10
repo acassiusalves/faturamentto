@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -487,7 +488,7 @@ export default function CatalogoPdfPage() {
                                 <>
                                  <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
                                     <Play className="mr-2" /> Analisar Próxima
-                                 </Button>
+                                </Button>
                                 <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny} variant="secondary">
                                     <FastForward className="mr-2" />
                                     Analisar Todas
