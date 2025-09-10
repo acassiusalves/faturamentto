@@ -1,21 +1,18 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from '@/components/ui/button';
 import { BookImage, Loader2, Play } from 'lucide-react';
-import * as pdfjs from "pdfjs-dist";
-import { setupPdfjsWorker } from '@/lib/pdfjs-worker';
-import type { AnalyzeCatalogOutput, ProductSchema } from '@/lib/types';
 import { analyzeCatalogAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-
-setupPdfjsWorker();
+import type { AnalyzeCatalogOutput } from '@/lib/types';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 interface PageAnalysisResult {
     pageNumber: number;
@@ -29,12 +26,33 @@ export default function AnaliseProdutosPdfPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<PageAnalysisResult[]>([]);
-  const pdfRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
+  const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const { toast } = useToast();
+  const [pdfjs, setPdfjs] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadPdfJs() {
+        try {
+            const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
+            // O worker é copiado para a pasta public pelo script postinstall em package.json
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.js`;
+            setPdfjs(pdfjsLib);
+        } catch (error) {
+            console.error("Failed to load pdf.js", error);
+            toast({
+              variant: 'destructive',
+              title: 'Erro Crítico',
+              description: 'Não foi possível carregar a biblioteca de PDF. Por favor, recarregue a página.',
+            });
+        }
+    }
+    loadPdfJs();
+  }, [toast]);
+
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
+    if (!selectedFile || !pdfjs) return;
 
     setFile(selectedFile);
     setTotalPages(0);
@@ -124,6 +142,7 @@ export default function AnaliseProdutosPdfPage() {
                 accept="application/pdf"
                 onChange={handleFileChange}
                 className="cursor-pointer"
+                disabled={!pdfjs}
               />
             </div>
             <div className="space-y-2">
