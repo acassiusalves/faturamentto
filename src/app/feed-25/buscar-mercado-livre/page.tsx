@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useActionState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,8 +89,8 @@ export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [quantity, setQuantity] = useState(50);
-    const [state, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
-    const [isPending, startTransition] = useTransition();
+    const [state, setState] = useState(initialSearchState);
+    const [isSearching, startTransition] = useTransition();
     const [broken, setBroken] = useState<Set<string>>(new Set());
     const [progress, setProgress] = useState(0);
 
@@ -174,11 +174,12 @@ export default function BuscarMercadoLivrePage() {
             });
             return;
         }
-        startTransition(() => {
+        startTransition(async () => {
             const formData = new FormData();
             formData.append('productName', searchTerm);
             formData.append('quantity', String(quantity));
-            formAction(formData);
+            const result = await searchMercadoLivreAction(initialSearchState, formData);
+            setState(result);
         });
     };
     
@@ -202,8 +203,6 @@ export default function BuscarMercadoLivrePage() {
             setPageIndex(0);
         }
     }, [filteredResults, pageIndex, pageCount]);
-    
-    const isSearching = isSearchingAction || isPending;
     
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -483,5 +482,7 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
+
+    
 
     
