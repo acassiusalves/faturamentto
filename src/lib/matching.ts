@@ -46,11 +46,8 @@ const colorMap: Record<string,string> = {
 
 // ADD: helpers
 function stripTrailingPrice(s: string) {
-  // remove: "1530", "1.530,00", "R$ 1.530", "545.00" etc no final
-  return s.replace(
-    /\s*(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})*|\d+)(?:[,.]\d{2})?\s*$/u,
-    ""
-  ).trim();
+    // remove: "1530", "1.530,00", "R$ 1.530", "545.00" etc no final
+    return s.replace(/\s*(?:R\$\s*)?[\d.,]+\s*$/, "").trim();
 }
 
 function applyColorSynonyms(s: string) {
