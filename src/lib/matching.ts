@@ -44,6 +44,51 @@ const colorMap: Record<string,string> = {
   "rosa":"rosa","pink":"rosa","red":"vermelho","vermelho":"vermelho","yellow":"amarelo","amarelo":"amarelo"
 };
 
+// ADD: helpers
+function stripTrailingPrice(s: string) {
+  // remove: "1530", "1.530,00", "R$ 1.530", "545.00" etc no final
+  return s.replace(
+    /\s*(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:[\,\.]\d{2})?\s*$/u,
+    ""
+  ).trim();
+}
+
+function applyColorSynonyms(s: string) {
+  // mapeia cores em inglês para o canônico PT antes de comparar
+  return norm(
+    s
+      .replace(/\bsilver\b/gi, "prata")
+      .replace(/\bgold\b/gi, "dourado")
+      .replace(/\bpurple\b/gi, "roxo")
+      .replace(/\bwhite\b/gi, "branco")
+      .replace(/\bblack\b/gi, "preto")
+      .replace(/\bblue\b/gi, "azul")
+      .replace(/\bgreen\b/gi, "verde")
+      .replace(/\bpink\b/gi, "rosa")
+      .replace(/\bgray|grey\b/gi, "cinza")
+  );
+}
+
+function normalizeNameForCompare(s: string) {
+  // 1) tira preço final; 2) deburra/lower; 3) limpa pontuação; 4) sinônimos;
+  // 5) remove “ram” literal; 6) normaliza “pro +5g”, NOT->NOTE, etc
+  let t = stripTrailingPrice(s);
+  t = applyColorSynonyms(t);
+  t = t.replace(/\bram\b/gi, "");
+  t = t.replace(/\bglobal\b/gi, "global");
+
+  // mesmas correções do normalizeModel aplicadas no nome inteiro
+  t = t.replace(/\bnot\b/gi, "note")
+       .replace(/\bnot(\s*)14/gi, "note 14")
+       .replace(/\bnot(\s*)13/gi, "note 13")
+       .replace(/pro\s*\+\s*5g/gi, "pro plus 5g")
+       .replace(/\bpro\+\b/gi, "pro plus");
+
+  // reduzir espaços e pontuação
+  return norm(t);
+}
+
+
 function norm(s:string) {
   return deburr(s).toLowerCase().replace(/[^\p{L}\p{N}\s+]/gu," ").replace(/\s+/g," ").trim();
 }
@@ -94,49 +139,40 @@ function extractLastDigits(line: string): string {
   return digits || "0";
 }
 
-// Parse de linha padronizada (vinda da Etapa 2)
+// CHANGE: parseStdLine
 export function parseStdLine(line: string): StdLine | null {
   const priceDigits = extractLastDigits(line);
+  const lineNoPrice = stripTrailingPrice(line); // <- usa essa versão para parsing
 
-  const brandMatch = line.match(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i);
+  const brandMatch = lineNoPrice.match(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i);
   if (!brandMatch) return null;
   const brand = (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"];
 
-  // storage
-  const storageMatch = line.match(/(\d+)\s*GB/i);
+  const storageMatch = lineNoPrice.match(/(\d+)\s*GB/i);
   const storage = storageMatch ? parseInt(storageMatch[1],10) : NaN;
 
-  // RAM (pega o penúltimo número com GB que NÃO seja o storage)
-  const ramMatch = line.match(/\b(\d+)\s*GB\b(?!.*\b\1\s*GB\b)/i); // fallback simples
+  const allGb = lineNoPrice.match(/\b(\d+)\s*GB\b/gi) || [];
   let ram = NaN;
-  if (ramMatch) {
-    const all = line.match(/\b(\d+)\s*GB\b/gi) || [];
-    if (all.length >= 2) {
-      const nums = all.map(x => parseInt(x.replace(/\D/g,""),10));
-      ram = Math.min(...nums) !== storage ? Math.min(...nums) : Math.max(...nums); // heurística: menor costuma ser RAM
-    }
+  if (allGb.length >= 2) {
+    const nums = allGb.map(x => parseInt(x.replace(/\D/g,""),10));
+    // heurística: o menor costuma ser RAM (12 vs 512)
+    ram = Math.min(...nums) !== storage ? Math.min(...nums) : Math.max(...nums);
   }
 
-  // network
   let network: "4g" | "5g" | undefined;
-  if (/\b5G\b/i.test(line)) network = "5g";
-  else if (/\b4G\b/i.test(line)) network = "4g";
+  if (/\b5G\b/i.test(lineNoPrice)) network = "5g";
+  else if (/\b4G\b/i.test(lineNoPrice)) network = "4g";
 
-  const colorTok = (() => {
-    // tenta pegar palavra antes do 4G/5G
-    const m = line.match(/\b(Preto|Azul|Verde|Dourado|Gold|Prata|Silver|Roxo|Purple|Branco|White|Cinza|Gray|Grey|Rosa|Pink)\b(?!.*\b(Preto|Azul|Verde|Dourado|Gold|Prata|Silver|Roxo|Purple|Branco|White|Cinza|Gray|Grey|Rosa|Pink)\b)/i);
-    return m ? m[0] : undefined;
-  })();
+  const colorTok = lineNoPrice.match(/\b(Preto|Azul|Verde|Dourado|Gold|Prata|Silver|Roxo|Purple|Branco|White|Cinza|Gray|Grey|Rosa|Pink)\b(?!.*\b(Preto|Azul|Verde|Dourado|Gold|Prata|Silver|Roxo|Purple|Branco|White|Cinza|Gray|Grey|Rosa|Pink)\b)/i)?.[0];
   const color = parseColor(colorTok);
 
-  // model: tudo entre brand e storage
-  const parts = line.split(/\b\d+\s*GB\b/i);
+  const parts = lineNoPrice.split(/\b\d+\s*GB\b/i);
   const left = parts[0] || "";
   const afterBrand = left.replace(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i,"").trim();
   const modelBase = normalizeModel(brand, afterBrand);
 
   return {
-    raw: line,
+    raw: lineNoPrice,              // <- guarda SEM preço para não poluir name
     brand,
     modelBase,
     storage: isNaN(storage) ? 0 : storage,
@@ -147,14 +183,15 @@ export function parseStdLine(line: string): StdLine | null {
   };
 }
 
-// Parse do banco "Nome \t Código"
+// CHANGE: parseDb
 export function parseDb(databaseList: string): DbItem[] {
   const lines = databaseList.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: DbItem[] = [];
   for (const line of lines) {
-    const [name, sku] = line.split("\t").map(s => s?.trim());
-    if (!name || !sku) continue;
+    const [rawName, sku] = line.split("\t").map(s => s?.trim());
+    if (!rawName || !sku) continue;
 
+    const name = stripTrailingPrice(rawName);           // <- limpa preço do nome
     const brandMatch = name.match(/^(Xiaomi|Realme|Motorola|Samsung)\b/i);
     if (!brandMatch) continue;
     const brand = (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"];
@@ -162,7 +199,6 @@ export function parseDb(databaseList: string): DbItem[] {
     const storageMatch = name.match(/\b(\d+)\s*GB\b/i);
     const storage = storageMatch ? parseInt(storageMatch[1],10) : 0;
 
-    // RAM: tenta pegar outro GB diferente do storage
     const allGb = name.match(/\b(\d+)\s*GB\b/gi) || [];
     let ram = 0;
     if (allGb.length >= 2) {
@@ -174,12 +210,14 @@ export function parseDb(databaseList: string): DbItem[] {
     const colorTok = name.match(/\b(Preto|Azul|Verde|Dourado|Gold|Prata|Silver|Roxo|Purple|Branco|White|Cinza|Gray|Grey|Rosa|Pink)\b/i)?.[0];
     const color = parseColor(colorTok || "");
 
-    // model é entre a marca e o primeiro storage
     const left = name.split(/\b\d+\s*GB\b/i)[0] || "";
     const afterBrand = left.replace(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i,"").trim();
     const modelBase = normalizeModel(brand, afterBrand);
 
-    items.push({ sku, name, brand, modelBase, storage, ram, color, network });
+    items.push({
+      sku, name: rawName, // mantém o nome original para exibir
+      brand, modelBase, storage, ram, color, network
+    });
   }
   return items;
 }
@@ -220,26 +258,42 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
   noCode: MatchResult[];
 } {
   const db = parseDb(databaseList);
+
+  // índice por nome normalizado (sem preço + sinônimos)
+  const dbByNorm = new Map<string, typeof db[number]>();
+  for (const item of db) {
+    dbByNorm.set(normalizeNameForCompare(item.name), item);
+  }
+
   const stdParsed = standardizedLines
     .map(parseStdLine)
     .filter((x): x is StdLine => !!x);
 
   const results: MatchResult[] = stdParsed.map(std => {
+    const normStdFull = normalizeNameForCompare(std.raw);
+
+    // 1) MATCH DIRETO POR NOME (ultra forte)
+    const direct = dbByNorm.get(normStdFull);
+    if (direct) {
+      return { sku: direct.sku, name: direct.name, costPrice: std.priceDigits, _score: 999 };
+    }
+
+    // 2) Fallback: score
     let best: {item: DbItem; score: number} | null = null;
     for (const item of db) {
       const sc = scoreMatch(std, item);
       if (!best || sc > best.score) best = { item, score: sc };
     }
-    // limiar de confiança (ajusta se quiser)
+
     const THRESHOLD = 6.5; 
     if (best && best.score >= THRESHOLD) {
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
-    // sem match confiável
+
+    // SEM CÓDIGO: agora o name vem SEM o preço grudado
     return { sku: "SEM CÓDIGO", name: std.raw, costPrice: std.priceDigits, _score: best?.score ?? 0 };
   });
 
-  // ordenar por marca (Xiaomi, Realme, Motorola, Samsung), depois mover SEM CÓDIGO pro final
   const brandOf = (name:string) => {
     const m = name.match(/^(Xiaomi|Realme|Motorola|Samsung)\b/i)?.[1] ?? "ZZ";
     return BRAND_ORDER.indexOf(m as any);
