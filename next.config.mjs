@@ -37,15 +37,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'http2.mlstatic.com',
-        port: '',
-        pathname: '/**',
+        hostname: '**.mlstatic.com',
       },
-      {
+       {
         protocol: 'http',
-        hostname: 'http2.mlstatic.com',
-        port: '',
-        pathname: '/**',
+        hostname: '**.mlstatic.com',
       },
       {
         protocol: 'https',
