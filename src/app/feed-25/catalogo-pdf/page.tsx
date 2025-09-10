@@ -95,38 +95,50 @@ export default function CatalogoPdfPage() {
     const [brand, setBrand] = useState('');
     const [pdfJsReady, setPdfJsReady] = useState(false);
     
+    // Estados para análise
     const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
-    const [isTrendingPending, startTrendingTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+    const [analyzeState, setAnalyzeState] = useState<{
+        result: AnalyzeCatalogOutput | null;
+        error: string | null;
+    }>({ result: null, error: null });
     
-    const [state, formAction] = useActionState(analyzeCatalogAction, analyzeInitialState);
-    const [trendingState, trendingAction, isTrendingActionPending] = useActionState(findTrendingProductsAction, { trendingProducts: null, error: null });
+    // Estados para tendências
+    const [isTrendingPending, startTrendingTransition] = useTransition();
+    const [trendingState, setTrendingState] = useState<{
+        trendingProducts: any[] | null;
+        error: string | null;
+    }>({ trendingProducts: null, error: null });
     
-    // State for search dialog
+    // Estados para busca
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
     const [selectedProductForSearch, setSelectedProductForSearch] = useState<SearchableProduct | null>(null);
 
-    // Pagination State for extracted products
+    // Paginação
     const [productsPageIndex, setProductsPageIndex] = useState(0);
     const [productsPageSize, setProductsPageSize] = useState(10);
     
-    // Batch Search State
+    // Busca em lote
     const [isBatchSearching, setIsBatchSearching] = useState(false);
     const [batchSearchProgress, setBatchSearchProgress] = useState(0);
     const [batchSearchResults, setBatchSearchResults] = useState<any[]>([]);
     const [batchSearchStatus, setBatchSearchStatus] = useState('');
 
-    // Pagination state for grouped results
+    // Paginação de resultados agrupados
     const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
 
-    // Inicializa PDF.js quando o componente monta
+    // Inicializa PDF.js
     useEffect(() => {
+        let mounted = true;
+        
         initPDFjs().then((pdfjsLib) => {
-            if (pdfjsLib) {
+            if (mounted && pdfjsLib) {
                 setPdfJsReady(true);
             }
         });
+        
+        return () => { mounted = false; };
     }, []);
 
     const analyzePage = useCallback(async (pageNumber: number) => {
@@ -148,8 +160,16 @@ export default function CatalogoPdfPage() {
         formData.append('totalPages', String(pdfDoc.numPages));
         formData.append('brand', brand);
     
-        startAnalyzeTransition(() => {
-          formAction(formData);
+        startAnalyzeTransition(async () => {
+          try {
+            const result = await analyzeCatalogAction(analyzeState, formData);
+            setAnalyzeState(result);
+          } catch (error) {
+            setAnalyzeState({ 
+              result: null, 
+              error: 'Erro ao analisar página' 
+            });
+          }
         });
       } catch (err) {
         console.error('Erro ao analisar página', err);
@@ -160,17 +180,18 @@ export default function CatalogoPdfPage() {
           description: 'Falha ao ler o texto do PDF nesta página.',
         });
       }
-    }, [pdfDoc, formAction, startAnalyzeTransition, toast, brand]);
+    }, [pdfDoc, brand, toast, analyzeState]);
 
-     useEffect(() => {
-        if (state.error) {
-            toast({ variant: 'destructive', title: 'Erro na Análise', description: state.error });
+    // Effect para processar resultados da análise
+    useEffect(() => {
+        if (analyzeState.error) {
+            toast({ variant: 'destructive', title: 'Erro na Análise', description: analyzeState.error });
             setIsAnalyzingAll(false);
             return;
         }
 
-        if (state.result && state.result.products.length > 0) {
-            const newProducts = state.result.products.map(p => ({
+        if (analyzeState.result && analyzeState.result.products.length > 0) {
+            const newProducts = analyzeState.result.products.map(p => ({
                 ...p,
                 refinedQuery: buildSearchQuery({
                     name: p.name,
@@ -195,8 +216,9 @@ export default function CatalogoPdfPage() {
                 setIsAnalyzingAll(false);
             }
         }
-    }, [state, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
+    }, [analyzeState, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
     
+    // Effect para processar tendências
     useEffect(() => {
       if (trendingState.trendingProducts) {
         const trendingMap = new Map<string, string[]>();
@@ -224,6 +246,7 @@ export default function CatalogoPdfPage() {
       }
     }, [trendingState, toast]);
 
+    // Effect para analisar próxima página automaticamente
     useEffect(() => {
         if (isAnalyzingAll && !isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
             analyzePage(currentPage);
@@ -289,7 +312,7 @@ export default function CatalogoPdfPage() {
         setIsSearchDialogOpen(true);
     }, []);
     
-     const handleModelChange = (index: number, newModel: string) => {
+    const handleModelChange = (index: number, newModel: string) => {
         setAllProducts(prev => {
             const newProducts = [...prev];
             const originalIndex = (productsPageIndex * productsPageSize) + index;
@@ -324,11 +347,7 @@ export default function CatalogoPdfPage() {
     };
 
     const handleCheckTrends = () => {
-        console.log('🔍 Iniciando verificação de tendências...');
-      
         const queries = allProducts.map(trendQueryFor);
-      
-        console.log('📝 Consultas enviadas:', queries);
       
         if (queries.length === 0) {
           toast({
@@ -339,10 +358,18 @@ export default function CatalogoPdfPage() {
           return;
         }
       
-        startTrendingTransition(() => {
-          const trendFormData = new FormData();
-          trendFormData.append('productNames', JSON.stringify(queries));
-          trendingAction(trendFormData);
+        startTrendingTransition(async () => {
+          try {
+            const trendFormData = new FormData();
+            trendFormData.append('productNames', JSON.stringify(queries));
+            const result = await findTrendingProductsAction(trendingState, trendFormData);
+            setTrendingState(result);
+          } catch (error) {
+            setTrendingState({
+              trendingProducts: null,
+              error: 'Erro ao verificar tendências'
+            });
+          }
         });
     };
 
@@ -498,8 +525,8 @@ export default function CatalogoPdfPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button onClick={handleCheckTrends} disabled={isTrendingActionPending || isTrendingPending} variant="outline">
-                                    {(isTrendingActionPending || isTrendingPending) ? <Loader2 className="animate-spin" /> : <TrendingUp />}
+                                <Button onClick={handleCheckTrends} disabled={isTrendingPending} variant="outline">
+                                    {isTrendingPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
                                     Verificar Tendências
                                 </Button>
                                 <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
