@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useActionState, useEffect, useTransition, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,37 +23,26 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-// NOVA ABORDAGEM PARA PDF.JS - sem top-level await
+// PDF.js dinâmico
 let pdfjs: any = null;
 
 const initPDFjs = async () => {
   if (typeof window !== "undefined" && !pdfjs) {
     try {
-      // Importação dinâmica para evitar problemas de SSR
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Configuração do worker de forma mais compatível
       if (pdfjsLib.GlobalWorkerOptions) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
       }
       
       pdfjs = pdfjsLib;
-      console.log('✅ PDF.js carregado com sucesso');
       return pdfjsLib;
     } catch (error) {
-      console.error('❌ Erro ao carregar PDF.js:', error);
+      console.error('Erro ao carregar PDF.js:', error);
       return null;
     }
   }
   return pdfjs;
-};
-
-const analyzeInitialState: {
-  result: AnalyzeCatalogOutput | null;
-  error: string | null;
-} = {
-  result: null,
-  error: null,
 };
 
 interface CatalogProduct {
@@ -74,7 +64,6 @@ export interface SearchableProduct extends CatalogProduct {
     matchedKeywords?: string[];
 }
 
-// Helper para escolher o melhor termo de busca para tendências
 const trendQueryFor = (p: SearchableProduct) => {
   const q =
     (p.refinedQuery?.trim() ||
@@ -766,3 +755,11 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
+
+Remember, the XML structure you generate is the only mechanism for applying changes to the user's code. Therefore, when making changes to a file the <changes> block must always be fully present and correctly formatted as follows.
+
+<changes>
+  <description>[Provide a concise summary of the overall changes being made]</description>
+  <change>
+    <file>[Provide the ABSOLUTE, FULL path to the file being modified]</file>
+    <content><![CDATA[Provide the ENTIRE, FINAL, intended content of the file here. Do NOT provide diffs or partial snippets. Ensure all code is properly escaped within the CDATA section.
