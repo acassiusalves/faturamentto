@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useActionState, useEffect, useMemo, useTransition } from 'react';
@@ -12,21 +11,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { formatCurrency, cn } from '@/lib/utils';
+import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import type { SearchableProduct } from './types';
 
-// Opcional: Fallback para ícones customizados
-import {
-  FullIcon as _FullIcon,
-  FreteGratisIcon as _FreteGratisIcon,
-  CorreiosLogo as _CorreiosLogo,
-  MercadoEnviosIcon as _MercadoEnviosIcon
-} from '@/components/icons';
 
-const FullIcon = _FullIcon ?? (() => null);
-const FreteGratisIcon = _FreteGratisIcon ?? (() => null);
-const CorreiosLogo = _CorreiosLogo ?? (() => null);
-const MercadoEnviosIcon = _MercadoEnviosIcon ?? (() => null);
-
+const OFullIcon = _FullIcon ?? (() => null);
+const OFreteGratisIcon = _FreteGratisIcon ?? (() => null);
+const OCorreiosLogo = _CorreiosLogo ?? (() => null);
+const OMercadoEnviosIcon = _MercadoEnviosIcon ?? (() => null);
 
 interface SearchResultsDialogProps {
   isOpen: boolean;
@@ -44,7 +36,7 @@ const listingTypeMap: Record<string, string> = {
     "gold_pro": "Premium"
 };
 
-function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
+export default function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
   const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
   const [isPending, startTransition] = useTransition();
   const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -161,12 +153,12 @@ function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogPr
                                 
                                 <div className="flex flex-col items-start gap-1 mt-1.5">
                                     <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                        {p.shipping_logistic_type === "fulfillment" && <FullIcon />}
-                                        {p.shipping_type === 'Correios' && <CorreiosLogo />}
-                                        {p.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                        {p.shipping_logistic_type === "fulfillment" && <OFullIcon />}
+                                        {p.shipping_type === 'Correios' && <OCorreiosLogo />}
+                                        {p.shipping_logistic_type === 'cross_docking' && <OMercadoEnviosIcon />}
                                         {p.free_shipping && (
                                             <div className={cn(p.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
-                                                <FreteGratisIcon />
+                                                <OFreteGratisIcon />
                                             </div>
                                         )}
                                     </div>
@@ -200,5 +192,3 @@ function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogPr
     </Dialog>
   );
 }
-
-export default SearchResultsDialog;

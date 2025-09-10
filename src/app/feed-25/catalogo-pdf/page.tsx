@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput } from '@/lib/types';
+import type { AnalyzeCatalogOutput, SearchableProduct } from './types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { buildSearchQuery } from "@/lib/search-query";
@@ -23,11 +22,10 @@ import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
 import dynamic from 'next/dynamic';
-import type { SearchableProduct } from './types';
 
 
 const SearchResultsDialog = dynamic(
-  () => import('./search-results-dialog').then(m => m.default),
+  () => import('./search-results-dialog'),
   { 
     ssr: false,
     loading: () => <div>Carregando...</div>
