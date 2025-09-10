@@ -27,7 +27,7 @@ import type { SearchableProduct } from './types';
 
 
 const SearchResultsDialog = dynamic(
-  () => import('./search-results-dialog').then(m => m.default),
+  () => import('@/components/search-results-dialog'),
   { 
     ssr: false,
     loading: () => <div>Carregando...</div>
@@ -421,7 +421,7 @@ export default function AnaliseProdutosPdfPage() {
                 <CardHeader>
                     <CardTitle className="font-headline text-2xl flex items-center gap-2">
                         <BookImage className="h-6 w-6" />
-                        Análise de Produtos em PDF
+                        Análise de Produtos PDF
                     </CardTitle>
                     <CardDescription>
                        Faça o upload do seu catálogo em PDF e a IA irá extrair e listar os produtos para você, página por página.
