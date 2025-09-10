@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useActionState, useTransition, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -103,16 +103,27 @@ export default function FeedListPage() {
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
-    const [analysisState, formAction, isAnalyzing] = useActionState(analyzeFeedAction, {
+    const [analysisState, setAnalysisState] = useState<{ result: any, error: string | null }>({
         result: null,
         error: null,
     });
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
 
     const [savePricesState, savePricesAction, isSavingPrices] = useActionState(saveAveragePricesAction, {
         success: false,
         error: null,
         count: 0
     });
+
+    const handleAnalyze = (formData: FormData) => {
+        setIsAnalyzing(true);
+        startTransition(async () => {
+            const result = await analyzeFeedAction({ result: null, error: null }, formData);
+            setAnalysisState(result);
+            setIsAnalyzing(false);
+        });
+    }
     
     const fetchFeedData = async () => {
         setIsLoading(true);
@@ -549,7 +560,11 @@ export default function FeedListPage() {
                                         />
                                     </PopoverContent>
                                 </Popover>
-                                <form action={formAction}>
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.currentTarget);
+                                    handleAnalyze(formData);
+                                }}>
                                     <input type="hidden" name="feedData" value={JSON.stringify(comparisonData)} />
                                     <input type="hidden" name="apiKey" value={apiKey} />
                                     <input type="hidden" name="modelName" value={modelName} />
