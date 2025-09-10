@@ -12,20 +12,20 @@ import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
 import { LookupProductsInputSchema, type LookupProductsInput, LookupResultSchema, type LookupResult } from '@/lib/types';
 
 
-const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa é cruzar a 'Lista Padronizada' com o 'Banco de Dados', aplicar regras de negócio específicas e organizar o resultado.
+const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa principal é converter CADA linha da 'Lista Padronizada' de entrada em um objeto JSON na saída, cruzando as informações com o 'Banco de Dados' para encontrar o SKU correto.
 
-        **LISTA PADRONIZADA (Resultado do Passo 2):**
+        **LISTA PADRONIZADA (Entrada para conversão):**
         '''
         {{{productList}}}
         '''
 
-        **BANCO DE DADOS (Nome do Produto\tSKU):**
+        **BANCO DE DADOS (Fonte para consulta de SKU):**
         '''
         {{{databaseList}}}
         '''
 
-        **REGRAS DE PROCESSAMENTO E BUSCA:**
-        1.  **REGRA CRÍTICA: Um-Para-Um:** Para cada linha na 'Lista Padronizada' de entrada, você DEVE gerar exatamente uma entrada correspondente no JSON de saída. Se a lista de entrada tem 56 itens, a saída 'details' DEVE ter 56 objetos. Não adicione, duplique ou omita itens.
+        **REGRAS DE PROCESSAMENTO E CONVERSÃO:**
+        1.  **REGRA CRÍTICA - UM-PARA-UM:** Para CADA linha na 'Lista Padronizada' de entrada, você DEVE gerar exatamente um objeto JSON correspondente na saída. A contagem de itens na entrada e na saída (array 'details') deve ser IDÊNTICA. Não adicione, duplique ou omita itens.
         2.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
         3.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome (como "/") podem ser ignoradas se estes componentes forem idênticos.
         4.  **Regra de Conectividade Padrão:**
@@ -56,7 +56,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         }
         '''
 
-        Execute a busca, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
+        Execute a conversão, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
         `
 
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
