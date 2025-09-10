@@ -32,7 +32,7 @@ const listingTypeMap: Record<string, string> = {
     "gold_pro": "Premium"
 };
 
-function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
+export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
   const [searchState, formAction, isSearchingAction] = useActionState(searchMercadoLivreAction, initialSearchState);
   const [isPending, startTransition] = useTransition();
   const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -191,6 +191,3 @@ function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogPr
 
 // ADICIONE ESTA LINHA - Esta é a correção principal
 export default SearchResultsDialog;
-
-// Mantenha também o named export para compatibilidade
-export { SearchResultsDialog };
