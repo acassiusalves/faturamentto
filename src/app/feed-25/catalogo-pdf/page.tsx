@@ -21,13 +21,17 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { setupPdfjsWorker } from "@/lib/pdfjs-worker";
+
+// Importação dinâmica do componente SearchResultsDialog
 import dynamic from 'next/dynamic';
 
 const SearchResultsDialog = dynamic(
-  () => import('./search-results-dialog').then((mod) => mod.SearchResultsDialog),
-  { ssr: false }
+  () => import('./search-results-dialog'),
+  { 
+    ssr: false,
+    loading: () => <div>Carregando...</div>
+  }
 );
-
 
 // PDF.js dinâmico
 let pdfjs: any = null;
