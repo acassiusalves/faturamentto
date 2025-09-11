@@ -1,56 +1,71 @@
-
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-  webpack(config) {
-    // Carrega o 'worker' do pdfjs-dist
-    config.module.rules.push({
-      test: /pdf\.worker\.mjs/,
-      type: "asset/resource",
-      generator: {
-        filename: "static/chunks/[hash].worker.mjs",
-      },
-    });
+  output: 'standalone', // Essencial para deployment em VPS
+  
+  webpack(config, { isServer }) {
+    // Configuração para PDF.js worker
+    if (!isServer) {
+      config.module.rules.push({
+        test: /pdf\.worker\.(js|mjs)$/,
+        type: "asset/resource",
+        generator: {
+          filename: "static/chunks/[hash].worker.js",
+        },
+      });
+    }
+    
+    // Resolver problemas com Firebase em ambiente de build
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      crypto: false,
+    };
 
     return config;
   },
+
+  // Configurações mais restritivas para produção
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // Mudado para false
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // Mudado para false
   },
+
+  // Otimizações para build
+  swcMinify: true,
+  
+  // Configuração de imagens
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'files-product.magalu.com',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: '**.mlstatic.com',
       },
-       {
+      {
         protocol: 'http',
         hostname: '**.mlstatic.com',
       },
       {
         protocol: 'https',
         hostname: 'api.labelary.com',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'picsum.photos',
-        port: '',
         pathname: '/**',
       },
       {
@@ -63,11 +78,16 @@ const nextConfig = {
       },
     ],
   },
- devIndicators: {
- allowedDevOrigins: [
- 'https://*.cluster-duylic2g3fbzerqpzxxbw6helm.cloudworkstations.dev',
- ],
- },
+
+  // Remover devIndicators para produção
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-admin']
+  },
+
+  // Variáveis de ambiente
+  env: {
+    NODE_ENV: process.env.NODE_ENV,
+  }
 };
 
 export default nextConfig;
