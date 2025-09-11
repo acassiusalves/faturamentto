@@ -1,9 +1,8 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -21,7 +20,7 @@ import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings } from '@/services/firestore';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings, deleteFeedEntry } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -805,7 +804,7 @@ export default function FeedListPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right font-mono">{formatCurrency(product.averagePrice)}</TableCell>
                                                              <TableCell className="text-center">
-                                                                <Button variant="ghost" size="icon" onClick={() => handleOpenCreateDialog(product.name)}>
+                                                                <Button variant="ghost" size="icon" onClick={()={() => handleOpenCreateDialog(product.name)}}>
                                                                     <PlusCircle className="h-5 w-5 text-primary" />
                                                                 </Button>
                                                             </TableCell>
@@ -847,3 +846,5 @@ export default function FeedListPage() {
         </>
     );
 }
+
+    
