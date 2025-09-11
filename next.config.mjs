@@ -83,11 +83,6 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['firebase-admin']
   },
-
-  // Variáveis de ambiente
-  env: {
-    NODE_ENV: process.env.NODE_ENV,
-  }
 };
 
 export default nextConfig;
