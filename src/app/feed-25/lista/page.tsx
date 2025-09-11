@@ -199,7 +199,7 @@ export default function FeedListPage() {
     }, [isAnalyzing]);
 
     useEffect(() => {
-        if(analysisState.error) {
+        if(analysisState && analysisState.error) {
             toast({
                 variant: 'destructive',
                 title: 'Erro na Análise',
@@ -295,7 +295,7 @@ export default function FeedListPage() {
 
 
             // Check for analysis result and merge it
-            const analysisResult = analysisState.result?.analysis.find((a: any) => a.sku === p.sku);
+            const analysisResult = analysisState?.result?.analysis.find((a: any) => a.sku === p.sku);
 
             return {
                 ...p,
@@ -339,7 +339,7 @@ export default function FeedListPage() {
             incorrectOffers,
             productsWithoutSku,
         };
-    }, [allFeedData, selectedDate, analysisState.result]);
+    }, [allFeedData, selectedDate, analysisState]);
 
     const filteredData = useMemo(() => {
         if (!filter) return comparisonData;
@@ -520,9 +520,30 @@ export default function FeedListPage() {
     };
 
     const handleProductCreated = (newProduct: Product) => {
+        // Adiciona o novo produto à lista de produtos do sistema
         setAllProducts(prev => [...prev, newProduct]);
-        // Optionally, re-run analysis or refresh data
-        fetchFeedData();
+        
+        // Remove o item da lista 'sem código' na UI
+        const nameToMatch = newProduct.name.toLowerCase();
+        
+        // Atualiza a fonte de dados do feed, removendo o produto que agora tem um SKU.
+        // Isso fará com que o 'useMemo' recalcule 'productsWithoutSku' sem o item criado.
+        setAllFeedData(prevFeed => {
+            return prevFeed.map(entry => {
+                return {
+                    ...entry,
+                    products: entry.products.filter(p => {
+                        if (p.sku && p.sku.toUpperCase() !== 'SEM CÓDIGO') return true;
+                        return p.name.toLowerCase() !== nameToMatch;
+                    }),
+                };
+            }).filter(entry => entry.products.length > 0);
+        });
+        
+        toast({
+            title: 'Produto criado!',
+            description: 'O item foi removido da lista "Sem Código".',
+        });
     };
 
 
