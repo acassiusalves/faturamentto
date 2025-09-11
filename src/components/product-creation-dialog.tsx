@@ -273,7 +273,7 @@ export function ProductCreationDialog({ isOpen, onClose, productName, products, 
               </CardContent>
             </Card>
              <DialogFooter>
-                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
                 <Button type="submit" disabled={isSubmitting || !canSubmit}>
                     {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
                     Criar Modelo de Produto
