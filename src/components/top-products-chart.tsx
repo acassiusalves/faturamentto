@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useMemo } from "react";
-import type { Sale } from "@/lib/types";
+import type { Sale, Product } from "@/lib/types";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -9,6 +10,7 @@ import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 
 interface TopProductsChartProps {
   salesData: Sale[];
+  products: Product[];
 }
 
 const formatCurrency = (value: number) => {
@@ -16,17 +18,29 @@ const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-export function TopProductsChart({ salesData }: TopProductsChartProps) {
+export function TopProductsChart({ salesData, products }: TopProductsChartProps) {
   const { chartData, chartConfig } = useMemo(() => {
-    if (!salesData || salesData.length === 0) {
+    if (!salesData || salesData.length === 0 || !products || products.length === 0) {
       return { chartData: [], chartConfig: {} };
     }
+
+    const productMap = new Map<string, Product>();
+    products.forEach(p => {
+        if(p.sku) productMap.set(p.sku, p);
+        p.associatedSkus?.forEach(assocSku => {
+            productMap.set(assocSku, p);
+        });
+    });
 
     const salesByProduct: { [key: string]: { total: number, sku: string } } = {};
 
     salesData.forEach((sale) => {
-      const productName = (sale as any).item_title || "Produto Desconhecido";
-      const productSku = (sale as any).item_sku || "N/A";
+      const saleSku = (sale as any).item_sku || "N/A";
+      const parentProduct = productMap.get(saleSku);
+      
+      const productName = parentProduct?.name || (sale as any).item_title || "Produto Desconhecido";
+      const productSku = parentProduct?.sku || saleSku;
+
       const saleValue = (sale as any).value_with_shipping || 0;
 
       if (!salesByProduct[productName]) {
@@ -49,7 +63,7 @@ export function TopProductsChart({ salesData }: TopProductsChartProps) {
     });
 
     return { chartData, chartConfig };
-  }, [salesData]);
+  }, [salesData, products]);
 
   return (
     <Card className="lg:col-span-1">

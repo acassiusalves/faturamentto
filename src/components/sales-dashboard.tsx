@@ -297,7 +297,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
       
        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <MarketplaceSalesChart salesData={filteredSales} />
-          <TopProductsChart salesData={filteredSales} />
+          <TopProductsChart salesData={filteredSales} products={products} />
           <SalesByStateChart salesData={filteredSales} />
           <SalesByAccountList salesData={filteredSales} />
       </div>
