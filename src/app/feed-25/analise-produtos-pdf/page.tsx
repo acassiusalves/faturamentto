@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -29,7 +30,11 @@ const initPDFjs = async () => {
   if (typeof window !== "undefined" && !pdfjs) {
     try {
       const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.mjs`; // Use local worker
+      
+      if (pdfjsLib.GlobalWorkerOptions) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.js`;
+      }
+      
       pdfjs = pdfjsLib;
       return pdfjsLib;
     } catch (error) {
