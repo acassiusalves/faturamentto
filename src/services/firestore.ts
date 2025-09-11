@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -67,23 +67,27 @@ export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryIte
 
 
 const logInventoryEntry = async (batch, item: InventoryItem): Promise<void> => {
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
     const logDocRef = doc(logCol); // Generate a new unique ID for the log entry
-    const payload = {
+    const payload: EntryLog = {
       ...item,
-      id: logDocRef.id,          // The log's own unique ID
-      inventoryId: item.id,      // Reference to the inventory item's ID
-      createdAt: new Date(item.createdAt),
+      id: logDocRef.id,
+      originalInventoryId: item.id, // ID do item original no inventário
+      entryDate: item.createdAt, // A data de criação do item de inventário é a data de entrada
+      logType: 'INVENTORY_ENTRY',
     };
     batch.set(logDocRef, toFirestore(payload));
 }
 
 export async function revertEntryAction(entry: InventoryItem): Promise<void> {
   const batch = writeBatch(db);
-  const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.id);
-  const entryLogRef = doc(db, 'users', DEFAULT_USER_ID, 'entry-log', entry.id);
+  
+  if (entry.originalInventoryId) {
+    const inventoryRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', entry.originalInventoryId);
+    batch.delete(inventoryRef);
+  }
 
-  batch.delete(inventoryRef);
+  const entryLogRef = doc(db, 'users', DEFAULT_USER_ID, 'entry-logs', entry.id);
   batch.delete(entryLogRef);
   
   await batch.commit();
@@ -105,7 +109,7 @@ export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, '
 
   for (const item of newItems) {
     const docRef = doc(inventoryCol);
-    const itemWithId: InventoryItem = { ...item, id: docRef.id };
+    const itemWithId: InventoryItem = { ...item, id: docRef.id, createdAt: new Date().toISOString() };
     batch.set(docRef, toFirestore(itemWithId));
     await logInventoryEntry(batch, itemWithId);
     savedItems.push(itemWithId);
@@ -330,8 +334,9 @@ export const clearTodaysPickingLog = async (): Promise<void> => {
 // --- RETURNS ---
 export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>): Promise<void> => {
     const batch = writeBatch(db);
-    const returnsLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
-    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+    const returnsLogCol = collection(db, 'users', DEFAULT_USER_ID, 'returns-log');
+    const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
+    const entryLogsCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
 
     const returnDocRef = doc(returnsLogCol);
     const now = new Date();
@@ -339,12 +344,11 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         ...data,
         id: returnDocRef.id,
         returnedAt: now.toISOString(),
-        originalSaleData: data.originalSaleData || null,
+        originalSaleData: data.originalSaleData || undefined,
     };
     batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
 
-    // Re-add item to inventory
-    const inventoryItemDocRef = doc(inventoryCol); 
+    const inventoryItemDocRef = doc(inventoryCol);
     const product = await findProductByAssociatedSku(data.sku);
 
     const itemToReenter: InventoryItem = {
@@ -354,16 +358,22 @@ export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>):
         sku: data.sku,
         serialNumber: data.serialNumber,
         costPrice: data.originalSaleData?.costPrice || 0,
-        origin: data.originalSaleData?.origin || 'Devolução',
+        origin: 'Devolução',
         quantity: 1,
         condition: data.condition as any,
         createdAt: now.toISOString(),
     };
-    const firestoreItem = { ...itemToReenter, createdAt: now }; 
-    batch.set(inventoryItemDocRef, toFirestore(firestoreItem));
+    batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
     
-    // Log the return entry
-    await logInventoryEntry(batch, itemToReenter);
+    const entryLogDocRef = doc(entryLogsCol);
+    const entryLog: EntryLog = {
+        ...itemToReenter,
+        id: entryLogDocRef.id,
+        originalInventoryId: itemToReenter.id,
+        entryDate: now.toISOString(),
+        logType: 'RETURN_ENTRY'
+    };
+    batch.set(entryLogDocRef, toFirestore(entryLog));
 
     await batch.commit();
 };
@@ -526,6 +536,8 @@ export const loadApprovalRequests = async (status: 'pending' | 'approved' | 'rej
 
 export const processApprovalRequest = async (request: ApprovalRequest, decision: 'approved' | 'rejected', userEmail: string): Promise<void> => {
     const requestDocRef = doc(db, 'approval-requests', request.id);
+    
+    // Correção: Usar new Date().toISOString() para garantir o timestamp atual
     const updateData: Partial<ApprovalRequest> = {
         status: decision,
         processedBy: userEmail,
