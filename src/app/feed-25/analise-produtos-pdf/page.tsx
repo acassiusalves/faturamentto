@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -22,28 +21,34 @@ import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import * as pdfjs from "pdfjs-dist";
 
 // PDF.js dinâmico
-let pdfjs: any = null;
+let pdfjsLib: any = null;
 
 const initPDFjs = async () => {
-  if (typeof window !== "undefined" && !pdfjs) {
+  if (typeof window !== "undefined" && !pdfjsLib) {
     try {
-      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
+      const lib = await import('pdfjs-dist/legacy/build/pdf');
       
-      if (pdfjsLib.GlobalWorkerOptions) {
-        // Use o caminho estático para o worker copiado para a pasta public.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+      if (lib.GlobalWorkerOptions) {
+        // O Webpack vai gerenciar este arquivo e nos dar a URL correta.
+        // A configuração está em next.config.ts
+        const workerUrl = new URL(
+          'pdfjs-dist/legacy/build/pdf.worker.min.js',
+          import.meta.url,
+        ).toString();
+        lib.GlobalWorkerOptions.workerSrc = workerUrl;
       }
       
-      pdfjs = pdfjsLib;
-      return pdfjsLib;
+      pdfjsLib = lib;
+      return lib;
     } catch (error) {
       console.error('Erro ao carregar PDF.js:', error);
       return null;
     }
   }
-  return pdfjs;
+  return pdfjsLib;
 };
 
 
@@ -104,8 +109,8 @@ export default function CatalogoPdfPage() {
     useEffect(() => {
         let mounted = true;
         
-        initPDFjs().then((pdfjsLib) => {
-            if (mounted && pdfjsLib) {
+        initPDFjs().then((lib) => {
+            if (mounted && lib) {
                 setPdfJsReady(true);
             }
         });
@@ -246,7 +251,7 @@ export default function CatalogoPdfPage() {
             
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
-                const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 setPdfDoc(pdf);
             } catch (error) {
                 console.error('Erro ao carregar PDF:', error);
