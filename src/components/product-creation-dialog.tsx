@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { saveProduct } from '@/services/firestore';
 import { cn } from '@/lib/utils';
 import { deburr } from 'lodash';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface ProductCreationDialogProps {
   isOpen: boolean;
