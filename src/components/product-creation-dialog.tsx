@@ -193,6 +193,45 @@ export function ProductCreationDialog({ isOpen, onClose, productName, products, 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>{attr.label}</FormLabel>
+                          {attr.key === 'modelo' ? (
+                            <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                  >
+                                    {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                  <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                  <CommandList>
+                                    <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                      {attr.values.map(val => (
+                                        <CommandItem
+                                          key={val}
+                                          value={val}
+                                          onSelect={() => {
+                                            field.onChange(val);
+                                            setOpenPopovers(prev => ({...prev, [attr.key]: false}));
+                                          }}
+                                        >
+                                          <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
+                                          {val}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          ) : (
                             <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -205,6 +244,7 @@ export function ProductCreationDialog({ isOpen, onClose, productName, products, 
                                 ))}
                               </SelectContent>
                             </Select>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
