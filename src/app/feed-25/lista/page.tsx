@@ -335,6 +335,14 @@ export default function FeedListPage() {
         );
     }, [comparisonData, filter]);
 
+    const filteredProductsWithoutSku = useMemo(() => {
+        if (!filter) return productsWithoutSku;
+        const lowerCaseFilter = filter.toLowerCase();
+        return productsWithoutSku.filter(p => 
+            p.name.toLowerCase().includes(lowerCaseFilter)
+        );
+    }, [productsWithoutSku, filter]);
+
     const handleDeleteIncorrectOffers = async () => {
         if (!selectedDate || incorrectOffers.length === 0) return;
     
@@ -757,8 +765,8 @@ export default function FeedListPage() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {productsWithoutSku.length > 0 ? (
-                                                    productsWithoutSku.map((product, index) => (
+                                                {filteredProductsWithoutSku.length > 0 ? (
+                                                    filteredProductsWithoutSku.map((product, index) => (
                                                         <TableRow key={index}>
                                                             <TableCell className="font-medium capitalize">{product.name}</TableCell>
                                                             <TableCell className="text-center">
@@ -770,7 +778,7 @@ export default function FeedListPage() {
                                                 ) : (
                                                      <TableRow>
                                                         <TableCell colSpan={3} className="h-24 text-center">
-                                                            Nenhum produto sem código encontrado nesta data.
+                                                            Nenhum produto sem código encontrado nesta data ou para este filtro.
                                                         </TableCell>
                                                     </TableRow>
                                                 )}
