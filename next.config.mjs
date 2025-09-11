@@ -1,24 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ESSENCIAL para VPS e Firebase
   output: 'standalone',
   
-  // Configuração para Firebase Functions
-  trailingSlash: true,
-  
   webpack(config, { isServer }) {
-    // PDF.js worker configuration
-    if (!isServer) {
-      config.module.rules.push({
-        test: /pdf\.worker\.(js|mjs)$/,
-        type: "asset/resource",
-        generator: {
-          filename: "static/chunks/[hash].worker.js",
-        },
-      });
-    }
+    // Configuração específica para PDF.js worker
+    config.module.rules.push({
+      test: /pdf\.worker\.(js|mjs)$/,
+      type: "asset/resource",
+      generator: {
+        filename: "static/chunks/[hash].worker.js",
+      },
+    });
+
+    // Excluir PDF worker do processamento do Terser
+    config.optimization = config.optimization || {};
+    config.optimization.minimizer = config.optimization.minimizer || [];
     
-    // Firebase compatibility
+    // Encontrar e configurar o TerserPlugin
+    const terserPlugin = config.optimization.minimizer.find(
+      (plugin) => plugin.constructor.name === 'TerserPlugin'
+    );
+    
+    if (terserPlugin) {
+      terserPlugin.options.exclude = /pdf\.worker\.(js|mjs)$/;
+    }
+
+    // Configuração para resolver problemas com Firebase
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
@@ -35,7 +42,7 @@ const nextConfig = {
       path: false,
     };
 
-    // Exclude Firebase Admin from client bundle
+    // Excluir Firebase Admin do bundle do cliente
     if (!isServer) {
       config.externals = config.externals || [];
       config.externals.push('firebase-admin');
@@ -51,9 +58,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // Otimizações
-  swcMinify: true,
-  
   images: {
     remotePatterns: [
       {
