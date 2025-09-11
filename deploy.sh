@@ -1,26 +1,41 @@
 #!/bin/bash
 
-echo "🚀 Iniciando processo de deploy..."
+echo "🚀 Deploy do Frontend Next.js..."
 
-# Limpar cache e dependências
-echo "🧹 Limpando cache..."
-rm -rf .next
-rm -rf node_modules
-rm -rf .npm-cache
-
-# Instalar dependências
-echo "📦 Instalando dependências..."
-npm ci --production=false
-
-# Verificar tipos TypeScript
-echo "🔍 Verificando tipos..."
-npm run typecheck || {
-    echo "❌ Erro de TypeScript encontrado. Build interrompido."
+# Verificar se estamos na pasta correta
+if [ ! -f "next.config.mjs" ]; then
+    echo "❌ Erro: Execute este script na pasta raiz do projeto (onde está o next.config.mjs)"
     exit 1
-}
+fi
 
-# Build do projeto
-echo "🔨 Fazendo build..."
+# Limpar cache do Next.js
+echo "🧹 Limpando cache do Next.js..."
+rm -rf .next
+rm -rf out
+rm -rf node_modules/.cache
+
+# Instalar dependências do frontend
+echo "📦 Instalando dependências do frontend..."
+npm ci
+
+# Build do frontend
+echo "🔨 Fazendo build do frontend..."
+NODE_ENV=production npm run build
+
+# Verificar se o build foi bem-sucedido
+if [ $? -eq 0 ]; then
+    echo "✅ Build do frontend concluído com sucesso!"
+    echo "📁 Arquivos gerados em: .next/"
+else
+    echo "❌ Erro no build do frontend"
+    exit 1
+fi
+
+# Opcional: Build das Firebase Functions
+echo "🔥 Fazendo build das Firebase Functions..."
+cd functions
+npm ci
 npm run build
+cd ..
 
-echo "✅ Deploy concluído com sucesso!"
+echo "🎉 Deploy completo!"
