@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, SearchableProduct, CatalogProduct } from '@/lib/types';
+import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
@@ -32,11 +32,8 @@ const initPDFjs = async () => {
       const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
       
       if (pdfjsLib.GlobalWorkerOptions) {
-        const workerUrl = new URL(
-          'pdfjs-dist/legacy/build/pdf.worker.min.js',
-          import.meta.url,
-        ).toString();
-        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+        // Use o caminho estático para o worker copiado para a pasta public.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
       }
       
       pdfjs = pdfjsLib;

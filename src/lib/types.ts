@@ -528,7 +528,8 @@ export const AnalyzeCatalogOutputSchema = z.object({
 });
 export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
 
-export interface SearchableProduct extends z.infer<typeof CatalogProductSchema> {
+export interface CatalogProduct extends z.infer<typeof CatalogProductSchema> {}
+export interface SearchableProduct extends CatalogProduct {
     refinedQuery?: string;
     isSearching?: boolean;
     searchError?: string;
