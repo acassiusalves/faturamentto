@@ -46,6 +46,7 @@ import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductCreationDialog } from '@/components/product-creation-dialog';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -361,7 +362,6 @@ export default function FeedListPage() {
         if (!selectedDate || incorrectOffers.length === 0) return;
     
         try {
-            const offersToDelete = new Set(incorrectOffers.map(offer => offer.id));
             const skusToDelete = new Map<string, Set<string>>(); // Map<id, Set<sku>>
             incorrectOffers.forEach(offer => {
                 if (!skusToDelete.has(offer.id)) {
@@ -370,8 +370,9 @@ export default function FeedListPage() {
                 skusToDelete.get(offer.id)!.add(offer.sku);
             });
             
-            let updatedFeedData = [...allFeedData];
-
+            const ops: Promise<any>[] = [];
+            const updatedFeedData = [...allFeedData];
+    
             skusToDelete.forEach((skuSet, id) => {
                 const entryIndex = updatedFeedData.findIndex(e => e.id === id);
                 if (entryIndex > -1) {
@@ -379,17 +380,18 @@ export default function FeedListPage() {
                     const newProducts = originalEntry.products.filter(p => !skuSet.has(p.sku));
                     
                     if (newProducts.length === 0) {
-                        deleteFeedEntry(id);
+                        ops.push(deleteFeedEntry(id));
                     } else {
                         const updatedEntry = { ...originalEntry, products: newProducts };
-                        saveFeedEntry(updatedEntry);
+                        ops.push(saveFeedEntry(updatedEntry));
                     }
                 }
             });
     
+            await Promise.all(ops);
             await fetchFeedData(); // Refresh data from Firestore
             
-            analysisState.result = null;
+            setAnalysisState({ result: null, error: null });
 
             toast({
                 title: 'Sucesso!',
