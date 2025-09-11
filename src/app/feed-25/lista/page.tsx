@@ -3,19 +3,34 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+import {
+    organizeListAction,
+    standardizeListAction,
+    lookupProductsAction,
+    savePromptAction,
+} from '@/app/actions';
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, ProductCategorySettings, Product } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save, PackageX, PackageCheck, PlusCircle } from 'lucide-react';
+import { ProductTable } from '@/components/product-table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
+import { Progress } from '@/components/ui/progress';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings } from '@/services/firestore';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import * as XLSX from 'xlsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CalendarIcon } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -31,37 +46,15 @@ import { analyzeFeedAction, saveAveragePricesAction } from '@/app/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Progress } from '@/components/ui/progress';
-import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings, loadProducts } from '@/services/firestore';
+import { Tablets, Trash2, Download, Info } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductCreationDialog } from '@/components/product-creation-dialog';
-import type { ProductCategorySettings, Product } from '@/lib/types';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
 const MODEL_STORAGE_KEY = 'gemini_model';
 
-
-interface ProductDetail {
-  sku: string;
-  name: string;
-  costPrice: string;
-}
-
-interface FeedEntry {
-    storeName: string;
-    date: string; // yyyy-MM-dd
-    products: ProductDetail[];
-    id: string;
-}
-
-type ProductStatus = 'PRECO_OK' | 'ATENCAO' | 'OPORTUNIDADE';
-
-interface ProductAnalysis {
-    sku: string;
-    status: ProductStatus;
-    justification: string;
-}
 
 interface ComparisonProduct {
     sku: string;
@@ -74,19 +67,27 @@ interface ComparisonProduct {
     analysis?: ProductAnalysis;
 }
 
-interface IncorrectOffer {
-    sku: string;
-    storeName: string;
-    id: string;
-}
-
-// Interface para a nova lista de produtos sem SKU
 interface ProductWithoutSku {
     name: string;
     averagePrice: number | null;
     storeCount: number;
 }
 
+
+type ProductStatus = 'PRECO_OK' | 'ATENCAO' | 'OPORTUNIDADE';
+
+interface ProductAnalysis {
+    sku: string;
+    status: ProductStatus;
+    justification: string;
+}
+
+
+interface IncorrectOffer {
+    sku: string;
+    storeName: string;
+    id: string;
+}
 
 const statusConfig: Record<ProductStatus, { variant: "default" | "destructive" | "secondary", text: string, icon?: React.ReactNode }> = {
     PRECO_OK: { variant: 'secondary', text: 'Preço OK' },
@@ -144,7 +145,9 @@ export default function FeedListPage() {
             ]);
             setAllFeedData(data);
             setAllProducts(products);
-            setProductSettings(settings);
+            if (settings) {
+                setProductSettings(settings);
+            }
         } catch (error) {
              toast({
                 variant: 'destructive',
