@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -41,10 +41,11 @@ import {
   } from "@/components/ui/alert-dialog";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import * as XLSX from 'xlsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductCreationDialog } from '@/components/product-creation-dialog';
+import { Input } from '@/components/ui/input';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -545,6 +546,8 @@ export default function FeedListPage() {
         <>
             <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
                 <Link href="/feed-25" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-fit mb-4">
+                    <ChevronLeft className="h-4 w-4" />
+                    voltar
                 </Link>
                 <Card>
                     <CardHeader>
