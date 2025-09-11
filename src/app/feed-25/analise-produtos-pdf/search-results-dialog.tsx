@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -132,7 +133,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                                     {offer.shipping_logistic_type === 'fulfillment' ? <FullIcon /> : <MercadoEnviosIcon />}
                                                     {offer.listing_type_id && <Badge variant="outline">{listingTypeMap[offer.listing_type_id] || offer.listing_type_id}</Badge>}
                                                     {isModelMatch && (
-                                                        <Badge className="bg-green-100 text-green-700 hover:bg-green-200">
+                                                        <Badge className="bg-green-600 text-white hover:bg-green-600/90">
                                                             <CheckCircle className="mr-1 h-3 w-3" />
                                                             Correspondência de modelo
                                                         </Badge>
