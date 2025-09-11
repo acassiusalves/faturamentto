@@ -15,12 +15,12 @@ npm ci --production=false
 # Verificar tipos TypeScript
 echo "🔍 Verificando tipos..."
 npm run typecheck || {
-    echo "❌ Erro de TypeScript encontrado"
-    echo "⚠️  Continuando com ignoreBuildErrors..."
+    echo "❌ Erro de TypeScript encontrado. Build interrompido."
+    exit 1
 }
 
 # Build do projeto
 echo "🔨 Fazendo build..."
-NODE_ENV=production npm run build
+npm run build
 
 echo "✅ Deploy concluído com sucesso!"
