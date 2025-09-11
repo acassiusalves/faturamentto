@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save, PackageX, PackageCheck } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, Trash2, Tablets, Bot, Loader2, Info, ExternalLink, ChevronLeft, Download, Save, PackageX, PackageCheck, PlusCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -32,8 +32,10 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
-import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings } from '@/services/firestore';
+import { loadAllFeedEntries, deleteFeedEntry, saveFeedEntry, loadAppSettings, loadProducts } from '@/services/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductCreationDialog } from '@/components/product-creation-dialog';
+import type { ProductCategorySettings, Product } from '@/lib/types';
 
 
 const API_KEY_STORAGE_KEY = 'gemini_api_key';
@@ -115,6 +117,13 @@ export default function FeedListPage() {
         count: 0
     });
     const [isSavingPrices, startSavingPricesTransition] = useTransition();
+    
+    // States for Product Creation Dialog
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [productToCreateName, setProductToCreateName] = useState<string | null>(null);
+    const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+
 
     const handleAnalyze = (formData: FormData) => {
         setIsAnalyzing(true);
@@ -128,8 +137,14 @@ export default function FeedListPage() {
     const fetchFeedData = async () => {
         setIsLoading(true);
         try {
-            const data = await loadAllFeedEntries();
+            const [data, products, settings] = await Promise.all([
+                loadAllFeedEntries(),
+                loadProducts(),
+                loadProductSettings('celular')
+            ]);
             setAllFeedData(data);
+            setAllProducts(products);
+            setProductSettings(settings);
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -498,6 +513,17 @@ export default function FeedListPage() {
         });
     }
 
+    const handleOpenCreateDialog = (productName: string) => {
+        setProductToCreateName(productName);
+        setIsCreateDialogOpen(true);
+    };
+
+    const handleProductCreated = (newProduct: Product) => {
+        setAllProducts(prev => [...prev, newProduct]);
+        // Optionally, re-run analysis or refresh data
+        fetchFeedData();
+    };
+
 
     const formatCurrency = (value: number | null) => {
         if (value === null || isNaN(value)) return '-';
@@ -518,6 +544,7 @@ export default function FeedListPage() {
     }
 
     return (
+        <>
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
             <Link href="/feed-25" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-fit mb-4">
                 <ChevronLeft className="h-4 w-4" />
@@ -762,6 +789,7 @@ export default function FeedListPage() {
                                                     <TableHead>Produto Não Identificado</TableHead>
                                                     <TableHead className="text-center">Qtd. de Lojas</TableHead>
                                                     <TableHead className="text-right">Preço Médio</TableHead>
+                                                     <TableHead className="text-center">Ações</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -773,11 +801,16 @@ export default function FeedListPage() {
                                                                 <Badge variant="outline">{product.storeCount}</Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right font-mono">{formatCurrency(product.averagePrice)}</TableCell>
+                                                             <TableCell className="text-center">
+                                                                <Button variant="ghost" size="icon" onClick={() => handleOpenCreateDialog(product.name)}>
+                                                                    <PlusCircle className="h-5 w-5 text-primary" />
+                                                                </Button>
+                                                            </TableCell>
                                                         </TableRow>
                                                     ))
                                                 ) : (
                                                      <TableRow>
-                                                        <TableCell colSpan={3} className="h-24 text-center">
+                                                        <TableCell colSpan={4} className="h-24 text-center">
                                                             Nenhum produto sem código encontrado nesta data ou para este filtro.
                                                         </TableCell>
                                                     </TableRow>
@@ -797,5 +830,17 @@ export default function FeedListPage() {
                 </CardContent>
             </Card>
         </main>
+
+        {productSettings && (
+            <ProductCreationDialog
+                isOpen={isCreateDialogOpen}
+                onClose={() => setIsCreateDialogOpen(false)}
+                productName={productToCreateName}
+                products={allProducts}
+                settings={productSettings}
+                onProductCreated={handleProductCreated}
+            />
+        )}
+        </>
     );
 }
