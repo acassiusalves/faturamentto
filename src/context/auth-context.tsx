@@ -56,6 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if(!dynamicPermissions[page].includes('admin')) {
                         dynamicPermissions[page].push('admin');
                     }
+                    if(!dynamicPermissions[page].includes('socio')) {
+                        dynamicPermissions[page].push('socio');
+                    }
                 }
                 setPagePermissions(dynamicPermissions);
             }
