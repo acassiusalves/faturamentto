@@ -12,8 +12,6 @@ initializeApp();
 const db = getFirestore();
 const auth = getAuth();
 
-const DEFAULT_USER_ID = "default-user"; // Placeholder until proper auth is added
-
 export const inviteUser = onCall(async (request) => {
   // 1. Authentication Check: Ensure the user is authenticated.
   if (!request.auth) {
@@ -54,7 +52,6 @@ export const inviteUser = onCall(async (request) => {
     const userRecord = await auth.createUser({
       email,
       emailVerified: false, // User will verify their email
-      // Generate a random password. The user will reset it.
       password: "123456",
       displayName: email.split("@")[0], // A sensible default
     });
@@ -97,27 +94,31 @@ export const recordInitialStock = onSchedule("every day 05:00", async () => {
   logger.info("Executando a função agendada: recordInitialStock");
 
   try {
-    // Get a reference to the inventory collection for the default user
-    const inventoryCol = db.collection("users").doc(DEFAULT_USER_ID).collection("inventory");
+    const defaultUserId = "default-user";
+    const userDocRef = db.collection("users").doc(defaultUserId);
+    const userDoc = await userDocRef.get();
 
-    // Get the total count of items in the inventory
+    if (!userDoc.exists) {
+        logger.warn(`Usuário padrão com ID ${defaultUserId} não encontrado. Criando documento.`);
+        await userDocRef.set({ placeholder: true }); // Create a placeholder document if it doesn't exist
+    }
+
+    const inventoryCol = userDocRef.collection("inventory");
+
     const snapshot = await inventoryCol.count().get();
     const totalStock = snapshot.data().count;
 
-    // Get today's date in YYYY-MM-DD format
     const today = new Date();
-    today.setHours(today.getHours() - 3); // Adjust for timezone if needed (e.g., UTC-3)
+    today.setHours(today.getHours() - 3); 
     const dateKey = today.toISOString().split("T")[0];
 
-    // Get a reference to the daily summaries collection
     const summaryDocRef = db.collection("daily-summaries").doc(dateKey);
 
-    // Save the initial stock for the day
     await summaryDocRef.set({
       date: dateKey,
       initialStock: totalStock,
       recordedAt: new Date(),
-    });
+    }, { merge: true });
 
     logger.info(`Estoque inicial de ${totalStock} itens registrado para ${dateKey}.`);
   } catch (error) {
