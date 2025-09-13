@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Search, PackageCheck, FileText, CheckCircle, XCircle, ChevronsUpDown, Check } from 'lucide-react';
 import type { PickedItemLog, ProductCategorySettings, ReturnLog, Product, EntryLog } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { findPickLogBySN, loadProductSettings, saveReturnLog, loadTodaysReturnLogs, loadProducts, revertReturnAction } from '@/services/firestore';
+import { findPickLogBySN, loadProductSettings, saveReturnLogs, loadTodaysReturnLogs, loadProducts, revertReturnAction } from '@/services/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,14 +25,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { collection, doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-
-const DEFAULT_USER_ID = 'default-user';
 
 
 const returnSchema = z.object({
-  serialNumber: z.string().min(1, "O SN do produto é obrigatório."),
+  serialNumbers: z.string().min(1, "Pelo menos um SN de produto é obrigatório."),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   productName: z.string().min(1, "O nome do produto é obrigatório."),
   sku: z.string().min(1, "O SKU do produto é obrigatório."),
@@ -45,7 +41,7 @@ type ReturnFormValues = z.infer<typeof returnSchema>;
 
 export function ReturnsForm() {
     const { toast } = useToast();
-    const [scannedSn, setScannedSn] = useState("");
+    const [scannedSns, setScannedSns] = useState("");
     const [isLoadingSn, setIsLoadingSn] = useState(false);
     const [foundLog, setFoundLog] = useState<PickedItemLog | null>(null);
     const [todaysReturns, setTodaysReturns] = useState<ReturnLog[]>([]);
@@ -58,7 +54,7 @@ export function ReturnsForm() {
     const form = useForm<ReturnFormValues>({
         resolver: zodResolver(returnSchema),
         defaultValues: {
-            serialNumber: "",
+            serialNumbers: "",
             productId: "",
             productName: "",
             sku: "",
@@ -91,18 +87,14 @@ export function ReturnsForm() {
     }, [fetchTodaysReturns]);
 
 
-    const handleSearchSN = useCallback(async (sn: string) => {
+    const handleSearchFirstSN = useCallback(async (sn: string) => {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
         reset({ 
-            serialNumber: sn,
-            productId: "",
-            productName: "",
-            sku: "",
+            ...form.getValues(),
+            serialNumbers: sn,
             orderNumber: "",
-            notes: "",
-            condition: "" 
         });
 
         try {
@@ -114,9 +106,9 @@ export function ReturnsForm() {
                 setValue("productName", log.name);
                 setValue("sku", log.sku);
                 setValue("orderNumber", log.orderNumber);
-                toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos." });
+                toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos com base no primeiro SN." });
             } else {
-                toast({ variant: 'destructive', title: "Nenhum Registro de Saída Encontrado", description: "Este SN não foi encontrado no histórico de picking. Preencha os dados manualmente." });
+                toast({ variant: 'destructive', title: "Nenhum Registro de Saída Encontrado", description: "O primeiro SN não foi encontrado no histórico. Preencha os dados manualmente." });
             }
         } catch (error) {
             console.error(error);
@@ -124,22 +116,24 @@ export function ReturnsForm() {
         } finally {
             setIsLoadingSn(false);
         }
-    }, [reset, setValue, toast, products]);
+    }, [reset, setValue, toast, products, form]);
 
 
-    const handleSnInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSnInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const value = e.target.value;
-        setScannedSn(value);
+        setScannedSns(value);
+        form.setValue('serialNumbers', value);
 
         if (snInputTimeoutRef.current) {
             clearTimeout(snInputTimeoutRef.current);
         }
 
         snInputTimeoutRef.current = setTimeout(() => {
-            if (value.trim()) {
-                handleSearchSN(value.trim());
+            const firstSn = value.trim().split(/[\n,;]/)[0]?.trim();
+            if (firstSn) {
+                handleSearchFirstSN(firstSn);
             }
-        }, 800); // 800ms delay for auto-search
+        }, 800);
     };
     
     const handleProductSelectionChange = (productId: string) => {
@@ -153,46 +147,33 @@ export function ReturnsForm() {
     };
     
     const onSubmit = async (data: ReturnFormValues) => {
+      const serialNumbersList = data.serialNumbers.split(/[\n,;]/).map(sn => sn.trim()).filter(Boolean);
+      if (serialNumbersList.length === 0) {
+        toast({ variant: 'destructive', title: 'Nenhum SN informado' });
+        return;
+      }
+      
       try {
-        // Dados do item de devolução
-        const returnData = {
-          ...data,
-          sku: data.sku,
-          originalSaleData: foundLog || undefined,
-        };
+        const returnLogsToSave: Omit<ReturnLog, 'id' | 'returnedAt'>[] = serialNumbersList.map(sn => ({
+            productName: data.productName,
+            serialNumber: sn,
+            sku: data.sku,
+            orderNumber: data.orderNumber,
+            condition: data.condition,
+            notes: data.notes,
+            originalSaleData: foundLog || undefined,
+        }));
     
-        await saveReturnLog(returnData);
-    
-        // ✅ NOVO: Também salvar no entry-logs para auditoria
-        const entryLogCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
-        const entryLogRef = doc(entryLogCol);
-        
-        const entryLogItem: EntryLog = {
-          id: entryLogRef.id,
-          originalInventoryId: '', // Não tem item original pois é devolução
-          productId: data.productId,
-          name: data.productName,
-          sku: data.sku,
-          costPrice: foundLog?.costPrice || 0,
-          quantity: 1,
-          serialNumber: data.serialNumber,
-          origin: foundLog?.origin || 'Devolução',
-          condition: data.condition as any,
-          createdAt: new Date().toISOString(),
-          entryDate: new Date().toISOString(),
-          logType: 'RETURN_ENTRY'
-        };
-    
-        await setDoc(entryLogRef, entryLogItem);
+        await saveReturnLogs(returnLogsToSave, data.productId, foundLog?.costPrice || 0, foundLog?.origin || 'Devolução');
     
         toast({ 
-          title: "Devolução Registrada!", 
-          description: `Produto ${data.productName} retornado ao estoque.`
+          title: "Devoluções Registradas!", 
+          description: `${returnLogsToSave.length} produto(s) retornaram ao estoque.`
         });
         
         await fetchTodaysReturns();
         reset();
-        setScannedSn("");
+        setScannedSns("");
         setFoundLog(null);
       } catch (error) {
         console.error(error);
@@ -238,7 +219,7 @@ export function ReturnsForm() {
                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-6">
                             {isLoadingSn ? <Loader2 className="animate-spin" /> : (
                                 <>
-                                    {foundLog === null && scannedSn ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
+                                    {foundLog === null && scannedSns ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
                                     <p>{isLoadingSn ? "Buscando..." : notFoundText}</p>
                                 </>
                             )}
@@ -258,21 +239,26 @@ export function ReturnsForm() {
                     <div className="lg:col-span-1 space-y-4">
                         <Card>
                             <CardContent className="p-6 space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="sn-input">Número de Série (SN) do Produto</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input 
-                                            id="sn-input" 
-                                            placeholder="Bipe ou digite o SN..." 
-                                            value={scannedSn}
-                                            onChange={handleSnInputChange}
-                                            autoFocus
-                                        />
-                                        <Button type="button" size="icon" variant="outline" onClick={() => handleSearchSN(scannedSn)} disabled={isLoadingSn}>
-                                            {isLoadingSn ? <Loader2 className="animate-spin" /> : <Search />}
-                                        </Button>
-                                    </div>
-                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="serialNumbers"
+                                    render={({ field }) => (
+                                       <FormItem>
+                                            <FormLabel>Números de Série (SN)</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    id="sn-input"
+                                                    placeholder="Bipe ou cole os SNs, um por linha..."
+                                                    rows={4}
+                                                    value={scannedSns}
+                                                    onChange={handleSnInputChange}
+                                                    autoFocus
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
                                  <FormField
                                     control={form.control}

@@ -332,48 +332,56 @@ export const clearTodaysPickingLog = async (): Promise<void> => {
 
 
 // --- RETURNS ---
-export const saveReturnLog = async (data: Omit<ReturnLog, 'id' | 'returnedAt'>): Promise<void> => {
+export const saveReturnLogs = async (
+  data: Omit<ReturnLog, 'id' | 'returnedAt'>[],
+  productId: string,
+  costPrice: number,
+  origin: string
+): Promise<void> => {
     const batch = writeBatch(db);
     const returnsLogCol = collection(db, 'users', DEFAULT_USER_ID, 'returns-log');
     const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
     const entryLogsCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
 
-    const returnDocRef = doc(returnsLogCol);
     const now = new Date();
-    const newReturnLog: ReturnLog = {
-        ...data,
-        id: returnDocRef.id,
-        returnedAt: now.toISOString(),
-        originalSaleData: data.originalSaleData || undefined,
-    };
-    batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
 
-    const inventoryItemDocRef = doc(inventoryCol);
-    const product = await findProductByAssociatedSku(data.sku);
+    for (const returnData of data) {
+        // Create Return Log
+        const returnDocRef = doc(returnsLogCol);
+        const newReturnLog: ReturnLog = {
+            ...returnData,
+            id: returnDocRef.id,
+            returnedAt: now.toISOString(),
+        };
+        batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
 
-    const itemToReenter: InventoryItem = {
-        id: inventoryItemDocRef.id,
-        productId: product?.id || `unknown-${data.sku}`,
-        name: data.productName,
-        sku: data.sku,
-        serialNumber: data.serialNumber,
-        costPrice: data.originalSaleData?.costPrice || 0,
-        origin: 'Devolução',
-        quantity: 1,
-        condition: data.condition as any,
-        createdAt: now.toISOString(),
-    };
-    batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
-    
-    const entryLogDocRef = doc(entryLogsCol);
-    const entryLog: EntryLog = {
-        ...itemToReenter,
-        id: entryLogDocRef.id,
-        originalInventoryId: itemToReenter.id,
-        entryDate: now.toISOString(),
-        logType: 'RETURN_ENTRY'
-    };
-    batch.set(entryLogDocRef, toFirestore(entryLog));
+        // Create Inventory Item
+        const inventoryItemDocRef = doc(inventoryCol);
+        const itemToReenter: InventoryItem = {
+            id: inventoryItemDocRef.id,
+            productId: productId,
+            name: returnData.productName,
+            sku: returnData.sku,
+            serialNumber: returnData.serialNumber,
+            costPrice: costPrice,
+            origin: origin,
+            quantity: 1,
+            condition: returnData.condition as any,
+            createdAt: now.toISOString(),
+        };
+        batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
+        
+        // Create Entry Log
+        const entryLogDocRef = doc(entryLogsCol);
+        const entryLog: EntryLog = {
+            ...itemToReenter,
+            id: entryLogDocRef.id,
+            originalInventoryId: itemToReenter.id,
+            entryDate: now.toISOString(),
+            logType: 'RETURN_ENTRY'
+        };
+        batch.set(entryLogDocRef, toFirestore(entryLog));
+    }
 
     await batch.commit();
 };
