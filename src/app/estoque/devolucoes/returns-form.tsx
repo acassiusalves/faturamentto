@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -28,7 +27,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 const returnSchema = z.object({
-  serialNumbers: z.string().min(1, "Pelo menos um SN de produto é obrigatório."),
+  serialNumber: z.string().min(1, "O SN do produto é obrigatório."),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   productName: z.string().min(1, "O nome do produto é obrigatório."),
   sku: z.string().min(1, "O SKU do produto é obrigatório."),
@@ -41,7 +40,6 @@ type ReturnFormValues = z.infer<typeof returnSchema>;
 
 export function ReturnsForm() {
     const { toast } = useToast();
-    const [scannedSns, setScannedSns] = useState("");
     const [isLoadingSn, setIsLoadingSn] = useState(false);
     const [foundLog, setFoundLog] = useState<PickedItemLog | null>(null);
     const [todaysReturns, setTodaysReturns] = useState<ReturnLog[]>([]);
@@ -49,12 +47,13 @@ export function ReturnsForm() {
     const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
+    
+    const snInputRef = useRef<HTMLInputElement>(null);
 
-    const snInputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const form = useForm<ReturnFormValues>({
         resolver: zodResolver(returnSchema),
         defaultValues: {
-            serialNumbers: "",
+            serialNumber: "",
             productId: "",
             productName: "",
             sku: "",
@@ -64,7 +63,7 @@ export function ReturnsForm() {
         },
     });
     
-    const { handleSubmit, setValue, reset, formState: { isSubmitting } } = form;
+    const { handleSubmit, setValue, reset, control, getValues } = form;
 
      const fetchTodaysReturns = useCallback(async () => {
         setIsLoadingReturns(true);
@@ -87,14 +86,17 @@ export function ReturnsForm() {
     }, [fetchTodaysReturns]);
 
 
-    const handleSearchFirstSN = useCallback(async (sn: string) => {
+    const handleSearchSN = useCallback(async (sn: string) => {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
-        reset({ 
-            ...form.getValues(),
-            serialNumbers: sn,
+        reset({ // Reset all fields but keep the typed SN
+            ...getValues(),
+            serialNumber: sn,
             orderNumber: "",
+            productId: "",
+            productName: "",
+            sku: "",
         });
 
         try {
@@ -106,9 +108,9 @@ export function ReturnsForm() {
                 setValue("productName", log.name);
                 setValue("sku", log.sku);
                 setValue("orderNumber", log.orderNumber);
-                toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos com base no primeiro SN." });
+                toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos." });
             } else {
-                toast({ variant: 'destructive', title: "Nenhum Registro de Saída Encontrado", description: "O primeiro SN não foi encontrado no histórico. Preencha os dados manualmente." });
+                toast({ variant: 'destructive', title: "Nenhum Registro de Saída Encontrado", description: "Preencha os dados manualmente." });
             }
         } catch (error) {
             console.error(error);
@@ -116,24 +118,17 @@ export function ReturnsForm() {
         } finally {
             setIsLoadingSn(false);
         }
-    }, [reset, setValue, toast, products, form]);
+    }, [reset, setValue, toast, products, getValues]);
 
 
-    const handleSnInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const value = e.target.value;
-        setScannedSns(value);
-        form.setValue('serialNumbers', value);
-
-        if (snInputTimeoutRef.current) {
-            clearTimeout(snInputTimeoutRef.current);
-        }
-
-        snInputTimeoutRef.current = setTimeout(() => {
-            const firstSn = value.trim().split(/[\n,;]/)[0]?.trim();
-            if (firstSn) {
-                handleSearchFirstSN(firstSn);
+    const handleSnKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const sn = (e.target as HTMLInputElement).value.trim();
+            if (sn) {
+                handleSearchSN(sn);
             }
-        }, 800);
+        }
     };
     
     const handleProductSelectionChange = (productId: string) => {
@@ -147,33 +142,32 @@ export function ReturnsForm() {
     };
     
     const onSubmit = async (data: ReturnFormValues) => {
-      const serialNumbersList = data.serialNumbers.split(/[\n,;]/).map(sn => sn.trim()).filter(Boolean);
-      if (serialNumbersList.length === 0) {
+      const serialNumber = data.serialNumber.trim();
+      if (!serialNumber) {
         toast({ variant: 'destructive', title: 'Nenhum SN informado' });
         return;
       }
       
       try {
-        const returnLogsToSave: Omit<ReturnLog, 'id' | 'returnedAt'>[] = serialNumbersList.map(sn => ({
+        const returnLogToSave: Omit<ReturnLog, 'id' | 'returnedAt'> = {
             productName: data.productName,
-            serialNumber: sn,
+            serialNumber: serialNumber,
             sku: data.sku,
             orderNumber: data.orderNumber,
             condition: data.condition,
             notes: data.notes,
             originalSaleData: foundLog || undefined,
-        }));
+        };
     
-        await saveReturnLogs(returnLogsToSave, data.productId, foundLog?.costPrice || 0, foundLog?.origin || 'Devolução');
+        await saveReturnLogs([returnLogToSave], data.productId, foundLog?.costPrice || 0, foundLog?.origin || 'Devolução');
     
         toast({ 
-          title: "Devoluções Registradas!", 
-          description: `${returnLogsToSave.length} produto(s) retornaram ao estoque.`
+          title: "Devolução Registrada!", 
+          description: `O produto retornou ao estoque.`
         });
         
         await fetchTodaysReturns();
         reset();
-        setScannedSns("");
         setFoundLog(null);
       } catch (error) {
         console.error(error);
@@ -197,6 +191,7 @@ export function ReturnsForm() {
     }
 
     const InfoCard = ({ title, icon: Icon, data, notFoundText }: { title: string, icon: React.ElementType, data: Record<string, any> | null, notFoundText: string }) => {
+        const serialNumberValue = getValues('serialNumber');
         return (
             <Card className="flex-1">
                 <CardHeader className="pb-2">
@@ -219,7 +214,7 @@ export function ReturnsForm() {
                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-6">
                             {isLoadingSn ? <Loader2 className="animate-spin" /> : (
                                 <>
-                                    {foundLog === null && scannedSns ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
+                                    {foundLog === null && serialNumberValue ? <XCircle className="h-8 w-8 mb-2 text-destructive" /> : <PackageCheck className="h-8 w-8 mb-2" /> }
                                     <p>{isLoadingSn ? "Buscando..." : notFoundText}</p>
                                 </>
                             )}
@@ -240,19 +235,20 @@ export function ReturnsForm() {
                         <Card>
                             <CardContent className="p-6 space-y-4">
                                 <FormField
-                                    control={form.control}
-                                    name="serialNumbers"
+                                    control={control}
+                                    name="serialNumber"
                                     render={({ field }) => (
                                        <FormItem>
-                                            <FormLabel>Números de Série (SN)</FormLabel>
+                                            <FormLabel>Número de Série (SN)</FormLabel>
                                             <FormControl>
-                                                <Textarea
+                                                <Input
                                                     id="sn-input"
-                                                    placeholder="Bipe ou cole os SNs, um por linha..."
-                                                    rows={4}
-                                                    value={scannedSns}
-                                                    onChange={handleSnInputChange}
+                                                    ref={snInputRef}
+                                                    placeholder="Bipe ou cole o SN e tecle Enter..."
                                                     autoFocus
+                                                    {...field}
+                                                    onKeyDown={handleSnKeyDown}
+                                                    onBlur={(e) => handleSearchSN(e.target.value)}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -261,7 +257,7 @@ export function ReturnsForm() {
                                 />
 
                                  <FormField
-                                    control={form.control}
+                                    control={control}
                                     name="productId"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
@@ -306,7 +302,7 @@ export function ReturnsForm() {
                                 />
                                 
                                  <FormField
-                                    control={form.control}
+                                    control={control}
                                     name="orderNumber"
                                     render={({ field }) => (
                                        <FormItem>
@@ -318,7 +314,7 @@ export function ReturnsForm() {
                                 />
 
                                 <FormField
-                                    control={form.control}
+                                    control={control}
                                     name="condition"
                                     render={({ field }) => (
                                         <FormItem>
@@ -341,7 +337,7 @@ export function ReturnsForm() {
                                 />
                                 
                                  <FormField
-                                    control={form.control}
+                                    control={control}
                                     name="notes"
                                     render={({ field }) => (
                                         <FormItem>
@@ -353,8 +349,8 @@ export function ReturnsForm() {
                                 />
                             </CardContent>
                         </Card>
-                         <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Registrar Devolução"}
+                         <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : "Registrar Devolução"}
                          </Button>
                     </div>
 
@@ -455,5 +451,3 @@ export function ReturnsForm() {
     </div>
   );
 }
-
-    
