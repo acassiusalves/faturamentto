@@ -47,6 +47,7 @@ export function ReturnsForm() {
     const [productSettings, setProductSettings] = useState<ProductCategorySettings | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
+    const [isManual, setIsManual] = useState(false);
     
     const snInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,7 +91,9 @@ export function ReturnsForm() {
         if (!sn) return;
         setIsLoadingSn(true);
         setFoundLog(null);
-        reset({ // Reset all fields but keep the typed SN
+        setIsManual(false);
+
+        reset({
             ...getValues(),
             serialNumber: sn,
             orderNumber: "",
@@ -103,6 +106,7 @@ export function ReturnsForm() {
             const log = await findPickLogBySN(sn);
             if (log) {
                 setFoundLog(log);
+                setIsManual(false);
                 const parentProduct = products.find(p => p.sku === log.sku);
                 setValue("productId", parentProduct?.id || "");
                 setValue("productName", log.name);
@@ -110,6 +114,7 @@ export function ReturnsForm() {
                 setValue("orderNumber", log.orderNumber);
                 toast({ title: "Registro Encontrado!", description: "Dados do pedido e produto preenchidos." });
             } else {
+                setIsManual(true);
                 toast({ variant: 'destructive', title: "Nenhum Registro de Saída Encontrado", description: "Preencha os dados manualmente." });
             }
         } catch (error) {
@@ -148,7 +153,25 @@ export function ReturnsForm() {
         return;
       }
       
+      // Se estiver em modo manual, exigir os campos chave
+      if (isManual) {
+        if (!data.productId || !data.productName || !data.sku) {
+          toast({ variant: 'destructive', title: 'Dados incompletos', description: 'Selecione o produto para preencher nome e SKU.' });
+          return;
+        }
+      }
+
       try {
+        // Cria um originalSaleData sintético em modo manual (se a função de salvar depender dele)
+        const originalSaleData = foundLog ?? {
+          sku: data.sku,
+          name: data.productName,
+          orderNumber: data.orderNumber || 'MANUAL',
+          pickedAt: new Date().toISOString(),
+          costPrice: 0,
+          origin: 'Devolução Manual',
+        };
+
         const returnLogToSave: Omit<ReturnLog, 'id' | 'returnedAt'> = {
             productName: data.productName,
             serialNumber: serialNumber,
@@ -156,14 +179,19 @@ export function ReturnsForm() {
             orderNumber: data.orderNumber,
             condition: data.condition,
             notes: data.notes,
-            originalSaleData: foundLog || undefined,
+            originalSaleData, // <- agora sempre presente
         };
     
-        // If foundLog is null, it means no picking record was found.
-        // Use default values for cost and origin.
-        const costPrice = foundLog?.costPrice || 0;
-        const origin = foundLog?.origin || 'Devolução';
+        // Define custo e origem com fallback seguro
+        const costPrice = foundLog?.costPrice ?? 0;
+        const origin = foundLog?.origin ?? 'Devolução Manual';
     
+        // productId precisa existir (modo manual exige seleção)
+        if (!data.productId) {
+          toast({ variant: 'destructive', title: 'Selecione um produto' });
+          return;
+        }
+
         await saveReturnLogs([returnLogToSave], data.productId, costPrice, origin);
     
         toast({ 
@@ -174,12 +202,13 @@ export function ReturnsForm() {
         await fetchTodaysReturns();
         reset();
         setFoundLog(null);
-      } catch (error) {
-        console.error(error);
+        setIsManual(false);
+      } catch (error: any) {
+        console.error('Erro ao salvar devolução:', error?.message ?? error);
         toast({ 
           variant: 'destructive', 
           title: 'Erro ao Salvar', 
-          description: 'Não foi possível registrar a devolução.'
+          description: 'Não foi possível registrar a devolução.' 
         });
       }
     };
