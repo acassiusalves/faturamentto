@@ -159,7 +159,12 @@ export function ReturnsForm() {
             originalSaleData: foundLog || undefined,
         };
     
-        await saveReturnLogs([returnLogToSave], data.productId, foundLog?.costPrice || 0, foundLog?.origin || 'Devolução');
+        // If foundLog is null, it means no picking record was found.
+        // Use default values for cost and origin.
+        const costPrice = foundLog?.costPrice || 0;
+        const origin = foundLog?.origin || 'Devolução';
+    
+        await saveReturnLogs([returnLogToSave], data.productId, costPrice, origin);
     
         toast({ 
           title: "Devolução Registrada!", 
