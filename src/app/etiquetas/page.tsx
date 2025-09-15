@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -148,7 +149,6 @@ export default function EtiquetasPage() {
                                 <TableRow>
                                     <TableHead>Cód. Pedido</TableHead>
                                     <TableHead>Cliente</TableHead>
-                                    <TableHead>Produto</TableHead>
                                     <TableHead>Cidade/Estado</TableHead>
                                     <TableHead>Marketplace</TableHead>
                                 </TableRow>
@@ -159,7 +159,6 @@ export default function EtiquetasPage() {
                                         <TableRow key={(sale as any).id}>
                                             <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
                                             <TableCell>{(sale as any).customer_name}</TableCell>
-                                            <TableCell>{(sale as any).item_title}</TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span>{(sale as any).address_city}</span>
@@ -171,7 +170,7 @@ export default function EtiquetasPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={4} className="h-24 text-center">
                                             {selectedStates.length > 0 ? "Nenhum pedido encontrado para os estados selecionados." : "Selecione um estado para começar."}
                                         </TableCell>
                                     </TableRow>
