@@ -1,6 +1,7 @@
 
 "use client";
 
+import * as React from "react";
 import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,10 +75,6 @@ export default function EtiquetasPage() {
     }, [toast]);
 
     React.useEffect(() => {
-        loadData();
-    }, [loadData]);
-    
-    React.useEffect(() => {
         if (fetchState.zplContent) {
             setSelectedZpl(fetchState.zplContent);
             setIsZplModalOpen(true);
@@ -92,6 +89,10 @@ export default function EtiquetasPage() {
         }
     }, [fetchState, toast]);
 
+    React.useEffect(() => {
+        loadData();
+    }, [loadData]);
+    
     const handleFetchZPL = async (orderId: string) => {
         setIsFetching(true);
         setFetchingOrderId(orderId);
