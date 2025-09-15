@@ -1,54 +1,59 @@
-/** @type {import("next").NextConfig} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
-  
-  webpack(config, { isServer }) {
-    // Ignorar completamente arquivos PDF worker
+  experimental: {
+    ppr: false,
+  },
+  webpack(config) {
     config.module.rules.push({
-      test: /pdf\.worker\.(js|mjs)$/,
-      use: "ignore-loader",
+      test: /pdf\.worker\.mjs/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/chunks/[hash].worker.mjs',
+      },
     });
-
-    // Configuração para resolver problemas com Firebase
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
-      crypto: false,
-    };
-
-    if (!isServer) {
-      config.externals = config.externals || [];
-      config.externals.push("firebase-admin");
-    }
-
     return config;
   },
-
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
-
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "placehold.co",
-        pathname: "/**",
+        protocol: 'https',
+        hostname: 'placehold.co',
       },
       {
-        protocol: "https",
-        hostname: "**.mlstatic.com",
+        protocol: 'https',
+        hostname: 'files-product.magalu.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.mlstatic.com',
+      },
+      {
+        protocol: 'http',
+        hostname: '**.mlstatic.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.labelary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.mercadolivre.com.br',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.mercadolibre.com',
       },
     ],
-  },
-
-  experimental: {
-    serverComponentsExternalPackages: ["firebase-admin"]
   },
 };
 
