@@ -25,8 +25,10 @@ export function DetailedEntryHistory() {
     to: endOfDay(new Date()),
   });
   const [originFilter, setOriginFilter] = useState("all");
+  const [conditionFilter, setConditionFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
+  const [availableConditions, setAvailableConditions] = useState<string[]>([]);
   
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -60,6 +62,10 @@ export function DetailedEntryHistory() {
       if (originAttribute && originAttribute.values) {
         setAvailableOrigins(originAttribute.values);
       }
+      const conditionAttribute = productSettings.attributes.find(attr => attr.key === 'condicao');
+      if (conditionAttribute && conditionAttribute.values) {
+        setAvailableConditions(conditionAttribute.values);
+      }
     }
     setIsLoading(false);
   }, [dateRange]);
@@ -76,6 +82,11 @@ export function DetailedEntryHistory() {
       if (originFilter !== "all" && item.origin !== originFilter) {
         return false;
       }
+      
+      // Condition filter
+      if (conditionFilter !== "all" && item.condition !== conditionFilter) {
+          return false;
+      }
 
       // Search term filter
       if (searchTerm) {
@@ -89,7 +100,7 @@ export function DetailedEntryHistory() {
 
       return true;
     });
-  }, [allItems, originFilter, searchTerm]);
+  }, [allItems, originFilter, conditionFilter, searchTerm]);
   
   const pageCount = Math.ceil(filteredItems.length / pageSize);
 
@@ -144,6 +155,17 @@ export function DetailedEntryHistory() {
                         <SelectItem value="all">Todas as Origens</SelectItem>
                         {availableOrigins.map(origin => (
                              <SelectItem key={origin} value={origin}>{origin}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={conditionFilter} onValueChange={setConditionFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filtrar por Condição" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as Condições</SelectItem>
+                        {availableConditions.map(condition => (
+                             <SelectItem key={condition} value={condition}>{condition}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -277,3 +299,5 @@ export function DetailedEntryHistory() {
     </Card>
   );
 }
+
+    
