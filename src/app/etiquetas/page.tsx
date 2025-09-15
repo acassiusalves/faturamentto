@@ -3,13 +3,13 @@
 
 import * as React from "react";
 import { useState, useMemo, useCallback } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, Search } from 'lucide-react';
+import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 const initialFetchState = {
     zplContent: null as string | null,
@@ -37,6 +41,10 @@ export default function EtiquetasPage() {
     const [availableStates, setAvailableStates] = useState<Option[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
+    });
 
     // State for ZPL fetching
     const [fetchState, setFetchState] = useState(initialFetchState);
@@ -45,6 +53,10 @@ export default function EtiquetasPage() {
     const [isZplModalOpen, setIsZplModalOpen] = useState(false);
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Pagination state
+    const [pageIndex, setPageIndex] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
@@ -110,26 +122,61 @@ export default function EtiquetasPage() {
     }
 
     const filteredSales = useMemo(() => {
-        if (selectedStates.length === 0) {
-            return [];
+        let salesToFilter = allSales;
+        
+        // Date range filter
+        if (dateRange?.from) {
+            salesToFilter = salesToFilter.filter(sale => {
+                const saleDateStr = (sale as any).payment_approved_date;
+                if (!saleDateStr) return false;
+                const saleDate = new Date(saleDateStr);
+                const fromDate = startOfDay(dateRange.from!);
+                const toDate = dateRange.to ? endOfDay(dateRange.to) : fromDate;
+                return saleDate >= fromDate && saleDate <= toDate;
+            });
         }
-        let salesByState = allSales.filter(sale => {
-            const stateName = (sale as any).state_name;
-            return stateName && selectedStates.includes(stateName);
+
+        // State filter
+        if (selectedStates.length > 0) {
+            salesToFilter = salesToFilter.filter(sale => {
+                const stateName = (sale as any).state_name;
+                return stateName && selectedStates.includes(stateName);
+            });
+        } else {
+             return []; // Don't show any if no state is selected
+        }
+
+        // Search term filter
+        if (searchTerm.trim()) {
+            const lowercasedTerm = searchTerm.toLowerCase();
+            salesToFilter = salesToFilter.filter(sale => {
+                const orderId = String((sale as any).order_id || '').toLowerCase();
+                const orderCode = String((sale as any).order_code || '').toLowerCase();
+                return orderId.includes(lowercasedTerm) || orderCode.includes(lowercasedTerm);
+            });
+        }
+
+        // Sort by date descending
+        return salesToFilter.sort((a, b) => {
+            const dateA = new Date((a as any).payment_approved_date || 0).getTime();
+            const dateB = new Date((b as any).payment_approved_date || 0).getTime();
+            return dateB - dateA;
         });
 
-        if (!searchTerm.trim()) {
-            return salesByState;
-        }
+    }, [allSales, selectedStates, searchTerm, dateRange]);
+    
+    const pageCount = useMemo(() => Math.ceil(filteredSales.length / pageSize), [filteredSales.length, pageSize]);
+    
+    const paginatedSales = useMemo(() => {
+        const startIndex = pageIndex * pageSize;
+        return filteredSales.slice(startIndex, startIndex + pageSize);
+    }, [filteredSales, pageIndex, pageSize]);
 
-        const lowercasedTerm = searchTerm.toLowerCase();
-        return salesByState.filter(sale => {
-            const orderId = String((sale as any).order_id || '').toLowerCase();
-            const orderCode = String((sale as any).order_code || '').toLowerCase();
-            return orderId.includes(lowercasedTerm) || orderCode.includes(lowercasedTerm);
-        });
+    // Reset page index when filters change
+    React.useEffect(() => {
+        setPageIndex(0);
+    }, [selectedStates, searchTerm, dateRange, pageSize]);
 
-    }, [allSales, selectedStates, searchTerm]);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -182,27 +229,30 @@ export default function EtiquetasPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <MapPin />
-                            Filtro de Estados
+                            Filtros de Pedidos
                         </CardTitle>
-                        <CardDescription>
-                            Escolha um ou mais estados para listar os pedidos correspondentes. Clique em "Salvar Seleção" para manter sua escolha para futuros acessos.
-                        </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <div className="max-w-md">
-                          <MultiSelect
-                              options={availableStates}
-                              value={selectedStates}
-                              onChange={setSelectedStates}
-                              placeholder="Selecione os estados..."
-                              emptyText="Nenhum estado encontrado"
-                          />
+                    <CardContent className="flex flex-col md:flex-row gap-4">
+                          <div className="flex-1">
+                             <Label>Estados</Label>
+                             <MultiSelect
+                                  options={availableStates}
+                                  value={selectedStates}
+                                  onChange={setSelectedStates}
+                                  placeholder="Selecione os estados..."
+                                  emptyText="Nenhum estado encontrado"
+                                  className="w-full"
+                              />
+                          </div>
+                         <div>
+                            <Label>Período</Label>
+                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
                         </div>
                     </CardContent>
                     <CardFooter>
                         <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Salvar Seleção
+                            Salvar Seleção de Estados
                         </Button>
                     </CardFooter>
                 </Card>
@@ -213,7 +263,7 @@ export default function EtiquetasPage() {
                             <div>
                                 <CardTitle>Pedidos Encontrados ({filteredSales.length})</CardTitle>
                                 <CardDescription>
-                                    Lista de pedidos para os estados selecionados.
+                                    Lista de pedidos para os filtros selecionados.
                                 </CardDescription>
                             </div>
                              <div className="relative w-full max-w-sm">
@@ -242,8 +292,8 @@ export default function EtiquetasPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredSales.length > 0 ? (
-                                        filteredSales.map(sale => (
+                                    {paginatedSales.length > 0 ? (
+                                        paginatedSales.map(sale => (
                                             <TableRow key={(sale as any).id}>
                                                 <TableCell>{(sale as any).order_id}</TableCell>
                                                 <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
@@ -272,7 +322,7 @@ export default function EtiquetasPage() {
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={7} className="h-24 text-center">
-                                                {selectedStates.length > 0 ? "Nenhum pedido encontrado para os filtros e busca atuais." : "Selecione um estado para começar."}
+                                                {selectedStates.length > 0 ? "Nenhum pedido encontrado para os filtros atuais." : "Selecione um estado para começar."}
                                             </TableCell>
                                         </TableRow>
                                     )}
@@ -280,6 +330,46 @@ export default function EtiquetasPage() {
                             </Table>
                         </div>
                     </CardContent>
+                    <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="text-sm text-muted-foreground">
+                            Total de {filteredSales.length} registros.
+                        </div>
+                        <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium">Itens por página</p>
+                                <Select
+                                    value={`${pageSize}`}
+                                    onValueChange={(value) => setPageSize(Number(value))}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={pageSize.toString()} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((size) => (
+                                            <SelectItem key={size} value={`${size}`}>{size}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="text-sm font-medium">
+                                Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0}>
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0}>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1}>
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
                 </Card>
             </div>
             
