@@ -70,9 +70,13 @@ export function ZplEditor({ originalZpl, initialData }: ZplEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentZpl]);
     
-    // Auto-correct on initial load
+    // Auto-correct on initial load if data seems to be placeholder
     React.useEffect(() => {
-      async function autoCorrect() {
+        const needsCorrection = Object.values(initialData).some(val => val === 'string');
+
+        async function autoCorrect() {
+          if (!needsCorrection) return;
+          
           setIsCorrecting(true);
           try {
             const formData = new FormData();
