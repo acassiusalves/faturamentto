@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Globe } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Globe, Link2, Hash, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,7 @@ import { SkuBulkAssociationDialog } from './sku-bulk-association-dialog';
 import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-check-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
+import { attributeOrder } from '@/lib/product-config';
 
 
 const inventorySchema = z.object({
@@ -76,6 +77,8 @@ export default function EstoquePage() {
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictResults, setConflictResults] = useState<SkuConflict[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+
+  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
   const form = useForm<Record<string, string>>({
     defaultValues: {},
