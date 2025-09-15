@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, useTransition } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
@@ -12,7 +12,6 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategorySettings, ProductAttribute } from '@/lib/types';
 import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/services/firestore';
-import { removeGlobalFromProductNamesAction } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Globe, Link2, Hash, AlertTriangle, Upload, Download } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Link2, Hash, AlertTriangle, Upload, Download } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -346,19 +345,6 @@ export default function EstoquePage() {
     setIsConflictDialogOpen(false);
   };
 
-  const [isRemovingGlobal, startRemovingGlobalTransition] = useTransition();
-  const handleRemoveGlobal = () => {
-    startRemovingGlobalTransition(async () => {
-      const { count, error } = await removeGlobalFromProductNamesAction({});
-      if (error) {
-        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: error });
-      } else {
-        toast({ title: 'Operação Concluída!', description: `${count} nomes de produtos foram atualizados.` });
-        await fetchProducts(); // Re-fetch products to update the view
-      }
-    });
-  };
-
   const formatDate = (val: any) => {
     try {
       const d =
@@ -529,27 +515,6 @@ export default function EstoquePage() {
                         <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
                           <Link2 className="mr-2 h-4 w-4" /> Associar
                         </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" disabled={isRemovingGlobal}>
-                                    {isRemovingGlobal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-                                    Remover 'Global'
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>Remover "Global" dos Nomes?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Esta ação irá remover a palavra "Global" do nome de todos os produtos cadastrados.
-                                    Esta ação é irreversível. Deseja continuar?
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleRemoveGlobal}>Sim, Remover</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
 
                         {hasConflicts && (
                           <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>

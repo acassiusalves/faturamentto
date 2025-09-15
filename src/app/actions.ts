@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, removeGlobalFromAllProducts as removeGlobalService } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -593,16 +593,4 @@ export async function saveAveragePricesAction(
     } catch (e: any) {
         return { success: false, error: e.message || "Falha ao salvar preços médios.", count: 0 };
     }
-}
-
-export async function removeGlobalFromProductNamesAction(
-  _prevState: any
-): Promise<{ count: number; error: string | null }> {
-  try {
-    const { count } = await removeGlobalService();
-    revalidatePath('/produtos');
-    return { count, error: null };
-  } catch (e: any) {
-    return { count: 0, error: e.message || "Falha ao remover 'Global' dos nomes." };
-  }
 }
