@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useActionState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
@@ -34,9 +34,11 @@ export default function EtiquetasPage() {
     const [isSaving, setIsSaving] = useState(false);
 
     // State for ZPL fetching
-    const [fetchState, fetchFormAction, isFetching] = useActionState(fetchLabelAction, initialFetchState);
+    const [fetchState, setFetchState] = useState(initialFetchState);
+    const [isFetching, setIsFetching] = useState(false);
     const [selectedZpl, setSelectedZpl] = useState<string | null>(null);
     const [isZplModalOpen, setIsZplModalOpen] = useState(false);
+    const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
@@ -79,14 +81,27 @@ export default function EtiquetasPage() {
         if (fetchState.zplContent) {
             setSelectedZpl(fetchState.zplContent);
             setIsZplModalOpen(true);
+            setFetchState(initialFetchState); // Reset state after showing modal
         } else if(fetchState.error) {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Buscar ZPL',
                 description: fetchState.error
             });
+             setFetchState(initialFetchState); // Reset state after showing error
         }
     }, [fetchState, toast]);
+
+    const handleFetchZPL = async (orderId: string) => {
+        setIsFetching(true);
+        setFetchingOrderId(orderId);
+        const formData = new FormData();
+        formData.append('orderId', orderId);
+        const result = await fetchLabelAction(initialFetchState, formData);
+        setFetchState(result);
+        setIsFetching(false);
+        setFetchingOrderId(null);
+    }
 
     const filteredSales = useMemo(() => {
         if (selectedStates.length === 0) {
@@ -200,13 +215,15 @@ export default function EtiquetasPage() {
                                                 </TableCell>
                                                 <TableCell><Badge variant="outline">{(sale as any).marketplace_name}</Badge></TableCell>
                                                 <TableCell className="text-center">
-                                                    <form action={fetchFormAction}>
-                                                        <input type="hidden" name="orderId" value={(sale as any).order_id} />
-                                                        <Button type="submit" variant="outline" size="sm" disabled={isFetching}>
-                                                            {isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                                                            Solicitar ZPL
-                                                        </Button>
-                                                    </form>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        onClick={() => handleFetchZPL((sale as any).order_id)}
+                                                        disabled={isFetching}
+                                                    >
+                                                        {isFetching && fetchingOrderId === (sale as any).order_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                        Solicitar ZPL
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))
