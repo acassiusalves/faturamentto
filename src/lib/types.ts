@@ -39,6 +39,7 @@ export interface InventoryItem {
   createdAt: string; // ISO 8601 string date
   condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito' | 'Lacrado' | 'Seminovo';
   originalInventoryId?: string;
+  orderNumber?: string;
 }
 
 export interface EntryLog extends InventoryItem {

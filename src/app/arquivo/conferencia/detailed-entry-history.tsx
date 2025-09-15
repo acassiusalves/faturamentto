@@ -40,6 +40,7 @@ export function DetailedEntryHistory() {
     
     // Converte EntryLog para InventoryItem para compatibilidade
     const items: InventoryItem[] = entryLogs.map(log => ({
+      ...log,
       id: log.id,
       productId: log.productId,
       name: log.name,
@@ -161,13 +162,14 @@ export function DetailedEntryHistory() {
                 <TableHead>SN</TableHead>
                 <TableHead>Condição</TableHead>
                 <TableHead>Origem</TableHead>
+                <TableHead>Pedido</TableHead>
                 <TableHead className="text-right">Custo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     <Loader2 className="mx-auto animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -184,12 +186,13 @@ export function DetailedEntryHistory() {
                       </Badge>
                     </TableCell>
                     <TableCell>{item.origin}</TableCell>
+                    <TableCell className="font-mono text-xs">{(item as any).orderNumber || ''}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice)}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <PackagePlus className="h-12 w-12 mb-4" />
                         <p>Nenhuma entrada de estoque encontrada.</p>
