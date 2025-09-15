@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -38,7 +39,6 @@ const initialCategories: ProductCategorySettings[] = [
                 'C75X', 'G35', 'G05', 'Note 14S', 'Poco X7', 'Redmi Pad Pro', 'Poco Pad'
             ]},
             { key: 'armazenamento', label: 'Armazenamento', values: ['32GB', '64GB', '128GB', '256GB', '512GB'] },
-            { key: 'tipo', label: 'Tipo', values: ['Novo', 'Vitrine', 'Seminovo', 'Global'] },
             { key: 'memoria', label: 'Memória', values: ['4GB', '6GB', '8GB', '12GB'] },
             { key: 'cor', label: 'Cor', values: [
                 'Preto', 'Branco', 'Verde', 'Dourado', 'Cinza', 'Roxo', 'Bronze', 'Laranja', 'Amarelo', 'Azul', 'Rosa', 'Vermelho', 

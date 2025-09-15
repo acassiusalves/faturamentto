@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useTransition } from 'react';
@@ -45,7 +46,8 @@ import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-che
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
 
-const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
+
+const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'rede'];
 
 const inventorySchema = z.object({
   id: z.string().optional(),

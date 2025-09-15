@@ -42,7 +42,7 @@ const productSchema = z.object({
   sku: z.string(),
 });
 
-const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'tipo', 'rede'];
+const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'rede'];
 
 export function ProductCreationDialog({ isOpen, onClose, productName, products, settings, onProductCreated }: ProductCreationDialogProps) {
   const { toast } = useToast();
