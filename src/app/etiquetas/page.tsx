@@ -3,13 +3,40 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition, useCallback, useRef } from "react";
+import {
+  Search,
+  Bot,
+  Loader2,
+  FileText,
+  User,
+  MapPin,
+  Database,
+  Copy,
+  Check,
+  Wand2,
+  Printer,
+  Eye,
+  Trash2,
+  RotateCcw,
+  Edit,
+  X,
+  BrainCircuit,
+  ScanSearch,
+} from "lucide-react";
+import {
+  fetchLabelAction,
+  analyzeLabelAction,
+  analyzeZplAction,
+  remixLabelDataAction,
+  remixZplDataAction,
+  correctExtractedDataAction,
+  regenerateZplAction,
+} from "@/app/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Loader2, FileText, User, MapPin, Database, Copy, Check, Wand2, Printer, Eye, Barcode, Trash2, RotateCcw, Edit, X, BrainCircuit, ScanSearch } from "lucide-react";
-import { fetchLabelAction, analyzeLabelAction, analyzeZplAction, remixLabelDataAction, remixZplDataAction, correctExtractedDataAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import type { AnalyzeLabelOutput, RemixZplDataOutput, RemixableField } from "@/lib/types";
@@ -19,7 +46,6 @@ import Image from "next/image";
 import { ProcessingStatus } from "./processing-status"; 
 import { MappingDebugger } from './mapping-debugger';
 import { Badge } from "@/components/ui/badge";
-import { regenerateZplAction } from '@/app/actions';
 import { SimpleDataEditor } from '@/components/simple-data-editor';
 
 
@@ -657,4 +683,3 @@ export default function EtiquetasPage() {
     </div>
   );
 }
-
