@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, XCircle } from 'lucide-react';
+import { Loader2, MapPin, Save, FileText, XCircle, Search } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -20,10 +20,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Input } from "@/components/ui/input";
 
 const initialFetchState = {
     zplContent: null as string | null,
     error: null as string | null,
+    rawError: null as string | null,
 };
 
 export default function EtiquetasPage() {
@@ -40,6 +42,7 @@ export default function EtiquetasPage() {
     const [selectedZpl, setSelectedZpl] = useState<string | null>(null);
     const [isZplModalOpen, setIsZplModalOpen] = useState(false);
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
@@ -108,11 +111,23 @@ export default function EtiquetasPage() {
         if (selectedStates.length === 0) {
             return [];
         }
-        return allSales.filter(sale => {
+        let salesByState = allSales.filter(sale => {
             const stateName = (sale as any).state_name;
             return stateName && selectedStates.includes(stateName);
         });
-    }, [allSales, selectedStates]);
+
+        if (!searchTerm.trim()) {
+            return salesByState;
+        }
+
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return salesByState.filter(sale => {
+            const orderId = String((sale as any).order_id || '').toLowerCase();
+            const orderCode = String((sale as any).order_code || '').toLowerCase();
+            return orderId.includes(lowercasedTerm) || orderCode.includes(lowercasedTerm);
+        });
+
+    }, [allSales, selectedStates, searchTerm]);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -183,10 +198,23 @@ export default function EtiquetasPage() {
 
                 <Card>
                      <CardHeader>
-                        <CardTitle>Pedidos Encontrados ({filteredSales.length})</CardTitle>
-                        <CardDescription>
-                            Lista de pedidos para os estados selecionados.
-                        </CardDescription>
+                        <div className="flex justify-between items-start gap-4">
+                            <div>
+                                <CardTitle>Pedidos Encontrados ({filteredSales.length})</CardTitle>
+                                <CardDescription>
+                                    Lista de pedidos para os estados selecionados.
+                                </CardDescription>
+                            </div>
+                             <div className="relative w-full max-w-sm">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Buscar por ID Ideris ou Cód. Pedido..."
+                                    className="pl-10"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="rounded-md border max-h-[60vh] overflow-y-auto">
@@ -231,7 +259,7 @@ export default function EtiquetasPage() {
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={6} className="h-24 text-center">
-                                                {selectedStates.length > 0 ? "Nenhum pedido encontrado para os estados selecionados." : "Selecione um estado para começar."}
+                                                {selectedStates.length > 0 ? "Nenhum pedido encontrado para os filtros e busca atuais." : "Selecione um estado para começar."}
                                             </TableCell>
                                         </TableRow>
                                     )}
