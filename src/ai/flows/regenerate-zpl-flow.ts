@@ -46,36 +46,24 @@ export async function regenerateZpl(input: RegenerateZplInput): Promise<Regenera
     input: { schema: RegenerateZplInputSchema },
     output: { schema: RegenerateZplOutputSchema },
     prompt: `
-Você é um especialista em ZPL que vai regenerar uma etiqueta de envio completamente nova.
+      Você é um especialista em ZPL (Zebra Programming Language). Sua tarefa é gerar um código ZPL para uma etiqueta de envio de 4x6 polegadas (100x150mm) a partir dos dados JSON fornecidos.
 
-OBJETIVO: Criar um novo ZPL usando o layout/estrutura do original, mas com os dados editados fornecidos.
+      **DADOS PARA A ETIQUETA:**
+      \`\`\`json
+      {{{json editedData}}}
+      \`\`\`
 
-REGRAS CRÍTICAS:
-1. **PRESERVAR CÓDIGOS**: Mantenha todos os códigos de barras (^BC, ^B3, etc) e QR codes (^BQ) EXATAMENTE como estão no original. O CONTEÚDO deles NÃO DEVE ser alterado.
-2. **PRESERVAR LAYOUT**: Mantenha as mesmas posições (^FO), fontes (^A), e estrutura visual.
-3. **SUBSTITUIR TEXTOS**: Substitua apenas os textos nos campos ^FD pelos novos dados fornecidos. Use o contexto (posição, texto ao redor) para saber qual campo substituir.
-4. **ENCODING**: Use ^FH^FD com encoding hexadecimal (_XX) para caracteres especiais/acentos quando necessário.
-5. **ESTRUTURA**: Mantenha ^XA no início, ^XZ no fim, e ^CI28 logo após ^XA para suporte UTF-8.
+      **REGRAS PARA GERAR O ZPL:**
+      1.  **Estrutura Base:** Comece com \`^XA\` e termine com \`^XZ\`. Use \`^CI28\` para encoding UTF-8.
+      2.  **Dados do Remetente:** Inclua o nome (\`senderName\`) e endereço (\`senderAddress\`) do remetente.
+      3.  **Dados do Destinatário:** Inclua o nome (\`recipientName\`), endereço (\`streetAddress\`), cidade, estado e CEP. Destaque o nome do destinatário com uma fonte maior.
+      4.  **Código de Barras Principal:** Crie um código de barras Code 128 (\`^BC\`) usando o valor de \`trackingNumber\`.
+      5.  **Outras Informações:** Inclua o número do pedido (\`orderNumber\`) e da nota fiscal (\`invoiceNumber\`) na etiqueta.
+      6.  **Layout:** Organize os campos de forma lógica e legível. Use o comando \`^FOx,y\` para posicionar os campos. Não precisa replicar o layout do ZPL original. Crie um layout novo, limpo e funcional.
+      7.  **Caracteres Especiais:** Se houver caracteres com acentos, use o comando \`^FH\` antes do \`^FD\` correspondente para habilitar o uso de hexadecimais (ex: \`^FH^FDJo_C3_A3o^FS\`).
 
-PROCESSO:
-1. Analise o ZPL original para identificar a estrutura e layout.
-2. Identifique quais campos de texto (^FD) correspondem a quais dados (nome, endereço, etc.).
-3. Substitua apenas os conteúdos dos campos ^FD pelos novos dados. Se um dado não for fornecido nos novos dados (ex: 'estimatedDeliveryDate'), remova o bloco ^FO...^FS correspondente do ZPL original.
-4. Mantenha todos os códigos de barras, posicionamento e formatação originais.
-5. Aplique encoding hexadecimal quando necessário para caracteres especiais.
-
-ZPL Original (como referência de layout):
-\`\`\`zpl
-{{{originalZpl}}}
-\`\`\`
-
-Novos dados para inserir:
-\`\`\`json
-{{{json editedData}}}
-\`\`\`
-
-Gere um ZPL novo e limpo que mantenha a estrutura visual do original mas com os dados atualizados.
-`,
+      Gere um código ZPL completo e válido.
+    `,
   });
 
   const regenerateZplFlow = ai.defineFlow(
