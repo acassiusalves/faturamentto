@@ -45,8 +45,8 @@ import { SkuBulkAssociationDialog } from './sku-bulk-association-dialog';
 import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-check-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
-import { attributeOrder } from '@/lib/product-config';
 
+const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'tipo', 'memoria', 'cor', 'rede'];
 
 const inventorySchema = z.object({
   id: z.string().optional(),
