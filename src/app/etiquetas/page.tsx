@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText } from 'lucide-react';
+import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale, AnalyzeLabelOutput } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -113,6 +113,21 @@ export default function EtiquetasPage() {
             if (zplResult.error || !zplResult.zplContent) {
                 throw new Error(zplResult.error || 'Não foi possível obter o ZPL da Ideris.');
             }
+             
+            let imageUrl = null;
+            try {
+                const response = await fetch('/api/zpl-preview', {
+                    method: 'POST',
+                    body: zplResult.zplContent,
+                });
+                if (response.ok) {
+                    const imageBlob = await response.blob();
+                    imageUrl = URL.createObjectURL(imageBlob);
+                }
+            } catch (e) {
+                console.error("Falha ao gerar imagem da etiqueta:", e);
+            }
+
             setZplContent(zplResult.zplContent);
 
             // Step 2: Analyze ZPL
@@ -407,7 +422,7 @@ export default function EtiquetasPage() {
             </div>
             
              <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-                <DialogContent className="max-w-5xl h-[95vh]">
+                <DialogContent className="max-w-5xl h-[95vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Editor de Etiqueta</DialogTitle>
                          <DialogDescription>
