@@ -2,7 +2,9 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    ppr: false,
+  },
   webpack(config) {
     // Carrega o 'worker' do pdfjs-dist
     config.module.rules.push({
