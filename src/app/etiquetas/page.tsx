@@ -9,27 +9,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X, Code } from 'lucide-react';
+import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
-import type { Sale } from '@/lib/types';
+import type { Sale, AnalyzeLabelOutput } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { fetchLabelAction } from '@/app/actions';
+import { fetchLabelAction, analyzeZplAction } from '@/app/actions';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-  DialogTrigger,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { Label } from "@/components/ui/label";
-import Image from "next/image";
+import { ZplEditor } from "./zpl-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const initialFetchState = {
@@ -51,17 +48,14 @@ export default function EtiquetasPage() {
         to: endOfMonth(new Date()),
     });
 
-    // State for ZPL fetching
-    const [fetchState, setFetchState] = useState(initialFetchState);
-    const [isFetching, setIsFetching] = useState(false);
-    const [selectedZpl, setSelectedZpl] = useState<string | null>(null);
-    const [isZplModalOpen, setIsZplModalOpen] = useState(false);
+    // State for ZPL processing
+    const [zplContent, setZplContent] = useState<string | null>(null);
+    const [isProcessingZpl, setIsProcessingZpl] = useState(false);
+    const [zplAnalysis, setZplAnalysis] = useState<AnalyzeLabelOutput | null>(null);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showRawZpl, setShowRawZpl] = useState(false);
-    const [zplImageUrl, setZplImageUrl] = useState<string | null>(null);
 
-    // Pagination state
+    const [searchTerm, setSearchTerm] = useState('');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
@@ -97,66 +91,52 @@ export default function EtiquetasPage() {
             setIsLoading(false);
         }
     }, [toast]);
-    
-    React.useEffect(() => {
-        const generateAndSetZplImage = async (zplCode: string) => {
-            try {
-                const response = await fetch('/api/zpl-preview', {
-                    method: 'POST',
-                    body: zplCode,
-                });
-                if (!response.ok) {
-                    throw new Error('Falha ao gerar a imagem da etiqueta.');
-                }
-                const imageBlob = await response.blob();
-                const imageUrl = URL.createObjectURL(imageBlob);
-                setZplImageUrl(imageUrl);
-            } catch (error) {
-                console.error(error);
-                setZplImageUrl(null);
-                toast({
-                    variant: 'destructive',
-                    title: 'Erro de Visualização',
-                    description: 'Não foi possível gerar a imagem da etiqueta ZPL.'
-                });
-            }
-        };
-
-        if (fetchState.zplContent) {
-            setSelectedZpl(fetchState.zplContent);
-            generateAndSetZplImage(fetchState.zplContent);
-            setShowRawZpl(false);
-            setIsZplModalOpen(true);
-            setFetchState(initialFetchState);
-        } else if(fetchState.error) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Buscar ZPL',
-                description: fetchState.error
-            });
-             setFetchState(initialFetchState);
-        }
-    }, [fetchState, toast]);
 
     React.useEffect(() => {
         loadData();
     }, [loadData]);
     
-    const handleFetchZPL = async (orderId: string) => {
-        setIsFetching(true);
+    const handleFetchAndProcessZPL = async (orderId: string) => {
         setFetchingOrderId(orderId);
-        const formData = new FormData();
-        formData.append('orderId', orderId);
-        const result = await fetchLabelAction(initialFetchState, formData);
-        setFetchState(result);
-        setIsFetching(false);
-        setFetchingOrderId(null);
+        setIsProcessingZpl(true);
+        setZplContent(null);
+        setZplAnalysis(null);
+        
+        try {
+            // Step 1: Fetch ZPL
+            const formData = new FormData();
+            formData.append('orderId', orderId);
+            const zplResult = await fetchLabelAction(initialFetchState, formData);
+
+            if (zplResult.error || !zplResult.zplContent) {
+                throw new Error(zplResult.error || 'Não foi possível obter o ZPL da Ideris.');
+            }
+            setZplContent(zplResult.zplContent);
+
+            // Step 2: Analyze ZPL
+            const analyzeFormData = new FormData();
+            analyzeFormData.append('zplContent', zplResult.zplContent);
+            const analysisResult = await analyzeZplAction({ analysis: null, error: null }, analyzeFormData);
+
+            if (analysisResult.error || !analysisResult.analysis) {
+                throw new Error(analysisResult.error || 'Falha ao analisar os dados da etiqueta com a IA.');
+            }
+
+            setZplAnalysis(analysisResult.analysis);
+            setIsEditorOpen(true);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
+            toast({ variant: 'destructive', title: 'Erro no Processamento da Etiqueta', description: errorMessage });
+        } finally {
+            setIsProcessingZpl(false);
+            setFetchingOrderId(null);
+        }
     }
+
 
     const filteredSales = useMemo(() => {
         let salesToFilter = allSales;
         
-        // Date range filter
         if (dateRange?.from) {
             salesToFilter = salesToFilter.filter(sale => {
                 const saleDateStr = (sale as any).payment_approved_date;
@@ -168,17 +148,15 @@ export default function EtiquetasPage() {
             });
         }
 
-        // State filter
         if (selectedStates.length > 0) {
             salesToFilter = salesToFilter.filter(sale => {
                 const stateName = (sale as any).state_name;
                 return stateName && selectedStates.includes(stateName);
             });
         } else {
-             return []; // Don't show any if no state is selected
+             return [];
         }
 
-        // Search term filter
         if (searchTerm.trim()) {
             const lowercasedTerm = searchTerm.toLowerCase();
             salesToFilter = salesToFilter.filter(sale => {
@@ -188,7 +166,6 @@ export default function EtiquetasPage() {
             });
         }
 
-        // Sort by date descending
         return salesToFilter.sort((a, b) => {
             const dateA = new Date((a as any).payment_approved_date || 0).getTime();
             const dateB = new Date((b as any).payment_approved_date || 0).getTime();
@@ -204,11 +181,9 @@ export default function EtiquetasPage() {
         return filteredSales.slice(startIndex, startIndex + pageSize);
     }, [filteredSales, pageIndex, pageSize]);
 
-    // Reset page index when filters change
     React.useEffect(() => {
         setPageIndex(0);
     }, [selectedStates, searchTerm, dateRange, pageSize]);
-
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -290,9 +265,7 @@ export default function EtiquetasPage() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button variant="ghost">Cancelar</Button>
-                                </DialogClose>
+                                <Button variant="ghost" onClick={() => setIsFilterDialogOpen(false)}>Cancelar</Button>
                                 <Button onClick={handleSave} disabled={isSaving}>
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Salvar e Aplicar
@@ -368,11 +341,11 @@ export default function EtiquetasPage() {
                                                     <Button 
                                                         variant="outline" 
                                                         size="sm" 
-                                                        onClick={() => handleFetchZPL((sale as any).order_id)}
-                                                        disabled={isFetching}
+                                                        onClick={() => handleFetchAndProcessZPL((sale as any).order_id)}
+                                                        disabled={isProcessingZpl}
                                                     >
-                                                        {isFetching && fetchingOrderId === (sale as any).order_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                                                        Solicitar Etiqueta
+                                                        {isProcessingZpl && fetchingOrderId === (sale as any).order_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                        Etiqueta
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -431,45 +404,22 @@ export default function EtiquetasPage() {
                 </Card>
             </div>
             
-             <Dialog open={isZplModalOpen} onOpenChange={setIsZplModalOpen}>
-                <DialogContent className="max-w-2xl">
+             <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+                <DialogContent className="max-w-5xl h-[95vh]">
                     <DialogHeader>
-                        <DialogTitle>Etiqueta ZPL</DialogTitle>
-                        <DialogDescription>
-                            A imagem da etiqueta foi gerada a partir do código ZPL recebido.
+                        <DialogTitle>Editor de Etiqueta</DialogTitle>
+                         <DialogDescription>
+                            Altere os campos da etiqueta e visualize o resultado em tempo real antes de imprimir.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        {showRawZpl ? (
-                            <pre className="p-4 bg-muted rounded-md max-h-96 overflow-auto text-xs">
-                                <code>{selectedZpl}</code>
-                            </pre>
-                        ) : (
-                            <div className="flex justify-center items-center p-4 bg-muted rounded-md min-h-[400px]">
-                                {zplImageUrl ? (
-                                    <Image 
-                                        src={zplImageUrl}
-                                        alt="Pré-visualização da etiqueta ZPL" 
-                                        width={400} 
-                                        height={600}
-                                        data-ai-hint="shipping label"
-                                        onLoad={() => URL.revokeObjectURL(zplImageUrl)} // Clean up object URL
-                                    />
-                                ) : (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <Loader2 className="animate-spin" />
-                                        <span>Gerando pré-visualização...</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                     <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowRawZpl(!showRawZpl)}>
-                            <Code className="mr-2" />
-                            {showRawZpl ? "Mostrar Imagem" : "Mostrar Código"}
-                        </Button>
-                    </DialogFooter>
+                    {isProcessingZpl || !zplContent || !zplAnalysis ? (
+                         <div className="flex items-center justify-center h-full">
+                            <Loader2 className="animate-spin text-primary" size={32} />
+                            <p className="ml-4">Processando etiqueta...</p>
+                        </div>
+                    ) : (
+                       <ZplEditor originalZpl={zplContent} initialData={zplAnalysis} />
+                    )}
                 </DialogContent>
             </Dialog>
         </>

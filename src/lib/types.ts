@@ -453,28 +453,6 @@ export type RemixLabelDataOutput = {
     newValue: string;
 };
 
-// NOVO: posição ZPL
-export const ZplPointSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-});
-
-// NOVO: posições por campo
-export const BaselinePositionsSchema = z.object({
-  orderNumber: ZplPointSchema.optional(),
-  invoiceNumber: ZplPointSchema.optional(),
-  trackingNumber: ZplPointSchema.optional(),
-  senderName: ZplPointSchema.optional(),
-  senderAddress: ZplPointSchema.optional(),
-  recipientName: ZplPointSchema.optional(),
-  streetAddress: ZplPointSchema.optional(),
-  city: ZplPointSchema.optional(),
-  state: ZplPointSchema.optional(),
-  zipCode: ZplPointSchema.optional(),
-  estimatedDeliveryDate: ZplPointSchema.optional(),
-});
-
-
 const PersonAddrSchema = z.object({
   recipientName: z.string().optional().default(''),
   streetAddress: z.string().optional().default(''),
@@ -489,13 +467,11 @@ const PersonAddrSchema = z.object({
   estimatedDeliveryDate: z.string().optional().default(''),
 });
 
-// + no input do fluxo
 export const RemixZplDataInputSchema = z.object({
   originalZpl: z.string().describe('Original ZPL code of the label.'),
   baselineData: PersonAddrSchema.describe('Values currently present on the label (as extracted from original ZPL). Used as anchors.'),
   remixedData: PersonAddrSchema.describe('New values to apply. Empty string = remove that field block.'),
   matchMode: z.enum(['strict','relaxed']).default('strict'),
-  baselinePositions: BaselinePositionsSchema.optional(),   // <- NOVO
 });
 
 export const RemixZplDataOutputSchema = z.object({

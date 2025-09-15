@@ -1,15 +1,10 @@
 
 'use server';
 
-/**
- * Fluxo: modifica ZPL de forma ANCORADA (só troca ^FD que casa com o valor original).
- */
-
 import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { RemixZplDataInputSchema, RemixZplDataOutputSchema, type RemixZplDataInput, type RemixZplDataOutput } from '@/lib/types';
 import { loadAppSettings } from '@/services/firestore';
-
 
 export async function remixZplData(input: RemixZplDataInput): Promise<RemixZplDataOutput> {
   const settings = await loadAppSettings();

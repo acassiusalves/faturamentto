@@ -11,7 +11,7 @@
 
 import { getAi } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { AnalyzeLabelOutput } from './analyze-label-flow';
+import type { AnalyzeLabelOutput } from '@/lib/types';
 import { loadAppSettings } from '@/services/firestore';
 import { gemini15Flash } from '@genkit-ai/googleai';
 
@@ -73,7 +73,7 @@ export async function analyzeZpl(
     {
       name: 'analyzeZplFlow',
       inputSchema: AnalyzeZplInputSchema,
-      outputSchema: AnalyzeLabelOutputSchema,
+      outputSchema: z.custom<AnalyzeLabelOutput>(),
     },
     async (flowInput) => {
       const { output } = await prompt(flowInput);

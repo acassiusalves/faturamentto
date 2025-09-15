@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
@@ -390,34 +391,21 @@ export async function analyzeZplAction(_prevState: any, formData: FormData): Pro
     }
 }
 
-export async function remixLabelDataAction(_prevState: any, formData: FormData): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
-  const originalDataStr = formData.get('originalData') as string;
-  const fieldToRemix = formData.get('fieldToRemix') as RemixableField;
-
-  if (!originalDataStr || !fieldToRemix) {
-    return { analysis: null, error: "Dados inválidos para remix." };
-  }
-
+export async function remixLabelDataAction(_prevState: any, formData: FormData): Promise<{ analysis: Partial<AnalyzeLabelOutput> | null; error: string | null; }> {
   try {
-    const originalData: AnalyzeLabelOutput = JSON.parse(originalDataStr);
-    const originalValue = originalData[fieldToRemix];
-    
-    const settings = await loadAppSettings();
-    const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
+      const input: RemixLabelDataInput = JSON.parse(formData.get('remixInput') as string);
+      if (!input) {
+          throw new Error('Input para remix inválido.');
+      }
+      const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
+      const { newValue } = await remixLabelData(input);
+      return { analysis: { [input.fieldToRemix]: newValue }, error: null };
 
-    const result = await remixLabelData({
-      fieldToRemix,
-      originalValue,
-      apiKey: settings?.geminiApiKey,
-    });
-
-    const updatedData = { ...originalData, [fieldToRemix]: result.newValue };
-
-    return { analysis: updatedData, error: null };
   } catch (e: any) {
-    return { analysis: null, error: e.message || "Falha ao gerar novos dados." };
+      return { analysis: null, error: e.message || "Falha ao remixar dados." };
   }
 }
+
 
 export async function remixZplDataAction(_prevState: any, formData: FormData): Promise<{ result: RemixZplDataOutput | null; error: string | null; }> {
     try {
