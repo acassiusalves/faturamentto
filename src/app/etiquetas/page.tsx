@@ -6,17 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Search,
+  Bot,
   Loader2,
   FileText,
-  BrainCircuit,
-  ScanSearch,
+  User,
   MapPin,
   Database,
   RotateCcw,
   Edit,
   X,
-  User,
-  Bot,
+  BrainCircuit,
+  ScanSearch,
 } from "lucide-react";
 import {
   fetchLabelAction,
@@ -29,12 +29,55 @@ import {
   debugMappingAction,
 } from "@/app/actions";
 import * as pdfjs from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?worker";
 import { ProcessingStatus } from "./processing-status";
 import { MappingDebugger } from "./mapping-debugger";
 import { SimpleDataEditor } from "@/components/simple-data-editor";
+import { assertElements } from "@/lib/assert-elements";
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker as any;
+// ✅ Rode o detector ANTES do render:
+assertElements({
+  // shadcn/ui
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Button,
+
+  // ícones (se algum nome estiver errado, ele vem undefined)
+  Search,
+  Loader2,
+  FileText,
+  BrainCircuit,
+  ScanSearch,
+  MapPin,
+  Database,
+  RotateCcw,
+  Edit,
+  X,
+  User,
+  Bot,
+
+  // componentes locais
+  ProcessingStatus,
+  MappingDebugger,
+  SimpleDataEditor,
+
+  // actions (em React 19/Next 15 podem ser passadas ao <form action>)
+  fetchLabelAction,
+  analyzeLabelAction,
+  analyzeZplAction,
+  remixLabelDataAction,
+  remixZplDataAction,
+  correctExtractedDataAction,
+  regenerateZplAction,
+  debugMappingAction,
+});
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 export default function EtiquetasPage() {
   const [url, setUrl] = useState("");
