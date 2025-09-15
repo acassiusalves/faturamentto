@@ -147,6 +147,7 @@ export default function EtiquetasPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead>ID Ideris</TableHead>
                                     <TableHead>Cód. Pedido</TableHead>
                                     <TableHead>Cliente</TableHead>
                                     <TableHead>Cidade/Estado</TableHead>
@@ -157,6 +158,7 @@ export default function EtiquetasPage() {
                                 {filteredSales.length > 0 ? (
                                     filteredSales.map(sale => (
                                         <TableRow key={(sale as any).id}>
+                                            <TableCell>{(sale as any).order_id}</TableCell>
                                             <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
                                             <TableCell>{(sale as any).customer_name}</TableCell>
                                             <TableCell>
@@ -170,7 +172,7 @@ export default function EtiquetasPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             {selectedStates.length > 0 ? "Nenhum pedido encontrado para os estados selecionados." : "Selecione um estado para começar."}
                                         </TableCell>
                                     </TableRow>
