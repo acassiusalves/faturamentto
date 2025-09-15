@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X } from 'lucide-react';
+import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X, Code } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +30,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 
 const initialFetchState = {
@@ -57,6 +59,7 @@ export default function EtiquetasPage() {
     const [isZplModalOpen, setIsZplModalOpen] = useState(false);
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showRawZpl, setShowRawZpl] = useState(false);
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -98,6 +101,7 @@ export default function EtiquetasPage() {
     React.useEffect(() => {
         if (fetchState.zplContent) {
             setSelectedZpl(fetchState.zplContent);
+            setShowRawZpl(false); // Default to image view
             setIsZplModalOpen(true);
             setFetchState(initialFetchState); // Reset state after showing modal
         } else if(fetchState.error) {
@@ -344,7 +348,7 @@ export default function EtiquetasPage() {
                                                         disabled={isFetching}
                                                     >
                                                         {isFetching && fetchingOrderId === (sale as any).order_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                                                        Solicitar ZPL
+                                                        Solicitar Etiqueta
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -406,16 +410,34 @@ export default function EtiquetasPage() {
              <Dialog open={isZplModalOpen} onOpenChange={setIsZplModalOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Código ZPL Recebido</DialogTitle>
+                        <DialogTitle>Etiqueta ZPL</DialogTitle>
                         <DialogDescription>
-                            Copie o código abaixo para usar em seu sistema de impressão.
+                            A imagem da etiqueta foi gerada a partir do código ZPL recebido.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <pre className="p-4 bg-muted rounded-md max-h-96 overflow-auto text-xs">
-                            <code>{selectedZpl}</code>
-                        </pre>
+                    <div className="py-4 space-y-4">
+                        {showRawZpl ? (
+                            <pre className="p-4 bg-muted rounded-md max-h-96 overflow-auto text-xs">
+                                <code>{selectedZpl}</code>
+                            </pre>
+                        ) : (
+                            <div className="flex justify-center items-center p-4 bg-muted rounded-md min-h-[400px]">
+                                <Image 
+                                    src={`/api/zpl-preview`} 
+                                    alt="Pré-visualização da etiqueta ZPL" 
+                                    width={400} 
+                                    height={600}
+                                    data-ai-hint="shipping label"
+                                />
+                            </div>
+                        )}
                     </div>
+                     <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowRawZpl(!showRawZpl)}>
+                            <Code className="mr-2" />
+                            {showRawZpl ? "Mostrar Imagem" : "Mostrar Código"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
