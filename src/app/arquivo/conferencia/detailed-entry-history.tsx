@@ -208,7 +208,7 @@ export function DetailedEntryHistory() {
                       </Badge>
                     </TableCell>
                     <TableCell>{item.origin}</TableCell>
-                    <TableCell className="font-mono text-xs">{(item as any).orderNumber || ''}</TableCell>
+                    <TableCell className="font-mono text-xs">{item.orderNumber || ''}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice)}</TableCell>
                   </TableRow>
                 ))

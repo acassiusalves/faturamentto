@@ -368,7 +368,7 @@ export const saveReturnLogs = async (
             quantity: 1,
             condition: returnData.condition as any,
             createdAt: now.toISOString(),
-            orderNumber: returnData.orderNumber,
+            orderNumber: returnData.orderNumber, // <-- Adicionando o campo aqui
         };
         batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
         
