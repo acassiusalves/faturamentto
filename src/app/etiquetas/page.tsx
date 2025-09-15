@@ -28,10 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-
 
 const initialFetchState = {
     zplContent: null as string | null,
@@ -60,6 +58,7 @@ export default function EtiquetasPage() {
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [showRawZpl, setShowRawZpl] = useState(false);
+    const [zplImageUrl, setZplImageUrl] = useState<string | null>(null);
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
@@ -97,20 +96,44 @@ export default function EtiquetasPage() {
             setIsLoading(false);
         }
     }, [toast]);
-
+    
     React.useEffect(() => {
+        const generateAndSetZplImage = async (zplCode: string) => {
+            try {
+                const response = await fetch('/api/zpl-preview', {
+                    method: 'POST',
+                    body: zplCode,
+                });
+                if (!response.ok) {
+                    throw new Error('Falha ao gerar a imagem da etiqueta.');
+                }
+                const imageBlob = await response.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
+                setZplImageUrl(imageUrl);
+            } catch (error) {
+                console.error(error);
+                setZplImageUrl(null);
+                toast({
+                    variant: 'destructive',
+                    title: 'Erro de Visualização',
+                    description: 'Não foi possível gerar a imagem da etiqueta ZPL.'
+                });
+            }
+        };
+
         if (fetchState.zplContent) {
             setSelectedZpl(fetchState.zplContent);
-            setShowRawZpl(false); // Default to image view
+            generateAndSetZplImage(fetchState.zplContent);
+            setShowRawZpl(false);
             setIsZplModalOpen(true);
-            setFetchState(initialFetchState); // Reset state after showing modal
+            setFetchState(initialFetchState);
         } else if(fetchState.error) {
             toast({
                 variant: 'destructive',
                 title: 'Erro ao Buscar ZPL',
                 description: fetchState.error
             });
-             setFetchState(initialFetchState); // Reset state after showing error
+             setFetchState(initialFetchState);
         }
     }, [fetchState, toast]);
 
@@ -422,13 +445,21 @@ export default function EtiquetasPage() {
                             </pre>
                         ) : (
                             <div className="flex justify-center items-center p-4 bg-muted rounded-md min-h-[400px]">
-                                <Image 
-                                    src={`/api/zpl-preview`} 
-                                    alt="Pré-visualização da etiqueta ZPL" 
-                                    width={400} 
-                                    height={600}
-                                    data-ai-hint="shipping label"
-                                />
+                                {zplImageUrl ? (
+                                    <Image 
+                                        src={zplImageUrl}
+                                        alt="Pré-visualização da etiqueta ZPL" 
+                                        width={400} 
+                                        height={600}
+                                        data-ai-hint="shipping label"
+                                        onLoad={() => URL.revokeObjectURL(zplImageUrl)} // Clean up object URL
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Loader2 className="animate-spin" />
+                                        <span>Gerando pré-visualização...</span>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
