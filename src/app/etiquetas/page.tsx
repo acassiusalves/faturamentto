@@ -21,6 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
