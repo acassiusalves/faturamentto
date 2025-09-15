@@ -816,3 +816,24 @@ export async function loadAllTrendKeywords(): Promise<string[]> {
     return [];
   }
 }
+
+export const removeGlobalFromAllProducts = async (): Promise<{count: number}> => {
+    const products = await loadProducts();
+    const productsToUpdate: Product[] = [];
+    let updatedCount = 0;
+
+    products.forEach(product => {
+        if (product.name.toLowerCase().includes('global')) {
+            const newName = product.name.replace(/global/ig, '').replace(/\s\s+/g, ' ').trim();
+            if (newName !== product.name) {
+                productsToUpdate.push({ ...product, name: newName });
+                updatedCount++;
+            }
+        }
+    });
+
+    if (productsToUpdate.length > 0) {
+        await saveProducts(productsToUpdate);
+    }
+    return { count: updatedCount };
+};

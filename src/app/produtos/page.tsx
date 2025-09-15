@@ -1,40 +1,67 @@
 
+
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from 'zod';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
 import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductCategorySettings, ProductAttribute } from '@/lib/types';
 import { saveProduct, loadProducts, deleteProduct, loadProductSettings, saveProducts } from '@/services/firestore';
+import { removeGlobalFromProductNamesAction } from '@/app/actions';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Trash2, Loader2, Search, Download, Link2, Upload, AlertTriangle, ChevronsUpDown, Check, Hash } from 'lucide-react';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
-} from '@/components/ui/alert-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { SkuAssociationDialog } from '@/components/sku-association-dialog';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Globe } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { useAuth } from '@/context/auth-context';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { SkuAssociationDialog } from '@/components/sku-association-dialog';
 import { ProductBulkImportDialog } from './product-bulk-import-dialog';
 import { SkuBulkAssociationDialog } from './sku-bulk-association-dialog';
 import { ConflictCheckDialog, type SkuConflict } from '@/components/conflict-check-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSettings } from '@/components/product-settings';
-import { Label } from '@/components/ui/label';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 
-const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'tipo', 'rede'];
+const inventorySchema = z.object({
+  id: z.string().optional(),
+  productId: z.string().min(1, "É obrigatório selecionar um produto."),
+  sku: z.string().min(1, "SKU é obrigatório."),
+  costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
+  origin: z.string().min(1, "A origem é obrigatória"),
+});
 
-export default function ProductsPage() {
+type InventoryFormValues = z.infer<typeof inventorySchema>;
+type SortKey = 'quantity' | 'totalCost';
+type SortDirection = 'ascending' | 'descending';
+
+export default function EstoquePage() {
   const { toast } = useToast();
-
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<ProductCategorySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +71,7 @@ export default function ProductsPage() {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isBulkAssociateOpen, setIsBulkAssociateOpen] = useState(false);
   const [selectedProductForSku, setSelectedProductForSku] = useState<Product | null>(null);
-  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
-
+  
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictResults, setConflictResults] = useState<SkuConflict[]>([]);
@@ -81,16 +107,20 @@ export default function ProductsPage() {
       });
     }
   }, [toast]);
+  
+  const fetchProducts = useCallback(async () => {
+    const loadedProducts = await loadProducts();
+    setProducts(loadedProducts);
+    runConflictCheck(loadedProducts, false); // Run check silently on load
+  }, [runConflictCheck]);
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      const [loadedProducts, loadedSettings] = await Promise.all([
-        loadProducts(),
+      const [loadedSettings] = await Promise.all([
         loadProductSettings('celular'),
+        fetchProducts()
       ]);
-      setProducts(loadedProducts.filter(p => p.category === 'Celular'));
-      runConflictCheck(loadedProducts, false);
       setSettings(loadedSettings);
       if (loadedSettings) {
         const initialFormState: Record<string, string> = {};
@@ -100,7 +130,7 @@ export default function ProductsPage() {
       setIsLoading(false);
     }
     loadData();
-  }, [runConflictCheck, reset]);
+  }, [fetchProducts, reset]);
 
 
   const handleOpenSkuDialog = (product: Product) => {
@@ -114,11 +144,7 @@ export default function ProductsPage() {
   const handleSkuSave = async (product: Product, newSkus: string[]) => {
     const updatedProduct: Product = { ...product, associatedSkus: newSkus };
     await saveProduct(updatedProduct);
-    setProducts(prev => {
-      const newProducts = prev.map(p => (p.id === product.id ? updatedProduct : p));
-      runConflictCheck(newProducts, true);
-      return newProducts;
-    });
+    await fetchProducts(); // Refetch all products to update the state
   };
 
   const filteredProducts = useMemo(() => {
@@ -316,6 +342,19 @@ export default function ProductsPage() {
     setIsConflictDialogOpen(false);
   };
 
+  const [isRemovingGlobal, startRemovingGlobalTransition] = useTransition();
+  const handleRemoveGlobal = () => {
+    startRemovingGlobalTransition(async () => {
+      const { count, error } = await removeGlobalFromProductNamesAction({});
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: error });
+      } else {
+        toast({ title: 'Operação Concluída!', description: `${count} nomes de produtos foram atualizados.` });
+        await fetchProducts(); // Re-fetch products to update the view
+      }
+    });
+  };
+
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('pt-BR');
 
   if (isLoading) {
@@ -473,6 +512,28 @@ export default function ProductsPage() {
                         <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
                           <Link2 className="mr-2 h-4 w-4" /> Associar
                         </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" disabled={isRemovingGlobal}>
+                                    {isRemovingGlobal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                                    Remover 'Global'
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Remover "Global" dos Nomes?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta ação irá remover a palavra "Global" do nome de todos os produtos cadastrados.
+                                    Esta ação é irreversível. Deseja continuar?
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleRemoveGlobal}>Sim, Remover</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
                         {hasConflicts && (
                           <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
                             {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
