@@ -327,33 +327,35 @@ export async function lookupProductsAction(
   }
 }
 
-export async function fetchLabelAction(_prevState: any, formData: FormData): Promise<{ labelUrl: string | null, zplContent: string | null, error: string | null, rawError: string | null }> {
+export async function fetchLabelAction(
+    _prevState: any,
+    formData: FormData
+): Promise<{ zplContent: string | null; error: string | null; rawError?: string | null }> {
     const orderId = formData.get('orderId') as string;
-    const format = formData.get('format') as 'PDF' | 'ZPL';
     
+    if (!orderId) {
+        return { zplContent: null, error: 'ID do pedido não fornecido.' };
+    }
+
     try {
         const { fetchOrderLabel } = await import('@/services/ideris');
         const settings = await loadAppSettings();
         if (!settings?.iderisPrivateKey) {
-          throw new Error("A chave da API da Ideris não está configurada.");
+            throw new Error("A chave da API da Ideris não está configurada.");
         }
         
-        const response = await fetchOrderLabel(settings.iderisPrivateKey, orderId, format);
+        // Força o formato ZPL
+        const response = await fetchOrderLabel(settings.iderisPrivateKey, orderId, 'ZPL');
         
         if (response.error) {
-            return { labelUrl: null, zplContent: null, error: response.error, rawError: response.rawError || null };
+            return { zplContent: null, error: response.error, rawError: response.rawError };
         }
         
-        if (format === 'PDF') {
-            const url = response.data?.obj?.[0]?.url;
-            return { labelUrl: url || null, zplContent: null, error: url ? null : 'URL do PDF não encontrada na resposta.', rawError: null };
-        } else { // ZPL
-            const zplText = response.data?.obj?.[0]?.text;
-            return { labelUrl: null, zplContent: zplText || null, error: zplText ? null : 'Conteúdo ZPL não encontrado na resposta.', rawError: null };
-        }
+        const zplText = response.data?.obj?.[0]?.text;
+        return { zplContent: zplText || null, error: zplText ? null : 'Conteúdo ZPL não encontrado na resposta.' };
 
     } catch (e: any) {
-        return { labelUrl: null, zplContent: null, error: e.message || "Ocorreu um erro desconhecido.", rawError: null };
+        return { zplContent: null, error: e.message || "Ocorreu um erro desconhecido ao buscar a etiqueta." };
     }
 }
 
