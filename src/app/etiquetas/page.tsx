@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -9,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, MapPin, Save, FileText, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +20,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -42,6 +44,7 @@ export default function EtiquetasPage() {
     const [availableStates, setAvailableStates] = useState<Option[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: startOfMonth(new Date()),
         to: endOfMonth(new Date()),
@@ -187,6 +190,7 @@ export default function EtiquetasPage() {
                 title: 'Seleção Salva!',
                 description: 'Sua lista de estados foi salva com sucesso.'
             });
+            setIsFilterDialogOpen(false);
         } catch (error) {
             toast({
                 variant: 'destructive',
@@ -219,44 +223,56 @@ export default function EtiquetasPage() {
     return (
         <>
             <div className="flex flex-col gap-8 p-4 md:p-8">
-                <div>
-                    <h1 className="text-3xl font-bold font-headline">Etiquetas por Localização</h1>
-                    <p className="text-muted-foreground">
-                        Selecione os estados para visualizar os pedidos pendentes e imprimir etiquetas.
-                    </p>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h1 className="text-3xl font-bold font-headline">Etiquetas por Localização</h1>
+                        <p className="text-muted-foreground">
+                            Filtre os pedidos pendentes por estado para imprimir suas etiquetas.
+                        </p>
+                    </div>
+                    <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">
+                                <Filter className="mr-2 h-4 w-4" />
+                                Filtrar Pedidos
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Filtros de Pedidos</DialogTitle>
+                                <DialogDescription>
+                                    Selecione os estados e o período para visualizar os pedidos.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Estados</Label>
+                                    <MultiSelect
+                                        options={availableStates}
+                                        value={selectedStates}
+                                        onChange={setSelectedStates}
+                                        placeholder="Selecione os estados..."
+                                        emptyText="Nenhum estado encontrado"
+                                        className="w-full"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Período</Label>
+                                    <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant="ghost">Cancelar</Button>
+                                </DialogClose>
+                                <Button onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Salvar e Aplicar
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <MapPin />
-                            Filtros de Pedidos
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col md:flex-row gap-4">
-                          <div className="flex-1">
-                             <Label>Estados</Label>
-                             <MultiSelect
-                                  options={availableStates}
-                                  value={selectedStates}
-                                  onChange={setSelectedStates}
-                                  placeholder="Selecione os estados..."
-                                  emptyText="Nenhum estado encontrado"
-                                  className="w-full"
-                              />
-                          </div>
-                         <div>
-                            <Label>Período</Label>
-                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Salvar Seleção de Estados
-                        </Button>
-                    </CardFooter>
-                </Card>
 
                 <Card>
                      <CardHeader>
@@ -264,8 +280,21 @@ export default function EtiquetasPage() {
                             <div>
                                 <CardTitle>Pedidos Encontrados ({filteredSales.length})</CardTitle>
                                 <CardDescription>
-                                    Lista de pedidos para os filtros selecionados.
+                                    Exibindo pedidos para os filtros aplicados.
                                 </CardDescription>
+                                {selectedStates.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        <span className="text-sm font-medium">Estados:</span>
+                                        {selectedStates.map(state => (
+                                            <Badge key={state} variant="secondary">
+                                                {state}
+                                                <button onClick={() => setSelectedStates(prev => prev.filter(s => s !== state))} className="ml-1.5 opacity-70 hover:opacity-100">
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                              <div className="relative w-full max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
