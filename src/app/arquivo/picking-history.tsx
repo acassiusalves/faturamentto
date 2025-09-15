@@ -8,13 +8,14 @@ import type { PickedItemLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle, Pencil, Save } from 'lucide-react';
+import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle, Pencil, Save, Download } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
 import { Badge } from '@/components/ui/badge';
 import { ManualPickingDialog } from '@/components/manual-picking-dialog';
+import * as XLSX from 'xlsx';
 
 
 export function PickingHistory() {
@@ -155,6 +156,45 @@ export function PickingHistory() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
   
+  const handleExportXLSX = () => {
+    const dataToExport = filteredPicks.map(pick => ({
+      'Data Entrada': formatDate(pick.createdAt),
+      'Data Saída': formatDateTime(pick.pickedAt),
+      'Produto': pick.name,
+      'SKU': pick.sku,
+      'Nº de Série (SN)': pick.serialNumber,
+      'Custo': pick.costPrice,
+      'Pedido': pick.orderNumber
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Data Entrada
+      { wch: 18 }, // Data Saída
+      { wch: 40 }, // Produto
+      { wch: 15 }, // SKU
+      { wch: 25 }, // SN
+      { wch: 15 }, // Custo
+      { wch: 25 }, // Pedido
+    ];
+
+    // Format currency column
+    const currencyFormat = 'R$ #,##0.00';
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        const cell_address = { c: 5, r: R }; // Column F (index 5) is 'Custo'
+        const cell = XLSX.utils.encode_cell(cell_address);
+        if (ws[cell] && typeof ws[cell].v === 'number') {
+            ws[cell].z = currencyFormat;
+        }
+    }
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Historico_Picking');
+    XLSX.writeFile(wb, `historico_picking_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -203,6 +243,10 @@ export function PickingHistory() {
             <Button onClick={() => setIsManualAddOpen(true)}>
               <PlusCircle />
               Adicionar Registro Manual
+            </Button>
+             <Button onClick={handleExportXLSX} variant="outline" disabled={filteredPicks.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar XLSX
             </Button>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
