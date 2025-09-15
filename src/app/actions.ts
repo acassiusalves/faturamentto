@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
@@ -406,21 +405,6 @@ export async function remixLabelDataAction(_prevState: any, formData: FormData):
   }
 }
 
-
-export async function remixZplDataAction(_prevState: any, formData: FormData): Promise<{ result: RemixZplDataOutput | null; error: string | null; }> {
-    try {
-        const input: RemixZplDataInput = JSON.parse(formData.get('zplRemixInput') as string);
-        if (!input) {
-            throw new Error('Input ZPL para remix inválido.');
-        }
-        const { remixZplData } = await import('@/ai/flows/remix-zpl-data-flow');
-        const result = await remixZplData(input);
-        return { result, error: null };
-    } catch (e: any) {
-        return { result: null, error: e.message || "Falha ao modificar ZPL." };
-    }
-}
-
 export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: any | null; error: string | null }> {
     const originalZpl = formData.get('originalZpl') as string;
     const editedDataStr = formData.get('editedData') as string;
@@ -456,14 +440,12 @@ export async function correctExtractedDataAction(_prevState: any, formData: Form
 
 
 export async function debugMappingAction(_prevState: any, formData: FormData) {
-    const originalZpl = formData.get('originalZpl') as string;
-    const extractedDataStr = formData.get('extractedData') as string;
-     try {
-        if (!originalZpl || !extractedDataStr) {
-            throw new Error('Dados de entrada ausentes para debug.');
+    const originalZpl = formData.get('zplContent') as string;
+    try {
+        if (!originalZpl) {
+            throw new Error('Conteúdo ZPL ausente para debug.');
         }
-        const extractedData = JSON.parse(extractedDataStr);
-        const debugInfo = await debugMapping(originalZpl, extractedData);
+        const debugInfo = await debugMapping(originalZpl);
         return { result: debugInfo, error: null };
     } catch (e: any) {
         return { result: null, error: e.message || "Falha no processo de debug." };
