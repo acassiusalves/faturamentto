@@ -386,7 +386,7 @@ export function PurchaseHistory() {
                                                             </TableCell>
                                                             <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
                                                              <TableCell className="text-center">
-                                                                {(user?.role === 'admin' || user?.role === 'financeiro') ? (
+                                                                {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
                                                                     <Switch
                                                                         checked={item.isPaid}
                                                                         onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
