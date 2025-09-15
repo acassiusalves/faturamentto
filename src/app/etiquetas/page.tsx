@@ -3,11 +3,13 @@
 
 import * as React from "react";
 import { useState, useMemo, useCallback } from 'react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, MapPin, Save, FileText, XCircle, Search } from 'lucide-react';
+import { Loader2, MapPin, Save, FileText, Search } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -148,6 +150,15 @@ export default function EtiquetasPage() {
         }
     };
     
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return 'N/A';
+        try {
+            return format(parseISO(dateString), "dd/MM/yyyy", { locale: ptBR });
+        } catch {
+            return 'Data inválida';
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -223,6 +234,7 @@ export default function EtiquetasPage() {
                                     <TableRow>
                                         <TableHead>ID Ideris</TableHead>
                                         <TableHead>Cód. Pedido</TableHead>
+                                        <TableHead>Data Aprovação</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Cidade/Estado</TableHead>
                                         <TableHead>Marketplace</TableHead>
@@ -235,6 +247,7 @@ export default function EtiquetasPage() {
                                             <TableRow key={(sale as any).id}>
                                                 <TableCell>{(sale as any).order_id}</TableCell>
                                                 <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
+                                                <TableCell>{formatDate((sale as any).payment_approved_date)}</TableCell>
                                                 <TableCell>{(sale as any).customer_name}</TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
@@ -258,7 +271,7 @@ export default function EtiquetasPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-24 text-center">
+                                            <TableCell colSpan={7} className="h-24 text-center">
                                                 {selectedStates.length > 0 ? "Nenhum pedido encontrado para os filtros e busca atuais." : "Selecione um estado para começar."}
                                             </TableCell>
                                         </TableRow>
