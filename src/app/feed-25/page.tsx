@@ -313,6 +313,8 @@ export default function FeedPage() {
             setStep1Result(null);
             setStep2Result(null);
             setStep3Result(null);
+            let currentStep1Result: OrganizeResult | null = null;
+            let currentStep2Result: StandardizeListOutput | null = null;
 
             try {
                 // Step 1
@@ -321,37 +323,48 @@ export default function FeedPage() {
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
                 organizeFormData.append('apiKey', geminiApiKey);
-                organizeFormData.append('modelName', 'gemini-1.5-pro-latest');
-                const step1Res = await runStep(organizeListAction, organizeFormData, setStep1Result, (error) => 
+                
+                await runStep(organizeListAction, organizeFormData, (res) => {
+                    setStep1Result(res);
+                    currentStep1Result = res;
+                }, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 1 (Organizar)', description: error })
                 );
                 setProgress(33);
 
+                if (!currentStep1Result?.organizedList) throw new Error("O Passo 1 não retornou uma lista organizada.");
+                
                 // Step 2
                 animateProgress(33, 66, 1500);
                 const standardizeFormData = new FormData();
-                standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
+                standardizeFormData.append('organizedList', currentStep1Result.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
                 standardizeFormData.append('apiKey', geminiApiKey);
-                standardizeFormData.append('modelName', 'gemini-1.5-pro-latest');
-                const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
+                
+                await runStep(standardizeListAction, standardizeFormData, (res) => {
+                    setStep2Result(res);
+                    currentStep2Result = res;
+                }, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
                 );
                 setProgress(66);
 
-                // Step 3
-                if (step2Res.standardizedList && step2Res.standardizedList.length > 0) {
+                if (!currentStep2Result?.standardizedList || currentStep2Result.standardizedList.length === 0) {
+                     toast({ variant: 'default', title: 'Aviso', description: 'O Passo 2 (Padronizar) não retornou produtos válidos para buscar.' });
+                } else {
+                    // Step 3
                     animateProgress(66, 100, 1500);
                     const lookupFormData = new FormData();
-                    lookupFormData.append('productList', step2Res.standardizedList.join('\n'));
+                    lookupFormData.append('productList', currentStep2Result.standardizedList.join('\n'));
                     lookupFormData.append('databaseList', databaseList);
                     lookupFormData.append('prompt_override', lookupPrompt);
                     lookupFormData.append('apiKey', geminiApiKey);
-                    lookupFormData.append('modelName', 'gemini-1.5-pro-latest');
+
                     await runStep(lookupProductsAction, lookupFormData, setStep3Result, (error) => 
                         toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
                     );
                 }
+                
                 setProgress(100);
                  if (progressIntervalRef.current) {
                     clearInterval(progressIntervalRef.current);
@@ -381,7 +394,6 @@ export default function FeedPage() {
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
@@ -409,7 +421,6 @@ export default function FeedPage() {
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
@@ -437,7 +448,6 @@ export default function FeedPage() {
             formData.append('databaseList', databaseList);
             formData.append('prompt_override', lookupPrompt); // Aqui passamos o prompt
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
