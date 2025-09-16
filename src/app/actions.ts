@@ -5,7 +5,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -253,11 +253,10 @@ export async function organizeListAction(
   try {
     const productList = formData.get('productList') as string;
     const apiKey = formData.get('apiKey') as string | undefined;
-    const modelName = formData.get('modelName') as string | undefined;
     const prompt_override = formData.get('prompt_override') as string | undefined;
     if (!productList) throw new Error("A lista de produtos não pode estar vazia.");
     const { organizeList } = await import('@/ai/flows/organize-list');
-    const result = await organizeList({ productList, apiKey, modelName, prompt_override });
+    const result = await organizeList({ productList, apiKey, prompt_override });
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e.message || "Falha ao organizar a lista." };
@@ -271,11 +270,10 @@ export async function standardizeListAction(
   try {
     const organizedList = formData.get('organizedList') as string;
     const apiKey = formData.get('apiKey') as string | undefined;
-    const modelName = formData.get('modelName') as string | undefined;
     const prompt_override = formData.get('prompt_override') as string | undefined;
     if (!organizedList) throw new Error("A lista organizada não pode estar vazia.");
     const { standardizeList } = await import('@/ai/flows/standardize-list');
-    const result = await standardizeList({ organizedList, apiKey, modelName, prompt_override });
+    const result = await standardizeList({ organizedList, apiKey, prompt_override });
     return { result, error: null };
   } catch (e: any) {
     return { result: null, error: e.message || "Falha ao padronizar a lista." };
@@ -370,7 +368,7 @@ export async function remixLabelDataAction(_prevState: any, formData: FormData):
       }
       const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
       const { newValue } = await remixLabelData(input);
-      return { analysis: { [input.fieldToRemix]: newValue }, error: null };
+      return { analysis: { [input.fieldToRemix as RemixableField]: newValue }, error: null };
 
   } catch (e: any) {
       return { analysis: null, error: e.message || "Falha ao remixar dados." };
@@ -398,31 +396,18 @@ export async function regenerateZplAction(_prevState: any, formData: FormData): 
 export async function correctExtractedDataAction(_prevState: any, formData: FormData): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
     const originalZpl = formData.get('originalZpl') as string;
     const extractedDataStr = formData.get('extractedData') as string;
+    
     if (!originalZpl || !extractedDataStr) {
       throw new Error('Dados de entrada ausentes para correção.');
     }
-    const extractedData: AnalyzeLabelOutput = JSON.parse(extractedDataStr);
-    
-    // Parse the ZPL to find all text elements
-    const textElements = parseZplFields(originalZpl);
-    
-    // Find the recipient name, which is usually the largest font or in a specific area
-    // This is a heuristic and might need adjustment.
-    const sortedByY = [...textElements].sort((a, b) => a.y - b.y);
-    const midPointY = Math.max(...sortedByY.map(e => e.y)) / 2;
-    const potentialRecipientElements = sortedByY.filter(e => e.y > midPointY && !e.isBarcode && !e.isQrCode && e.content.length > 3);
-    
-    // Assume recipient name is one of the first few elements in the bottom half.
-    if(potentialRecipientElements.length > 0) {
-        // A simple fix: If the extracted name is just "string", replace it.
-        if (extractedData.recipientName === 'string') {
-             extractedData.recipientName = potentialRecipientElements[0].content;
-        }
+
+    try {
+        const { correctExtractedData } = await import('@/services/zpl-corrector');
+        const result = await correctExtractedData(originalZpl, JSON.parse(extractedDataStr));
+        return { analysis: result, error: null };
+    } catch (e: any) {
+         return { analysis: null, error: e.message || "Ocorreu um erro desconhecido durante a correção." };
     }
-    
-    // You can add more correction logic here based on element positions (x, y) if needed.
-    
-    return { analysis: extractedData, error: null };
 }
 
 export async function analyzeCatalogAction(_prevState: any, formData: FormData): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null }> {
@@ -537,5 +522,22 @@ export async function saveAveragePricesAction(
         return { success: true, error: null, count: dataToSave.length };
     } catch (e: any) {
         return { success: false, error: e.message || "Falha ao salvar preços médios.", count: 0 };
+    }
+}
+
+export async function debugMappingAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ result: any | null; error: string | null }> {
+    const zplContent = formData.get('zplContent') as string;
+    if (!zplContent) {
+        return { result: null, error: "Nenhum conteúdo ZPL foi enviado para análise." };
+    }
+    try {
+        const { debugMapping } = await import('@/services/zpl-corrector');
+        const result = await debugMapping(zplContent);
+        return { result: result, error: null };
+    } catch (e: any) {
+         return { result: null, error: e.message || "Ocorreu um erro desconhecido durante o debug." };
     }
 }

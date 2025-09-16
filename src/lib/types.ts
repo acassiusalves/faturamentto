@@ -398,7 +398,6 @@ export const LookupProductsInputSchema = z.object({
   productList: z.string().describe('The standardized, line-by-line list of products.'),
   databaseList: z.string().describe('The product database as a string, with "Name\\tSKU" per line.'),
   apiKey: z.string().optional(),
-  modelName: z.string().optional(),
   prompt_override: z.string().optional(),
 });
 export type LookupProductsInput = z.infer<typeof LookupProductsInputSchema>;

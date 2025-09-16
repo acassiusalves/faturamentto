@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from 'react';
-import { Loader2, RefreshCw, Printer, Code, Image as ImageIcon } from 'lucide-react';
+import { Loader2, RefreshCw, Printer, Code, Image as ImageIcon, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,10 @@ import Image from 'next/image';
 import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
+import type { RemixableField } from '@/lib/types';
+import { remixLabelDataAction } from '@/app/actions';
 
-assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea });
+assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea, Wand2 });
 
 
 interface ZplEditorProps {
@@ -30,6 +32,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const [isRendering, setIsRendering] = React.useState(false);
     const [isUpdating, setIsUpdating] = React.useState(false);
     const [showRawZpl, setShowRawZpl] = React.useState(false);
+    const [isRemixing, setIsRemixing] = React.useState<string | null>(null);
+
 
     React.useEffect(() => {
         const parsed = parseZplFields(originalZpl);
@@ -125,7 +129,39 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
           setIsUpdating(false);
         }
       };
+
+    const handleRemixField = async (fieldKey: string, originalValue: string, fieldType: RemixableField) => {
+        setIsRemixing(fieldKey);
+        try {
+            const formData = new FormData();
+            formData.append('remixInput', JSON.stringify({ fieldToRemix: fieldType, originalValue }));
+            
+            const result = await remixLabelDataAction({}, formData);
+            if (result.error || !result.analysis) {
+                 throw new Error(result.error || 'A IA não retornou um novo valor.');
+            }
+            const newValue = result.analysis[fieldType];
+            if (newValue) {
+                setEditedValues(prev => ({ ...prev, [fieldKey]: newValue }));
+                toast({ title: "Campo Remixado!", description: `A IA gerou um novo valor para ${fieldType}.`});
+            }
+
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro na Remixagem', description: e.message });
+        } finally {
+            setIsRemixing(null);
+        }
+    }
       
+    // Função para determinar o tipo de campo com base no conteúdo
+    const getFieldType = (value: string): RemixableField | null => {
+        if (value.match(/^\d{10,}$/)) return 'trackingNumber'; // Long numbers are likely tracking numbers
+        if (value.toLowerCase().includes('pedido')) return 'orderNumber';
+        if (value.toLowerCase().includes('nota fiscal')) return 'invoiceNumber';
+        if (value.toLowerCase().includes('lighthouse')) return 'senderName'; // Exemplo, pode ser melhorado
+        if (value.toLowerCase().includes('rua') || value.toLowerCase().includes('alfandega')) return 'senderAddress';
+        return null;
+    }
 
     const handlePrint = () => {
         if (printRef.current) {
@@ -149,18 +185,32 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                     <div className="space-y-4">
                         {fields.map((field) => {
                             const fieldKey = `${field.x},${field.y}`;
+                            const fieldType = getFieldType(field.value);
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
                                         Campo em (X: {field.x}, Y: {field.y})
                                     </Label>
-                                    <Input
-                                        id={fieldKey}
-                                        name={fieldKey}
-                                        value={editedValues[fieldKey] ?? ''}
-                                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
-                                        className="font-mono text-sm"
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            id={fieldKey}
+                                            name={fieldKey}
+                                            value={editedValues[fieldKey] ?? ''}
+                                            onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                                            className="font-mono text-sm"
+                                        />
+                                        {fieldType && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                onClick={() => handleRemixField(fieldKey, field.value, fieldType)} 
+                                                disabled={!!isRemixing}
+                                                title={`Remixar ${fieldType} com IA`}
+                                            >
+                                                {isRemixing === fieldKey ? <Loader2 className="animate-spin" /> : <Wand2 />}
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}
