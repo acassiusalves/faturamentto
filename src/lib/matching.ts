@@ -129,12 +129,18 @@ function parseColor(token?: string) {
 }
 
 function extractLastDigits(line: string): string {
-  // pega o último número, remove separadores
+  // pega o último grupo de dígitos da linha, que pode ter pontos/vírgulas
   const matches = line.match(/(\d[\d.,]*)\s*$/);
   if (!matches) return "0";
-  const digits = matches[1].replace(/[^\d]/g,"");
-  return digits || "0";
+
+  // Transforma em formato numérico padrão (ex: "1.250,50" -> "1250.50")
+  let numericString = matches[1];
+  if (numericString.includes(',')) {
+    numericString = numericString.replace(/\./g, '').replace(',', '.');
+  }
+  return numericString;
 }
+
 
 // CHANGE: parseStdLine
 export function parseStdLine(line: string): StdLine | null {

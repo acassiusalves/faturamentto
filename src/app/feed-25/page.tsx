@@ -30,6 +30,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
+import { deterministicLookup } from '@/lib/matching';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -105,7 +106,7 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
     {
         "standardizedList": [
             "Redmi Note 14 Pro 256GB Global 8GB RAM Preto 5G 1.235,00",
-            "Samsung Galaxy S23 128GB Global 8GB RAM Preto 5G 3500.00"
+            "Samsung Galaxy S23 128GB 8GB RAM Preto 5G 3500.00"
         ],
         "unprocessedItems": [
         {
@@ -190,7 +191,7 @@ export default function FeedPage() {
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
     const [step2Result, setStep2Result] = useState<StandardizeListOutput | null>(null);
-    const [step3Result, setStep3Result] = useState<{ details: any[] } | null>(null);
+    const [step3Result, setStep3Result] = useState<LookupResult | null>(null);
     
     // States for prompt overrides
     const [organizePrompt, setOrganizePrompt] = useState(DEFAULT_ORGANIZE_PROMPT);
@@ -353,16 +354,9 @@ export default function FeedPage() {
                      toast({ variant: 'default', title: 'Aviso', description: 'O Passo 2 (Padronizar) não retornou produtos válidos para buscar.' });
                 } else {
                     // Step 3
-                    animateProgress(66, 100, 1500);
-                    const lookupFormData = new FormData();
-                    lookupFormData.append('productList', currentStep2Result.standardizedList.join('\n'));
-                    lookupFormData.append('databaseList', databaseList);
-                    lookupFormData.append('prompt_override', lookupPrompt);
-                    lookupFormData.append('apiKey', geminiApiKey);
-
-                    await runStep(lookupProductsAction, lookupFormData, setStep3Result, (error) => 
-                        toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
-                    );
+                    animateProgress(66, 100, 1000); // Faster step, no AI
+                    const lookupResult = deterministicLookup(currentStep2Result.standardizedList, databaseList);
+                    setStep3Result(lookupResult);
                 }
                 
                 setProgress(100);
