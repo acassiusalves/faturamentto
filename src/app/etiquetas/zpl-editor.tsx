@@ -12,7 +12,7 @@ import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeF
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
-import { remixLabelDataAction, regenerateZplAction } from '@/app/actions';
+import { remixLabelDataAction, markLabelPrintedAction } from '@/app/actions';
 import { Progress } from '@/components/ui/progress';
 
 assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea, Wand2, Sparkles });
@@ -20,7 +20,7 @@ assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, La
 
 interface ZplEditorProps {
   originalZpl: string;
-  orderId: string | null;
+  orderId?: string | null;
   onLabelGenerated?: () => void;
 }
 
@@ -105,28 +105,38 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     const handleUpdateZpl = async () => {
         setIsUpdating(true);
         try {
-            const formData = new FormData();
-            formData.append('originalZpl', currentZpl);
-            const dataToSave: any = {};
-            fields.forEach(field => {
-                const fieldType = getFieldType(field);
-                if (fieldType) {
-                    const fieldKey = `${field.x},${field.y}`;
-                    dataToSave[fieldType] = editedValues[fieldKey];
+            let out = currentZpl;
+            for (const field of fields) {
+                const key = `${field.x},${field.y}`;
+                const originalValue = field.value ?? "";
+                const editedValue = editedValues[key] ?? "";
+    
+                if (originalValue !== editedValue) {
+                    const group = clustersRef.current[key] || [field];
+                    const fieldType = getFieldType(field);
+                    let prefixToPreserve: { preservePrefixFrom?: ZplField } | undefined = undefined;
+    
+                    if (fieldType === 'orderNumber' || fieldType === 'invoiceNumber') {
+                        prefixToPreserve = { preservePrefixFrom: field };
+                    }
+    
+                    out = updateCluster(out, group, editedValue, prefixToPreserve);
                 }
-            });
-            formData.append('editedData', JSON.stringify(dataToSave));
-            if(orderId) formData.append('orderId', orderId);
-
-            const result = await regenerateZplAction(regenerateState, formData);
-
-            if(result.error || !result.result?.newZpl) {
-                throw new Error(result.error || "A IA não conseguiu gerar a etiqueta.");
             }
-
-            setCurrentZpl(result.result.newZpl);
-            if(onLabelGenerated) onLabelGenerated();
+            setCurrentZpl(out);
             toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+
+            if (orderId) {
+              try {
+                const fd = new FormData();
+                fd.append('orderId', orderId);
+                const r = await markLabelPrintedAction({}, fd);
+                if (r.success) onLabelGenerated?.();
+                else console.warn('markLabelPrintedAction:', r.error);
+              } catch (e) {
+                console.warn('markLabelPrintedAction falhou', e);
+              }
+            }
 
         } catch(e: any) {
             toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: e.message });

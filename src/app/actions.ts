@@ -378,20 +378,15 @@ export async function remixLabelDataAction(_prevState: any, formData: FormData):
 export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: any | null; error: string | null }> {
     const originalZpl = formData.get('originalZpl') as string;
     const editedDataStr = formData.get('editedData') as string;
-    const orderId = formData.get('orderId') as string;
     
     try {
         if (!originalZpl || !editedDataStr) {
             throw new Error('Dados insuficientes para regenerar a etiqueta.');
         }
         const editedData = JSON.parse(editedDataStr);
-        const { regenerateZpl } = await import('@/ai/flows/regenerate-zpl-flow');
-        const result = await regenerateZpl({ originalZpl, editedData });
+        const { regenerateZplDeterministic } = await import('@/services/zpl-corrector');
+        const result = await regenerateZplDeterministic(originalZpl, editedData);
         
-        if (result.newZpl && orderId) {
-            await savePrintedLabel(orderId);
-        }
-
         return { result, error: null };
     } catch (e: any) {
         return { result: null, error: e.message || 'Falha na regeneração da etiqueta ZPL.' };
@@ -546,4 +541,18 @@ export async function debugMappingAction(
     } catch (e: any) {
          return { result: null, error: e.message || "Ocorreu um erro desconhecido durante o debug." };
     }
+}
+
+export async function markLabelPrintedAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ success: boolean; error: string | null }> {
+  const orderId = String(formData.get("orderId") || "").trim();
+  if (!orderId) return { success: false, error: "orderId ausente." };
+  try {
+    await savePrintedLabel(orderId);
+    return { success: true, error: null };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "Falha ao marcar etiqueta como impressa." };
+  }
 }
