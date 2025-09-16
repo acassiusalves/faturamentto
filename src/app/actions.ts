@@ -404,7 +404,7 @@ export async function correctExtractedDataAction(_prevState: any, formData: Form
 
     try {
         const { correctExtractedData } = await import('@/services/zpl-corrector');
-        const result = await correctExtractedData(originalZpl, JSON.parse(extractedDataStr));
+        const result = await correctExtractedData(JSON.parse(originalZpl), JSON.parse(extractedDataStr));
         return { analysis: result, error: null };
     } catch (e: any) {
          return { analysis: null, error: e.message || "Ocorreu um erro desconhecido durante a correção." };
@@ -548,16 +548,23 @@ export async function markLabelPrintedAction(
   formData: FormData
 ): Promise<{ success: boolean; error: string | null }> {
   const orderId = String(formData.get("orderId") || "").trim();
-  if (!orderId) return { success: false, error: "orderId ausente." };
+  const orderCodeFromForm = (formData.get('orderCode') as string | null)?.trim() || null;
+
+  if (!orderId) return { success: false, error: 'orderId ausente.' };
 
   try {
-    // busca o order_code correspondente ao orderId
-    const sale = await getSaleByOrderId(orderId);
-    const orderCode = (sale as any)?.order_code ?? null;
+    // Se vier no form, não faz lookup; caso contrário, tenta obter do Firestore.
+    let orderCode = orderCodeFromForm;
+    if (!orderCode) {
+      const sale = await getSaleByOrderId(orderId); // ok se preferir trocar por findSaleByOrderNumber(orderId)
+      orderCode = (sale as any)?.order_code ?? null;
+    }
 
-    await savePrintedLabel(orderId, orderCode);
+    await savePrintedLabel(orderId, orderCode); // já grava por ID e por código
     return { success: true, error: null };
   } catch (e: any) {
-    return { success: false, error: e?.message || "Falha ao marcar etiqueta como impressa." };
+    return { success: false, error: e?.message || 'Falha ao marcar etiqueta como impressa.' };
   }
 }
+
+    

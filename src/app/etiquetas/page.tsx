@@ -47,6 +47,12 @@ const initialFetchState = {
     rawError: null as string | null,
 };
 
+type EditorState = {
+    zplContent: string | null;
+    orderId: string | null;
+    orderCode: string | null;
+};
+
 export default function EtiquetasPage() {
     const { toast } = useToast();
     const [allSales, setAllSales] = useState<Sale[]>([]);
@@ -60,10 +66,9 @@ export default function EtiquetasPage() {
         to: endOfMonth(new Date()),
     });
 
-    const [zplContent, setZplContent] = useState<string | null>(null);
     const [isProcessingZpl, setIsProcessingZpl] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
+    const [editorData, setEditorData] = useState<EditorState>({ zplContent: null, orderId: null, orderCode: null });
 
     const [searchTerm, setSearchTerm] = useState('');
     const [pageIndex, setPageIndex] = useState(0);
@@ -110,10 +115,11 @@ export default function EtiquetasPage() {
         loadData();
     }, [loadData]);
     
-    const handleFetchAndProcessZPL = async (orderId: string) => {
-        setFetchingOrderId(orderId);
+    const handleFetchAndProcessZPL = async (sale: Sale) => {
+        const orderId = (sale as any).order_id;
+        const orderCode = (sale as any).order_code;
+        setEditorData({ zplContent: null, orderId, orderCode });
         setIsProcessingZpl(true);
-        setZplContent(null);
         
         try {
             const formData = new FormData();
@@ -124,14 +130,13 @@ export default function EtiquetasPage() {
                 throw new Error(zplResult.error || 'Não foi possível obter o ZPL da Ideris.');
             }
             
-            setZplContent(zplResult.zplContent);
+            setEditorData({ zplContent: zplResult.zplContent, orderId, orderCode });
             setIsEditorOpen(true);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
             toast({ variant: 'destructive', title: 'Erro no Processamento da Etiqueta', description: errorMessage });
         } finally {
             setIsProcessingZpl(false);
-            setFetchingOrderId(null);
         }
     }
 
@@ -329,14 +334,15 @@ export default function EtiquetasPage() {
                                     {paginatedSales.length > 0 ? (
                                         paginatedSales.map(sale => {
                                             const orderId = (sale as any).order_id;
-                                            const isPrinted = printedLabelIds.has(orderId);
+                                            const orderCode = (sale as any).order_code;
+                                            const isPrinted = printedLabelIds.has(orderId) || printedLabelIds.has(orderCode);
                                             return (
                                             <TableRow key={(sale as any).id}>
                                                 <TableCell className="text-center">
                                                     {isPrinted && <Printer className="h-5 w-5 text-green-600" />}
                                                 </TableCell>
                                                 <TableCell>{orderId}</TableCell>
-                                                <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
+                                                <TableCell className="font-mono">{orderCode}</TableCell>
                                                 <TableCell>{formatDate((sale as any).payment_approved_date)}</TableCell>
                                                 <TableCell>{(sale as any).customer_name}</TableCell>
                                                 <TableCell>
@@ -350,10 +356,10 @@ export default function EtiquetasPage() {
                                                     <Button 
                                                         variant="outline" 
                                                         size="sm" 
-                                                        onClick={() => handleFetchAndProcessZPL(orderId)}
+                                                        onClick={() => handleFetchAndProcessZPL(sale)}
                                                         disabled={isProcessingZpl}
                                                     >
-                                                        {isProcessingZpl && fetchingOrderId === orderId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                        {isProcessingZpl && editorData.orderId === orderId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                                                         Etiqueta
                                                     </Button>
                                                 </TableCell>
@@ -421,16 +427,19 @@ export default function EtiquetasPage() {
                             Altere os campos da etiqueta e visualize o resultado em tempo real antes de imprimir.
                         </DialogDescription>
                     </DialogHeader>
-                    {isProcessingZpl || !zplContent ? (
+                    {isProcessingZpl || !editorData.zplContent ? (
                          <div className="flex items-center justify-center h-full">
                             <Loader2 className="animate-spin text-primary" size={32} />
                             <p className="ml-4">Processando etiqueta...</p>
                         </div>
                     ) : (
                        <ZplEditor 
-                            originalZpl={zplContent} 
-                            orderId={fetchingOrderId} 
-                            onLabelGenerated={() => setPrintedLabelIds(prev => new Set(prev).add(fetchingOrderId!))}
+                            originalZpl={editorData.zplContent}
+                            orderId={editorData.orderId}
+                            orderCode={editorData.orderCode}
+                            onLabelGenerated={() => {
+                                setPrintedLabelIds(prev => new Set(prev).add(editorData.orderId!).add(editorData.orderCode!));
+                            }}
                         />
                     )}
                 </DialogContent>
@@ -438,3 +447,5 @@ export default function EtiquetasPage() {
         </>
     );
 }
+
+    

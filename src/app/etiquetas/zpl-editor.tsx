@@ -21,6 +21,7 @@ assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, La
 interface ZplEditorProps {
   originalZpl: string;
   orderId?: string | null;
+  orderCode?: string | null;
   onLabelGenerated?: () => void;
 }
 
@@ -40,7 +41,7 @@ const sanitizeValue = (fieldType: RemixableField | null, v: string) => {
 };
 
 
-export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorProps) {
+export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }: ZplEditorProps) {
     const { toast } = useToast();
     const printRef = React.useRef<HTMLDivElement>(null);
     const [fields, setFields] = React.useState<ReturnType<typeof parseZplFields>>([]);
@@ -79,13 +80,7 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
         visible.forEach((f) => {
             const k = `${f.x},${f.y}`;
             const fieldType = getFieldType(f);
-            if(fieldType === 'orderNumber' && f.value.includes(':')) {
-                 initialEdits[k] = f.value.split(':')[1].trim();
-            } else if (fieldType === 'invoiceNumber' && f.value.includes(':')) {
-                 initialEdits[k] = f.value.split(':')[1].trim();
-            } else {
-                 initialEdits[k] = f.value ?? "";
-            }
+            initialEdits[k] = sanitizeValue(fieldType, f.value ?? "");
         });
         setEditedValues(initialEdits);
     }, [originalZpl]);
@@ -130,11 +125,9 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
 
         for (const rep of visible) {
           const key = `${rep.x},${rep.y}`;
-          let edited = editedValues[key] ?? "";
-          const original = rep.value ?? "";
-
           const fieldType = getFieldType(rep);
-          edited = sanitizeValue(fieldType, edited);
+          let edited = editedValues[key] ?? "";
+          const original = sanitizeValue(fieldType, rep.value ?? "");
           
           if (edited === original) continue;
 
@@ -176,6 +169,8 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
           try {
             const fd = new FormData();
             fd.append('orderId', orderId);
+            if (orderCode) fd.append('orderCode', orderCode);
+
             const r = await markLabelPrintedAction({}, fd);
             if (r.success) onLabelGenerated?.();
             else console.warn('markLabelPrintedAction:', r.error);
@@ -349,3 +344,5 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
         </div>
     );
 }
+
+    
