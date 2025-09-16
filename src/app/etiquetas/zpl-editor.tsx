@@ -156,7 +156,11 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     // Função para determinar o tipo de campo com base no conteúdo
     const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
         const lowerValue = value.toLowerCase();
-        if (lowerValue.match(/^\d{10,}$/)) return 'trackingNumber';
+        
+        // Regex for trackingNumber: now matches patterns like "170209896-01" or long numbers
+        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/)) {
+            return 'trackingNumber';
+        }
         if (lowerValue.includes('pedido:')) return 'orderNumber';
         if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
         if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
@@ -172,8 +176,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         );
 
         if (isSenderField) {
-            // Se for um campo do remetente, verifica se é o nome (não contém vírgula) ou o endereço (contém vírgula)
-            if (!lowerValue.includes(',')) {
+            // Se for um campo do remetente, verifica se é o nome (não contém vírgula nem 'sao paulo') ou o endereço
+            if (!lowerValue.includes(',') && !lowerValue.includes('sao paulo')) {
                 return 'senderName';
             }
         }
