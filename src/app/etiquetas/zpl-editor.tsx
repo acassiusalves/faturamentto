@@ -154,12 +154,25 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     }
       
     // Função para determinar o tipo de campo com base no conteúdo
-    const getFieldType = (value: string): RemixableField | null => {
-        if (value.match(/^\d{10,}$/)) return 'trackingNumber'; // Long numbers are likely tracking numbers
-        if (value.toLowerCase().includes('pedido')) return 'orderNumber';
-        if (value.toLowerCase().includes('nota fiscal')) return 'invoiceNumber';
-        if (value.toLowerCase().includes('lighthouse')) return 'senderName'; // Exemplo, pode ser melhorado
-        if (value.toLowerCase().includes('rua') || value.toLowerCase().includes('alfandega')) return 'senderAddress';
+    const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
+        const lowerValue = value.toLowerCase();
+        if (lowerValue.match(/^\d{10,}$/)) return 'trackingNumber';
+        if (lowerValue.includes('pedido:')) return 'orderNumber';
+        if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
+        if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
+
+        // Heurística para remetente: procurar por um campo próximo que contenha "REMETENTE"
+        const isSenderName = allFields.some(field =>
+          field.value.toLowerCase().includes('remetente') &&
+          // Verifica se o campo "REMETENTE" está visualmente próximo do campo de nome atual
+          Math.abs(field.y - fields.find(f => f.value === value)!.y) < 50
+        );
+
+        if (isSenderName && !lowerValue.includes('remetente')) {
+          // Garante que não estamos classificando o próprio rótulo "REMETENTE"
+          return 'senderName';
+        }
+
         return null;
     }
 
@@ -185,7 +198,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                     <div className="space-y-4">
                         {fields.map((field) => {
                             const fieldKey = `${field.x},${field.y}`;
-                            const fieldType = getFieldType(field.value);
+                            const fieldType = getFieldType(field.value, fields);
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
