@@ -11,10 +11,7 @@ import { getAi } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { RemixLabelDataInput, RemixLabelDataOutput } from '@/lib/types';
 import { gemini15Flash } from '@genkit-ai/googleai';
-import { assertElements } from "@/lib/assert-elements";
-
-assertElements({ getAi, z, gemini15Flash });
-
+import { loadAppSettings } from '@/services/firestore';
 
 // Schemas are defined in the action file. We only need the types here.
 const RemixLabelDataInputSchema = z.object({
@@ -31,7 +28,11 @@ const RemixLabelDataOutputSchema = z.object({
 export async function remixLabelData(
   input: RemixLabelDataInput
 ): Promise<RemixLabelDataOutput> {
-  const ai = getAi(input.apiKey);
+  const settings = await loadAppSettings();
+  const apiKey = settings?.geminiApiKey;
+  // It's ok to not throw an error if the key is missing,
+  // as the action can still work with a globally configured key.
+  const ai = getAi(apiKey);
   
   const remixLabelDataFlow = ai.defineFlow(
     {
@@ -54,7 +55,7 @@ export async function remixLabelData(
 
           - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format as the 'originalValue'.
           - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name.
-          - If 'fieldTo-Remix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
+          - If 'fieldToRemix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
 
           Return ONLY the 'newValue' in the specified JSON format. Do not add any other text.
           `,
