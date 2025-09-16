@@ -61,21 +61,21 @@ export function LabelViewerDialog({ isOpen, onClose, zplContent }: LabelViewerDi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Visualização da Etiqueta</DialogTitle>
           <DialogDescription>
             Esta é a prévia da etiqueta que foi gerada e salva no sistema.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center justify-center p-4 min-h-[300px] bg-muted rounded-md">
+        <div className="flex items-center justify-center p-4 min-h-[400px] bg-muted rounded-md">
             {isRendering ? (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Loader2 className="animate-spin text-primary" size={32} />
                     <p>Renderizando etiqueta...</p>
                 </div>
             ) : imageUrl ? (
-                <Image src={imageUrl} alt="Pré-visualização da Etiqueta ZPL" width={250} height={375} style={{ objectFit: 'contain' }} />
+                <Image src={imageUrl} alt="Pré-visualização da Etiqueta ZPL" width={400} height={600} style={{ objectFit: 'contain' }} />
             ) : (
                 <div className="flex flex-col items-center gap-2 text-destructive">
                     <ImageIcon size={32} />
