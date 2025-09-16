@@ -1,4 +1,3 @@
-
 // === ZPL utils: decode/encode, parse, update ===
 
 // Decodifica ^FH (substitui _xx por bytes UTF-8)
@@ -194,4 +193,66 @@ export function updateCluster(
     out = out.slice(0, f.start) + encoded + out.slice(f.end);
   }
   return out;
+}
+
+// Remove acentos e deixa minúsculo (p/ achar "DESTINATÁRIO" mesmo sem acento)
+export function norm(s: string) {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+// Tenta achar o Y do título (ex.: "destinatario" ou "remetente")
+function findTitleY(fields: ZplField[], label: "destinatario" | "remetente") {
+  const target = fields
+    .filter(f => f.kind === "text")
+    .filter(f => {
+      const v = norm(f.value);
+      return v.includes(label);
+    })
+    // quando tem duplicado (sombra), pega o menor Y (primeira ocorrência)
+    .sort((a, b) => a.y - b.y)[0];
+  return target?.y ?? null;
+}
+
+// Define as zonas com base nos títulos encontrados
+export type Zones = {
+  recipient: { yMin: number; yMax: number; xMin: number; xMax: number };
+  sender: { yMin: number; yMax: number; xMin: number; xMax: number };
+};
+
+export function computeZones(visible: ZplField[]): Zones | null {
+  // coluna "central" desses textos normalmente é x ~ 370
+  const xs = visible.map(f => f.x).sort((a,b)=>a-b);
+  const medianX = xs.length ? xs[Math.floor(xs.length/2)] : 370;
+
+  const yDest = findTitleY(visible, "destinatario");
+  const yRem  = findTitleY(visible, "remetente");
+
+  if (yDest == null || yRem == null) return null;
+
+  // margens de segurança (px)
+  const M = 14;
+  const XW = 80; // largura da coluna onde ficam os textos (ajuste fino se quiser)
+
+  return {
+    recipient: {
+      yMin: yDest + M,
+      yMax: yRem - M,
+      xMin: medianX - XW,
+      xMax: medianX + XW,
+    },
+    sender: {
+      yMin: yRem + M,
+      yMax: Number.POSITIVE_INFINITY,
+      xMin: medianX - XW,
+      xMax: medianX + XW,
+    },
+  };
+}
+
+export function isInZone(f: ZplField, z?: {yMin:number;yMax:number;xMin:number;xMax:number}) {
+  if (!z) return false;
+  return f.y >= z.yMin && f.y <= z.yMax && f.x >= z.xMin && f.x <= z.xMax;
 }

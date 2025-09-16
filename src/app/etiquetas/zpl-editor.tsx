@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH } from '@/lib/zpl';
+import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH, computeZones, isInZone, norm, type Zones } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
@@ -27,6 +27,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const printRef = React.useRef<HTMLDivElement>(null);
     const [fields, setFields] = React.useState<ZplField[]>([]);
     const clustersRef = React.useRef<Record<string, ZplField[]>>({});
+    const zonesRef = React.useRef<Zones | null>(null);
     const [editedValues, setEditedValues] = React.useState<Record<string, string>>({});
     const [currentZpl, setCurrentZpl] = React.useState(originalZpl);
     const [imageUrl, setImageUrl] = React.useState<string | null>(null);
@@ -43,6 +44,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         const { visible, byKey } = clusterizeFields(parsed);
         setFields(visible);
         clustersRef.current = byKey;
+        zonesRef.current = computeZones(visible); // <<< AQUI: calcula as zonas
 
         const initialEdits: Record<string, string> = {};
         visible.forEach((f) => {
@@ -82,56 +84,56 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     };
 
     const handleUpdateZpl = () => {
-        setIsUpdating(true);
-        try {
-          // 1) Re-parseia o ZPL ATUAL (não o original!)
-          const parsedNow = parseZplFields(currentZpl);
-          const { visible, byKey } = clusterizeFields(parsedNow);
-      
-          // 2) Monta a lista de mudanças (todas as camadas de cada campo alterado)
-          type Change = { field: ZplField; encoded: string };
-          const changes: Change[] = [];
-      
-          for (const rep of visible) {
-            const key = `${rep.x},${rep.y}`;
-            const edited = editedValues[key] ?? "";
-            const original = rep.value ?? "";
-      
-            if (edited === original) continue;
-      
-            // preserva prefixo tipo "Pedido: ", "Nota Fiscal: ", etc.
-            let toWrite = edited;
-            const idx = (rep.value ?? "").indexOf(": ");
-            if (idx > -1) {
-              toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
-            }
-      
-            const enc = encodeFH(toWrite);
-            const group = byKey[key] || [rep];
-            for (const layer of group) {
-              changes.push({ field: layer, encoded: enc });
-            }
+      setIsUpdating(true);
+      try {
+        // 1) Re-parseia o ZPL ATUAL (não o original!)
+        const parsedNow = parseZplFields(currentZpl);
+        const { visible, byKey } = clusterizeFields(parsedNow);
+    
+        // 2) Monta a lista de mudanças (todas as camadas de cada campo alterado)
+        type Change = { field: ZplField; encoded: string };
+        const changes: Change[] = [];
+    
+        for (const rep of visible) {
+          const key = `${rep.x},${rep.y}`;
+          const edited = editedValues[key] ?? "";
+          const original = rep.value ?? "";
+    
+          if (edited === original) continue;
+    
+          // preserva prefixo tipo "Pedido: ", "Nota Fiscal: ", etc.
+          let toWrite = edited;
+          const idx = (rep.value ?? "").indexOf(": ");
+          if (idx > -1) {
+            toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
           }
-      
-          if (changes.length === 0) {
-            setIsUpdating(false);
-            return;
+    
+          const enc = encodeFH(toWrite);
+          const group = byKey[key] || [rep];
+          for (const layer of group) {
+            changes.push({ field: layer, encoded: enc });
           }
-      
-          // 3) Aplica tudo de trás pra frente (start DESC) para não quebrar offsets
-          changes.sort((a, b) => b.field.start - a.field.start);
-      
-          let out = currentZpl;
-          for (const ch of changes) {
-            out = out.slice(0, ch.field.start) + ch.encoded + out.slice(ch.field.end);
-          }
-      
-          setCurrentZpl(out);
-          toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
-        } finally {
-          setIsUpdating(false);
         }
-      };
+    
+        if (changes.length === 0) {
+          setIsUpdating(false);
+          return;
+        }
+    
+        // 3) Aplica tudo de trás pra frente (start DESC) para não quebrar offsets
+        changes.sort((a, b) => b.field.start - a.field.start);
+    
+        let out = currentZpl;
+        for (const ch of changes) {
+          out = out.slice(0, ch.field.start) + ch.encoded + out.slice(ch.field.end);
+        }
+    
+        setCurrentZpl(out);
+        toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+      } finally {
+        setIsUpdating(false);
+      }
+    };
 
     const handleRemixField = async (fieldKey: string, originalValue: string, fieldType: RemixableField) => {
         setIsRemixing(fieldKey);
@@ -156,20 +158,61 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         }
     }
     
+    const getFieldType = (field: ZplField): RemixableField | null => {
+        const zones = zonesRef.current;
+      
+        // Se não temos as zonas por algum motivo, melhor não arriscar
+        if (!zones) {
+            // Fallback para identificação de tracking number que pode estar em qualquer lugar
+            const lowerValue = field.value.toLowerCase();
+            if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
+                return 'trackingNumber';
+            }
+            return null;
+        }
+      
+        // 1) Nunca remixar nada do DESTINATÁRIO
+        if (isInZone(field, zones.recipient)) return null;
+      
+        // 2) Permitir tracking number em qualquer lugar
+        const lowerValue = field.value.toLowerCase();
+        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
+            return 'trackingNumber';
+        }
+
+        if (lowerValue.includes('pedido:')) return 'orderNumber';
+        if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
+      
+        // 3) Só deixamos remix de nome/endereço no REMETENTE
+        if (!isInZone(field, zones.sender)) return null;
+      
+        // Dentro do REMETENTE, distinguir nome vs endereço
+        const lower = norm(field.value);
+        const hasAddrWord = /\b(rua|av|avenida|alameda|travessa|rodovia|estrada|praca|praça|bairro|bloco|sala|galpao|galpão|CEP|cep)\b/.test(lower)
+                         || /-\s*\d{8}/.test(lower); // " - 03006030"
+      
+        if (hasAddrWord) return "senderAddress";
+        if (lower.length > 0) return "senderName";
+      
+        return null;
+      };
+
     const handleRemixAll = async () => {
         setIsRemixingAll(true);
         setRemixProgress(0);
 
-        const remixableFields = fields.map(field => {
-            const fieldKey = `${field.x},${field.y}`;
-            const fieldType = getFieldType(field, fields);
-            return { fieldKey, originalValue: field.value, fieldType };
-        }).filter(f => f.fieldType !== null);
+        const remixableFields = fields
+            .map(field => {
+                const fieldKey = `${field.x},${field.y}`;
+                const fieldType = getFieldType(field);
+                return fieldType ? { fieldKey, originalValue: field.value, fieldType } : null;
+            })
+            .filter(Boolean) as { fieldKey: string; originalValue: string; fieldType: RemixableField }[];
 
         const totalFields = remixableFields.length;
         for (let i = 0; i < totalFields; i++) {
             const { fieldKey, originalValue, fieldType } = remixableFields[i];
-            await handleRemixField(fieldKey, originalValue, fieldType as RemixableField);
+            await handleRemixField(fieldKey, originalValue, fieldType);
             setRemixProgress(((i + 1) / totalFields) * 100);
         }
 
@@ -179,47 +222,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         });
         setIsRemixingAll(false);
     };
-
       
-    // Função para determinar o tipo de campo com base no conteúdo
-    const getFieldType = (field: ZplField, allFields: ZplField[]): RemixableField | null => {
-        const lowerValue = field.value.toLowerCase();
-        
-        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
-            return 'trackingNumber';
-        }
-        if (lowerValue.includes('pedido:')) return 'orderNumber';
-        if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
-        
-        // Find distances to "REMETENTE" and "DESTINATÁRIO"
-        let senderDist = Infinity;
-        let recipientDist = Infinity;
-
-        for (const f of allFields) {
-            const fLower = f.value.toLowerCase();
-            if (fLower.includes('remetente')) {
-                senderDist = Math.min(senderDist, Math.abs(f.y - field.y));
-            }
-            if (fLower.includes('destinatário')) {
-                recipientDist = Math.min(recipientDist, Math.abs(f.y - field.y));
-            }
-        }
-
-        // Only consider it a sender field if it's closer to "REMETENTE"
-        if (senderDist < recipientDist && senderDist < 200) {
-            const hasAddressKeywords = /\b(rua|av|alameda|alfandega)\b/.test(lowerValue);
-            const hasCityStateKeywords = /\b(sao paulo|sp|br-sp)\b/.test(lowerValue);
-            
-            if (!hasAddressKeywords && !hasCityStateKeywords && !/^\d+$/.test(lowerValue) && isNaN(parseInt(lowerValue))) {
-                return 'senderName';
-            }
-            if (hasAddressKeywords) {
-                return 'senderAddress';
-            }
-        }
-        
-        return null;
-    }
 
     const handlePrint = () => {
         if (printRef.current) {
@@ -243,11 +246,13 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                     <div className="space-y-4">
                         {fields.map((field) => {
                             const fieldKey = `${field.x},${field.y}`;
-                            const fieldType = getFieldType(field, fields);
+                            const fieldType = getFieldType(field);
+                            const lockedRecipient = zonesRef.current && isInZone(field, zonesRef.current.recipient);
+
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
-                                        Campo em (X: {field.x}, Y: {field.y})
+                                        Campo em (X: {field.x}, Y: {field.y}) {lockedRecipient && " – bloqueado (Destinatário)"}
                                     </Label>
                                     <div className="flex items-center gap-2">
                                         <Input
@@ -256,6 +261,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                                             value={editedValues[fieldKey] ?? ''}
                                             onChange={(e) => handleInputChange(fieldKey, e.target.value)}
                                             className="font-mono text-sm"
+                                            disabled={lockedRecipient}
                                         />
                                         {fieldType && (
                                             <Button 
