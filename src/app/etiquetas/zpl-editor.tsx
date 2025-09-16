@@ -8,11 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH, computeZones, isInZone, norm, type Zones, matchIAAllowed } from '@/lib/zpl';
+import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, isInZone, Zones } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
-import { remixLabelDataAction, markLabelPrintedAction } from '@/app/actions';
+import { markLabelPrintedAction, remixLabelDataAction } from '@/app/actions';
 import { Progress } from '@/components/ui/progress';
 
 assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea, Wand2, Sparkles });
@@ -32,12 +32,19 @@ const labelMap: Record<string, string> = {
   "370,1047":"Remetente – Endereço",
 };
 
+const sanitizeValue = (fieldType: RemixableField | null, v: string) => {
+  if (!v) return v;
+  if (fieldType === "orderNumber")   return v.replace(/^\s*pedido\s*:?\s*/i, "").trim();
+  if (fieldType === "invoiceNumber") return v.replace(/^\s*nota\s*fiscal\s*:?\s*/i, "").trim();
+  return v.trim();
+};
+
 
 export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorProps) {
     const { toast } = useToast();
     const printRef = React.useRef<HTMLDivElement>(null);
-    const [fields, setFields] = React.useState<ZplField[]>([]);
-    const clustersRef = React.useRef<Record<string, ZplField[]>>({});
+    const [fields, setFields] = React.useState<ReturnType<typeof parseZplFields>>([]);
+    const clustersRef = React.useRef<Record<string, ReturnType<typeof parseZplFields>>({});
     const zonesRef = React.useRef<Zones | null>(null);
     const [editedValues, setEditedValues] = React.useState<Record<string, string>>({});
     const [currentZpl, setCurrentZpl] = React.useState(originalZpl);
@@ -48,6 +55,17 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     const [isRemixing, setIsRemixing] = React.useState<string | null>(null);
     const [isRemixingAll, setIsRemixingAll] = React.useState(false);
     const [remixProgress, setRemixProgress] = React.useState(0);
+    
+    const getFieldType = (field: ReturnType<typeof parseZplFields>[0]): RemixableField | null => {
+      const byCoord = matchIAAllowed(field);
+      if (!byCoord) return null;
+
+      const v = field.value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+      if (byCoord === "orderNumber"   && !v.startsWith("pedido:"))      return null;
+      if (byCoord === "invoiceNumber" && !v.startsWith("nota fiscal:")) return null;
+
+      return byCoord;
+    };
 
 
     React.useEffect(() => {
@@ -104,58 +122,55 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     const handleUpdateZpl = async () => {
       setIsUpdating(true);
       try {
-        // 1) Re-parseia o ZPL ATUAL (índices frescos)
         const parsedNow = parseZplFields(currentZpl);
         const { visible, byKey } = clusterizeFields(parsedNow);
-    
-        // 2) Calcula todas as mudanças de uma vez
+
         type Change = { start: number; end: number; encoded: string };
         const changes: Change[] = [];
-    
+
         for (const rep of visible) {
           const key = `${rep.x},${rep.y}`;
-          const edited = editedValues[key] ?? "";
+          const fieldType = getFieldType(rep);
+          let edited = editedValues[key] ?? "";
           const original = rep.value ?? "";
-          if (edited === original) continue;
-    
-          // preserva prefixo tipo "Pedido: ", "Nota Fiscal: " se existir no REPRESENTANTE
+
+          edited = sanitizeValue(fieldType, edited);
+          if (edited === original && !fieldType) continue;
+
           let toWrite = edited;
           const idx = (rep.value ?? "").indexOf(": ");
           if (idx > -1) {
             toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
           }
-    
+
           const enc = encodeFH(toWrite);
           const group = byKey[key] || [rep];
           for (const layer of group) {
             changes.push({ start: layer.start, end: layer.end, encoded: enc });
           }
         }
-    
+
         if (changes.length === 0) {
           setIsUpdating(false);
           return;
         }
-    
-        // 3) Aplica tudo do fim pro começo para não quebrar offsets entre CLUSTERS
+
         changes.sort((a, b) => b.start - a.start);
-    
+
         let out = currentZpl;
         for (const ch of changes) {
           out = out.slice(0, ch.start) + ch.encoded + out.slice(ch.end);
         }
-    
+
         setCurrentZpl(out);
-    
-        // (opcional, mas ajuda o formulário a ficar em sincronia)
+
         const parsedUpdated = parseZplFields(out);
         const { visible: newVisible, byKey: newByKey } = clusterizeFields(parsedUpdated);
         setFields(newVisible);
         clustersRef.current = newByKey;
-    
+
         toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
-    
-        // 4) marca como impressa (se tiver orderId)
+
         if (orderId) {
           try {
             const fd = new FormData();
@@ -174,16 +189,6 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
       }
     };
 
-    const getFieldType = (field: ZplField): RemixableField | null => {
-      const byCoord = matchIAAllowed(field);
-      if (!byCoord) return null;
-    
-      const v = norm(field.value);
-      if (byCoord === "orderNumber"   && !v.startsWith("pedido:"))      return null;
-      if (byCoord === "invoiceNumber" && !v.startsWith("nota fiscal:")) return null;
-    
-      return byCoord;
-    };
 
     const handleRemixField = async (fieldKey: string, originalValue: string, fieldType: RemixableField) => {
         setIsRemixing(fieldKey);
@@ -197,7 +202,8 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
             }
             const newValue = result.analysis[fieldType];
             if (newValue) {
-                setEditedValues(prev => ({ ...prev, [fieldKey]: newValue }));
+                const clean = sanitizeValue(fieldType, newValue);
+                setEditedValues(prev => ({ ...prev, [fieldKey]: clean }));
                 toast({ title: "Campo Remixado!", description: `A IA gerou um novo valor para ${fieldType}.`});
             }
 
@@ -342,4 +348,3 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
         </div>
     );
 }
-
