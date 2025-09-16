@@ -162,7 +162,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
 
         const remixableFields = fields.map(field => {
             const fieldKey = `${field.x},${field.y}`;
-            const fieldType = getFieldType(field.value, fields);
+            const fieldType = getFieldType(field, fields);
             return { fieldKey, originalValue: field.value, fieldType };
         }).filter(f => f.fieldType !== null);
 
@@ -182,8 +182,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
 
       
     // Função para determinar o tipo de campo com base no conteúdo
-    const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
-        const lowerValue = value.toLowerCase();
+    const getFieldType = (field: ZplField, allFields: ZplField[]): RemixableField | null => {
+        const lowerValue = field.value.toLowerCase();
         
         if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
             return 'trackingNumber';
@@ -191,22 +191,22 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         if (lowerValue.includes('pedido:')) return 'orderNumber';
         if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
         
-        const field = allFields.find(f => f.value === value);
-        if (!field) return null;
+        // Find distances to "REMETENTE" and "DESTINATÁRIO"
+        let senderDist = Infinity;
+        let recipientDist = Infinity;
 
-        const isSenderField = allFields.some(f =>
-            f.value.toLowerCase().includes('remetente') &&
-            Math.abs(f.y - field.y) < 150 && 
-            !value.toLowerCase().includes('remetente')
-        );
+        for (const f of allFields) {
+            const fLower = f.value.toLowerCase();
+            if (fLower.includes('remetente')) {
+                senderDist = Math.min(senderDist, Math.abs(f.y - field.y));
+            }
+            if (fLower.includes('destinatário')) {
+                recipientDist = Math.min(recipientDist, Math.abs(f.y - field.y));
+            }
+        }
 
-        // Adiciona uma verificação para NÃO ser um campo do destinatário
-        const isRecipientField = allFields.some(f => 
-            f.value.toLowerCase().includes('destinatário') &&
-            Math.abs(f.y - field.y) < 150
-        );
-
-        if (isSenderField && !isRecipientField) {
+        // Only consider it a sender field if it's closer to "REMETENTE"
+        if (senderDist < recipientDist && senderDist < 200) {
             const hasAddressKeywords = /\b(rua|av|alameda|alfandega)\b/.test(lowerValue);
             const hasCityStateKeywords = /\b(sao paulo|sp|br-sp)\b/.test(lowerValue);
             
@@ -243,7 +243,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                     <div className="space-y-4">
                         {fields.map((field) => {
                             const fieldKey = `${field.x},${field.y}`;
-                            const fieldType = getFieldType(field.value, fields);
+                            const fieldType = getFieldType(field, fields);
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
