@@ -11,10 +11,10 @@ import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save } from 'lucide-react';
 import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
-import type { Sale, AnalyzeLabelOutput } from '@/lib/types';
+import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { fetchLabelAction, analyzeZplAction } from '@/app/actions';
+import { fetchLabelAction } from '@/app/actions';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,16 @@ import type { DateRange } from "react-day-picker";
 import { Label } from "@/components/ui/label";
 import { ZplEditor } from "./zpl-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { assertElements } from "@/lib/assert-elements";
+
+assertElements({
+    Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter, Button, MultiSelect,
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Loader2, Filter, X,
+    Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save,
+    Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger,
+    DialogFooter, Input, DateRangePicker, Label, ZplEditor, Select, SelectContent, SelectItem,
+    SelectTrigger, SelectValue,
+});
 
 const initialFetchState = {
     zplContent: null as string | null,
@@ -50,10 +60,8 @@ export default function EtiquetasPage() {
         to: endOfMonth(new Date()),
     });
 
-    // State for ZPL processing
     const [zplContent, setZplContent] = useState<string | null>(null);
     const [isProcessingZpl, setIsProcessingZpl] = useState(false);
-    const [zplAnalysis, setZplAnalysis] = useState<AnalyzeLabelOutput | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [fetchingOrderId, setFetchingOrderId] = useState<string | null>(null);
 
@@ -102,10 +110,8 @@ export default function EtiquetasPage() {
         setFetchingOrderId(orderId);
         setIsProcessingZpl(true);
         setZplContent(null);
-        setZplAnalysis(null);
         
         try {
-            // Step 1: Fetch ZPL
             const formData = new FormData();
             formData.append('orderId', orderId);
             const zplResult = await fetchLabelAction(initialFetchState, formData);
@@ -113,33 +119,8 @@ export default function EtiquetasPage() {
             if (zplResult.error || !zplResult.zplContent) {
                 throw new Error(zplResult.error || 'Não foi possível obter o ZPL da Ideris.');
             }
-             
-            let imageUrl = null;
-            try {
-                const response = await fetch('/api/zpl-preview', {
-                    method: 'POST',
-                    body: zplResult.zplContent,
-                });
-                if (response.ok) {
-                    const imageBlob = await response.blob();
-                    imageUrl = URL.createObjectURL(imageBlob);
-                }
-            } catch (e) {
-                console.error("Falha ao gerar imagem da etiqueta:", e);
-            }
-
+            
             setZplContent(zplResult.zplContent);
-
-            // Step 2: Analyze ZPL
-            const analyzeFormData = new FormData();
-            analyzeFormData.append('zplContent', zplResult.zplContent);
-            const analysisResult = await analyzeZplAction({ analysis: null, error: null }, analyzeFormData);
-
-            if (analysisResult.error || !analysisResult.analysis) {
-                throw new Error(analysisResult.error || 'Falha ao analisar os dados da etiqueta com a IA.');
-            }
-
-            setZplAnalysis(analysisResult.analysis);
             setIsEditorOpen(true);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
@@ -429,13 +410,13 @@ export default function EtiquetasPage() {
                             Altere os campos da etiqueta e visualize o resultado em tempo real antes de imprimir.
                         </DialogDescription>
                     </DialogHeader>
-                    {isProcessingZpl || !zplContent || !zplAnalysis ? (
+                    {isProcessingZpl || !zplContent ? (
                          <div className="flex items-center justify-center h-full">
                             <Loader2 className="animate-spin text-primary" size={32} />
                             <p className="ml-4">Processando etiqueta...</p>
                         </div>
                     ) : (
-                       <ZplEditor originalZpl={zplContent} initialData={zplAnalysis} />
+                       <ZplEditor originalZpl={zplContent} />
                     )}
                 </DialogContent>
             </Dialog>

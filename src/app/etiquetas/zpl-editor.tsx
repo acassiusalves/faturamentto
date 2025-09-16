@@ -2,46 +2,45 @@
 "use client";
 
 import * as React from 'react';
-import { Loader2, Wand2, RefreshCw, Printer, Code, Image as ImageIcon } from 'lucide-react';
+import { Loader2, RefreshCw, Printer, Code, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import type { AnalyzeLabelOutput, RemixLabelDataInput, RemixableField } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { remixLabelDataAction, correctExtractedDataAction, regenerateZplAction } from '@/app/actions';
 import Image from 'next/image';
-import { MappingDebugger } from './mapping-debugger';
+import { parseZplFields, updateFieldAt, type ZplField } from '@/lib/zpl';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { assertElements } from "@/lib/assert-elements";
+
+assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea });
+
 
 interface ZplEditorProps {
   originalZpl: string;
-  initialData: AnalyzeLabelOutput;
 }
 
-const editableFields: { key: keyof AnalyzeLabelOutput, label: string, remixable: boolean }[] = [
-    { key: 'recipientName', label: 'Nome do Destinatário', remixable: false },
-    { key: 'streetAddress', label: 'Endereço', remixable: false },
-    { key: 'city', label: 'Cidade', remixable: false },
-    { key: 'state', label: 'Estado', remixable: false },
-    { key: 'zipCode', label: 'CEP', remixable: false },
-    { key: 'orderNumber', label: 'Nº do Pedido', remixable: true },
-    { key: 'invoiceNumber', label: 'Nº da Nota Fiscal', remixable: true },
-    { key: 'trackingNumber', label: 'Nº de Rastreio', remixable: true },
-    { key: 'senderName', label: 'Nome do Remetente', remixable: true },
-    { key: 'senderAddress', label: 'Endereço do Remetente', remixable: true },
-];
-
-export function ZplEditor({ originalZpl, initialData }: ZplEditorProps) {
+export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const { toast } = useToast();
     const printRef = React.useRef<HTMLDivElement>(null);
-    const [editedData, setEditedData] = React.useState<AnalyzeLabelOutput>(initialData);
+    const [fields, setFields] = React.useState<ZplField[]>([]);
+    const [editedValues, setEditedValues] = React.useState<Record<string, string>>({});
     const [currentZpl, setCurrentZpl] = React.useState(originalZpl);
     const [imageUrl, setImageUrl] = React.useState<string | null>(null);
     const [isRendering, setIsRendering] = React.useState(false);
-    const [isRemixing, setIsRemixing] = React.useState<RemixableField | null>(null);
-    const [isRegenerating, setIsRegenerating] = React.useState(false);
-    const [isCorrecting, setIsCorrecting] = React.useState(false);
+    const [isUpdating, setIsUpdating] = React.useState(false);
     const [showRawZpl, setShowRawZpl] = React.useState(false);
+
+    React.useEffect(() => {
+        const parsedFields = parseZplFields(originalZpl);
+        setFields(parsedFields);
+        const initialEdits: Record<string, string> = {};
+        parsedFields.forEach(field => {
+             // Create a unique key for each field based on its position
+            const fieldKey = `${field.x},${field.y}`;
+            initialEdits[fieldKey] = field.value;
+        });
+        setEditedValues(initialEdits);
+    }, [originalZpl]);
 
     const generateImage = React.useCallback(async (zpl: string) => {
         setIsRendering(true);
@@ -52,102 +51,41 @@ export function ZplEditor({ originalZpl, initialData }: ZplEditorProps) {
                 throw new Error(errorText || 'Falha ao gerar a imagem da etiqueta.');
             }
             const imageBlob = await response.blob();
+            if (imageUrl) URL.revokeObjectURL(imageUrl); // Clean up old URL
             const url = URL.createObjectURL(imageBlob);
             setImageUrl(url);
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Erro de Visualização', description: error.message });
+            setImageUrl(null);
         } finally {
             setIsRendering(false);
         }
-    }, [toast]);
+    }, [toast, imageUrl]);
     
     React.useEffect(() => {
         generateImage(currentZpl);
-        // Clean up object URL on unmount
-        return () => {
-            if (imageUrl) URL.revokeObjectURL(imageUrl);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentZpl]);
-    
-    // Auto-correct on initial load if data seems to be placeholder
-    React.useEffect(() => {
-        const needsCorrection = Object.values(initialData).some(val => val === 'string');
 
-        async function autoCorrect() {
-          if (!needsCorrection) return;
-          
-          setIsCorrecting(true);
-          try {
-            const formData = new FormData();
-            formData.append('originalZpl', originalZpl);
-            formData.append('extractedData', JSON.stringify(initialData));
-            const result = await correctExtractedDataAction({ analysis: null, error: null}, formData);
-            if (result.analysis) {
-              setEditedData(result.analysis);
-              toast({ title: 'Dados Corrigidos', description: 'Uma correção automática foi aplicada aos dados extraídos.'});
-            }
-          } catch(e) {
-            console.error("Auto-correction failed", e);
-          } finally {
-            setIsCorrecting(false);
-          }
-      }
-      autoCorrect();
-    }, [originalZpl, initialData, toast]);
-
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setEditedData(prev => ({ ...prev, [name]: value }));
+    const handleInputChange = (fieldKey: string, value: string) => {
+        setEditedValues(prev => ({ ...prev, [fieldKey]: value }));
     };
 
-    const handleRemix = async (field: RemixableField) => {
-        setIsRemixing(field);
-        try {
-            const formData = new FormData();
-            const remixInput: RemixLabelDataInput = { 
-                fieldToRemix: field, 
-                originalValue: editedData[field] || '' 
-            };
-            
-            formData.append('remixInput', JSON.stringify(remixInput));
+    const handleUpdateZpl = () => {
+        setIsUpdating(true);
+        let newZpl = originalZpl;
+        fields.forEach(field => {
+            const fieldKey = `${field.x},${field.y}`;
+            const editedValue = editedValues[fieldKey];
+            const originalValue = field.value;
 
-            const result = await remixLabelDataAction({ analysis: null, error: null }, formData);
-
-            if (result.error || !result.analysis) {
-                 throw new Error(result.error || "A IA não retornou um novo valor.");
+            if (editedValue !== originalValue) {
+                newZpl = updateFieldAt(newZpl, { x: field.x, y: field.y }, editedValue);
             }
-            
-            setEditedData(prev => ({ ...prev, ...result.analysis }));
-
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: `Erro ao Remixar ${field}`, description: error.message });
-        } finally {
-            setIsRemixing(null);
-        }
-    };
-    
-    const handleRegenerateZpl = async () => {
-        setIsRegenerating(true);
-        try {
-            const formData = new FormData();
-            formData.append('originalZpl', originalZpl);
-            formData.append('editedData', JSON.stringify(editedData));
-
-            const result = await regenerateZplAction({ result: null, error: null }, formData);
-
-            if (result.error || !result.result?.newZpl) {
-                throw new Error(result.error || 'A IA não conseguiu regenerar o ZPL.');
-            }
-            setCurrentZpl(result.result.newZpl);
-            toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi regenerado com os novos dados.' });
-
-        } catch (error: any) {
-             toast({ variant: 'destructive', title: 'Erro ao Atualizar Etiqueta', description: error.message });
-        } finally {
-             setIsRegenerating(false);
-        }
+        });
+        setCurrentZpl(newZpl);
+        toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+        setIsUpdating(false);
     };
 
     const handlePrint = () => {
@@ -167,49 +105,33 @@ export function ZplEditor({ originalZpl, initialData }: ZplEditorProps) {
     return (
         <div className="grid md:grid-cols-2 gap-6 h-full overflow-hidden">
             {/* Editor Form */}
-            <div className="flex flex-col space-y-4 overflow-y-auto pr-4">
-                {isCorrecting && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted rounded-md">
-                    <Loader2 className="h-4 w-4 animate-spin"/>
-                    <span>Corrigindo dados com IA...</span>
-                  </div>
-                )}
-                {editableFields.map(({ key, label, remixable }) => (
-                    <div key={key} className="space-y-1.5">
-                        <Label htmlFor={key}>{label}</Label>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                id={key}
-                                name={key}
-                                value={editedData[key as keyof AnalyzeLabelOutput] || ''}
-                                onChange={handleInputChange}
-                                className="flex-grow"
-                            />
-                            {remixable && (
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => handleRemix(key as RemixableField)}
-                                    disabled={!!isRemixing}
-                                    title={`Remixar ${label}`}
-                                >
-                                    {isRemixing === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 />}
-                                </Button>
-                            )}
-                        </div>
+            <div className="flex flex-col space-y-4 overflow-hidden">
+                 <ScrollArea className="flex-grow pr-4">
+                    <div className="space-y-4">
+                        {fields.sort((a,b) => a.y - b.y || a.x - b.x).map((field) => {
+                            const fieldKey = `${field.x},${field.y}`;
+                            if (field.kind === 'qrcode') return null; // Don't show QR code data for editing by default
+
+                            return (
+                                <div key={fieldKey} className="space-y-1.5">
+                                    <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
+                                        Campo em (X: {field.x}, Y: {field.y})
+                                    </Label>
+                                    <Input
+                                        id={fieldKey}
+                                        name={fieldKey}
+                                        value={editedValues[fieldKey] || ''}
+                                        onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+                                        className="font-mono text-sm"
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
-                ))}
-                 <MappingDebugger zpl={originalZpl}/>
-                <div className="flex justify-between items-center sticky bottom-0 bg-background py-4">
-                    {isRegenerating && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Regenerando ZPL...</span>
-                        </div>
-                    )}
-                    <div/>
-                    <Button onClick={handleRegenerateZpl} disabled={isRegenerating}>
-                        <RefreshCw className="mr-2" />
+                 </ScrollArea>
+                <div className="flex justify-end items-center sticky bottom-0 bg-background py-4 flex-shrink-0">
+                    <Button onClick={handleUpdateZpl} disabled={isUpdating || isRendering}>
+                        {isUpdating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                         Atualizar Etiqueta
                     </Button>
                 </div>
@@ -247,3 +169,4 @@ export function ZplEditor({ originalZpl, initialData }: ZplEditorProps) {
         </div>
     );
 }
+

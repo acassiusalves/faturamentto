@@ -11,6 +11,10 @@ import { getAi } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { RemixLabelDataInput, RemixLabelDataOutput } from '@/lib/types';
 import { gemini15Flash } from '@genkit-ai/googleai';
+import { assertElements } from "@/lib/assert-elements";
+
+assertElements({ getAi, z, gemini15Flash });
+
 
 // Schemas are defined in the action file. We only need the types here.
 const RemixLabelDataInputSchema = z.object({
@@ -50,7 +54,7 @@ export async function remixLabelData(
 
           - If 'fieldToRemix' is 'orderNumber', 'invoiceNumber', or 'trackingNumber': Generate a new random number that has the exact same number of characters and format as the 'originalValue'.
           - If 'fieldToRemix' is 'senderName': Generate a new, plausible, but fake store/company name.
-          - If 'fieldToRemix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
+          - If 'fieldTo-Remix' is 'senderAddress': Set the 'newValue' to the fixed string 'RUA DA ALFÂNDEGA, 200'.
 
           Return ONLY the 'newValue' in the specified JSON format. Do not add any other text.
           `,

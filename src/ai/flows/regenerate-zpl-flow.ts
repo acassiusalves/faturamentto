@@ -58,7 +58,7 @@ export async function regenerateZpl(input: RegenerateZplInput): Promise<Regenera
       1.  **Estrutura Base:**
           *   Comece com \`^XA\`.
           *   Defina a etiqueta com 100mm de largura (\`^PW800\`).
-          *   Defina o comprimento da etiqueta para 150mm (\`^LL1200\`).
+          *   Defina o comprimento da etiqueta para 1200 dots (\`^LL1200\`), que corresponde a 150mm.
           *   Use codificação UTF-8 (\`^CI28\`).
           *   Termine com \`^XZ\`.
 

@@ -1,3 +1,4 @@
+
 // src/lib/assert-elements.ts
 export function assertElements(objs: Record<string, unknown>) {
   const bad: string[] = [];

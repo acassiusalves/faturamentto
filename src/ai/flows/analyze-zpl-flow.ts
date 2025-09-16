@@ -1,19 +1,15 @@
 
 'use server';
 
-/**
- * @fileOverview An AI agent that analyzes ZPL (Zebra Programming Language) shipping label content.
- *
- * - analyzeZpl - A function that handles the ZPL content analysis process.
- * - AnalyzeZplInput - The input type for the analyzeZpl function.
- * - AnalyzeLabelOutput - The return type for the analyzeZpl function.
- */
-
 import { getAi } from '@/ai/genkit';
 import { z } from 'genkit';
 import type { AnalyzeLabelOutput } from '@/lib/types';
 import { loadAppSettings } from '@/services/firestore';
 import { gemini15Flash } from '@genkit-ai/googleai';
+import { assertElements } from "@/lib/assert-elements";
+
+assertElements({ getAi, z, loadAppSettings, gemini15Flash });
+
 
 const AnalyzeLabelOutputSchema = z.object({
   recipientName: z.string().describe('The name of the recipient (DESTINATÁRIO).'),
@@ -23,10 +19,12 @@ const AnalyzeLabelOutputSchema = z.object({
   zipCode: z.string().describe('The ZIP code (CEP) of the recipient.'),
   orderNumber: z.string().describe('The order number (Pedido).'),
   invoiceNumber: z.string().describe('The invoice number (Nota Fiscal).'),
-  estimatedDeliveryDate: z.string().describe('The estimated delivery date (Data estimada).'),
+  estimatedDeliveryDate: z.string().optional().describe('The estimated delivery date (Data estimada).'),
   trackingNumber: z.string().describe('The barcode number. In ZPL, this is often the data for the ^BC (Code 128) command.'),
   senderName: z.string().describe('The name of the sender (REMETENTE).'),
   senderAddress: z.string().describe('The full address of the sender.'),
+  senderNeighborhood: z.string().optional().describe("The sender's neighborhood (Bairro)."),
+  senderCityState: z.string().optional().describe("The sender's city and state (Cidade/UF)."),
 });
 
 const AnalyzeZplInputSchema = z.object({

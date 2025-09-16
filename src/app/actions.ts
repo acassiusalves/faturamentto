@@ -8,37 +8,9 @@ import { revalidatePath } from 'next/cache';
 import type { RemixZplDataInput, RemixZplDataOutput, AnalyzeLabelOutput, RemixableField, RemixLabelDataInput, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
-import { debugMapping, correctExtractedData } from '@/services/zpl-corrector';
 import { deterministicLookup } from "@/lib/matching";
+import { parseZplFields, updateFieldAt } from '@/lib/zpl';
 
-
-
-// === SISTEMA DE MAPEAMENTO PRECISO ZPL ===
-// Substitui todo o sistema anterior por uma abordagem mais determinística
-
-interface ZplTextElement {
-  content: string;           // texto decodificado
-  rawContent: string;        // texto original no ZPL  
-  x: number;                 // coordenada X
-  y: number;                 // coordenada Y
-  startLine: number;         // linha onde começa o bloco
-  endLine: number;           // linha onde termina o bloco
-  fdLineIndex: number;       // linha específica do ^FD
-  hasEncoding: boolean;      // se tem ^FH
-  isBarcode: boolean;        // se é código de barra
-  isQrCode: boolean;         // se é QR code
-}
-
-interface ZplMapping {
-  allTextElements: ZplTextElement[];
-  mappedFields: {
-    [K in keyof AnalyzeLabelOutput]?: {
-        content: string;
-        line: number;
-        confidence: number;
-    }
-  }
-}
 
 async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<number | null> {
   if (!itemId) return null;
@@ -424,32 +396,33 @@ export async function regenerateZplAction(_prevState: any, formData: FormData): 
 
 
 export async function correctExtractedDataAction(_prevState: any, formData: FormData): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
-  try {
     const originalZpl = formData.get('originalZpl') as string;
     const extractedDataStr = formData.get('extractedData') as string;
     if (!originalZpl || !extractedDataStr) {
       throw new Error('Dados de entrada ausentes para correção.');
     }
     const extractedData: AnalyzeLabelOutput = JSON.parse(extractedDataStr);
-    const correctedData = await correctExtractedData(originalZpl, extractedData);
-    return { analysis: correctedData, error: null };
-  } catch (e: any) {
-    return { analysis: null, error: e.message };
-  }
-}
-
-
-export async function debugMappingAction(_prevState: any, formData: FormData) {
-    const originalZpl = formData.get('zplContent') as string;
-    try {
-        if (!originalZpl) {
-            throw new Error('Conteúdo ZPL ausente para debug.');
+    
+    // Parse the ZPL to find all text elements
+    const textElements = parseZplFields(originalZpl);
+    
+    // Find the recipient name, which is usually the largest font or in a specific area
+    // This is a heuristic and might need adjustment.
+    const sortedByY = [...textElements].sort((a, b) => a.y - b.y);
+    const midPointY = Math.max(...sortedByY.map(e => e.y)) / 2;
+    const potentialRecipientElements = sortedByY.filter(e => e.y > midPointY && !e.isBarcode && !e.isQrCode && e.content.length > 3);
+    
+    // Assume recipient name is one of the first few elements in the bottom half.
+    if(potentialRecipientElements.length > 0) {
+        // A simple fix: If the extracted name is just "string", replace it.
+        if (extractedData.recipientName === 'string') {
+             extractedData.recipientName = potentialRecipientElements[0].content;
         }
-        const debugInfo = await debugMapping(originalZpl);
-        return { result: debugInfo, error: null };
-    } catch (e: any) {
-        return { result: null, error: e.message || "Falha no processo de debug." };
     }
+    
+    // You can add more correction logic here based on element positions (x, y) if needed.
+    
+    return { analysis: extractedData, error: null };
 }
 
 export async function analyzeCatalogAction(_prevState: any, formData: FormData): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null }> {
