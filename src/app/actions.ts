@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -549,8 +549,13 @@ export async function markLabelPrintedAction(
 ): Promise<{ success: boolean; error: string | null }> {
   const orderId = String(formData.get("orderId") || "").trim();
   if (!orderId) return { success: false, error: "orderId ausente." };
+
   try {
-    await savePrintedLabel(orderId);
+    // busca o order_code correspondente ao orderId
+    const sale = await getSaleByOrderId(orderId);
+    const orderCode = (sale as any)?.order_code ?? null;
+
+    await savePrintedLabel(orderId, orderCode);
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e?.message || "Falha ao marcar etiqueta como impressa." };

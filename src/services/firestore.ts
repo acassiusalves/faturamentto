@@ -49,9 +49,26 @@ const fromFirestore = (docData) => {
 };
 
 // --- PRINTED LABELS ---
-export const savePrintedLabel = async (orderId: string): Promise<void> => {
-    const docRef = doc(db, 'printed_labels', orderId);
-    await setDoc(docRef, { printedAt: new Date().toISOString() }, { merge: true });
+export const savePrintedLabel = async (
+  orderId: string,
+  orderCode?: string | null
+): Promise<void> => {
+  const now = new Date().toISOString();
+  const batch = writeBatch(db);
+
+  // salva por ID Ideris (numérico)
+  if (orderId) {
+    const byIdRef = doc(db, 'printed_labels', String(orderId));
+    batch.set(byIdRef, { printedAt: now }, { merge: true });
+  }
+
+  // salva também por código do pedido (LU-...)
+  if (orderCode) {
+    const byCodeRef = doc(db, 'printed_labels', String(orderCode));
+    batch.set(byCodeRef, { printedAt: now }, { merge: true });
+  }
+
+  await batch.commit();
 };
 
 export const loadPrintedLabels = async (): Promise<string[]> => {
@@ -454,7 +471,7 @@ export async function loadSales(): Promise<Sale[]> {
 
 export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
     const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
-    const q = query(salesCol, where('order_id', '==', orderId), limit(1));
+    const q = query(salesCol, where('order_id', '==', Number(orderId)), limit(1));
     const snapshot = await getDocs(q);
 
     if (!snapshot.empty) {
