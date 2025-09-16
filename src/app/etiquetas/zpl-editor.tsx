@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, type Zones } from '@/lib/zpl';
+import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, type Zones, isInZone } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
@@ -130,11 +130,12 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
 
         for (const rep of visible) {
           const key = `${rep.x},${rep.y}`;
-          const fieldType = getFieldType(rep);
           let edited = editedValues[key] ?? "";
           const original = rep.value ?? "";
 
+          const fieldType = getFieldType(rep);
           edited = sanitizeValue(fieldType, edited);
+          
           if (edited === original) continue;
 
           let toWrite = edited;
