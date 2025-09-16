@@ -93,11 +93,21 @@ export function parseZplFields(zpl: string): ZplField[] {
 export function updateFieldAt(
   zpl: string,
   loc: { x: number; y: number; prefix?: string },
-  newValue: string
+  newValue: string,
+  startHint: number // Pass the original field's start position as a hint
 ): string {
   const fields = parseZplFields(zpl);
-  const target = fields.find(f => f.x === loc.x && f.y === loc.y);
-  if (!target) return zpl; // nada feito
+  // Find a field that matches both coordinates and its original start position
+  const target = fields.find(f => f.x === loc.x && f.y === loc.y && f.start === startHint);
+  if (!target) {
+     // Fallback to find the first field at the given coordinates if the hint fails
+     const fallbackTarget = fields.find(f => f.x === loc.x && f.y === loc.y);
+     if (!fallbackTarget) return zpl; // Still nothing, return original
+      
+     console.warn("Could not find ZPL field with startHint, using fallback coordinate match.");
+     const encoded = encodeFH(newValue);
+     return zpl.slice(0, fallbackTarget.start) + encoded + zpl.slice(fallbackTarget.end);
+  }
 
   let toEncode = newValue;
   if (loc.prefix) {

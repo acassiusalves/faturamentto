@@ -34,9 +34,9 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         const parsedFields = parseZplFields(originalZpl);
         setFields(parsedFields);
         const initialEdits: Record<string, string> = {};
-        parsedFields.forEach(field => {
-             // Create a unique key for each field based on its position
-            const fieldKey = `${field.x},${field.y}`;
+        parsedFields.forEach((field, index) => {
+             // Create a truly unique key using index as a tie-breaker for identical fields
+            const fieldKey = `${field.x},${field.y},${index}`;
             initialEdits[fieldKey] = field.value;
         });
         setEditedValues(initialEdits);
@@ -74,13 +74,14 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const handleUpdateZpl = () => {
         setIsUpdating(true);
         let newZpl = originalZpl;
-        fields.forEach(field => {
-            const fieldKey = `${field.x},${field.y}`;
+        fields.forEach((field, index) => {
+            const fieldKey = `${field.x},${field.y},${index}`;
             const editedValue = editedValues[fieldKey];
             const originalValue = field.value;
 
             if (editedValue !== originalValue) {
-                newZpl = updateFieldAt(newZpl, { x: field.x, y: field.y }, editedValue);
+                // Use the original start/end positions to replace the content
+                newZpl = updateFieldAt(newZpl, { x: field.x, y: field.y }, editedValue, field.start);
             }
         });
         setCurrentZpl(newZpl);
@@ -108,8 +109,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
             <div className="flex flex-col space-y-4 overflow-hidden">
                  <ScrollArea className="flex-grow pr-4">
                     <div className="space-y-4">
-                        {fields.sort((a,b) => a.y - b.y || a.x - b.x).map((field) => {
-                            const fieldKey = `${field.x},${field.y}`;
+                        {fields.sort((a,b) => a.y - b.y || a.x - b.x).map((field, index) => {
+                            const fieldKey = `${field.x},${field.y},${index}`;
                             if (field.kind === 'qrcode') return null; // Don't show QR code data for editing by default
 
                             return (
