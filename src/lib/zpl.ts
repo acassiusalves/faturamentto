@@ -1,5 +1,8 @@
 
+
 // === ZPL utils: decode/encode, parse, update ===
+
+import type { RemixableField } from "./types";
 
 // Decodifica ^FH (substitui _xx por bytes UTF-8)
 export function decodeFH(fdRaw: string): string {
@@ -256,4 +259,27 @@ export function computeZones(visible: ZplField[]): Zones | null {
 export function isInZone(f: ZplField, z?: {yMin:number;yMax:number;xMin:number;xMax:number}) {
   if (!z) return false;
   return f.y >= z.yMin && f.y <= z.yMax && f.x >= z.xMin && f.x <= z.xMax;
+}
+
+
+// Whitelist for IA-editable fields
+type Allowed = { type: RemixableField; x: number; y: number; tolX?: number; tolY?: number };
+
+export const IA_ALLOWED_FIELDS: Allowed[] = [
+  { type: "trackingNumber", x: 22,  y: 512, tolX: 3, tolY: 6 },  // Tag/etiqueta (texto rotacionado)
+  { type: "orderNumber",    x: 370, y: 563, tolX: 3, tolY: 6 },  // Pedido: ...
+  { type: "invoiceNumber",  x: 370, y: 596, tolX: 3, tolY: 6 },  // Nota Fiscal: ...
+  { type: "senderName",     x: 370, y: 992, tolX: 3, tolY: 6 },  // Nome do remetente
+  { type: "senderAddress",  x: 370, y: 1047,tolX: 3, tolY: 6 },  // Endereço do remetente
+];
+
+export function matchIAAllowed(field: ZplField): RemixableField | null {
+  for (const a of IA_ALLOWED_FIELDS) {
+    const tx = a.tolX ?? 2;
+    const ty = a.tolY ?? 4;
+    if (Math.abs(field.x - a.x) <= tx && Math.abs(field.y - a.y) <= ty) {
+      return a.type;
+    }
+  }
+  return null;
 }

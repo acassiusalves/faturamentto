@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH, computeZones, isInZone, norm, type Zones } from '@/lib/zpl';
+import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH, computeZones, isInZone, norm, type Zones, matchIAAllowed } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
@@ -21,6 +21,15 @@ assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, La
 interface ZplEditorProps {
   originalZpl: string;
 }
+
+const labelMap: Record<string, string> = {
+  "22,512":  "Tag/etiqueta (texto)",
+  "370,563": "Pedido (com prefixo)",
+  "370,596": "Nota Fiscal (com prefixo)",
+  "370,992": "Remetente – Nome",
+  "370,1047":"Remetente – Endereço",
+};
+
 
 export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const { toast } = useToast();
@@ -48,7 +57,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
 
         const initialEdits: Record<string, string> = {};
         visible.forEach((f) => {
-            const k = `${f.x},${f.y}`; // chave simples por coord (já dedupado)
+            const k = `${f.x},${f.y}`;
             initialEdits[k] = f.value ?? "";
         });
         setEditedValues(initialEdits);
@@ -159,38 +168,19 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     }
     
     const getFieldType = (field: ZplField): RemixableField | null => {
-        const zones = zonesRef.current;
-        if (!zones) return null;
-      
-        // Bloqueia qualquer campo na zona do destinatário
-        if (isInZone(field, zones.recipient)) return null;
-      
-        const lowerValue = norm(field.value);
+      // 1) só libera IA se o campo bater no WHITELIST por coordenada
+      const byCoord = matchIAAllowed(field);
+      if (!byCoord) return null;
 
-        // Bloqueia o campo se não estiver na zona do remetente e não for um código
-        const isCode = /^(?:[\da-z]{8,}-[\da-z]{1,}|[a-z\d-]{10,}|^\d{10,}$|^\d{8,}-\d{2}$)/.test(lowerValue);
-        const hasPrefix = /^(pedido:|nota fiscal:)/.test(lowerValue);
+      // 2) regrinhas finas: prefixos (mantém "Pedido: " / "Nota Fiscal: ")
+      const v = norm(field.value);
+      if (byCoord === "orderNumber"   && !v.startsWith("pedido:"))      return null;
+      if (byCoord === "invoiceNumber" && !v.startsWith("nota fiscal:")) return null;
 
-        if (!isInZone(field, zones.sender) && !isCode && !hasPrefix) {
-          return null;
-        }
-
-        // Permite edição de códigos em qualquer lugar
-        if (isCode) return 'trackingNumber';
-        if (hasPrefix && lowerValue.includes('pedido:')) return 'orderNumber';
-        if (hasPrefix && lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
-      
-        // Dentro da zona do remetente, permite apenas nome e endereço de rua
-        if (isInZone(field, zones.sender)) {
-          const hasNameHint = !/\d/.test(field.value) && field.value.trim().split(' ').length <= 3 && field.value.length > 3;
-          const hasAddrWord = /\b(rua|av|avenida|alameda|travessa|rodovia|estrada|praca|praça)\b/.test(lowerValue);
-
-          if (hasAddrWord) return 'senderAddress';
-          if (hasNameHint) return 'senderName';
-        }
-      
-        return null;
+      // 3) pronto — IA habilitada somente pra esses 5
+      return byCoord;
     };
+
 
     const handleRemixAll = async () => {
         setIsRemixingAll(true);
@@ -247,7 +237,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
-                                        Campo em (X: {field.x}, Y: {field.y}) {lockedRecipient && " – bloqueado (Destinatário)"}
+                                        {labelMap[fieldKey] ?? `Campo em (X: ${field.x}, Y: ${field.y})`}
+                                        {lockedRecipient && " – bloqueado (Destinatário)"}
                                     </Label>
                                     <div className="flex items-center gap-2">
                                         <Input
