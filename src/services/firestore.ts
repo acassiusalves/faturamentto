@@ -51,7 +51,7 @@ const fromFirestore = (docData) => {
 // --- PRINTED LABELS ---
 export const savePrintedLabel = async (orderId: string): Promise<void> => {
     const docRef = doc(db, 'printed_labels', orderId);
-    await setDoc(docRef, { printedAt: new Date().toISOString() });
+    await setDoc(docRef, { printedAt: new Date().toISOString() }, { merge: true });
 };
 
 export const loadPrintedLabels = async (): Promise<string[]> => {
@@ -851,3 +851,4 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
+
