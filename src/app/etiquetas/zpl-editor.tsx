@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from 'react';
-import { Loader2, RefreshCw, Printer, Code, Image as ImageIcon, Wand2 } from 'lucide-react';
+import { Loader2, RefreshCw, Printer, Code, Image as ImageIcon, Wand2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,8 +13,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
 import { remixLabelDataAction } from '@/app/actions';
+import { Progress } from '@/components/ui/progress';
 
-assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea, Wand2 });
+assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, Label, Image, ScrollArea, Wand2, Sparkles });
 
 
 interface ZplEditorProps {
@@ -33,6 +34,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const [isUpdating, setIsUpdating] = React.useState(false);
     const [showRawZpl, setShowRawZpl] = React.useState(false);
     const [isRemixing, setIsRemixing] = React.useState<string | null>(null);
+    const [isRemixingAll, setIsRemixingAll] = React.useState(false);
+    const [remixProgress, setRemixProgress] = React.useState(0);
 
 
     React.useEffect(() => {
@@ -152,6 +155,31 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
             setIsRemixing(null);
         }
     }
+    
+    const handleRemixAll = async () => {
+        setIsRemixingAll(true);
+        setRemixProgress(0);
+
+        const remixableFields = fields.map(field => {
+            const fieldKey = `${field.x},${field.y}`;
+            const fieldType = getFieldType(field.value, fields);
+            return { fieldKey, originalValue: field.value, fieldType };
+        }).filter(f => f.fieldType !== null);
+
+        const totalFields = remixableFields.length;
+        for (let i = 0; i < totalFields; i++) {
+            const { fieldKey, originalValue, fieldType } = remixableFields[i];
+            await handleRemixField(fieldKey, originalValue, fieldType as RemixableField);
+            setRemixProgress(((i + 1) / totalFields) * 100);
+        }
+
+        toast({
+            title: 'Remixagem em Lote Concluída!',
+            description: 'Todos os campos foram atualizados. Clique em "Atualizar Etiqueta" para ver o resultado.',
+        });
+        setIsRemixingAll(false);
+    };
+
       
     // Função para determinar o tipo de campo com base no conteúdo
     const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
@@ -163,12 +191,11 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         }
         if (lowerValue.includes('pedido:')) return 'orderNumber';
         if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
-        if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
-
-        const field = fields.find(f => f.value === value);
+        
+        // Heurística para remetente: procurar por um campo próximo que contenha "REMETENTE"
+        const field = allFields.find(f => f.value === value);
         if (!field) return null;
 
-        // Heurística para remetente: procurar por um campo próximo que contenha "REMETENTE"
         const isSenderField = allFields.some(f =>
             f.value.toLowerCase().includes('remetente') &&
             Math.abs(f.y - field.y) < 50 &&
@@ -180,6 +207,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
             if (!lowerValue.includes(',') && !lowerValue.includes('sao paulo')) {
                 return 'senderName';
             }
+             if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
         }
         
         return null;
@@ -226,7 +254,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                                                 variant="ghost" 
                                                 size="icon" 
                                                 onClick={() => handleRemixField(fieldKey, field.value, fieldType)} 
-                                                disabled={!!isRemixing}
+                                                disabled={!!isRemixing || isRemixingAll}
                                                 title={`Remixar ${fieldType} com IA`}
                                             >
                                                 {isRemixing === fieldKey ? <Loader2 className="animate-spin" /> : <Wand2 />}
@@ -238,8 +266,18 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                         })}
                     </div>
                  </ScrollArea>
-                <div className="flex justify-end items-center sticky bottom-0 bg-background py-4 flex-shrink-0">
-                    <Button onClick={handleUpdateZpl} disabled={isUpdating || isRendering}>
+                 {isRemixingAll && (
+                    <div className="space-y-1">
+                        <Progress value={remixProgress} />
+                        <p className="text-xs text-muted-foreground text-center">Remixando campos...</p>
+                    </div>
+                )}
+                <div className="flex justify-end items-center sticky bottom-0 bg-background py-4 flex-shrink-0 gap-2">
+                    <Button onClick={handleRemixAll} disabled={isRemixingAll || isUpdating || isRendering} variant="outline">
+                        {isRemixingAll ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                        Remixar Tudo com IA
+                    </Button>
+                    <Button onClick={handleUpdateZpl} disabled={isUpdating || isRendering || isRemixingAll}>
                         {isUpdating ? <Loader2 className="animate-spin" /> : <RefreshCw />}
                         Atualizar Etiqueta
                     </Button>
