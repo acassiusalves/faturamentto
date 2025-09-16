@@ -1,3 +1,4 @@
+
 // === ZPL utils: decode/encode, parse, update ===
 
 // Decodifica ^FH (substitui _xx por bytes UTF-8)

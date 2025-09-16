@@ -160,42 +160,37 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     
     const getFieldType = (field: ZplField): RemixableField | null => {
         const zones = zonesRef.current;
+        if (!zones) return null;
       
-        // Se não temos as zonas por algum motivo, melhor não arriscar
-        if (!zones) {
-            // Fallback para identificação de tracking number que pode estar em qualquer lugar
-            const lowerValue = field.value.toLowerCase();
-            if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
-                return 'trackingNumber';
-            }
-            return null;
-        }
-      
-        // 1) Nunca remixar nada do DESTINATÁRIO
+        // Bloqueia qualquer campo na zona do destinatário
         if (isInZone(field, zones.recipient)) return null;
       
-        // 2) Permitir tracking number em qualquer lugar
-        const lowerValue = field.value.toLowerCase();
-        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
-            return 'trackingNumber';
+        const lowerValue = norm(field.value);
+
+        // Bloqueia o campo se não estiver na zona do remetente e não for um código
+        const isCode = /^(?:[\da-z]{8,}-[\da-z]{1,}|[a-z\d-]{10,}|^\d{10,}$|^\d{8,}-\d{2}$)/.test(lowerValue);
+        const hasPrefix = /^(pedido:|nota fiscal:)/.test(lowerValue);
+
+        if (!isInZone(field, zones.sender) && !isCode && !hasPrefix) {
+          return null;
         }
 
-        if (lowerValue.includes('pedido:')) return 'orderNumber';
-        if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
+        // Permite edição de códigos em qualquer lugar
+        if (isCode) return 'trackingNumber';
+        if (hasPrefix && lowerValue.includes('pedido:')) return 'orderNumber';
+        if (hasPrefix && lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
       
-        // 3) Só deixamos remix de nome/endereço no REMETENTE
-        if (!isInZone(field, zones.sender)) return null;
-      
-        // Dentro do REMETENTE, distinguir nome vs endereço
-        const lower = norm(field.value);
-        const hasAddrWord = /\b(rua|av|avenida|alameda|travessa|rodovia|estrada|praca|praça|bairro|bloco|sala|galpao|galpão|CEP|cep)\b/.test(lower)
-                         || /-\s*\d{8}/.test(lower); // " - 03006030"
-      
-        if (hasAddrWord) return "senderAddress";
-        if (lower.length > 0) return "senderName";
+        // Dentro da zona do remetente, permite apenas nome e endereço de rua
+        if (isInZone(field, zones.sender)) {
+          const hasNameHint = !/\d/.test(field.value) && field.value.trim().split(' ').length <= 3 && field.value.length > 3;
+          const hasAddrWord = /\b(rua|av|avenida|alameda|travessa|rodovia|estrada|praca|praça)\b/.test(lowerValue);
+
+          if (hasAddrWord) return 'senderAddress';
+          if (hasNameHint) return 'senderName';
+        }
       
         return null;
-      };
+    };
 
     const handleRemixAll = async () => {
         setIsRemixingAll(true);
