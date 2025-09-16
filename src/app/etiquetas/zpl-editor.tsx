@@ -185,19 +185,18 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
         const lowerValue = value.toLowerCase();
         
-        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/)) {
+        if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/) || /^\d{8,}-\d{2}$/.test(lowerValue)) {
             return 'trackingNumber';
         }
         if (lowerValue.includes('pedido:')) return 'orderNumber';
         if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
         
-        // Heurística para remetente: procurar por um campo próximo que contenha "REMETENTE"
         const field = allFields.find(f => f.value === value);
         if (!field) return null;
 
         const isSenderField = allFields.some(f =>
             f.value.toLowerCase().includes('remetente') &&
-            Math.abs(f.y - field.y) < 50 &&
+            Math.abs(f.y - field.y) < 150 && // Aumentado para 150
             !value.toLowerCase().includes('remetente')
         );
 
@@ -205,11 +204,9 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
             const hasAddressKeywords = /\b(rua|av|alameda|alfandega)\b/.test(lowerValue);
             const hasCityStateKeywords = /\b(sao paulo|sp|br-sp)\b/.test(lowerValue);
             
-            // É o nome se não tiver palavras de endereço ou cidade/estado, e não for só números
-            if (!hasAddressKeywords && !hasCityStateKeywords && !/^\d+$/.test(lowerValue)) {
+            if (!hasAddressKeywords && !hasCityStateKeywords && !/^\d+$/.test(lowerValue) && isNaN(parseInt(lowerValue))) {
                 return 'senderName';
             }
-            // É o endereço se contiver palavras de endereço
             if (hasAddressKeywords) {
                 return 'senderAddress';
             }
