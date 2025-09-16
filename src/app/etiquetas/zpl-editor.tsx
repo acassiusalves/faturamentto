@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, updateCluster, type ZplField, clusterizeFields } from '@/lib/zpl';
+import { parseZplFields, updateCluster, type ZplField, clusterizeFields, encodeFH } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 
@@ -77,26 +77,55 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const handleUpdateZpl = () => {
         setIsUpdating(true);
         try {
-          let newZpl = currentZpl; // usar o atual, não resetar pro original
+          // 1) Re-parseia o ZPL ATUAL (não o original!)
+          const parsedNow = parseZplFields(currentZpl);
+          const { visible, byKey } = clusterizeFields(parsedNow);
       
-          for (const f of fields) {
-            const key = `${f.x},${f.y}`;
-            const edited = editedValues[key];
-            const original = f.value ?? "";
+          // 2) Monta a lista de mudanças (todas as camadas de cada campo alterado)
+          type Change = { field: ZplField; encoded: string };
+          const changes: Change[] = [];
       
-            if (edited !== original) {
-              const group = clustersRef.current[key] || [f];
-              // mantém prefixo “Pedido: ” / “Nota Fiscal: ” / “Data estimada: ” se existir
-              newZpl = updateCluster(newZpl, group, edited, { preservePrefixFrom: f });
+          for (const rep of visible) {
+            const key = `${rep.x},${rep.y}`;
+            const edited = editedValues[key] ?? "";
+            const original = rep.value ?? "";
+      
+            if (edited === original) continue;
+      
+            // preserva prefixo tipo "Pedido: ", "Nota Fiscal: ", etc.
+            let toWrite = edited;
+            const idx = (rep.value ?? "").indexOf(": ");
+            if (idx > -1) {
+              toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
+            }
+      
+            const enc = encodeFH(toWrite);
+            const group = byKey[key] || [rep];
+            for (const layer of group) {
+              changes.push({ field: layer, encoded: enc });
             }
           }
       
-          setCurrentZpl(newZpl);
+          if (changes.length === 0) {
+            setIsUpdating(false);
+            return;
+          }
+      
+          // 3) Aplica tudo de trás pra frente (start DESC) para não quebrar offsets
+          changes.sort((a, b) => b.field.start - a.field.start);
+      
+          let out = currentZpl;
+          for (const ch of changes) {
+            out = out.slice(0, ch.field.start) + ch.encoded + out.slice(ch.field.end);
+          }
+      
+          setCurrentZpl(out);
           toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
         } finally {
           setIsUpdating(false);
         }
       };
+      
 
     const handlePrint = () => {
         if (printRef.current) {
