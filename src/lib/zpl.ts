@@ -283,3 +283,10 @@ export function matchIAAllowed(field: ZplField): RemixableField | null {
   }
   return null;
 }
+
+export const sanitizeValue = (fieldType: RemixableField | null, v: string) => {
+  if (!v) return v;
+  if (fieldType === "orderNumber")   return v.replace(/^\s*pedido\s*:?\s*/i, "").trim();
+  if (fieldType === "invoiceNumber") return v.replace(/^\s*nota\s*fiscal\s*:?\s*/i, "").trim();
+  return v.trim();
+};
