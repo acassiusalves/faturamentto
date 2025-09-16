@@ -126,3 +126,72 @@ export function updateFieldAt(
   const encoded = encodeFH(toEncode);
   return zpl.slice(0, target.start) + encoded + zpl.slice(target.end);
 }
+
+// Considera campos “iguais” se estiverem muito próximos (sombra/negrito)
+function isNear(a: ZplField, b: ZplField, tol = 2) {
+  return Math.abs(a.x - b.x) <= tol && Math.abs(a.y - b.y) <= tol && a.kind === b.kind;
+}
+
+// Gera clusters de campos próximos e escolhe um “representante” para exibir no formulário
+export function clusterizeFields(all: ZplField[]) {
+  // 1) só texto e não-vazio
+  const textOnly = all.filter(f => f.kind === "text" && (f.value ?? "").trim().length > 0);
+
+  // 2) monta clusters por proximidade
+  const clusters: ZplField[][] = [];
+  for (const f of textOnly) {
+    const grp = clusters.find(g => isNear(g[0], f));
+    if (grp) grp.push(f);
+    else clusters.push([f]);
+  }
+
+  // 3) escolhe representante (preferir quem NÃO tem ^FR)
+  const visible = clusters.map(list => {
+    const sorted = [...list].sort((a, b) => {
+      const afr = a.block.includes("^FR") ? 1 : 0;
+      const bfr = b.block.includes("^FR") ? 1 : 0;
+      if (afr !== bfr) return afr - bfr; // não-FR primeiro
+      return a.start - b.start;          // estável
+    });
+    return sorted[0];
+  });
+
+  // 4) chave estável por coord (já que deduplicamos)
+  const byKey: Record<string, ZplField[]> = {};
+  clusters.forEach(list => {
+    const rep = visible.find(v => isNear(v, list[0]))!;
+    const key = `${rep.x},${rep.y}`;
+    byKey[key] = list;
+  });
+
+  // Ordena visualmente
+  visible.sort((a,b) => a.y - b.y || a.x - b.x);
+
+  return { visible, byKey };
+}
+
+// Atualiza todas as camadas do grupo daquele campo (direita->esquerda para não mexer nos índices)
+export function updateCluster(
+  zpl: string,
+  group: ZplField[],
+  newValue: string,
+  opts?: { preservePrefixFrom?: ZplField }
+) {
+  let toWrite = newValue;
+  if (opts?.preservePrefixFrom) {
+    const curr = opts.preservePrefixFrom.value ?? "";
+    const idx = curr.indexOf(": ");
+    if (idx > -1) {
+      toWrite = curr.slice(0, idx + 2) + newValue; // mantém “Pedido: ” / “Nota Fiscal: ”
+    }
+  }
+  const encoded = encodeFH(toWrite);
+
+  // Atualiza do maior start para o menor
+  const parts = [...group].sort((a, b) => b.start - a.start);
+  let out = zpl;
+  for (const f of parts) {
+    out = out.slice(0, f.start) + encoded + out.slice(f.end);
+  }
+  return out;
+}

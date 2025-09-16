@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, updateFieldAt, type ZplField } from '@/lib/zpl';
+import { parseZplFields, updateCluster, type ZplField, clusterizeFields } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 
@@ -23,6 +23,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const { toast } = useToast();
     const printRef = React.useRef<HTMLDivElement>(null);
     const [fields, setFields] = React.useState<ZplField[]>([]);
+    const clustersRef = React.useRef<Record<string, ZplField[]>>({});
     const [editedValues, setEditedValues] = React.useState<Record<string, string>>({});
     const [currentZpl, setCurrentZpl] = React.useState(originalZpl);
     const [imageUrl, setImageUrl] = React.useState<string | null>(null);
@@ -31,13 +32,15 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const [showRawZpl, setShowRawZpl] = React.useState(false);
 
     React.useEffect(() => {
-        const parsedFields = parseZplFields(originalZpl);
-        setFields(parsedFields);
+        const parsed = parseZplFields(originalZpl);
+        const { visible, byKey } = clusterizeFields(parsed);
+        setFields(visible);
+        clustersRef.current = byKey;
+
         const initialEdits: Record<string, string> = {};
-        parsedFields.forEach((field, index) => {
-             // Create a truly unique key using index as a tie-breaker for identical fields
-            const fieldKey = `${field.x},${field.y},${index}`;
-            initialEdits[fieldKey] = field.value;
+        visible.forEach((f) => {
+            const k = `${f.x},${f.y}`; // chave simples por coord (já dedupado)
+            initialEdits[k] = f.value ?? "";
         });
         setEditedValues(initialEdits);
     }, [originalZpl]);
@@ -73,21 +76,27 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
 
     const handleUpdateZpl = () => {
         setIsUpdating(true);
-        let newZpl = originalZpl;
-        fields.forEach((field, index) => {
-            const fieldKey = `${field.x},${field.y},${index}`;
-            const editedValue = editedValues[fieldKey];
-            const originalValue = field.value;
-
-            if (editedValue !== originalValue) {
-                // Use the original start/end positions to replace the content
-                newZpl = updateFieldAt(newZpl, { x: field.x, y: field.y }, editedValue, field.start);
+        try {
+          let newZpl = currentZpl; // usar o atual, não resetar pro original
+      
+          for (const f of fields) {
+            const key = `${f.x},${f.y}`;
+            const edited = editedValues[key];
+            const original = f.value ?? "";
+      
+            if (edited !== original) {
+              const group = clustersRef.current[key] || [f];
+              // mantém prefixo “Pedido: ” / “Nota Fiscal: ” / “Data estimada: ” se existir
+              newZpl = updateCluster(newZpl, group, edited, { preservePrefixFrom: f });
             }
-        });
-        setCurrentZpl(newZpl);
-        toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
-        setIsUpdating(false);
-    };
+          }
+      
+          setCurrentZpl(newZpl);
+          toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+        } finally {
+          setIsUpdating(false);
+        }
+      };
 
     const handlePrint = () => {
         if (printRef.current) {
@@ -109,10 +118,8 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
             <div className="flex flex-col space-y-4 overflow-hidden">
                  <ScrollArea className="flex-grow pr-4">
                     <div className="space-y-4">
-                        {fields.sort((a,b) => a.y - b.y || a.x - b.x).map((field, index) => {
-                            const fieldKey = `${field.x},${field.y},${index}`;
-                            if (field.kind === 'qrcode') return null; // Don't show QR code data for editing by default
-
+                        {fields.map((field) => {
+                            const fieldKey = `${field.x},${field.y}`;
                             return (
                                 <div key={fieldKey} className="space-y-1.5">
                                     <Label htmlFor={fieldKey} className="text-xs text-muted-foreground">
@@ -121,7 +128,7 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
                                     <Input
                                         id={fieldKey}
                                         name={fieldKey}
-                                        value={editedValues[fieldKey] || ''}
+                                        value={editedValues[fieldKey] ?? ''}
                                         onChange={(e) => handleInputChange(fieldKey, e.target.value)}
                                         className="font-mono text-sm"
                                     />
@@ -170,4 +177,3 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         </div>
     );
 }
-
