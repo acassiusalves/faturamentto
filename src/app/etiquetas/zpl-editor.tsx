@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, type Zones, isInZone } from '@/lib/zpl';
+import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, type Zones, isInZone, sanitizeValue } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
@@ -31,13 +31,6 @@ const labelMap: Record<string, string> = {
   "370,596": "Nota Fiscal (com prefixo)",
   "370,992": "Remetente – Nome",
   "370,1047":"Remetente – Endereço",
-};
-
-const sanitizeValue = (fieldType: RemixableField | null, v: string) => {
-  if (!v) return v;
-  if (fieldType === "orderNumber")   return v.replace(/^\s*pedido\s*:?\s*/i, "").trim();
-  if (fieldType === "invoiceNumber") return v.replace(/^\s*nota\s*fiscal\s*:?\s*/i, "").trim();
-  return v.trim();
 };
 
 
@@ -129,6 +122,8 @@ export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }:
           let edited = editedValues[key] ?? "";
           const original = sanitizeValue(fieldType, rep.value ?? "");
           
+          edited = sanitizeValue(fieldType, edited);
+
           if (edited === original) continue;
 
           let toWrite = edited;
@@ -170,6 +165,7 @@ export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }:
             const fd = new FormData();
             fd.append('orderId', orderId);
             if (orderCode) fd.append('orderCode', orderCode);
+            fd.append('zplContent', out);
 
             const r = await markLabelPrintedAction({}, fd);
             if (r.success) onLabelGenerated?.();
@@ -345,4 +341,3 @@ export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }:
     );
 }
 
-    

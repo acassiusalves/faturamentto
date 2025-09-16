@@ -31,6 +31,8 @@ import { Label } from "@/components/ui/label";
 import { ZplEditor } from "./zpl-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { assertElements } from "@/lib/assert-elements";
+import { LabelViewerDialog } from './label-viewer-dialog';
+
 
 assertElements({
     Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter, Button, MultiSelect,
@@ -74,18 +76,26 @@ export default function EtiquetasPage() {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     
-    const [printedLabelIds, setPrintedLabelIds] = useState<Set<string>>(new Set());
+    const [printedLabelData, setPrintedLabelData] = useState<Map<string, {zplContent?: string}>>(new Map());
+
+    // State for the new label viewer dialog
+    const [isViewerOpen, setIsViewerOpen] = useState(false);
+    const [zplToView, setZplToView] = useState<string | null>(null);
+
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [salesData, settings, printedIds] = await Promise.all([
+            const [salesData, settings, printedDocs] = await Promise.all([
                 loadSales(),
                 loadAppSettings(),
                 loadPrintedLabels()
             ]);
             setAllSales(salesData);
-            setPrintedLabelIds(new Set(printedIds));
+
+            const printedMap = new Map<string, {zplContent?: string}>();
+            printedDocs.forEach(doc => printedMap.set(doc.id, { zplContent: doc.zplContent }));
+            setPrintedLabelData(printedMap);
 
             const statesFromSales = new Set<string>();
             salesData.forEach(sale => {
@@ -221,6 +231,20 @@ export default function EtiquetasPage() {
         }
     };
 
+    const handleViewLabel = (orderId: string, orderCode: string) => {
+        const printedInfo = printedLabelData.get(orderId) || printedLabelData.get(orderCode);
+        if (printedInfo?.zplContent) {
+            setZplToView(printedInfo.zplContent);
+            setIsViewerOpen(true);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Etiqueta não encontrada',
+                description: 'O código ZPL para esta etiqueta não foi salvo. Gere uma nova para visualizar.'
+            });
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -335,11 +359,15 @@ export default function EtiquetasPage() {
                                         paginatedSales.map(sale => {
                                             const orderId = (sale as any).order_id;
                                             const orderCode = (sale as any).order_code;
-                                            const isPrinted = printedLabelIds.has(orderId) || printedLabelIds.has(orderCode);
+                                            const isPrinted = printedLabelData.has(orderId) || printedLabelData.has(orderCode);
                                             return (
                                             <TableRow key={(sale as any).id}>
                                                 <TableCell className="text-center">
-                                                    {isPrinted && <Printer className="h-5 w-5 text-green-600" />}
+                                                    {isPrinted && (
+                                                        <Button variant="ghost" size="icon" onClick={() => handleViewLabel(orderId, orderCode)}>
+                                                            <Printer className="h-5 w-5 text-green-600" />
+                                                        </Button>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>{orderId}</TableCell>
                                                 <TableCell className="font-mono">{orderCode}</TableCell>
@@ -438,14 +466,22 @@ export default function EtiquetasPage() {
                             orderId={editorData.orderId}
                             orderCode={editorData.orderCode}
                             onLabelGenerated={() => {
-                                setPrintedLabelIds(prev => new Set(prev).add(editorData.orderId!).add(editorData.orderCode!));
+                                const newData = new Map(printedLabelData);
+                                if(editorData.orderId) newData.set(editorData.orderId, { zplContent: editorData.zplContent! });
+                                if(editorData.orderCode) newData.set(editorData.orderCode, { zplContent: editorData.zplContent! });
+                                setPrintedLabelData(newData);
                             }}
                         />
                     )}
                 </DialogContent>
             </Dialog>
+
+            <LabelViewerDialog
+                isOpen={isViewerOpen}
+                onClose={() => setIsViewerOpen(false)}
+                zplContent={zplToView}
+            />
         </>
     );
 }
 
-    

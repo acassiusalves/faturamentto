@@ -51,30 +51,32 @@ const fromFirestore = (docData) => {
 // --- PRINTED LABELS ---
 export const savePrintedLabel = async (
   orderId: string,
-  orderCode?: string | null
+  orderCode?: string | null,
+  zplContent?: string
 ): Promise<void> => {
   const now = new Date().toISOString();
   const batch = writeBatch(db);
+  const data = { printedAt: now, zplContent: zplContent || '' };
 
   // salva por ID Ideris (numérico)
   if (orderId) {
     const byIdRef = doc(db, 'printed_labels', String(orderId));
-    batch.set(byIdRef, { printedAt: now }, { merge: true });
+    batch.set(byIdRef, data, { merge: true });
   }
 
   // salva também por código do pedido (LU-...)
   if (orderCode) {
     const byCodeRef = doc(db, 'printed_labels', String(orderCode));
-    batch.set(byCodeRef, { printedAt: now }, { merge: true });
+    batch.set(byCodeRef, data, { merge: true });
   }
 
   await batch.commit();
 };
 
-export const loadPrintedLabels = async (): Promise<string[]> => {
+export const loadPrintedLabels = async (): Promise<{id: string, zplContent?: string}[]> => {
     const labelsCol = collection(db, 'printed_labels');
     const snapshot = await getDocs(labelsCol);
-    return snapshot.docs.map(doc => doc.id);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as {id: string, zplContent?: string}));
 };
 
 
