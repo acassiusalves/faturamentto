@@ -14,7 +14,7 @@ export type DbItem = {
 
 export type StdLine = {
   raw: string;            // linha padronizada inteira ("Realme C61 256GB Global 8GB Dourado 4G 725")
-  brand: DbItem["brand"];
+  brand?: DbItem["brand"];
   modelBase: string;
   storage: number;
   ram: number;
@@ -145,11 +145,11 @@ function extractLastDigits(line: string): string {
 // CHANGE: parseStdLine
 export function parseStdLine(line: string): StdLine | null {
   const priceDigits = extractLastDigits(line);
-  const lineNoPrice = stripTrailingPrice(line); // <- usa essa versão para parsing
+  const lineNoPrice = stripTrailingPrice(line);
 
   const brandMatch = lineNoPrice.match(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i);
-  if (!brandMatch) return null;
-  const brand = (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"];
+  // Se não encontrar uma marca, não retorna null. Apenas deixa a marca indefinida.
+  const brand = brandMatch ? (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"] : undefined;
 
   const storageMatch = lineNoPrice.match(/(\d+)\s*GB/i);
   const storage = storageMatch ? parseInt(storageMatch[1],10) : NaN;
@@ -171,11 +171,11 @@ export function parseStdLine(line: string): StdLine | null {
 
   const parts = lineNoPrice.split(/\b\d+\s*GB\b/i);
   const left = parts[0] || "";
-  const afterBrand = left.replace(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i,"").trim();
-  const modelBase = normalizeModel(brand, afterBrand);
+  const afterBrand = brand ? left.replace(new RegExp(`\\b${brand}\\b`, "i"),"").trim() : left.trim();
+  const modelBase = normalizeModel(brand || "Xiaomi", afterBrand); // Fallback para uma marca qualquer se não encontrada
 
   return {
-    raw: lineNoPrice,              // <- guarda SEM preço para não poluir name
+    raw: lineNoPrice,
     brand,
     modelBase,
     storage: isNaN(storage) ? 0 : storage,
@@ -225,7 +225,10 @@ export function parseDb(databaseList: string): DbItem[] {
   return items;
 }
 
-function brandEq(a: string, b: string) { return a.toLowerCase() === b.toLowerCase(); }
+function brandEq(a?: string, b?: string) {
+    if (!a || !b) return false;
+    return a.toLowerCase() === b.toLowerCase();
+}
 
 function modelEq(a: string, b: string) {
   const cleanA = a.replace(/\s+/g,"").toLowerCase();
@@ -274,6 +277,11 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
     .filter((x): x is StdLine => !!x);
 
   const results: MatchResult[] = stdParsed.map(std => {
+    // Se a linha não tem marca, não podemos fazer a busca. Marcamos como SEM CÓDIGO.
+    if (!std.brand) {
+        return { sku: "SEM CÓDIGO", name: std.raw, costPrice: std.priceDigits, _score: 0 };
+    }
+      
     let best: {item: DbItem; score: number} | null = null;
     
     // Filtra o banco de dados apenas para itens com atributos principais correspondentes
