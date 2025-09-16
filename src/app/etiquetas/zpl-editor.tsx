@@ -279,7 +279,7 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                onClick={() => handleRemixField(fieldKey, field.value, fieldType)} 
+                                                onClick={() => handleRemixField(fieldKey, editedValues[fieldKey] ?? '', fieldType)} 
                                                 disabled={!!isRemixing || isRemixingAll}
                                                 title={`Remixar ${fieldType} com IA`}
                                             >
@@ -342,3 +342,4 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
         </div>
     );
 }
+
