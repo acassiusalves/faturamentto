@@ -185,7 +185,6 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
     const getFieldType = (value: string, allFields: ZplField[]): RemixableField | null => {
         const lowerValue = value.toLowerCase();
         
-        // Regex for trackingNumber: now matches patterns like "170209896-01" or long numbers
         if (lowerValue.match(/^[\da-z]{8,}-[\da-z]{1,}/) || lowerValue.match(/^\d{10,}$/)) {
             return 'trackingNumber';
         }
@@ -203,11 +202,17 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         );
 
         if (isSenderField) {
-            // Se for um campo do remetente, verifica se é o nome (não contém vírgula nem 'sao paulo') ou o endereço
-            if (!lowerValue.includes(',') && !lowerValue.includes('sao paulo')) {
+            const hasAddressKeywords = /\b(rua|av|alameda|alfandega)\b/.test(lowerValue);
+            const hasCityStateKeywords = /\b(sao paulo|sp|br-sp)\b/.test(lowerValue);
+            
+            // É o nome se não tiver palavras de endereço ou cidade/estado, e não for só números
+            if (!hasAddressKeywords && !hasCityStateKeywords && !/^\d+$/.test(lowerValue)) {
                 return 'senderName';
             }
-             if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
+            // É o endereço se contiver palavras de endereço
+            if (hasAddressKeywords) {
+                return 'senderAddress';
+            }
         }
         
         return null;
