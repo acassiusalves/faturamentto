@@ -14,7 +14,7 @@ import { loadSales, loadAppSettings, saveAppSettings, loadPrintedLabels } from '
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { fetchLabelAction } from '@/app/actions';
+import { fetchLabelAction, markLabelPrintedAction } from '@/app/actions';
 import {
   Dialog,
   DialogContent,
@@ -130,6 +130,7 @@ export default function EtiquetasPage() {
         const orderCode = (sale as any).order_code;
         setEditorData({ zplContent: null, orderId, orderCode });
         setIsProcessingZpl(true);
+        setIsEditorOpen(true); // Open dialog immediately to show loader
         
         try {
             const formData = new FormData();
@@ -141,10 +142,10 @@ export default function EtiquetasPage() {
             }
             
             setEditorData({ zplContent: zplResult.zplContent, orderId, orderCode });
-            setIsEditorOpen(true);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
             toast({ variant: 'destructive', title: 'Erro no Processamento da Etiqueta', description: errorMessage });
+            setIsEditorOpen(false); // Close dialog on error
         } finally {
             setIsProcessingZpl(false);
         }
@@ -484,4 +485,3 @@ export default function EtiquetasPage() {
         </>
     );
 }
-

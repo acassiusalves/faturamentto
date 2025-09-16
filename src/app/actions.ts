@@ -18,7 +18,7 @@ async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
   if (!r.ok) return null;
   const j = await r.json();
-  return (typeof j?.official_store_id === "number") ? j?.official_store_id : null;
+  return (typeof j?.official_store_id === "number") ? j.official_store_id : null;
 }
 
 // Busca seller_address em LOTE para vários items (mais estável/rápido que 1-a-1)
@@ -549,6 +549,7 @@ export async function markLabelPrintedAction(
 ): Promise<{ success: boolean; error: string | null }> {
   const orderId = String(formData.get("orderId") || "").trim();
   const orderCodeFromForm = (formData.get('orderCode') as string | null)?.trim() || null;
+  const zplContent = formData.get('zplContent') as string | undefined;
 
   if (!orderId) return { success: false, error: 'orderId ausente.' };
 
@@ -560,11 +561,9 @@ export async function markLabelPrintedAction(
       orderCode = (sale as any)?.order_code ?? null;
     }
 
-    await savePrintedLabel(orderId, orderCode); // já grava por ID e por código
+    await savePrintedLabel(orderId, orderCode, zplContent); // já grava por ID e por código
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Falha ao marcar etiqueta como impressa.' };
   }
 }
-
-    

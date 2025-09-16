@@ -21,7 +21,7 @@ assertElements({ Loader2, RefreshCw, Printer, Code, ImageIcon, Button, Input, La
 interface ZplEditorProps {
   originalZpl: string;
   orderId?: string | null;
-  orderCode?: string | null;
+  orderCode?: string | null; // <- NOVO
   onLabelGenerated?: () => void;
 }
 
@@ -108,77 +108,77 @@ export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }:
     };
 
     const handleUpdateZpl = async () => {
-      setIsUpdating(true);
-      try {
-        const parsedNow = parseZplFields(currentZpl);
-        const { visible, byKey } = clusterizeFields(parsedNow);
+        setIsUpdating(true);
+        try {
+            const parsedNow = parseZplFields(currentZpl);
+            const { visible, byKey } = clusterizeFields(parsedNow);
 
-        type Change = { start: number; end: number; encoded: string };
-        const changes: Change[] = [];
+            type Change = { start: number; end: number; encoded: string };
+            const changes: Change[] = [];
 
-        for (const rep of visible) {
-          const key = `${rep.x},${rep.y}`;
-          const fieldType = getFieldType(rep);
-          let edited = editedValues[key] ?? "";
-          const original = sanitizeValue(fieldType, rep.value ?? "");
-          
-          edited = sanitizeValue(fieldType, edited);
+            for (const rep of visible) {
+                const key = `${rep.x},${rep.y}`;
+                const fieldType = getFieldType(rep);
+                let edited = editedValues[key] ?? "";
+                const original = sanitizeValue(fieldType, rep.value ?? "");
+                
+                edited = sanitizeValue(fieldType, edited);
 
-          if (edited === original) continue;
+                if (edited === original) continue;
 
-          let toWrite = edited;
-          const idx = (rep.value ?? "").indexOf(": ");
-          if (idx > -1) {
-            toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
-          }
+                let toWrite = edited;
+                const idx = (rep.value ?? "").indexOf(": ");
+                if (idx > -1) {
+                    toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
+                }
 
-          const enc = encodeFH(toWrite);
-          const group = byKey[key] || [rep];
-          for (const layer of group) {
-            changes.push({ start: layer.start, end: layer.end, encoded: enc });
-          }
+                const enc = encodeFH(toWrite);
+                const group = byKey[key] || [rep];
+                for (const layer of group) {
+                    changes.push({ start: layer.start, end: layer.end, encoded: enc });
+                }
+            }
+
+            if (changes.length === 0) {
+                setIsUpdating(false);
+                return;
+            }
+
+            changes.sort((a, b) => b.start - a.start);
+
+            let out = currentZpl;
+            for (const ch of changes) {
+                out = out.slice(0, ch.start) + ch.encoded + out.slice(ch.end);
+            }
+
+            setCurrentZpl(out);
+
+            const parsedUpdated = parseZplFields(out);
+            const { visible: newVisible, byKey: newByKey } = clusterizeFields(parsedUpdated);
+            setFields(newVisible);
+            clustersRef.current = newByKey;
+
+            toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+
+            if (orderId) {
+                try {
+                    const fd = new FormData();
+                    fd.append('orderId', orderId);
+                    if (orderCode) fd.append('orderCode', orderCode);
+                    fd.append('zplContent', out); // Pass the updated ZPL content
+
+                    const r = await markLabelPrintedAction({}, fd);
+                    if (r.success) onLabelGenerated?.();
+                    else console.warn('markLabelPrintedAction:', r.error);
+                } catch (e) {
+                    console.warn('markLabelPrintedAction falhou', e);
+                }
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: e.message });
+        } finally {
+            setIsUpdating(false);
         }
-
-        if (changes.length === 0) {
-          setIsUpdating(false);
-          return;
-        }
-
-        changes.sort((a, b) => b.start - a.start);
-
-        let out = currentZpl;
-        for (const ch of changes) {
-          out = out.slice(0, ch.start) + ch.encoded + out.slice(ch.end);
-        }
-
-        setCurrentZpl(out);
-
-        const parsedUpdated = parseZplFields(out);
-        const { visible: newVisible, byKey: newByKey } = clusterizeFields(parsedUpdated);
-        setFields(newVisible);
-        clustersRef.current = newByKey;
-
-        toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
-
-        if (orderId) {
-          try {
-            const fd = new FormData();
-            fd.append('orderId', orderId);
-            if (orderCode) fd.append('orderCode', orderCode);
-            fd.append('zplContent', out);
-
-            const r = await markLabelPrintedAction({}, fd);
-            if (r.success) onLabelGenerated?.();
-            else console.warn('markLabelPrintedAction:', r.error);
-          } catch (e) {
-            console.warn('markLabelPrintedAction falhou', e);
-          }
-        }
-      } catch (e: any) {
-        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: e.message });
-      } finally {
-        setIsUpdating(false);
-      }
     };
 
 
@@ -340,4 +340,3 @@ export function ZplEditor({ originalZpl, orderId, orderCode, onLabelGenerated }:
         </div>
     );
 }
-
