@@ -10,7 +10,8 @@
 import { getAi } from '@/ai/genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
-import { AnalyzeCatalogInputSchema, AnalyzeCatalogOutputSchema, type AnalyzeCatalogInput, type AnalyzeCatalogOutput } from '@/lib/types';
+import { AnalyzeCatalogInputSchema, AnalyzeCatalogOutputSchema } from '@/lib/types';
+import type { AnalyzeCatalogInput, AnalyzeCatalogOutput } from '@/lib/types';
 
 
 export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<AnalyzeCatalogOutput> {

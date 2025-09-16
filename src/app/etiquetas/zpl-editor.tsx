@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, isInZone, Zones } from '@/lib/zpl';
+import { parseZplFields, clusterizeFields, encodeFH, IA_ALLOWED_FIELDS, matchIAAllowed, computeZones, type Zones } from '@/lib/zpl';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { assertElements } from "@/lib/assert-elements";
 import type { RemixableField } from '@/lib/types';
@@ -44,7 +44,7 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     const { toast } = useToast();
     const printRef = React.useRef<HTMLDivElement>(null);
     const [fields, setFields] = React.useState<ReturnType<typeof parseZplFields>>([]);
-    const clustersRef = React.useRef<Record<string, ReturnType<typeof parseZplFields>>({});
+    const clustersRef = React.useRef<Record<string, ReturnType<typeof parseZplFields>> | null>({});
     const zonesRef = React.useRef<Zones | null>(null);
     const [editedValues, setEditedValues] = React.useState<Record<string, string>>({});
     const [currentZpl, setCurrentZpl] = React.useState(originalZpl);
@@ -135,7 +135,7 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
           const original = rep.value ?? "";
 
           edited = sanitizeValue(fieldType, edited);
-          if (edited === original && !fieldType) continue;
+          if (edited === original) continue;
 
           let toWrite = edited;
           const idx = (rep.value ?? "").indexOf(": ");
