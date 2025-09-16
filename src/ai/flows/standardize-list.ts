@@ -65,7 +65,6 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
 const StandardizeListInputSchema = z.object({
   organizedList: z.string().describe('The organized, line-by-line list of products, including prices.'),
   apiKey: z.string().optional(),
-  modelName: z.string().optional(),
   prompt_override: z.string().optional(),
 });
 export type StandardizeListInput = z.infer<typeof StandardizeListInputSchema>;
@@ -87,7 +86,7 @@ export type StandardizeListOutput = z.infer<typeof StandardizeListOutputSchema>;
 
 export async function standardizeList(input: StandardizeListInput): Promise<StandardizeListOutput> {
     const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+    const selectedModel = gemini15Pro;
 
     const prompt = ai.definePrompt({
     name: 'standardizeListPrompt',

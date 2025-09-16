@@ -56,7 +56,6 @@ Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, 
 const OrganizeListInputSchema = z.object({
   productList: z.string().describe('The raw, unstructured list of products to process.'),
   apiKey: z.string().optional(),
-  modelName: z.string().optional(),
   prompt_override: z.string().optional(),
 });
 export type OrganizeListInput = z.infer<typeof OrganizeListInputSchema>;
@@ -72,7 +71,7 @@ const OrganizeResultSchema = z.object({
 
 export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+    const selectedModel = gemini15Pro;
 
     const prompt = ai.definePrompt({
         name: 'organizeListPrompt',

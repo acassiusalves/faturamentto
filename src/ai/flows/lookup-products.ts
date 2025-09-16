@@ -61,7 +61,7 @@ const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organiza
         `
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+    const selectedModel = gemini15Pro;
 
     const prompt = ai.definePrompt({
         name: 'lookupProductsPrompt',

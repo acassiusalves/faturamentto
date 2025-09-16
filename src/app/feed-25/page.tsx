@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -188,11 +188,6 @@ export default function FeedPage() {
     const [date, setDate] = useState<Date | undefined>();
     const [geminiApiKey, setGeminiApiKey] = useState('');
 
-    // Model selection state
-    const [organizeModel, setOrganizeModel] = useState('gemini-1.5-flash-latest');
-    const [standardizeModel, setStandardizeModel] = useState('gemini-1.5-flash-latest');
-    const [lookupModel, setLookupModel] = useState('gemini-1.5-flash-latest');
-
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
     const [step2Result, setStep2Result] = useState<StandardizeListOutput | null>(null);
@@ -327,7 +322,7 @@ export default function FeedPage() {
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
                 organizeFormData.append('apiKey', geminiApiKey);
-                organizeFormData.append('modelName', organizeModel);
+                organizeFormData.append('modelName', 'gemini-1.5-pro-latest');
                 const step1Res = await runStep(organizeListAction, organizeFormData, setStep1Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 1 (Organizar)', description: error })
                 );
@@ -339,7 +334,7 @@ export default function FeedPage() {
                 standardizeFormData.append('organizedList', step1Res.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
                 standardizeFormData.append('apiKey', geminiApiKey);
-                standardizeFormData.append('modelName', standardizeModel);
+                standardizeFormData.append('modelName', 'gemini-1.5-pro-latest');
                 const step2Res = await runStep(standardizeListAction, standardizeFormData, setStep2Result, (error) => 
                     toast({ variant: 'destructive', title: 'Erro no Passo 2 (Padronizar)', description: error })
                 );
@@ -353,7 +348,7 @@ export default function FeedPage() {
                     lookupFormData.append('databaseList', databaseList);
                     lookupFormData.append('prompt_override', lookupPrompt);
                     lookupFormData.append('apiKey', geminiApiKey);
-                    lookupFormData.append('modelName', lookupModel);
+                    lookupFormData.append('modelName', 'gemini-1.5-pro-latest');
                     await runStep(lookupProductsAction, lookupFormData, setStep3Result, (error) => 
                         toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
                     );
@@ -387,7 +382,7 @@ export default function FeedPage() {
             formData.append('productList', initialProductList);
             formData.append('prompt_override', organizePrompt);
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', organizeModel);
+            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await organizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Organizar', description: result.error });
@@ -415,7 +410,7 @@ export default function FeedPage() {
             formData.append('organizedList', step1Result.organizedList.join('\n'));
             formData.append('prompt_override', standardizePrompt);
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', standardizeModel);
+            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await standardizeListAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Padronizar', description: result.error });
@@ -443,7 +438,7 @@ export default function FeedPage() {
             formData.append('databaseList', databaseList);
             formData.append('prompt_override', lookupPrompt); // Aqui passamos o prompt
             formData.append('apiKey', geminiApiKey);
-            formData.append('modelName', lookupModel);
+            formData.append('modelName', 'gemini-1.5-pro-latest');
             const result = await lookupProductsAction({ result: null, error: null }, formData);
             if (result.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
@@ -553,15 +548,6 @@ export default function FeedPage() {
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
                                 Fluxo Completo
                             </Button>
-                             <Select value={organizeModel} onValueChange={setOrganizeModel}>
-                                <SelectTrigger className="w-[200px]">
-                                    <SelectValue placeholder="Selecionar Modelo" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
-                                    <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                         {user?.role === 'admin' && (
                             <Accordion type="single" collapsible>
@@ -643,15 +629,6 @@ export default function FeedPage() {
                                                 {isProcessing && !step2Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                                                 Padronizar
                                             </Button>
-                                             <Select value={standardizeModel} onValueChange={setStandardizeModel}>
-                                                <SelectTrigger className="w-[200px]">
-                                                    <SelectValue placeholder="Selecionar Modelo" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
-                                                    <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
-                                                </SelectContent>
-                                            </Select>
                                         </div>
                                         {user?.role === 'admin' && (
                                         <Accordion type="single" collapsible>
@@ -734,15 +711,6 @@ export default function FeedPage() {
                                                 {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                                                 Buscar Produtos
                                             </Button>
-                                             <Select value={lookupModel} onValueChange={setLookupModel}>
-                                                <SelectTrigger className="w-[200px]">
-                                                    <SelectValue placeholder="Selecionar Modelo" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
-                                                    <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
-                                                </SelectContent>
-                                            </Select>
                                         </div>
                                         {user?.role === 'admin' && (
                                         <Accordion type="single" collapsible>
