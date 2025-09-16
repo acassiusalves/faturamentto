@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save } from 'lucide-react';
-import { loadSales, loadAppSettings, saveAppSettings } from '@/services/firestore';
+import { Loader2, Filter, X, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save, Printer } from 'lucide-react';
+import { loadSales, loadAppSettings, saveAppSettings, loadPrintedLabels } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +38,7 @@ assertElements({
     Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileText, Save,
     Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger,
     DialogFooter, Input, DateRangePicker, Label, ZplEditor, Select, SelectContent, SelectItem,
-    SelectTrigger, SelectValue,
+    SelectTrigger, SelectValue, Printer
 });
 
 const initialFetchState = {
@@ -68,15 +68,19 @@ export default function EtiquetasPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    
+    const [printedLabelIds, setPrintedLabelIds] = useState<Set<string>>(new Set());
 
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const [salesData, settings] = await Promise.all([
+            const [salesData, settings, printedIds] = await Promise.all([
                 loadSales(),
-                loadAppSettings()
+                loadAppSettings(),
+                loadPrintedLabels()
             ]);
             setAllSales(salesData);
+            setPrintedLabelIds(new Set(printedIds));
 
             const statesFromSales = new Set<string>();
             salesData.forEach(sale => {
@@ -311,6 +315,7 @@ export default function EtiquetasPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>Impressa?</TableHead>
                                         <TableHead>ID Ideris</TableHead>
                                         <TableHead>Cód. Pedido</TableHead>
                                         <TableHead>Data Aprovação</TableHead>
@@ -322,9 +327,15 @@ export default function EtiquetasPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedSales.length > 0 ? (
-                                        paginatedSales.map(sale => (
+                                        paginatedSales.map(sale => {
+                                            const orderId = (sale as any).order_id;
+                                            const isPrinted = printedLabelIds.has(orderId);
+                                            return (
                                             <TableRow key={(sale as any).id}>
-                                                <TableCell>{(sale as any).order_id}</TableCell>
+                                                <TableCell className="text-center">
+                                                    {isPrinted && <Printer className="h-5 w-5 text-green-600" />}
+                                                </TableCell>
+                                                <TableCell>{orderId}</TableCell>
                                                 <TableCell className="font-mono">{(sale as any).order_code}</TableCell>
                                                 <TableCell>{formatDate((sale as any).payment_approved_date)}</TableCell>
                                                 <TableCell>{(sale as any).customer_name}</TableCell>
@@ -339,18 +350,18 @@ export default function EtiquetasPage() {
                                                     <Button 
                                                         variant="outline" 
                                                         size="sm" 
-                                                        onClick={() => handleFetchAndProcessZPL((sale as any).order_id)}
+                                                        onClick={() => handleFetchAndProcessZPL(orderId)}
                                                         disabled={isProcessingZpl}
                                                     >
-                                                        {isProcessingZpl && fetchingOrderId === (sale as any).order_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                                                        {isProcessingZpl && fetchingOrderId === orderId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                                                         Etiqueta
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                        )})
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={8} className="h-24 text-center">
                                                 {selectedStates.length > 0 ? "Nenhum pedido encontrado para os filtros atuais." : "Selecione um estado para começar."}
                                             </TableCell>
                                         </TableRow>
@@ -416,7 +427,11 @@ export default function EtiquetasPage() {
                             <p className="ml-4">Processando etiqueta...</p>
                         </div>
                     ) : (
-                       <ZplEditor originalZpl={zplContent} />
+                       <ZplEditor 
+                            originalZpl={zplContent} 
+                            orderId={fetchingOrderId} 
+                            onLabelGenerated={() => setPrintedLabelIds(prev => new Set(prev).add(fetchingOrderId!))}
+                        />
                     )}
                 </DialogContent>
             </Dialog>

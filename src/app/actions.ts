@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -378,6 +378,7 @@ export async function remixLabelDataAction(_prevState: any, formData: FormData):
 export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: any | null; error: string | null }> {
     const originalZpl = formData.get('originalZpl') as string;
     const editedDataStr = formData.get('editedData') as string;
+    const orderId = formData.get('orderId') as string;
     
     try {
         if (!originalZpl || !editedDataStr) {
@@ -386,6 +387,11 @@ export async function regenerateZplAction(_prevState: any, formData: FormData): 
         const editedData = JSON.parse(editedDataStr);
         const { regenerateZpl } = await import('@/ai/flows/regenerate-zpl-flow');
         const result = await regenerateZpl({ originalZpl, editedData });
+        
+        if (result.newZpl && orderId) {
+            await savePrintedLabel(orderId);
+        }
+
         return { result, error: null };
     } catch (e: any) {
         return { result: null, error: e.message || 'Falha na regeneração da etiqueta ZPL.' };

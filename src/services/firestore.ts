@@ -48,6 +48,19 @@ const fromFirestore = (docData) => {
   return data;
 };
 
+// --- PRINTED LABELS ---
+export const savePrintedLabel = async (orderId: string): Promise<void> => {
+    const docRef = doc(db, 'printed_labels', orderId);
+    await setDoc(docRef, { printedAt: new Date().toISOString() });
+};
+
+export const loadPrintedLabels = async (): Promise<string[]> => {
+    const labelsCol = collection(db, 'printed_labels');
+    const snapshot = await getDocs(labelsCol);
+    return snapshot.docs.map(doc => doc.id);
+};
+
+
 // --- ENTRY LOG ---
 export const loadEntryLogs = async (dateRange?: DateRange): Promise<InventoryItem[]> => {
     const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-log');
