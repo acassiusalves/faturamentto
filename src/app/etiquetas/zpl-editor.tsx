@@ -161,18 +161,23 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
         if (lowerValue.includes('nota fiscal:')) return 'invoiceNumber';
         if (lowerValue.includes('rua') || lowerValue.includes('alfandega')) return 'senderAddress';
 
+        const field = fields.find(f => f.value === value);
+        if (!field) return null;
+
         // Heurística para remetente: procurar por um campo próximo que contenha "REMETENTE"
-        const isSenderName = allFields.some(field =>
-          field.value.toLowerCase().includes('remetente') &&
-          // Verifica se o campo "REMETENTE" está visualmente próximo do campo de nome atual
-          Math.abs(field.y - fields.find(f => f.value === value)!.y) < 50
+        const isSenderField = allFields.some(f =>
+            f.value.toLowerCase().includes('remetente') &&
+            Math.abs(f.y - field.y) < 50 &&
+            !value.toLowerCase().includes('remetente')
         );
 
-        if (isSenderName && !lowerValue.includes('remetente')) {
-          // Garante que não estamos classificando o próprio rótulo "REMETENTE"
-          return 'senderName';
+        if (isSenderField) {
+            // Se for um campo do remetente, verifica se é o nome (não contém vírgula) ou o endereço (contém vírgula)
+            if (!lowerValue.includes(',')) {
+                return 'senderName';
+            }
         }
-
+        
         return null;
     }
 
