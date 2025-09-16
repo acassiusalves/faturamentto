@@ -48,7 +48,6 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     const [isRemixing, setIsRemixing] = React.useState<string | null>(null);
     const [isRemixingAll, setIsRemixingAll] = React.useState(false);
     const [remixProgress, setRemixProgress] = React.useState(0);
-    const [regenerateState, setRegenerateState] = React.useState({ result: null, error: null });
 
 
     React.useEffect(() => {
@@ -103,46 +102,87 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
     };
 
     const handleUpdateZpl = async () => {
-        setIsUpdating(true);
-        try {
-            let out = currentZpl;
-            for (const field of fields) {
-                const key = `${field.x},${field.y}`;
-                const originalValue = field.value ?? "";
-                const editedValue = editedValues[key] ?? "";
+      setIsUpdating(true);
+      try {
+        // 1) Re-parseia o ZPL ATUAL (índices frescos)
+        const parsedNow = parseZplFields(currentZpl);
+        const { visible, byKey } = clusterizeFields(parsedNow);
     
-                if (originalValue !== editedValue) {
-                    const group = clustersRef.current[key] || [field];
-                    const fieldType = getFieldType(field);
-                    let prefixToPreserve: { preservePrefixFrom?: ZplField } | undefined = undefined;
+        // 2) Calcula todas as mudanças de uma vez
+        type Change = { start: number; end: number; encoded: string };
+        const changes: Change[] = [];
     
-                    if (fieldType === 'orderNumber' || fieldType === 'invoiceNumber') {
-                        prefixToPreserve = { preservePrefixFrom: field };
-                    }
+        for (const rep of visible) {
+          const key = `${rep.x},${rep.y}`;
+          const edited = editedValues[key] ?? "";
+          const original = rep.value ?? "";
+          if (edited === original) continue;
     
-                    out = updateCluster(out, group, editedValue, prefixToPreserve);
-                }
-            }
-            setCurrentZpl(out);
-            toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
-
-            if (orderId) {
-              try {
-                const fd = new FormData();
-                fd.append('orderId', orderId);
-                const r = await markLabelPrintedAction({}, fd);
-                if (r.success) onLabelGenerated?.();
-                else console.warn('markLabelPrintedAction:', r.error);
-              } catch (e) {
-                console.warn('markLabelPrintedAction falhou', e);
-              }
-            }
-
-        } catch(e: any) {
-            toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: e.message });
-        } finally {
-            setIsUpdating(false);
+          // preserva prefixo tipo "Pedido: ", "Nota Fiscal: " se existir no REPRESENTANTE
+          let toWrite = edited;
+          const idx = (rep.value ?? "").indexOf(": ");
+          if (idx > -1) {
+            toWrite = (rep.value ?? "").slice(0, idx + 2) + edited;
+          }
+    
+          const enc = encodeFH(toWrite);
+          const group = byKey[key] || [rep];
+          for (const layer of group) {
+            changes.push({ start: layer.start, end: layer.end, encoded: enc });
+          }
         }
+    
+        if (changes.length === 0) {
+          setIsUpdating(false);
+          return;
+        }
+    
+        // 3) Aplica tudo do fim pro começo para não quebrar offsets entre CLUSTERS
+        changes.sort((a, b) => b.start - a.start);
+    
+        let out = currentZpl;
+        for (const ch of changes) {
+          out = out.slice(0, ch.start) + ch.encoded + out.slice(ch.end);
+        }
+    
+        setCurrentZpl(out);
+    
+        // (opcional, mas ajuda o formulário a ficar em sincronia)
+        const parsedUpdated = parseZplFields(out);
+        const { visible: newVisible, byKey: newByKey } = clusterizeFields(parsedUpdated);
+        setFields(newVisible);
+        clustersRef.current = newByKey;
+    
+        toast({ title: 'Etiqueta Atualizada!', description: 'O ZPL foi reconstruído com os novos dados.' });
+    
+        // 4) marca como impressa (se tiver orderId)
+        if (orderId) {
+          try {
+            const fd = new FormData();
+            fd.append('orderId', orderId);
+            const r = await markLabelPrintedAction({}, fd);
+            if (r.success) onLabelGenerated?.();
+            else console.warn('markLabelPrintedAction:', r.error);
+          } catch (e) {
+            console.warn('markLabelPrintedAction falhou', e);
+          }
+        }
+      } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: e.message });
+      } finally {
+        setIsUpdating(false);
+      }
+    };
+
+    const getFieldType = (field: ZplField): RemixableField | null => {
+      const byCoord = matchIAAllowed(field);
+      if (!byCoord) return null;
+    
+      const v = norm(field.value);
+      if (byCoord === "orderNumber"   && !v.startsWith("pedido:"))      return null;
+      if (byCoord === "invoiceNumber" && !v.startsWith("nota fiscal:")) return null;
+    
+      return byCoord;
     };
 
     const handleRemixField = async (fieldKey: string, originalValue: string, fieldType: RemixableField) => {
@@ -167,18 +207,6 @@ export function ZplEditor({ originalZpl, orderId, onLabelGenerated }: ZplEditorP
             setIsRemixing(null);
         }
     }
-    
-    const getFieldType = (field: ZplField): RemixableField | null => {
-      const byCoord = matchIAAllowed(field);
-      if (!byCoord) return null;
-
-      const v = norm(field.value);
-      if (byCoord === "orderNumber"   && !v.startsWith("pedido:"))      return null;
-      if (byCoord === "invoiceNumber" && !v.startsWith("nota fiscal:")) return null;
-
-      return byCoord;
-    };
-
 
     const handleRemixAll = async () => {
         setIsRemixingAll(true);
