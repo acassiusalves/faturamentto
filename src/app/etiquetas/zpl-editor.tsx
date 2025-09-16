@@ -196,11 +196,17 @@ export function ZplEditor({ originalZpl }: ZplEditorProps) {
 
         const isSenderField = allFields.some(f =>
             f.value.toLowerCase().includes('remetente') &&
-            Math.abs(f.y - field.y) < 150 && // Aumentado para 150
+            Math.abs(f.y - field.y) < 150 && 
             !value.toLowerCase().includes('remetente')
         );
 
-        if (isSenderField) {
+        // Adiciona uma verificação para NÃO ser um campo do destinatário
+        const isRecipientField = allFields.some(f => 
+            f.value.toLowerCase().includes('destinatário') &&
+            Math.abs(f.y - field.y) < 150
+        );
+
+        if (isSenderField && !isRecipientField) {
             const hasAddressKeywords = /\b(rua|av|alameda|alfandega)\b/.test(lowerValue);
             const hasCityStateKeywords = /\b(sao paulo|sp|br-sp)\b/.test(lowerValue);
             
