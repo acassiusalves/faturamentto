@@ -124,53 +124,135 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
     Execute a análise e gere a lista padronizada e a lista de itens não processados. A saída deve ser um JSON válido.
     `;
 
-const DEFAULT_LOOKUP_PROMPT = `Você é um sistema avançado de busca e organização para um e-commerce de celulares. Sua tarefa principal é converter CADA linha da 'Lista Padronizada' de entrada em um objeto JSON na saída, cruzando as informações com o 'Banco de Dados' para encontrar o SKU correto.
+const DEFAULT_LOOKUP_PROMPT = `Você é um sistema de correspondência exata para e-commerce de celulares. Sua única tarefa é encontrar o SKU correto para cada produto da lista de entrada, seguindo um algoritmo estruturado e preciso.
 
-        **LISTA PADRONIZADA (Entrada para conversão):**
-        '''
-        {{{productList}}}
-        '''
+**LISTA PADRONIZADA (Entrada para processar):**
+'''
+{{{productList}}}
+'''
 
-        **BANCO DE DADOS (Fonte para consulta de SKU):**
-        '''
-        {{{databaseList}}}
-        '''
+**BANCO DE DADOS (Fonte de consulta para SKUs):**
+'''
+{{{databaseList}}}
+'''
 
-        **REGRAS DE PROCESSAMENTO E CONVERSÃO:**
-        1.  **REGRA CRÍTICA - UM-PARA-UM:** Para CADA linha na 'Lista Padronizada' de entrada, você DEVE gerar exatamente um objeto JSON correspondente na saída. A contagem de itens na entrada e na saída (array 'details') deve ser IDÊNTICA. Não adicione, duplique ou omita itens.
-        2.  **Correspondência Inteligente:** Para cada item na 'Lista Padronizada', encontre a correspondência mais próxima no 'Banco de Dados'.
-        3.  **Foco nos Componentes-Chave:** Para a correspondência, priorize os seguintes componentes: **Modelo, RAM e Armazenamento**. Variações pequenas no nome (como "/") podem ser ignoradas se estes componentes forem idênticos.
-        4.  **Regra de Conectividade Padrão:**
-            *   Se a 'Lista Padronizada' não especificar "4G" ou "5G", assuma **4G** como padrão ao procurar no 'Banco de Dados'.
-            *   Se houver dois produtos idênticos no 'Banco de Dados' (um 4G e outro 5G), e a lista de entrada não especificar, priorize a versão **4G**. A versão 5G só deve ser escolhida se "5G" estiver explicitamente na linha do produto de entrada.
-        5.  **Extração de Preço:** O preço de custo (\`costPrice\`) deve ser o valor numérico extraído do final de cada linha da 'Lista Padronizada'. Mantenha o formato original do número (com pontos e vírgulas). O resultado para costPrice deve ser uma string. Exemplos: "R$ 1.234,56" se torna "1.234,56". "R$ 1.130" se torna "1.130". "R$ 545.00" se torna "545.00".
-        6.  **Formato de Saída (JSON):** A saída deve ser um array de objetos JSON dentro da chave 'details'. Cada objeto deve conter:
-            *   \`sku\`: O código do produto do 'Banco de Dados'. Se não houver uma correspondência com alta confiança, use a string **"SEM CÓDIGO"**.
-            *   \`name\`: O nome completo e oficial do produto, **exatamente como está no 'Banco de Dados'**. Se não for encontrado, repita o nome original da 'Lista Padronizada'.
-            *   \`costPrice\`: O preço de custo extraído como uma string, mantendo o formato original.
-        
-        **REGRAS DE ORGANIZAÇÃO DO RESULTADO FINAL:**
-        1.  **Agrupamento por Marca:** Organize o array 'details' final agrupando os produtos por marca na seguinte ordem de prioridade: **Xiaomi, Realme, Motorola, Samsung**.
-        2.  **Ignorar Outras Marcas:** Produtos de marcas que não sejam uma das quatro mencionadas acima devem ser completamente ignorados e não devem aparecer no resultado final.
-        3.  **Itens "SEM CÓDIGO":** Todos os produtos para os quais não foi encontrado um SKU (ou seja, \`sku\` é "SEM CÓDIGO") devem ser movidos para o **final da lista**, após todas as marcas.
+## REGRAS FUNDAMENTAIS
 
-        **EXEMPLO DE SAÍDA ESPERADA:**
-        '''json
-        {
-          "details": [
-            { "sku": "#XMS12P256A", "name": "Xiaomi Mi 12S 256GB 8GB RAM 5G - Versão Global", "costPrice": "3.100,00" },
-            { "sku": "#RMGTN256P", "name": "Realme GT Neo 256GB 12GB RAM 5G - Preto", "costPrice": "2.800" },
-            { "sku": "#MTG2264A", "name": "Motorola Moto G22 64GB 4GB RAM 4G - Azul", "costPrice": "980.00" },
-            { "sku": "#SMA53128V", "name": "Samsung Galaxy A53 128GB 8GB RAM 5G - Verde", "costPrice": "1500.00" },
-            { "sku": "SEM CÓDIGO", "name": "Tablet Desconhecido 64GB 4GB RAM 4G", "costPrice": "630,00" }
-          ]
-        }
-        '''
-        
-        **INSTRUÇÃO FINAL ABSOLUTA:** É absolutamente crítico que o JSON de saída seja VÁLIDO. Se a lista for muito longa e você não conseguir processar todos os itens, PARE antes de atingir seu limite de tokens. É MELHOR retornar uma lista JSON mais curta e VÁLIDA do que uma lista completa e QUEBRADA. Não termine a resposta no meio de um objeto JSON.
+### 1. CORRESPONDÊNCIA UM-PARA-UM (CRÍTICO)
+- Para CADA linha na entrada, você DEVE gerar EXATAMENTE um objeto JSON na saída
+- JAMAIS pule, remova ou duplique produtos
+- Se não encontrar correspondência confiável, use "SEM CÓDIGO"
+- A quantidade de objetos na saída deve ser IDÊNTICA à quantidade de linhas na entrada
 
-        Execute a conversão, aplique todas as regras de negócio e de organização, e gere o JSON final completo.
-        `;
+### 2. ALGORITMO DE CORRESPONDÊNCIA ESTRUTURADA
+Para cada produto da entrada, siga esta sequência exata:
+
+**Passo 1 - Análise Estruturada:**
+- Quebra o produto em: Marca, Modelo, Armazenamento, RAM, Rede, Cor
+- Exemplo: "Xiaomi Redmi Note 14 256GB 8GB Preto 5G" → 
+  - Marca: Xiaomi
+  - Modelo: Redmi Note 14  
+  - Armazenamento: 256GB
+  - RAM: 8GB
+  - Cor: Preto
+  - Rede: 5G
+
+**Passo 2 - Filtragem de Candidatos:**
+- Selecione APENAS produtos do banco que tenham:
+  - MESMA marca
+  - MESMO armazenamento (256GB = 256GB)
+  - MESMA RAM (8GB = 8GB)
+
+**Passo 3 - Sistema de Pontuação:**
+Para cada candidato filtrado, calcule pontos:
+- +5 pontos: Modelo compatível (ignore diferenças como "Redmi Note 14" vs "Note 14")
+- +2 pontos: RAM e Armazenamento corretos (já filtrados)
+- +1 ponto: Rede compatível (4G/5G)
+- +0.5 ponto: Cor compatível
+
+**Passo 4 - Decisão:**
+- Se pontuação ≥ 7.5: Use o SKU do melhor candidato
+- Se pontuação < 7.5: Use "SEM CÓDIGO"
+
+### 3. REGRAS DE REDE (4G/5G)
+- Se o produto da entrada NÃO mencionar rede → assuma 4G
+- Se houver dois produtos idênticos no banco (um 4G, outro 5G):
+  - Entrada sem rede especificada → escolha a versão 4G
+  - Entrada com "5G" → escolha a versão 5G
+
+### 4. TOLERÂNCIA PARA VARIAÇÕES
+Ignore estas diferenças menores:
+- Maiúsculas/minúsculas: "PRETO" = "Preto"
+- Formatação: "8/256GB" = "8GB RAM 256GB"
+- Palavras extras: "Global", "Versão Global", "/"
+- Ordem: "Redmi Note 14" = "Note 14 Redmi"
+
+### 5. EXTRAÇÃO DE PREÇO
+- Sempre extraia o último número da linha como preço
+- Mantenha como string no formato original
+- Exemplos: "1.234,56" → "1.234,56" | "1130" → "1130"
+
+## FORMATO DE SAÍDA OBRIGATÓRIO
+
+\`\`\`json
+{
+  "details": [
+    {
+      "sku": "SKU_ENCONTRADO_OU_SEM_CÓDIGO",
+      "name": "Nome_oficial_do_banco_ou_nome_original_se_sem_código",
+      "costPrice": "preço_extraído_como_string"
+    }
+  ]
+}
+\`\`\`
+
+## ORGANIZAÇÃO FINAL
+1. **Ordem por marca:** Xiaomi → Realme → Motorola → Samsung
+2. **Ignorar outras marcas:** TECNO, etc. não devem aparecer
+3. **"SEM CÓDIGO" no final:** Todos os produtos sem SKU vão para o fim
+
+## EXEMPLOS PRÁTICOS
+
+**Entrada:**
+\`\`\`
+Xiaomi Redmi Note 14 256GB 8GB Preto 4G 915
+Realme C75 256GB 8GB Gold 4G 930
+\`\`\`
+
+**Banco de Dados:**
+\`\`\`
+Xiaomi Redmi Note 14 256GB 8GB Preto 4G	#11P
+Realme C75 256GB 8GB Dourado 4G	#04D
+\`\`\`
+
+**Saída Esperada:**
+\`\`\`json
+{
+  "details": [
+    {
+      "sku": "#11P",
+      "name": "Xiaomi Redmi Note 14 256GB 8GB Preto 4G",
+      "costPrice": "915"
+    },
+    {
+      "sku": "#04D", 
+      "name": "Realme C75 256GB 8GB Dourado 4G",
+      "costPrice": "930"
+    }
+  ]
+}
+\`\`\`
+
+## VALIDAÇÃO FINAL
+Antes de retornar, verifique:
+- ✅ Quantidade de objetos = quantidade de linhas da entrada
+- ✅ Todos os preços foram extraídos corretamente
+- ✅ SKUs encontrados existem no banco de dados
+- ✅ Nomes oficiais foram usados quando SKU encontrado
+- ✅ Organização por marca respeitada
+
+**EXECUTE O PROCESSAMENTO AGORA SEGUINDO EXATAMENTE ESTE ALGORITMO.**
+`;
 
 
 export default function FeedPage() {
@@ -354,9 +436,18 @@ export default function FeedPage() {
                      toast({ variant: 'default', title: 'Aviso', description: 'O Passo 2 (Padronizar) não retornou produtos válidos para buscar.' });
                 } else {
                     // Step 3
-                    animateProgress(66, 100, 1000); // Faster step, no AI
-                    const lookupResult = deterministicLookup(currentStep2Result.standardizedList, databaseList);
-                    setStep3Result(lookupResult);
+                    animateProgress(66, 100, 1500);
+                    const lookupFormData = new FormData();
+                    lookupFormData.append('productList', currentStep2Result.standardizedList.join('\n'));
+                    lookupFormData.append('databaseList', databaseList);
+                    lookupFormData.append('prompt_override', lookupPrompt);
+                    lookupFormData.append('apiKey', geminiApiKey);
+                    
+                    await runStep(lookupProductsAction, lookupFormData, (res) => {
+                        setStep3Result(res);
+                    }, (error) => 
+                        toast({ variant: 'destructive', title: 'Erro no Passo 3 (Buscar)', description: error })
+                    );
                 }
                 
                 setProgress(100);
@@ -436,18 +527,9 @@ export default function FeedPage() {
             if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
             }
-            animateProgress(0, 100, 1500);
-            const formData = new FormData();
-            formData.append('productList', step2Result.standardizedList.join('\n'));
-            formData.append('databaseList', databaseList);
-            formData.append('prompt_override', lookupPrompt); // Aqui passamos o prompt
-            formData.append('apiKey', geminiApiKey);
-            const result = await lookupProductsAction({ result: null, error: null }, formData);
-            if (result.error) {
-                toast({ variant: 'destructive', title: 'Erro ao Buscar', description: result.error });
-                setProgress(0);
-            }
-            setStep3Result(result.result as any);
+            animateProgress(0, 100, 1000);
+            const lookupResult = deterministicLookup(step2Result.standardizedList, databaseList);
+            setStep3Result(lookupResult);
             setProgress(100);
              if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
