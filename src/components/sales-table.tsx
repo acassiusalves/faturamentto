@@ -454,16 +454,13 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
     });
   }
   
-  const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrency: (v: number) => string }) => {
+const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrency: (v: number) => string }) => {
     const saleData = sale as any;
     const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
     
     return (
       <div className="flex flex-col sm:flex-row items-start gap-4 p-4 border-b last:border-b-0">
-        {/* Image */}
-        <div className="w-24 flex-shrink-0">
-          <p className="font-bold text-sm mb-2">Imagem</p>
-          <div className="w-24 h-24 relative rounded-md overflow-hidden bg-muted">
+        <div className="w-24 h-24 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
             {saleData.item_image ? (
               <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
             ) : (
@@ -471,40 +468,36 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
                 <Package size={24} className="text-muted-foreground"/>
               </div>
             )}
-          </div>
         </div>
         
-        {/* Main Content */}
         <div className="flex-grow space-y-3">
           <div>
-            <p className="font-bold text-sm">Produto</p>
-            <p className="leading-tight">{productName}</p>
+            <p className="font-semibold leading-tight">{productName}</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
-            <div><strong className="font-semibold block">Conta</strong> {saleData.auth_name}</div>
-            <div><strong className="font-semibold block">Canal</strong> {saleData.marketplace_name}</div>
-            <div className="col-span-2 sm:col-span-1"><strong className="font-semibold block">Pedido</strong> {saleData.order_code}</div>
-            <div><strong className="font-semibold block">Data</strong> {formatDate(saleData.payment_approved_date)}</div>
-            <div><strong className="font-semibold block">Estado</strong> {saleData.state_name}</div>
-            <div><strong className="font-semibold block">SKU</strong> {saleData.item_sku}</div>
-            <div><strong className="font-semibold block">ID</strong> {saleData.order_id}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Conta:</strong> {saleData.auth_name}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Canal:</strong> {saleData.marketplace_name}</div>
+            <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1"><strong className="font-semibold text-muted-foreground">Pedido:</strong> {saleData.order_code}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Data:</strong> {formatDate(saleData.payment_approved_date)}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Estado:</strong> {saleData.state_name}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">SKU:</strong> {saleData.item_sku}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">ID:</strong> {saleData.order_id}</div>
           </div>
         </div>
 
-        {/* Quantity & Value */}
-        <div className="flex sm:flex-col justify-between sm:justify-start sm:text-right gap-4 sm:gap-0 w-full sm:w-auto">
-          <div className="mb-4">
-              <p className="font-bold text-sm">QTD</p>
-              <p>{saleData.item_quantity}</p>
+        <div className="flex flex-row sm:flex-col justify-between sm:justify-start sm:text-right gap-4 sm:gap-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0">
+          <div className="sm:mb-4">
+              <p className="font-bold text-sm text-muted-foreground">QTD</p>
+              <p className="font-semibold">{saleData.item_quantity}</p>
           </div>
           <div>
-              <p className="font-bold text-sm">Valor</p>
+              <p className="font-bold text-sm text-muted-foreground">Valor</p>
               <p className="font-semibold text-primary">{formatCurrency(saleData.paid_amount)}</p>
           </div>
         </div>
       </div>
     );
-  };
+};
 
 
   if (isDashboard) {
