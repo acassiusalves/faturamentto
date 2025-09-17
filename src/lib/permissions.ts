@@ -90,7 +90,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
     '/sac': ['admin', 'socio', 'sac'],
-    '/memoria': ['admin', 'socio', 'financeiro'],
+    '/memoria': ['admin'],
     '/mapeamento': ['admin', 'socio'],
     '/aprovacoes': ['admin', 'socio'],
     '/configuracoes': ['admin'],
