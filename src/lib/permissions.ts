@@ -79,8 +79,8 @@ export const pagePermissions: Record<string, string[]> = {
     // Page route: Allowed roles
     '/': ['admin', 'socio', 'financeiro', 'expedicao', 'sac'],
     '/analise-por-conta': ['admin', 'socio', 'financeiro'],
-    '/produtos': ['admin', 'socio', 'expedicao'],
-    '/estoque': ['admin', 'socio', 'expedicao'],
+    '/produtos': ['admin', 'socio', 'financeiro', 'expedicao'],
+    '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/picking': ['admin', 'socio', 'expedicao'],
     '/conciliacao': ['admin', 'socio', 'financeiro'],
     '/compras': ['admin', 'socio', 'financeiro'],
