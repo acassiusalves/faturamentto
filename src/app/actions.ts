@@ -285,15 +285,26 @@ export async function lookupProductsAction(
   formData: FormData
 ): Promise<{ result: LookupResult | null; error: string | null }> {
   try {
-    const productList = String(formData.get("productList") || "");
-    const databaseList = String(formData.get("databaseList") || "");
-    const lines = productList.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-
-    const { details, withCode, noCode } = deterministicLookup(lines, databaseList);
-
-    return { result: { details, withCode, noCode } as any, error: null };
-  } catch (e:any) {
-    return { result: null, error: e?.message || "Falha no lookup" };
+    const productList = formData.get('productList') as string;
+    const databaseList = formData.get('databaseList') as string;
+    const apiKey = formData.get('apiKey') as string | undefined;
+    const prompt_override = formData.get('prompt_override') as string | undefined;
+    
+    if (!productList || !databaseList) {
+      throw new Error("Lista de produtos ou banco de dados não pode estar vazio.");
+    }
+    
+    const { lookupProducts } = await import('@/ai/flows/lookup-products');
+    const result = await lookupProducts({ 
+      productList, 
+      databaseList, 
+      apiKey, 
+      prompt_override 
+    });
+    
+    return { result, error: null };
+  } catch (e: any) {
+    return { result: null, error: e.message || "Falha ao buscar produtos." };
   }
 }
 
@@ -548,20 +559,20 @@ export async function markLabelPrintedAction(
   formData: FormData
 ): Promise<{ success: boolean; error: string | null }> {
   const orderId = String(formData.get("orderId") || "").trim();
-  const orderCodeFromForm = (formData.get('orderCode') as string | null)?.trim() || null;
+  const orderCode = (formData.get('orderCode') as string | null)?.trim() || null;
   const zplContent = formData.get('zplContent') as string | undefined;
 
   if (!orderId) return { success: false, error: 'orderId ausente.' };
 
   try {
     // Se vier no form, não faz lookup; caso contrário, tenta obter do Firestore.
-    let orderCode = orderCodeFromForm;
-    if (!orderCode) {
-      const sale = await getSaleByOrderId(orderId); // ok se preferir trocar por findSaleByOrderNumber(orderId)
-      orderCode = (sale as any)?.order_code ?? null;
+    let orderCodeToUse = orderCode;
+    if (!orderCodeToUse) {
+      const sale = await getSaleByOrderId(orderId);
+      orderCodeToUse = (sale as any)?.order_code ?? null;
     }
 
-    await savePrintedLabel(orderId, orderCode, zplContent); // já grava por ID e por código
+    await savePrintedLabel(orderId, orderCodeToUse, zplContent); // já grava por ID e por código
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Falha ao marcar etiqueta como impressa.' };
