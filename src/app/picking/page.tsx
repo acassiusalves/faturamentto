@@ -24,6 +24,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const USERS_COLLECTION = 'users';
 const DEFAULT_USER_ID = 'default-user'; // Placeholder
 
 export default function PickingPage() {
@@ -233,7 +234,7 @@ export default function PickingPage() {
     setIsConfirming(true);
     
     const batch = writeBatch(db);
-    const logCol = collection(db, 'users', DEFAULT_USER_ID, 'picking-log');
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
 
     try {
         for (const item of scannedItems) {
@@ -245,7 +246,7 @@ export default function PickingPage() {
                 createdAt: new Date(),
                 logId: logDocRef.id,
             };
-            batch.set(logDocRef, toFirestore(newLogEntry));
+            batch.set(logDocRef, newLogEntry);
 
             if (!item.id.startsWith('manual-')) {
                 const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', item.id);
@@ -428,7 +429,7 @@ export default function PickingPage() {
     }
   }
 
-  const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString('pt-BR');
+  const formatTime = (date: Date) => date.toLocaleTimeString('pt-BR');
 
   const formatLastSyncTime = (date: Date | null): string => {
     if (!date) return 'Sincronizando pela primeira vez...';
@@ -881,24 +882,4 @@ export default function PickingPage() {
   );
 }
 
-
-function toFirestore(obj: any) {
-    if (obj instanceof Date) {
-        return obj;
-    }
-    if (Array.isArray(obj)) {
-        return obj.map(toFirestore);
-    }
-    if (obj !== null && typeof obj === 'object') {
-        const res: any = {};
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                res[key] = toFirestore(obj[key]);
-            }
-        }
-        return res;
-    }
-    return obj;
-}
-
-```
+    
