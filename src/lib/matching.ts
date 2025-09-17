@@ -1,3 +1,4 @@
+
 // src/lib/matching.ts
 import { deburr } from "lodash"; // se não usar lodash, cria um deburr simples ou remove acentos via normalize
 
@@ -94,32 +95,35 @@ function norm(s:string) {
 function normalizeModel(brand: DbItem["brand"], modelRaw: string) {
   let m = norm(modelRaw);
 
-  // tirar ruído
-  m = m.replace(/\bglobal\b/g,"");
-  m = m.replace(/\bchines|chinesa|chine(s)?\b/g,"").trim();
-  m = m.replace(/\s+/g," ");
+  // Limpar palavras comuns primeiro
+  m = m.replace(/\b(global|chines|chinesa|chine|versao|version)\b/g,"").trim();
+  
+  // CORREÇÃO ESPECÍFICA: "Redmi Note 14" vs "Note 14"
+  if (brand === "Xiaomi") {
+    // Se tem "note" mas não tem "redmi", adiciona
+    if (m.includes("note") && !m.includes("redmi")) {
+      m = "redmi " + m;
+    }
+    // Se começa com número, assume Redmi
+    if (/^\d/.test(m)) {
+      m = `redmi ${m}`;
+    }
+  }
 
-  // correções comuns
-  m = m.replace(/\bnot\b/g, "note");        // "NOT14" -> "note14"
+  // Outras correções
+  m = m.replace(/\bnot\b/g, "note");
   m = m.replace(/\bnot(\s*)14/,"note 14");
   m = m.replace(/\bnot(\s*)13/,"note 13");
-
-  // "pro +5g" -> "pro plus 5g"
   m = m.replace(/pro\s*\+\s*5g/g, "pro plus 5g");
   m = m.replace(/\bpro\+\b/g, "pro plus");
 
-  // Realme: "realmec75" -> "c75" ; "c75x" -> "c75"
-  m = m.replace(/realme?c?(\s*)75x/g,"c75");
-  m = m.replace(/realmec?75/g,"c75");
-
-  // Xiaomi sem "Redmi" mas começando por número -> assume Redmi
-  if (brand === "Xiaomi" && /^\d/.test(m)) {
-    m = `redmi ${m}`;
+  // Realme específico
+  if (brand === "Realme") {
+    m = m.replace(/realme?c?(\s*)75x/g,"c75");
+    m = m.replace(/realmec?75/g,"c75");
   }
 
-  // reduzir múltiplos espaços
-  m = m.replace(/\s+/g," ").trim();
-  return m;
+  return m.replace(/\s+/g," ").trim();
 }
 
 function parseColor(token?: string) {
@@ -142,15 +146,25 @@ function extractLastDigits(line: string): string {
 }
 
 
-// CHANGE: parseStdLine
+// CORREÇÃO 1: Melhorar detecção de marca
 export function parseStdLine(line: string): StdLine | null {
   const priceDigits = extractLastDigits(line);
   const lineNoPrice = stripTrailingPrice(line);
 
-  const brandMatch = lineNoPrice.match(/\b(Xiaomi|Realme|Motorola|Samsung)\b/i);
-  // Se não encontrar uma marca, não retorna null. Apenas deixa a marca indefinida.
-  const brand = brandMatch ? (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"] : undefined;
-
+  // MELHORAMENTO: Detecção mais robusta de marca
+  let brand: DbItem["brand"] | undefined;
+  const lineNorm = lineNoPrice.toLowerCase();
+  
+  if (lineNorm.includes('xiaomi') || lineNorm.includes('redmi') || lineNorm.includes('poco')) {
+    brand = "Xiaomi";
+  } else if (lineNorm.includes('realme')) {
+    brand = "Realme";
+  } else if (lineNorm.includes('motorola') || lineNorm.includes('moto')) {
+    brand = "Motorola";
+  } else if (lineNorm.includes('samsung') || lineNorm.includes('galaxy')) {
+    brand = "Samsung";
+  }
+  
   const storageMatch = lineNoPrice.match(/(\d+)\s*GB/i);
   const storage = storageMatch ? parseInt(storageMatch[1],10) : NaN;
 
@@ -158,7 +172,6 @@ export function parseStdLine(line: string): StdLine | null {
   let ram = NaN;
   if (allGb.length >= 2) {
     const nums = allGb.map(x => parseInt(x.replace(/\D/g,""),10));
-    // heurística: o menor costuma ser RAM (12 vs 512)
     ram = Math.min(...nums) !== storage ? Math.min(...nums) : Math.max(...nums);
   }
 
@@ -171,8 +184,8 @@ export function parseStdLine(line: string): StdLine | null {
 
   const parts = lineNoPrice.split(/\b\d+\s*GB\b/i);
   const left = parts[0] || "";
-  const afterBrand = brand ? left.replace(new RegExp(`\\b${brand}\\b`, "i"),"").trim() : left.trim();
-  const modelBase = normalizeModel(brand || "Xiaomi", afterBrand); // Fallback para uma marca qualquer se não encontrada
+  const afterBrand = brand ? left.replace(new RegExp(`\\b(xiaomi|redmi|poco|realme|motorola|moto|samsung|galaxy)\\b`, "i"),"").trim() : left.trim();
+  const modelBase = normalizeModel(brand || "Xiaomi", afterBrand);
 
   return {
     raw: lineNoPrice,
@@ -186,7 +199,7 @@ export function parseStdLine(line: string): StdLine | null {
   };
 }
 
-// CHANGE: parseDb
+
 export function parseDb(databaseList: string): DbItem[] {
   const lines = databaseList.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const items: DbItem[] = [];
@@ -194,7 +207,7 @@ export function parseDb(databaseList: string): DbItem[] {
     const [rawName, sku] = line.split("\t").map(s => s?.trim());
     if (!rawName || !sku) continue;
 
-    const name = stripTrailingPrice(rawName);           // <- limpa preço do nome
+    const name = stripTrailingPrice(rawName);
     const brandMatch = name.match(/^(Xiaomi|Realme|Motorola|Samsung)\b/i);
     if (!brandMatch) continue;
     const brand = (brandMatch[1][0].toUpperCase() + brandMatch[1].slice(1).toLowerCase()) as DbItem["brand"];
@@ -218,7 +231,7 @@ export function parseDb(databaseList: string): DbItem[] {
     const modelBase = normalizeModel(brand, afterBrand);
 
     items.push({
-      sku, name: rawName, // mantém o nome original para exibir
+      sku, name: rawName,
       brand, modelBase, storage, ram, color, network
     });
   }
@@ -233,14 +246,12 @@ function brandEq(a?: string, b?: string) {
 function modelEq(a: string, b: string) {
   const cleanA = a.replace(/\s+/g,"").toLowerCase();
   const cleanB = b.replace(/\s+/g,"").toLowerCase();
-  // Permite que o modelo do banco de dados (maior) contenha o modelo da lista (menor)
-  // Ex: "poco x7 pro" (banco) contém "x7 pro" (lista)
   return cleanA.includes(cleanB) || cleanB.includes(cleanA);
 }
 
 
 function colorEq(a?: string, b?: string) {
-  if (!a || !b) return true; // cor é fraca
+  if (!a || !b) return true;
   return a === b;
 }
 
@@ -249,16 +260,15 @@ function scoreMatch(std: StdLine, db: DbItem) {
   if (!brandEq(std.brand, db.brand)) return -999;
 
   let s = 0;
-  if (modelEq(std.modelBase, db.modelBase)) s += 5; // Match de modelo (flexível)
-  else return -999; // Se nem o modelo bater, descarta
+  if (modelEq(std.modelBase, db.modelBase)) s += 5;
+  else return -999;
 
   if (std.storage && std.storage === db.storage) s += 2;
   if (std.ram && std.ram === db.ram) s += 2;
 
-  // rede: default 4G se não informado
   const desired = std.network ?? "4g";
   if (desired === db.network) s += 1;
-  else if (desired === "4g" && db.network === "5g") s -= 2; // penaliza 5G quando não pediu
+  else if (desired === "4g" && db.network === "5g") s -= 2;
 
   if (colorEq(std.color, db.color)) s += 0.5;
 
@@ -277,28 +287,26 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
     .filter((x): x is StdLine => !!x);
 
   const results: MatchResult[] = stdParsed.map(std => {
-    // Se a linha não tem marca, não podemos fazer a busca. Marcamos como SEM CÓDIGO.
     if (!std.brand) {
-        return { sku: "SEM CÓDIGO", name: std.raw, costPrice: std.priceDigits, _score: 0 };
+      return { sku: "SEM CÓDIGO", name: std.raw, costPrice: std.priceDigits, _score: 0 };
     }
       
     let best: {item: DbItem; score: number} | null = null;
     
-    // Filtra o banco de dados apenas para itens com atributos principais correspondentes
+    // CORREÇÃO: Filtro menos restritivo - só marca obrigatória
     const candidates = db.filter(dbItem => 
-      brandEq(std.brand, dbItem.brand) &&
-      std.storage === dbItem.storage &&
-      std.ram === dbItem.ram
+      brandEq(std.brand, dbItem.brand)
     );
 
     for (const item of candidates) {
       const sc = scoreMatch(std, item);
-      if (!best || sc > best.score) {
+      if (sc > -999 && (!best || sc > best.score)) {
         best = { item, score: sc };
       }
     }
 
-    const THRESHOLD = 7.5; // Limiar um pouco mais alto para garantir a qualidade do match
+    // CORREÇÃO: Threshold mais baixo
+    const THRESHOLD = 5.0; 
     if (best && best.score >= THRESHOLD) {
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
@@ -320,4 +328,43 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
   const noCode = results.filter(r => r.sku === "SEM CÓDIGO");
 
   return { details: [...withCode, ...noCode], withCode, noCode };
+}
+
+export function debugMatch(productLine: string, databaseList: string) {
+  const db = parseDb(databaseList);
+  const std = parseStdLine(productLine);
+  
+  if (!std) {
+    console.log("❌ Não conseguiu parsear a linha:", productLine);
+    return;
+  }
+  
+  console.log("🔍 Debug Match para:", productLine);
+  console.log("📋 Parsed:", std);
+  
+  if (!std.brand) {
+    console.log("❌ Marca não detectada");
+    return;
+  }
+  
+  const candidates = db.filter(dbItem => brandEq(std.brand, dbItem.brand));
+  console.log(`🎯 Candidatos encontrados (${candidates.length}):`, candidates.map(c => c.name));
+  
+  const scores = candidates.map(item => ({
+    item,
+    score: scoreMatch(std, item),
+    details: {
+      brand: brandEq(std.brand, item.brand),
+      model: modelEq(std.modelBase, item.modelBase),
+      storage: std.storage === item.storage,
+      ram: std.ram === item.ram,
+      network: (std.network ?? "4g") === item.network,
+      color: colorEq(std.color, item.color)
+    }
+  }));
+  
+  scores.sort((a, b) => b.score - a.score);
+  console.table(scores.slice(0, 5));
+  
+  return scores[0];
 }
