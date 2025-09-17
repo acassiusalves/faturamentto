@@ -1,4 +1,5 @@
 
+
 // src/lib/matching.ts
 import { deburr } from "lodash"; // se não usar lodash, cria um deburr simples ou remove acentos via normalize
 
@@ -146,7 +147,7 @@ function extractLastDigits(line: string): string {
 }
 
 
-// CORREÇÃO 1: Melhorar detecção de marca
+// 1. CORREÇÃO: Melhorar detecção de marca
 export function parseStdLine(line: string): StdLine | null {
   const priceDigits = extractLastDigits(line);
   const lineNoPrice = stripTrailingPrice(line);
