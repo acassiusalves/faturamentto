@@ -105,7 +105,7 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
   return (
     <div className="group flex flex-col md:flex-row items-stretch gap-4 p-4 border-b last:border-b-0 border-l-4 border-l-transparent hover:border-l-primary/70 hover:bg-muted/30 transition-colors">
       {/* Imagem */}
-      <div className="relative w-full h-24 md:w-24 md:h-24 rounded-md overflow-hidden bg-muted flex-shrink-0">
+      <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-md overflow-hidden bg-muted flex-shrink-0">
         {saleData.item_image ? (
           <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
         ) : (
@@ -143,7 +143,7 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
 
       {/* Preço e QTD – destaque */}
       <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center min-w-[160px] mt-2 md:mt-0">
-        <div className="text-2xl md:text-3xl font-extrabold tracking-tight">
+        <div className="text-2xl font-extrabold tracking-tight">
           {formatCurrency(saleData.paid_amount)}
         </div>
         <div className="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold">
