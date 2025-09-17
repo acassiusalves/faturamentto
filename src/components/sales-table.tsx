@@ -470,10 +470,15 @@ const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrenc
             )}
         </div>
         
-        <div className="flex-grow space-y-3">
-          <div>
-            <p className="font-semibold leading-tight">{productName}</p>
-          </div>
+        <div className="flex-grow space-y-2">
+           <div className="flex justify-between items-start gap-4">
+                <p className="font-semibold leading-tight flex-grow">{productName}</p>
+                <div className="flex flex-col text-right flex-shrink-0">
+                    <p className="font-bold text-sm text-muted-foreground">QTD: <span className="text-foreground">{saleData.item_quantity}</span></p>
+                    <p className="font-bold text-sm text-muted-foreground">Valor: <span className="text-primary">{formatCurrency(saleData.paid_amount)}</span></p>
+                </div>
+            </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
             <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Conta:</strong> {saleData.auth_name}</div>
             <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Canal:</strong> {saleData.marketplace_name}</div>
@@ -482,17 +487,6 @@ const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrenc
             <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Estado:</strong> {saleData.state_name}</div>
             <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">SKU:</strong> {saleData.item_sku}</div>
             <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">ID:</strong> {saleData.order_id}</div>
-          </div>
-        </div>
-
-        <div className="flex flex-row sm:flex-col justify-between sm:justify-start sm:text-right gap-4 sm:gap-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0">
-          <div className="sm:mb-4">
-              <p className="font-bold text-sm text-muted-foreground">QTD</p>
-              <p className="font-semibold">{saleData.item_quantity}</p>
-          </div>
-          <div>
-              <p className="font-bold text-sm text-muted-foreground">Valor</p>
-              <p className="font-semibold text-primary">{formatCurrency(saleData.paid_amount)}</p>
           </div>
         </div>
       </div>
