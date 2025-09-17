@@ -90,6 +90,72 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
+const MetaItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
+  <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
+    <strong className="font-semibold text-foreground">{label}:</strong> {value ?? '—'}
+  </span>
+);
+
+const Dot = () => <span className="mx-2 text-muted-foreground">•</span>;
+
+const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: { sale: Sale; formatCurrency: (v: number) => string; productSkuMap: Map<string, string>; formatDate: (d?: string) => string; }) => {
+  const saleData = sale as any;
+  const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
+
+  return (
+    <div className="group flex flex-col md:flex-row items-stretch gap-4 p-4 border-b last:border-b-0 border-l-4 border-l-transparent hover:border-l-primary/70 hover:bg-muted/30 transition-colors">
+      {/* Imagem */}
+      <div className="relative w-full h-24 md:w-24 md:h-24 rounded-md overflow-hidden bg-muted flex-shrink-0">
+        {saleData.item_image ? (
+          <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Package size={22} className="text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* Conteúdo principal */}
+      <div className="flex min-w-0 flex-1 flex-col justify-between">
+        {/* Título */}
+        <p className="font-semibold leading-tight line-clamp-2 pr-2">{productName}</p>
+
+        {/* Meta compacta (duas linhas) */}
+        <div className="mt-2 space-y-1">
+          <div className="flex flex-wrap items-center">
+            <MetaItem label="Conta" value={saleData.auth_name} />
+            <Dot />
+            <MetaItem label="Canal" value={saleData.marketplace_name} />
+            <Dot />
+            <MetaItem label="Pedido" value={saleData.order_code} />
+          </div>
+          <div className="flex flex-wrap items-center">
+            <MetaItem label="Data" value={formatDate(saleData.payment_approved_date)} />
+            <Dot />
+            <MetaItem label="Estado" value={saleData.state_name} />
+            <Dot />
+            <MetaItem label="SKU" value={saleData.item_sku} />
+            <Dot />
+            <MetaItem label="ID" value={saleData.order_id} />
+          </div>
+        </div>
+      </div>
+
+      {/* Preço e QTD – destaque */}
+      <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center min-w-[160px] mt-2 md:mt-0">
+        <div className="text-2xl md:text-3xl font-extrabold tracking-tight">
+          {formatCurrency(saleData.paid_amount)}
+        </div>
+        <div className="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold">
+          <span className="text-muted-foreground">QTD</span>
+          <span className="text-foreground">{saleData.item_quantity}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export function SalesTable({ data, products, supportData, onUpdateSaleData, calculateTotalCost, calculateNetRevenue, formatCurrency, isLoading, productCostSource = new Map(), customCalculations = [], isDashboard = false, onOpenTicket }: SalesTableProps) {
   const router = useRouter();
   const [currentSales, setCurrentSales] = useState<Sale[]>(data);
@@ -453,45 +519,6 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
     });
   }
   
-const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrency: (v: number) => string }) => {
-    const saleData = sale as any;
-    const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
-    
-    return (
-      <div className="flex items-start gap-4 p-4 border-b last:border-b-0">
-        <div className="w-24 h-24 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-            {saleData.item_image ? (
-              <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package size={24} className="text-muted-foreground"/>
-              </div>
-            )}
-        </div>
-        
-        <div className="flex-grow space-y-2">
-           <div className="flex justify-between items-start gap-4">
-                <p className="font-semibold leading-tight flex-grow">{productName}</p>
-                <div className="flex items-baseline gap-4 flex-shrink-0">
-                    <p className="text-sm text-muted-foreground">QTD: <span className="font-bold text-foreground">{saleData.item_quantity}</span></p>
-                    <p className="text-sm text-muted-foreground">Valor: <span className="font-bold text-lg text-primary">{formatCurrency(saleData.paid_amount)}</span></p>
-                </div>
-            </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">Conta:</strong> {saleData.auth_name}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">Canal:</strong> {saleData.marketplace_name}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">Pedido:</strong> {saleData.order_code}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">Data:</strong> {formatDate(saleData.payment_approved_date)}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">Estado:</strong> {saleData.state_name}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">SKU:</strong> {saleData.item_sku}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold">ID:</strong> {saleData.order_id}</div>
-          </div>
-        </div>
-      </div>
-    );
-};
-
 
   if (isDashboard) {
     return (
@@ -502,7 +529,7 @@ const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrenc
                         <div className="p-4"><Skeleton className="h-20 w-full" /></div>
                     ) : paginatedData.length > 0 ? (
                         paginatedData.map((sale) => (
-                           <DashboardSaleItem key={sale.id} sale={sale} formatCurrency={formatCurrency} />
+                           <DashboardSaleItem key={sale.id} sale={sale} formatCurrency={formatCurrency} productSkuMap={productSkuMap} formatDate={formatDate} />
                         ))
                     ) : (
                         <div className="flex flex-col items-center justify-center gap-2 h-48">
