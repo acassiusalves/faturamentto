@@ -4,16 +4,16 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku, createApprovalRequest } from '@/services/firestore';
+import { findInventoryItemBySN, loadTodaysPickingLog, loadAppSettings, loadSales, saveSales, findSaleByOrderNumber, savePickLog, revertPickingAction, clearTodaysPickingLog as clearLogService, deleteInventoryItem, findProductByAssociatedSku, createApprovalRequest, loadPickingNotices } from '@/services/firestore';
 import { db } from '@/lib/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
-import type { InventoryItem, PickedItemLog, Sale, Product } from '@/lib/types';
+import type { InventoryItem, PickedItemLog, Sale, Product, PickingNotice } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle, PackageSearch, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Loader2, PackageCheck, ScanLine, Ticket, Search, History, Timer, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, XCircle, Trash2, CheckCircle, PackageSearch, AlertTriangle, ArrowRight, Megaphone } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchOrdersFromIderis } from '@/services/ideris';
@@ -26,7 +26,7 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_USER_ID = 'default-user'; // Placeholder
 
 export default function PickingPage() {
-  const { toast } = useToast();
+  const { toast } = useAuth();
   const { user } = useAuth();
 
   const [orderNumber, setOrderNumber] = useState('');
@@ -56,6 +56,8 @@ export default function PickingPage() {
   const [mismatchItem, setMismatchItem] = useState<InventoryItem | null>(null);
   const [isMismatchDialogOpen, setIsMismatchDialogOpen] = useState(false);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
+  const [allPickingNotices, setAllPickingNotices] = useState<PickingNotice[]>([]);
 
   const serialNumberRef = useRef<HTMLInputElement>(null);
   const orderNumberRef = useRef<HTMLInputElement>(null);
@@ -107,6 +109,11 @@ export default function PickingPage() {
   }, [isSyncing, toast]);
 
   useEffect(() => {
+    async function loadInitialPickingNotices() {
+        const notices = await loadPickingNotices();
+        setAllPickingNotices(notices.filter(n => n.isActive));
+    }
+    loadInitialPickingNotices();
     fetchTodaysPicks();
     if (!initialSyncDone) {
         autoSyncIderis();
@@ -235,7 +242,7 @@ export default function PickingPage() {
                 createdAt: new Date(),
                 logId: logDocRef.id,
             };
-            batch.set(logDocRef, newLogEntry);
+            batch.set(logDocRef, toFirestore(newLogEntry));
 
             if (!item.id.startsWith('manual-')) {
                 const inventoryItemRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', item.id);
@@ -285,6 +292,26 @@ export default function PickingPage() {
                 setAssociatedProduct(parentProduct);
             }
             toast({ title: 'Pedido Encontrado!' });
+
+            // Check for state-based notices
+            const saleState = (sale as any).state_name;
+            if(saleState) {
+                const relevantNotice = allPickingNotices.find(n => n.targetStates.includes(saleState));
+                if (relevantNotice) {
+                    toast({
+                        variant: relevantNotice.type === 'destructive' ? 'destructive' : 'default',
+                        duration: 10000, // Show for longer
+                        title: (
+                            <div className="flex items-center gap-2 font-bold">
+                                <Megaphone className={relevantNotice.type === 'destructive' ? 'text-white' : 'text-primary'}/>
+                                Aviso para Pedidos de {saleState}
+                            </div>
+                        ),
+                        description: relevantNotice.message,
+                    });
+                }
+            }
+
         } else {
             toast({
                 variant: "destructive",
@@ -851,4 +878,3 @@ export default function PickingPage() {
   );
 }
 
-    

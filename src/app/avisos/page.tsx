@@ -7,8 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import type { Notice, PickingNotice } from '@/lib/types';
-import { saveNotice, loadNotices, deleteNotice, savePickingNotice, loadPickingNotices, deletePickingNotice } from '@/services/firestore';
+import type { Notice, PickingNotice, Sale } from '@/lib/types';
+import { saveNotice, loadNotices, deleteNotice, savePickingNotice, loadPickingNotices, deletePickingNotice, loadSales } from '@/services/firestore';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { availableRoles, navLinks } from '@/lib/permissions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MultiSelect, type Option } from '@/components/ui/multi-select';
 
 
 const noticeSchema = z.object({
@@ -48,7 +49,7 @@ const noticeSchema = z.object({
 type NoticeFormValues = z.infer<typeof noticeSchema>;
 
 const pickingNoticeSchema = z.object({
-    orderCode: z.string().min(5, "O código do pedido é obrigatório."),
+    targetStates: z.array(z.string()).min(1, "Selecione pelo menos um estado."),
     message: z.string().min(5, "A mensagem é obrigatória."),
     type: z.enum(['info', 'warning', 'destructive']).default('warning'),
     showOnce: z.boolean().default(true),
@@ -416,17 +417,27 @@ function PickingNoticesTab() {
   const { toast } = useToast();
   const [pickingNotices, setPickingNotices] = useState<PickingNotice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableStates, setAvailableStates] = useState<Option[]>([]);
 
   const form = useForm<PickingNoticeFormValues>({
     resolver: zodResolver(pickingNoticeSchema),
-    defaultValues: { orderCode: "", message: "", type: "warning", showOnce: true },
+    defaultValues: { targetStates: [], message: "", type: "warning", showOnce: true },
   });
 
   const { handleSubmit, control, reset } = form;
 
   const fetchPickingNotices = useCallback(async () => {
     setIsLoading(true);
-    const loadedNotices = await loadPickingNotices();
+    const [loadedNotices, allSales] = await Promise.all([
+      loadPickingNotices(),
+      loadSales(),
+    ]);
+    const statesFromSales = new Set<string>();
+    allSales.forEach(sale => {
+        const stateName = (sale as any).state_name;
+        if (stateName) statesFromSales.add(stateName);
+    });
+    setAvailableStates(Array.from(statesFromSales).sort().map(s => ({ value: s, label: s })));
     setPickingNotices(loadedNotices);
     setIsLoading(false);
   }, []);
@@ -446,18 +457,18 @@ function PickingNoticesTab() {
 
     try {
       await savePickingNotice(noticeToSave);
-      toast({ title: "Aviso de Pedido Criado!", description: `Um aviso será exibido na tela de picking para o pedido ${data.orderCode}.` });
+      toast({ title: "Aviso de Picking Criado!", description: `Um aviso será exibido para pedidos dos estados selecionados.` });
       reset();
       await fetchPickingNotices();
     } catch (error) {
-      toast({ variant: 'destructive', title: "Erro ao Salvar", description: "Não foi possível criar o aviso de pedido." });
+      toast({ variant: 'destructive', title: "Erro ao Salvar", description: "Não foi possível criar o aviso de picking." });
     }
   };
   
   const handleDelete = async (noticeId: string) => {
     try {
         await deletePickingNotice(noticeId);
-        toast({ title: "Aviso de Pedido Apagado" });
+        toast({ title: "Aviso de Picking Apagado" });
         await fetchPickingNotices();
     } catch (error) {
         toast({ variant: 'destructive', title: "Erro ao Apagar" });
@@ -470,20 +481,25 @@ function PickingNoticesTab() {
           <form onSubmit={handleSubmit(onSubmit)}>
             <Card>
               <CardHeader>
-                <CardTitle>Criar Novo Aviso de Pedido</CardTitle>
-                <CardDescription>Esta mensagem aparecerá na tela de picking ao buscar o pedido informado.</CardDescription>
+                <CardTitle>Criar Aviso por Estado</CardTitle>
+                <CardDescription>Esta mensagem aparecerá na tela de picking para pedidos dos estados selecionados.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Controller
-                  name="orderCode"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="orderCode">Código do Pedido</Label>
-                      <Input id="orderCode" placeholder="Ex: LU-123456789" {...field} />
-                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                    </div>
-                  )}
+                    control={control}
+                    name="targetStates"
+                    render={({ field, fieldState }) => (
+                        <div className="space-y-2">
+                          <Label>Estados de Destino</Label>
+                          <MultiSelect
+                            options={availableStates}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Selecione os estados..."
+                          />
+                           {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                        </div>
+                    )}
                 />
                 <Controller
                   name="message"
@@ -500,7 +516,7 @@ function PickingNoticesTab() {
                      <Controller
                         name="type"
                         control={control}
-                        render={({ field, fieldState }) => (
+                        render={({ field }) => (
                              <div className="space-y-2 flex-1">
                                 <Label>Tipo</Label>
                                 <Select onValueChange={field.onChange} value={field.value}>
@@ -531,7 +547,7 @@ function PickingNoticesTab() {
               <CardFooter>
                  <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                    Salvar Aviso de Pedido
+                    Salvar Aviso
                 </Button>
               </CardFooter>
             </Card>
@@ -540,14 +556,14 @@ function PickingNoticesTab() {
         <div className="md:col-span-2">
              <Card>
                 <CardHeader>
-                    <CardTitle>Avisos de Pedido Cadastrados</CardTitle>
+                    <CardTitle>Avisos de Picking Cadastrados</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Cód. Pedido</TableHead>
+                                    <TableHead>Estados Alvo</TableHead>
                                     <TableHead>Mensagem</TableHead>
                                     <TableHead>Tipo</TableHead>
                                     <TableHead className="text-center">Ações</TableHead>
@@ -559,7 +575,11 @@ function PickingNoticesTab() {
                                 ) : pickingNotices.length > 0 ? (
                                     pickingNotices.map(notice => (
                                         <TableRow key={notice.id}>
-                                            <TableCell className="font-mono">{notice.orderCode}</TableCell>
+                                            <TableCell className="w-1/3">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {notice.targetStates.map(state => <Badge key={state} variant="secondary">{state}</Badge>)}
+                                                </div>
+                                            </TableCell>
                                             <TableCell>{notice.message}</TableCell>
                                             <TableCell><Badge variant={notice.type === 'destructive' ? 'destructive' : 'secondary'}>{notice.type}</Badge></TableCell>
                                             <TableCell className="text-center">
@@ -580,7 +600,7 @@ function PickingNoticesTab() {
                                         </TableRow>
                                     ))
                                 ) : (
-                                     <TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum aviso de pedido cadastrado.</TableCell></TableRow>
+                                     <TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum aviso de picking cadastrado.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -608,7 +628,7 @@ export default function NoticesPage() {
             </TabsTrigger>
             <TabsTrigger value="picking">
                 <MessageSquareWarning className="mr-2" />
-                Avisos de Pedido (Picking)
+                Avisos por Estado (Picking)
             </TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="mt-6">

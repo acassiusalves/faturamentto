@@ -303,7 +303,7 @@ export interface Notice {
 
 export interface PickingNotice {
   id: string;
-  orderCode: string;
+  targetStates: string[];
   message: string;
   type: 'info' | 'warning' | 'destructive';
   showOnce: boolean;
