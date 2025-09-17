@@ -26,7 +26,7 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_USER_ID = 'default-user'; // Placeholder
 
 export default function PickingPage() {
-  const { toast } = useAuth();
+  const { toast } = useToast();
   const { user } = useAuth();
 
   const [orderNumber, setOrderNumber] = useState('');
@@ -245,7 +245,7 @@ export default function PickingPage() {
             batch.set(logDocRef, toFirestore(newLogEntry));
 
             if (!item.id.startsWith('manual-')) {
-                const inventoryItemRef = doc(db, 'users', DEFAULT_USER_ID, 'inventory', item.id);
+                const inventoryItemRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', item.id);
                 batch.delete(inventoryItemRef);
             }
         }
@@ -878,3 +878,22 @@ export default function PickingPage() {
   );
 }
 
+
+function toFirestore(obj: any) {
+    if (obj instanceof Date) {
+        return obj;
+    }
+    if (Array.isArray(obj)) {
+        return obj.map(toFirestore);
+    }
+    if (obj !== null && typeof obj === 'object') {
+        const res: any = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                res[key] = toFirestore(obj[key]);
+            }
+        }
+        return res;
+    }
+    return obj;
+}
