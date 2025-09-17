@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -459,7 +458,7 @@ const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrenc
     const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
     
     return (
-      <div className="flex flex-col sm:flex-row items-start gap-4 p-4 border-b last:border-b-0">
+      <div className="flex items-start gap-4 p-4 border-b last:border-b-0">
         <div className="w-24 h-24 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
             {saleData.item_image ? (
               <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
@@ -473,20 +472,20 @@ const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrenc
         <div className="flex-grow space-y-2">
            <div className="flex justify-between items-start gap-4">
                 <p className="font-semibold leading-tight flex-grow">{productName}</p>
-                <div className="flex flex-col text-right flex-shrink-0">
-                    <p className="font-bold text-sm text-muted-foreground">QTD: <span className="text-foreground">{saleData.item_quantity}</span></p>
-                    <p className="font-bold text-sm text-muted-foreground">Valor: <span className="text-primary">{formatCurrency(saleData.paid_amount)}</span></p>
+                <div className="flex items-baseline gap-4 flex-shrink-0">
+                    <p className="text-sm text-muted-foreground">QTD: <span className="font-bold text-foreground">{saleData.item_quantity}</span></p>
+                    <p className="text-sm text-muted-foreground">Valor: <span className="font-bold text-lg text-primary">{formatCurrency(saleData.paid_amount)}</span></p>
                 </div>
             </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm">
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Conta:</strong> {saleData.auth_name}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Canal:</strong> {saleData.marketplace_name}</div>
-            <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1"><strong className="font-semibold text-muted-foreground">Pedido:</strong> {saleData.order_code}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Data:</strong> {formatDate(saleData.payment_approved_date)}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">Estado:</strong> {saleData.state_name}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">SKU:</strong> {saleData.item_sku}</div>
-            <div className="flex items-center gap-1.5"><strong className="font-semibold text-muted-foreground">ID:</strong> {saleData.order_id}</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">Conta:</strong> {saleData.auth_name}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">Canal:</strong> {saleData.marketplace_name}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">Pedido:</strong> {saleData.order_code}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">Data:</strong> {formatDate(saleData.payment_approved_date)}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">Estado:</strong> {saleData.state_name}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">SKU:</strong> {saleData.item_sku}</div>
+            <div className="flex items-center gap-1.5"><strong className="font-semibold">ID:</strong> {saleData.order_id}</div>
           </div>
         </div>
       </div>
