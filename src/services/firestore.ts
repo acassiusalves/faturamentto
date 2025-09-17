@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -655,6 +655,24 @@ export const deleteNotice = async (noticeId: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
+// --- PICKING NOTICES ---
+export const savePickingNotice = async (notice: Omit<PickingNotice, 'id'>): Promise<void> => {
+    const docRef = doc(collection(db, 'picking-notices'));
+    await setDoc(docRef, toFirestore({ ...notice, id: docRef.id }));
+};
+
+export const loadPickingNotices = async (): Promise<PickingNotice[]> => {
+    const noticesCol = collection(db, 'picking-notices');
+    const q = query(noticesCol, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => fromFirestore(d.data()) as PickingNotice);
+};
+
+export const deletePickingNotice = async (noticeId: string): Promise<void> => {
+    const docRef = doc(db, 'picking-notices', noticeId);
+    await deleteDoc(docRef);
+};
+
 
 // --- APP SETTINGS & USERS ---
 const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'settings');
@@ -870,4 +888,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
-

@@ -7,8 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import type { Notice } from '@/lib/types';
-import { saveNotice, loadNotices, deleteNotice } from '@/services/firestore';
+import type { Notice, PickingNotice } from '@/lib/types';
+import { saveNotice, loadNotices, deleteNotice, savePickingNotice, loadPickingNotices, deletePickingNotice } from '@/services/firestore';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -22,11 +22,12 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Loader2, PlusCircle, Megaphone, Trash2, Pencil, Info, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Megaphone, Trash2, Pencil, Info, CheckCircle, XCircle, AlertTriangle, MessageSquareWarning } from 'lucide-react';
 import { format, parseISO, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { availableRoles, navLinks } from '@/lib/permissions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 const noticeSchema = z.object({
@@ -46,7 +47,17 @@ const noticeSchema = z.object({
 
 type NoticeFormValues = z.infer<typeof noticeSchema>;
 
-export default function NoticesPage() {
+const pickingNoticeSchema = z.object({
+    orderCode: z.string().min(5, "O código do pedido é obrigatório."),
+    message: z.string().min(5, "A mensagem é obrigatória."),
+    type: z.enum(['info', 'warning', 'destructive']).default('warning'),
+    showOnce: z.boolean().default(true),
+});
+
+type PickingNoticeFormValues = z.infer<typeof pickingNoticeSchema>;
+
+
+function GeneralNoticesTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -160,15 +171,9 @@ export default function NoticesPage() {
 
   const noticeRoles = availableRoles.filter(r => r.key !== 'admin');
   const availablePages = navLinks.filter(l => l.href !== '/');
-
+  
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Central de Avisos</h1>
-        <p className="text-muted-foreground">Crie, edite e gerencie os avisos que serão exibidos para os usuários.</p>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-8 items-start">
+    <div className="grid md:grid-cols-3 gap-8 items-start">
         <div className="md:col-span-1">
           <form onSubmit={handleSubmit(onSubmit)}>
             <Card>
@@ -337,7 +342,7 @@ export default function NoticesPage() {
         <div className="md:col-span-2">
             <Card>
                 <CardHeader>
-                    <CardTitle>Avisos Cadastrados</CardTitle>
+                    <CardTitle>Avisos Gerais Cadastrados</CardTitle>
                     <CardDescription>Lista de todos os avisos do sistema.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -403,6 +408,216 @@ export default function NoticesPage() {
             </Card>
         </div>
       </div>
+  )
+}
+
+function PickingNoticesTab() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [pickingNotices, setPickingNotices] = useState<PickingNotice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const form = useForm<PickingNoticeFormValues>({
+    resolver: zodResolver(pickingNoticeSchema),
+    defaultValues: { orderCode: "", message: "", type: "warning", showOnce: true },
+  });
+
+  const { handleSubmit, control, reset } = form;
+
+  const fetchPickingNotices = useCallback(async () => {
+    setIsLoading(true);
+    const loadedNotices = await loadPickingNotices();
+    setPickingNotices(loadedNotices);
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchPickingNotices();
+  }, [fetchPickingNotices]);
+  
+  const onSubmit = async (data: PickingNoticeFormValues) => {
+    const noticeToSave: Omit<PickingNotice, 'id'> = {
+      ...data,
+      timesShown: 0,
+      isActive: true,
+      createdBy: user?.email || "unknown",
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await savePickingNotice(noticeToSave);
+      toast({ title: "Aviso de Pedido Criado!", description: `Um aviso será exibido na tela de picking para o pedido ${data.orderCode}.` });
+      reset();
+      await fetchPickingNotices();
+    } catch (error) {
+      toast({ variant: 'destructive', title: "Erro ao Salvar", description: "Não foi possível criar o aviso de pedido." });
+    }
+  };
+  
+  const handleDelete = async (noticeId: string) => {
+    try {
+        await deletePickingNotice(noticeId);
+        toast({ title: "Aviso de Pedido Apagado" });
+        await fetchPickingNotices();
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Erro ao Apagar" });
+    }
+  };
+
+  return (
+    <div className="grid md:grid-cols-3 gap-8 items-start">
+        <div className="md:col-span-1">
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Criar Novo Aviso de Pedido</CardTitle>
+                <CardDescription>Esta mensagem aparecerá na tela de picking ao buscar o pedido informado.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Controller
+                  name="orderCode"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="orderCode">Código do Pedido</Label>
+                      <Input id="orderCode" placeholder="Ex: LU-123456789" {...field} />
+                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                    </div>
+                  )}
+                />
+                <Controller
+                  name="message"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <div className="space-y-2">
+                      <Label htmlFor="picking-message">Mensagem do Aviso</Label>
+                      <Textarea id="picking-message" placeholder="Ex: Cliente pediu para enviar sem nota fiscal." {...field} />
+                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                    </div>
+                  )}
+                />
+                <div className="flex gap-4">
+                     <Controller
+                        name="type"
+                        control={control}
+                        render={({ field, fieldState }) => (
+                             <div className="space-y-2 flex-1">
+                                <Label>Tipo</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="info">Info</SelectItem>
+                                        <SelectItem value="warning">Aviso</SelectItem>
+                                        <SelectItem value="destructive">Urgente</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                    />
+                     <Controller
+                        name="showOnce"
+                        control={control}
+                        render={({ field }) => (
+                            <div className="flex items-center justify-between rounded-lg border p-3 flex-1">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="show-once">Exibir só 1 vez</Label>
+                                </div>
+                                <Switch id="show-once" checked={field.value} onCheckedChange={field.onChange} />
+                            </div>
+                        )}
+                    />
+                </div>
+              </CardContent>
+              <CardFooter>
+                 <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                    Salvar Aviso de Pedido
+                </Button>
+              </CardFooter>
+            </Card>
+          </form>
+        </div>
+        <div className="md:col-span-2">
+             <Card>
+                <CardHeader>
+                    <CardTitle>Avisos de Pedido Cadastrados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Cód. Pedido</TableHead>
+                                    <TableHead>Mensagem</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead className="text-center">Ações</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="animate-spin" /></TableCell></TableRow>
+                                ) : pickingNotices.length > 0 ? (
+                                    pickingNotices.map(notice => (
+                                        <TableRow key={notice.id}>
+                                            <TableCell className="font-mono">{notice.orderCode}</TableCell>
+                                            <TableCell>{notice.message}</TableCell>
+                                            <TableCell><Badge variant={notice.type === 'destructive' ? 'destructive' : 'secondary'}>{notice.type}</Badge></TableCell>
+                                            <TableCell className="text-center">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Apagar este aviso?</AlertDialogTitle>
+                                                            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDelete(notice.id)}>Sim, Apagar</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                     <TableRow><TableCell colSpan={4} className="h-24 text-center">Nenhum aviso de pedido cadastrado.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    </div>
+  )
+}
+
+export default function NoticesPage() {
+
+  return (
+    <div className="flex flex-col gap-8 p-4 md:p-8">
+      <div>
+        <h1 className="text-3xl font-bold font-headline">Central de Avisos</h1>
+        <p className="text-muted-foreground">Crie, edite e gerencie os avisos que serão exibidos para os usuários do sistema.</p>
+      </div>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="general">
+                <Megaphone className="mr-2" />
+                Avisos Gerais
+            </TabsTrigger>
+            <TabsTrigger value="picking">
+                <MessageSquareWarning className="mr-2" />
+                Avisos de Pedido (Picking)
+            </TabsTrigger>
+        </TabsList>
+        <TabsContent value="general" className="mt-6">
+            <GeneralNoticesTab />
+        </TabsContent>
+        <TabsContent value="picking" className="mt-6">
+            <PickingNoticesTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

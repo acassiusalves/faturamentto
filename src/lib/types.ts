@@ -294,12 +294,25 @@ export interface Notice {
   type: 'info' | 'warning' | 'success' | 'destructive';
   startDate: string; // ISO Date string
   endDate: string;   // ISO Date string
-  targetRoles: ('financeiro' | 'expedicao' | 'sac' | 'admin')[];
+  targetRoles: ('financeiro' | 'expedicao' | 'sac' | 'admin' | 'socio')[];
   targetPages?: string[]; // Array of page paths like '/estoque'
   isActive: boolean;
   createdAt: string; // ISO Date
   createdBy: string; // User's email
 }
+
+export interface PickingNotice {
+  id: string;
+  orderCode: string;
+  message: string;
+  type: 'info' | 'warning' | 'destructive';
+  showOnce: boolean;
+  timesShown: number;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+}
+
 
 export interface MercadoLivreCredentials {
   appId: string;
