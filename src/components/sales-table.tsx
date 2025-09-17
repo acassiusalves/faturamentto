@@ -453,8 +453,121 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
         description: `${salesToUpdate.length} status foram atualizados. ${successCount} pedidos verificados com sucesso, ${errorCount} falharam.`
     });
   }
+  
+  const DashboardSaleItem = ({ sale, formatCurrency }: { sale: Sale; formatCurrency: (v: number) => string }) => {
+    const saleData = sale as any;
+    const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
+    
+    return (
+      <div className="flex flex-col sm:flex-row items-start gap-4 p-4 border-b last:border-b-0">
+        {/* Image */}
+        <div className="w-24 flex-shrink-0">
+          <p className="font-bold text-sm mb-2">Imagem</p>
+          <div className="w-24 h-24 relative rounded-md overflow-hidden bg-muted">
+            {saleData.item_image ? (
+              <Image src={saleData.item_image} alt="Produto" fill className="object-contain" data-ai-hint="product image" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Package size={24} className="text-muted-foreground"/>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Main Content */}
+        <div className="flex-grow space-y-3">
+          <div>
+            <p className="font-bold text-sm">Produto</p>
+            <p className="leading-tight">{productName}</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+            <div><strong className="font-semibold block">Conta</strong> {saleData.auth_name}</div>
+            <div><strong className="font-semibold block">Canal</strong> {saleData.marketplace_name}</div>
+            <div className="col-span-2 sm:col-span-1"><strong className="font-semibold block">Pedido</strong> {saleData.order_code}</div>
+            <div><strong className="font-semibold block">Data</strong> {formatDate(saleData.payment_approved_date)}</div>
+            <div><strong className="font-semibold block">Estado</strong> {saleData.state_name}</div>
+            <div><strong className="font-semibold block">SKU</strong> {saleData.item_sku}</div>
+            <div><strong className="font-semibold block">ID</strong> {saleData.order_id}</div>
+          </div>
+        </div>
 
-  if (!isClient && isDashboard) { // Only show basic loader for dashboard on server
+        {/* Quantity & Value */}
+        <div className="flex sm:flex-col justify-between sm:justify-start sm:text-right gap-4 sm:gap-0 w-full sm:w-auto">
+          <div className="mb-4">
+              <p className="font-bold text-sm">QTD</p>
+              <p>{saleData.item_quantity}</p>
+          </div>
+          <div>
+              <p className="font-bold text-sm">Valor</p>
+              <p className="font-semibold text-primary">{formatCurrency(saleData.paid_amount)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
+  if (isDashboard) {
+    return (
+       <Card>
+            <CardContent className="p-0">
+                <div className="space-y-0">
+                    {isLoading || isSettingsLoading ? (
+                        <div className="p-4"><Skeleton className="h-20 w-full" /></div>
+                    ) : paginatedData.length > 0 ? (
+                        paginatedData.map((sale) => (
+                           <DashboardSaleItem key={sale.id} sale={sale} formatCurrency={formatCurrency} />
+                        ))
+                    ) : (
+                        <div className="flex flex-col items-center justify-center gap-2 h-48">
+                            <Sheet className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-muted-foreground">Nenhuma venda encontrada.</p>
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+             <CardFooter className="flex items-center justify-between flex-wrap gap-4">
+                <div className="text-sm text-muted-foreground">
+                    Total de {currentSales.length} vendas.
+                </div>
+                <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">Itens por página</p>
+                        <Select
+                            value={`${pageSize}`}
+                            onValueChange={(value) => {
+                                setPageSize(Number(value));
+                                setPageIndex(0);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={pageSize.toString()} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 30, 50, 100].map((size) => (
+                                    <SelectItem key={size} value={`${size}`}>
+                                        {size}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="text-sm font-medium">
+                        Página {pageIndex + 1} de {pageCount > 0 ? pageCount : 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(0)} disabled={pageIndex === 0}> <ChevronsLeft className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex - 1)} disabled={pageIndex === 0}> <ChevronLeft className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}> <ChevronRight className="h-4 w-4" /> </Button>
+                        <Button variant="outline" className="h-8 w-8 p-0" onClick={() => setPageIndex(pageCount - 1)} disabled={pageIndex >= pageCount - 1}> <ChevronsRight className="h-4 w-4" /> </Button>
+                    </div>
+                </div>
+            </CardFooter>
+       </Card>
+    );
+  }
+
+  if (!isClient && isDashboard) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
