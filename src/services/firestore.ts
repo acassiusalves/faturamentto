@@ -888,3 +888,5 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
+
+    
