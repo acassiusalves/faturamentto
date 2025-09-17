@@ -20,6 +20,7 @@ import { fetchOrdersFromIderis } from '@/services/ideris';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/context/auth-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -58,6 +59,7 @@ export default function PickingPage() {
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
   const [allPickingNotices, setAllPickingNotices] = useState<PickingNotice[]>([]);
+  const [activeNotice, setActiveNotice] = useState<PickingNotice | null>(null);
 
   const serialNumberRef = useRef<HTMLInputElement>(null);
   const orderNumberRef = useRef<HTMLInputElement>(null);
@@ -216,6 +218,7 @@ export default function PickingPage() {
     setCurrentSN('');
     setScannedItems([]);
     setCountdown(null);
+    setActiveNotice(null);
     if(countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     orderNumberRef.current?.focus();
   };
@@ -281,6 +284,7 @@ export default function PickingPage() {
     setAssociatedProduct(null);
     setScannedItems([]);
     setCurrentSN('');
+    setActiveNotice(null);
 
     try {
         const sale = await findSaleByOrderNumber(orderNumber.trim());
@@ -298,17 +302,7 @@ export default function PickingPage() {
             if(saleState) {
                 const relevantNotice = allPickingNotices.find(n => n.targetStates.includes(saleState));
                 if (relevantNotice) {
-                    toast({
-                        variant: relevantNotice.type === 'destructive' ? 'destructive' : 'default',
-                        duration: 10000, // Show for longer
-                        title: (
-                            <div className="flex items-center gap-2 font-bold">
-                                <Megaphone className={relevantNotice.type === 'destructive' ? 'text-white' : 'text-primary'}/>
-                                Aviso para Pedidos de {saleState}
-                            </div>
-                        ),
-                        description: relevantNotice.message,
-                    });
+                    setActiveNotice(relevantNotice);
                 }
             }
 
@@ -609,6 +603,15 @@ export default function PickingPage() {
                                 <span className="text-muted-foreground text-sm">Quantidade:</span>
                                 <span className="font-semibold text-xl text-primary">{(foundSale as any).item_quantity || 0}</span>
                             </div>
+                             {activeNotice && (
+                                <Alert variant={activeNotice.type === 'destructive' ? 'destructive' : 'default'} className="mt-4">
+                                    <Megaphone className="h-4 w-4" />
+                                    <AlertTitle className="font-bold">Aviso para Pedidos de {(foundSale as any).state_name}</AlertTitle>
+                                    <AlertDescription>
+                                        {activeNotice.message}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10 h-full">
@@ -897,3 +900,5 @@ function toFirestore(obj: any) {
     }
     return obj;
 }
+
+```
