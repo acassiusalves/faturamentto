@@ -96,7 +96,7 @@ export default function PickingPage() {
 
         if (newSales.length > 0) {
             await saveSales(newSales);
-            toast({
+             toast({
               title: "Painel Atualizado!",
               description: `${newSales.length} novo(s) pedido(s) foram importados.`,
             });
@@ -429,7 +429,12 @@ export default function PickingPage() {
     }
   }
 
-  const formatTime = (date: Date) => date.toLocaleTimeString('pt-BR');
+  const formatTime = (date: Date | string) => {
+      if (typeof date === 'string') {
+          date = new Date(date);
+      }
+      return date.toLocaleTimeString('pt-BR');
+  };
 
   const formatLastSyncTime = (date: Date | null): string => {
     if (!date) return 'Sincronizando pela primeira vez...';
@@ -881,5 +886,3 @@ export default function PickingPage() {
     </>
   );
 }
-
-    
