@@ -34,6 +34,7 @@ import { fetchOrderById } from "@/services/ideris";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "./ui/input";
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 
 interface SalesTableProps {
@@ -54,6 +55,7 @@ interface SalesTableProps {
 const dashboardColumns = [
     { key: 'order_id', label: 'ID do Pedido' },
     { key: 'order_code', label: 'Código do Pedido' },
+    { key: 'item_image', label: 'Imagem' },
     { key: 'item_title', label: 'Nome do Produto (Item)' },
     { key: 'paid_amount', label: 'Valor Pago' },
     { key: 'item_quantity', label: 'Quantidade (Item)' },
@@ -276,6 +278,7 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
 
 
   const getColumnAlignment = (key: string) => {
+    if (key === 'item_image') return 'text-center';
     return numericColumns.has(key) ? 'text-right' : 'text-left';
   }
   
@@ -575,7 +578,14 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
                             let isPercentage = field.isPercentage || false;
                              const normalizeLabel = (s: string): string => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
-                            if (field.group === 'Sistema') {
+                            if (field.key === 'item_image') {
+                                const imageUrl = (sale as any).item_image;
+                                cellContent = imageUrl ? (
+                                    <div className="w-12 h-12 relative rounded-md overflow-hidden bg-muted">
+                                        <Image src={imageUrl} alt="Produto" layout="fill" objectFit="contain" data-ai-hint="product image" />
+                                    </div>
+                                ) : <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center"><Package size={20} className="text-muted-foreground"/></div>;
+                            } else if (field.group === 'Sistema') {
                                 if(field.key === 'product_cost') {
                                     cellContent = productCostSource.get((sale as any).order_code)?.cost;
                                 } else {

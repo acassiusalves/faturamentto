@@ -25,6 +25,7 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     { key: "net_amount", label: "Valor Líquido", path: "netAmount" },
     { key: "discount", label: "Desconto", path: "discount" },
     { key: "discount_marketplace", label: "Desconto do Marketplace", path: "discountMarketplace" },
+    { key: "left_over", label: "Sobra (Lucro)", path: "leftOver" },
     
     // Item Details (from first item)
     { key: "item_title", label: "Nome do Produto (Item)", path: "items[0].title" },
