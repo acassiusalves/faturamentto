@@ -341,6 +341,24 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
+export async function fetchOrdersByIds(privateKey: string, orderIds: string[]): Promise<any[]> {
+    const token = await getValidAccessToken(privateKey);
+    const results = [];
+    // A Ideris não parece ter um endpoint para buscar múltiplos pedidos por ID, então fazemos um por um.
+    for (const orderId of orderIds) {
+        try {
+            const url = `https://apiv3.ideris.com.br/order/${orderId}`;
+            const result = await fetchWithToken<any>(url, token);
+            if (result.data?.obj) {
+                results.push(result.data.obj);
+            }
+        } catch (error) {
+            console.error(`Falha ao buscar detalhes do pedido ${orderId} em lote:`, error);
+        }
+    }
+    return results;
+}
+
 export async function testIderisConnection(privateKey: string): Promise<{ success: boolean; message: string }> {
     try {
         await generateAccessToken(privateKey);
@@ -410,3 +428,4 @@ export async function fetchOrdersStatus(
     
     return response.data?.result?.obj || [];
 }
+

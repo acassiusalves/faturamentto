@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -10,8 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BrainCircuit, FileSpreadsheet } from 'lucide-react';
-import { loadSales } from '@/services/firestore';
+import { Loader2, Database, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BrainCircuit, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { loadSales, updateSalesDeliveryType } from '@/services/firestore';
 import type { Sale } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -19,12 +18,14 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { updateSalesDeliveryTypeAction } from '../actions';
 
 export default function MemoryPage() {
     const { toast } = useToast();
     const [allSales, setAllSales] = useState<Sale[]>([]);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [isLoading, setIsLoading] = useState(true);
+    const [isUpdating, setIsUpdating] = useState(false);
 
     // Filter and pagination states
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,16 +33,17 @@ export default function MemoryPage() {
     const [stateFilter, setStateFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(20);
+
+    const fetchAllData = useCallback(async () => {
+        setIsLoading(true);
+        const salesData = await loadSales();
+        setAllSales(salesData);
+        setIsLoading(false);
+    }, []);
     
     useEffect(() => {
-        async function fetchData() {
-            setIsLoading(true);
-            const salesData = await loadSales();
-            setAllSales(salesData);
-            setIsLoading(false);
-        }
-        fetchData();
-    }, []);
+        fetchAllData();
+    }, [fetchAllData]);
 
     const filteredData = useMemo(() => {
         if (!allSales) return [];
@@ -97,6 +99,35 @@ export default function MemoryPage() {
             setPageIndex(0);
         }
     }, [filteredData, pageIndex, pageCount]);
+
+    const handleUpdateDeliveryTypes = async () => {
+        const saleIdsToUpdate = filteredData.map(s => s.id);
+        if (saleIdsToUpdate.length === 0) {
+            toast({ title: 'Nenhuma venda para atualizar', description: 'Aplique filtros para selecionar as vendas.' });
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            const result = await updateSalesDeliveryTypeAction(saleIdsToUpdate);
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            toast({
+                title: 'Sucesso!',
+                description: `${result.updatedCount} tipos de frete foram atualizados.`
+            });
+            await fetchAllData(); // Recarrega os dados para mostrar as atualizações
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Atualizar',
+                description: error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.'
+            });
+        } finally {
+            setIsUpdating(false);
+        }
+    };
     
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'N/A';
@@ -154,10 +185,14 @@ export default function MemoryPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                     <div className="pt-4">
+                     <div className="pt-4 flex gap-4">
                         <Button disabled>
                             <BrainCircuit className="mr-2" />
                             Analisar com IA (Em breve)
+                        </Button>
+                        <Button variant="outline" onClick={handleUpdateDeliveryTypes} disabled={isUpdating || filteredData.length === 0}>
+                            {isUpdating ? <Loader2 className="animate-spin mr-2"/> : <RefreshCw className="mr-2" />}
+                            Atualizar Tipos de Frete
                         </Button>
                     </div>
                 </CardHeader>
@@ -311,3 +346,4 @@ export default function MemoryPage() {
         </div>
     );
 }
+

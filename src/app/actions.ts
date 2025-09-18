@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -436,7 +436,7 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
     const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand });
     return { result, error: null };
   } catch (e: any) {
-    return { result: null, error: e.message || "Falha ao analisar o catálogo." };
+    return { result, error: e.message || "Falha ao analisar o catálogo." };
   }
 }
 
@@ -473,7 +473,7 @@ export async function refineSearchTermAction(
     const result = await refineSearchTerm(input);
     return { result, error: null };
   } catch (e: any) {
-    return { result: null, error: e.message || 'Falha ao refinar o termo de busca.' };
+    return { result, error: e.message || 'Falha ao refinar o termo de busca.' };
   }
 }
 
@@ -576,5 +576,52 @@ export async function markLabelPrintedAction(
     return { success: true, error: null };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Falha ao marcar etiqueta como impressa.' };
+  }
+}
+
+export async function updateSalesDeliveryTypeAction(
+  saleIds: string[]
+): Promise<{ updatedCount: number; error: string | null }> {
+  if (!saleIds || saleIds.length === 0) {
+    return { updatedCount: 0, error: 'Nenhum ID de venda fornecido.' };
+  }
+
+  try {
+    const settings = await loadAppSettings();
+    if (!settings?.iderisPrivateKey) {
+      throw new Error('A chave da API da Ideris não está configurada.');
+    }
+    
+    // Ideris não tem um endpoint para buscar múltiplos pedidos por ID do nosso BD, então pegamos o order_id.
+    const { fetchSalesByIds } = await import('@/services/firestore');
+    const salesToUpdate = await fetchSalesByIds(saleIds);
+    const orderIds = salesToUpdate.map(s => (s as any).order_id);
+
+    if (orderIds.length === 0) {
+        return { updatedCount: 0, error: null };
+    }
+
+    const { fetchOrdersByIds } = await import('@/services/ideris');
+    const iderisOrders = await fetchOrdersByIds(settings.iderisPrivateKey, orderIds);
+
+    const deliveryTypeMap = new Map<string, string>();
+    iderisOrders.forEach(order => {
+        if(order.id && order.deliveryType) {
+            deliveryTypeMap.set(`ideris-${order.id}`, order.deliveryType);
+        }
+    });
+
+    const updates = saleIds.map(saleId => {
+      const deliveryType = deliveryTypeMap.get(saleId);
+      return { saleId, deliveryType };
+    }).filter(u => u.deliveryType);
+    
+    if (updates.length > 0) {
+        await updateSalesDeliveryType(updates);
+    }
+    
+    return { updatedCount: updates.length, error: null };
+  } catch (e) {
+    return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
