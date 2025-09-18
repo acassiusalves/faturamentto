@@ -1,5 +1,3 @@
-
-
 // src/lib/matching.ts
 import { deburr } from "lodash"; // se não usar lodash, cria um deburr simples ou remove acentos via normalize
 
@@ -305,12 +303,10 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
         best = { item, score: sc };
       }
     }
-
-    // CORREÇÃO: Threshold mais baixo
+    
     const THRESHOLD = 5.0; 
     if (best && best.score >= THRESHOLD) {
-      // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
-      // Usar `best.item.name` (do banco de dados) em vez de `std.raw` (da lista original).
+      // CORREÇÃO FINAL: Garantir que o nome do banco de dados seja usado.
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
 
