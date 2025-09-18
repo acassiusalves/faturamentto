@@ -1,3 +1,4 @@
+
 // Substitua o conteúdo de src/lib/ideris-fields.ts por este:
 
 export const iderisFields: { key: string; label: string, path: string }[] = [

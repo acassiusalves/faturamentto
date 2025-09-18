@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -19,6 +20,21 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { updateSalesDeliveryTypeAction } from '../actions';
+import { cn } from '@/lib/utils';
+
+function FreteBadge({ type }: { type?: string }) {
+  const t = (type || '').toUpperCase();
+  let variant: 'default' | 'secondary' | 'outline' = 'secondary';
+  if (t === 'FLEX') variant = 'default';
+  else if (t === 'FULFILLMENT' || t === 'FBM') variant = 'secondary';
+  else if (t === 'ME1' || t === 'ME2') variant = 'outline';
+
+  return <Badge variant={variant} className={cn(
+      variant === 'default' && 'bg-green-100 text-green-800 border-green-300',
+      variant === 'secondary' && 'bg-blue-100 text-blue-800 border-blue-300',
+  )}>{t || 'N/A'}</Badge>;
+}
+
 
 export default function MemoryPage() {
     const { toast } = useToast();
@@ -255,7 +271,7 @@ export default function MemoryPage() {
                                             <TableCell>{(item as any).order_id}</TableCell>
                                             <TableCell className="font-mono text-xs">{(item as any).order_code}</TableCell>
                                             <TableCell><Badge variant="secondary">{(item as any).status}</Badge></TableCell>
-                                            <TableCell>{(item as any).deliveryType}</TableCell>
+                                            <TableCell><FreteBadge type={(item as any).deliveryType} /></TableCell>
                                             <TableCell>{formatDate((item as any).payment_approved_date)}</TableCell>
                                             <TableCell>{formatDate((item as any).sent_date)}</TableCell>
                                             <TableCell><Badge variant="outline">{(item as any).marketplace_name}</Badge></TableCell>
@@ -346,4 +362,3 @@ export default function MemoryPage() {
         </div>
     );
 }
-

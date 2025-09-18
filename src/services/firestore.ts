@@ -700,7 +700,7 @@ export const updateUserRole = async (uid: string, role: string): Promise<void> =
     await updateDoc(userDocRef, { role });
 }
 
-export const updateSalesStatuses = async (updates: { saleId: string; newStatus: string }[]): Promise<void> => {
+export const updateSalesDeliveryType = async (updates: { saleId: string; deliveryType: string | undefined }[]): Promise<void> => {
   if (!updates || updates.length === 0) {
     return;
   }
@@ -709,8 +709,13 @@ export const updateSalesStatuses = async (updates: { saleId: string; newStatus: 
   const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
 
   updates.forEach(update => {
-    const docRef = doc(salesCol, update.saleId);
-    batch.update(docRef, { status: update.newStatus, status_description: update.newStatus });
+    if (update.saleId && update.deliveryType) {
+        const docRef = doc(salesCol, update.saleId);
+        batch.update(docRef, { 
+            deliveryType: update.deliveryType,
+            deliveryType_updated_at: new Date().toISOString(),
+        });
+    }
   });
 
   await batch.commit();
@@ -888,5 +893,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
-
-    

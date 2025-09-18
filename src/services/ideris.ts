@@ -81,6 +81,12 @@ export function mapIderisOrderToSale(iderisOrder: any, index: number): Sale {
         (mappedSale as any).order_code = iderisOrder.code;
     }
 
+    // Fallback explícito para deliveryType
+    if (!(mappedSale as any).deliveryType && iderisOrder?.deliveryType) {
+        (mappedSale as any).deliveryType = iderisOrder.deliveryType;
+    }
+
+
     let cleanedSale: any = { ...mappedSale };
     for (const key in cleanedSale) {
         if (Object.prototype.hasOwnProperty.call(cleanedSale, key)) {
@@ -341,7 +347,7 @@ export async function fetchOrderById(privateKey: string, orderId: string): Promi
     }
 }
 
-export async function fetchOrdersByIds(privateKey: string, orderIds: string[]): Promise<any[]> {
+export async function fetchOrdersByIds(privateKey: string, orderIds: (string|number)[]): Promise<any[]> {
     const token = await getValidAccessToken(privateKey);
     const results = [];
     // A Ideris não parece ter um endpoint para buscar múltiplos pedidos por ID, então fazemos um por um.
@@ -428,4 +434,3 @@ export async function fetchOrdersStatus(
     
     return response.data?.result?.obj || [];
 }
-
