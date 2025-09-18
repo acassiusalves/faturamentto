@@ -48,7 +48,7 @@ export function Header() {
                             <DropdownMenu key={link.label}>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm">
-                                        <link.icon className="mr-2" />
+                                        {link.icon && <link.icon className="mr-2" />}
                                         {link.label}
                                         <ChevronDown className="ml-1 h-4 w-4" />
                                     </Button>
@@ -57,7 +57,7 @@ export function Header() {
                                     {link.subItems.filter(sub => hasAccess(sub.href)).map(subItem => (
                                         <DropdownMenuItem key={subItem.href} asChild>
                                             <Link href={subItem.href}>
-                                                <subItem.icon className="mr-2" />
+                                                {subItem.icon && <subItem.icon className="mr-2" />}
                                                 {subItem.label}
                                             </Link>
                                         </DropdownMenuItem>
@@ -68,11 +68,11 @@ export function Header() {
                     }
                     
                     // Render a normal link if it has access
-                    if (hasAccess(link.href)) {
+                    if (link.href && hasAccess(link.href)) {
                         return (
                             <Button asChild variant="ghost" size="sm" key={link.href}>
-                                <Link href={link.href!}>
-                                    <link.icon className="mr-2" />
+                                <Link href={link.href}>
+                                    {link.icon && <link.icon className="mr-2" />}
                                     {link.label}
                                 </Link>
                             </Button>
@@ -109,10 +109,10 @@ export function Header() {
                             );
                         }
 
-                        if(hasAccess(link.href)) {
+                        if(link.href && hasAccess(link.href)) {
                             return (
                                 <Button asChild variant="ghost" size="icon" title={link.title} key={link.href}>
-                                    <Link href={link.href!}>
+                                    <Link href={link.href}>
                                         <link.icon />
                                     </Link>
                                 </Button>
