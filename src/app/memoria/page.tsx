@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -22,17 +21,31 @@ import { ptBR } from 'date-fns/locale';
 import { updateSalesDeliveryTypeAction } from '../actions';
 import { cn } from '@/lib/utils';
 
+const freightMap: Record<string, string> = {
+  "drop_off": "Correios",
+  "xd_drop_off": "Correios",
+  "xd_pick_up": "Correios",
+  "fulfillment": "Full ML",
+  "cross_docking": "Agência ML",
+  "pick_up": "Retirada",
+  "prepaid": "Frete pré-pago",
+  "self_service": "Sem Mercado Envios",
+  "custom": "A combinar"
+};
+
 function FreteBadge({ type }: { type?: string }) {
-  const t = (type || '').toUpperCase();
+  const t = (type || '').toLowerCase();
+  const label = freightMap[t] || t.toUpperCase() || 'N/A';
   let variant: 'default' | 'secondary' | 'outline' = 'secondary';
-  if (t === 'FLEX') variant = 'default';
-  else if (t === 'FULFILLMENT' || t === 'FBM') variant = 'secondary';
-  else if (t === 'ME1' || t === 'ME2') variant = 'outline';
+  
+  if (t === 'flex') variant = 'default';
+  else if (t === 'fulfillment' || t === 'fbm') variant = 'secondary';
+  else if (t === 'me1' || t === 'me2') variant = 'outline';
 
   return <Badge variant={variant} className={cn(
       variant === 'default' && 'bg-green-100 text-green-800 border-green-300',
       variant === 'secondary' && 'bg-blue-100 text-blue-800 border-blue-300',
-  )}>{t || 'N/A'}</Badge>;
+  )}>{label}</Badge>;
 }
 
 
