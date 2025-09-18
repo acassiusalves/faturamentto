@@ -45,6 +45,7 @@ export const navLinks = [
         { href: "/arquivo/dados-mercado-livre", label: "Dados Mercado Livre", icon: Database },
       ]
     },
+    { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
     { href: "/dre", label: "DRE", icon: BarChart3 },
     { href: "/custos-geral", label: "Custos", icon: DollarSign },
     { href: "/memoria", label: "Memória", icon: BrainCircuit },
@@ -87,6 +88,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/arquivo': ['admin', 'socio', 'expedicao', 'sac', 'financeiro'],
     '/arquivo/status-ideris': ['admin', 'socio', 'financeiro', 'sac'],
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],
+    '/relatorios': ['admin', 'socio', 'financeiro'],
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
     '/sac': ['admin', 'socio', 'sac'],
