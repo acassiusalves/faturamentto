@@ -309,6 +309,8 @@ export function deterministicLookup(standardizedLines: string[], databaseList: s
     // CORREÇÃO: Threshold mais baixo
     const THRESHOLD = 5.0; 
     if (best && best.score >= THRESHOLD) {
+      // **A CORREÇÃO PRINCIPAL ESTÁ AQUI**
+      // Usar `best.item.name` (do banco de dados) em vez de `std.raw` (da lista original).
       return { sku: best.item.sku, name: best.item.name, costPrice: std.priceDigits, _score: best.score };
     }
 
