@@ -1,4 +1,5 @@
 
+
 'use server';
 
 /**
@@ -26,9 +27,9 @@ const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização d
     3.  **Extração de Componentes:** Para cada linha de uma marca prioritária, identifique e extraia: Marca, Modelo, Armazenamento (ROM), Memória RAM, Cor, Rede (4G/5G, se houver) e Preço.
     4.  **Ordem Estrita:** Reorganize os componentes extraídos para seguir EXATAMENTE esta ordem: \`Marca Modelo Armazenamento Memoria Cor Rede Preço\`.
     5.  **Formatação de Memória:** Garanta que "GB" ou "TB" esteja associado ao armazenamento e que a memória RAM seja identificada (ex: "8GB RAM"). Formatos como "8/256GB" significam "8GB RAM" e "256GB" de armazenamento.
-    6.  **Omissão de Rede:** Se a conectividade (4G ou 5G) não for mencionada, omita essa informação. Não assuma um valor padrão.
+    6.  **Omissão de Rede:** Se a conectividade (4G ou 5G) não for mencionada na linha original, omita essa informação na saída. Não assuma um valor padrão. Se for mencionada, coloque-a apenas uma vez, antes do preço.
     7.  **Manutenção do Preço:** O preço DEVE ser mantido no final de cada linha padronizada.
-    8.  **Limpeza de Dados:** Após a padronização, remova qualquer informação extra que não se encaixe na nova estrutura (por exemplo, "6/128GB", "Versão Global", "Americano A+", "/") para limpar a descrição do produto.
+    8.  **Limpeza de Dados:** Após a padronização, remova qualquer informação extra que não se encaixe na nova estrutura (por exemplo, "Versão Global", "Americano A+", "/") para limpar a descrição do produto.
     9.  **Tratamento de Erros:** Se uma linha (de uma marca prioritária) não puder ser padronizada por outro motivo (faltando preço, formato confuso), adicione-a à lista 'unprocessedItems' com uma breve justificativa.
 
     **EXEMPLO DE ENTRADA:**
