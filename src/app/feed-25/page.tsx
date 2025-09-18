@@ -12,7 +12,7 @@ import {
   lookupProductsAction,
   savePromptAction,
 } from '@/app/actions';
-import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail } from '@/lib/types'
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, Product } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -259,6 +259,7 @@ export default function FeedPage() {
     const { toast } = useToast();
     const { user } = useAuth();
     const [databaseList, setDatabaseList] = useState('');
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [isProcessing, startProcessingTransition] = useTransition();
     const [progress, setProgress] = useState(0);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -297,9 +298,10 @@ export default function FeedPage() {
         setDate(new Date());
         async function loadData() {
             try {
-              const allProducts = await loadProducts();
-              if (allProducts) {
-                const dbList = allProducts.map(p => `${p.name}\t${p.sku}`).join('\n');
+              const loadedProducts = await loadProducts();
+              if (loadedProducts) {
+                setAllProducts(loadedProducts);
+                const dbList = loadedProducts.map(p => `${p.name}\t${p.sku}`).join('\n');
                 setDatabaseList(dbList);
               }
               const appSettings = await loadAppSettings();
@@ -890,17 +892,11 @@ export default function FeedPage() {
             )}
 
             {step3Result && step3Result.details && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Resultado Final</CardTitle>
-                         <CardDescription>
-                            Lista de produtos após cruzamento com o banco de dados.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <ProductTable products={step3Result.details} />
-                    </CardContent>
-                </Card>
+                <ProductTable 
+                  products={step3Result.details} 
+                  allProducts={allProducts}
+                  unprocessedItems={step2Result?.unprocessedItems} 
+                />
             )}
         </main>
     );

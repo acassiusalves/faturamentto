@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import type { ProductDetail, UnprocessedItem } from '@/lib/types';
+import type { ProductDetail, UnprocessedItem, Product } from '@/lib/types';
 import {
   Table,
   TableBody,
@@ -13,23 +13,30 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from './ui/button';
-import { Download, Search, PackageCheck, PackageX, ArrowUpDown } from 'lucide-react';
+import { Download, Search, PackageCheck, PackageX, ArrowUpDown, BrainCircuit, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import * as XLSX from 'xlsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductTableProps {
   products: ProductDetail[];
+  allProducts: Product[]; // Pass all products for verification
   unprocessedItems?: UnprocessedItem[];
 }
 
 type SkuSortOrder = 'default' | 'sem_codigo_first' | 'com_codigo_first';
+type VerificationStatus = 'ok' | 'divergent' | 'not_found' | 'unchecked';
 
-
-export function ProductTable({ products, unprocessedItems = [] }: ProductTableProps) {
+export function ProductTable({ products, unprocessedItems = [], allProducts }: ProductTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [brandFilter, setBrandFilter] = useState('all');
   const [skuSortOrder, setSkuSortOrder] = useState<SkuSortOrder>('default');
+  const [verificationResults, setVerificationResults] = useState<Map<string, VerificationStatus>>(new Map());
+
+  const allProductsMap = useMemo(() => {
+      return new Map(allProducts.map(p => [p.sku, p]));
+  }, [allProducts]);
 
   const brands = useMemo(() => {
     const brandSet = new Set<string>();
@@ -49,6 +56,33 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
         return 'default';
     });
   }
+
+  const handleVerifyResults = () => {
+    const results = new Map<string, VerificationStatus>();
+    products.forEach(product => {
+      if (product.sku === 'SEM CÓDIGO') {
+        results.set(product.name, 'not_found'); // Use name as key for no-sku items
+        return;
+      }
+
+      const dbProduct = allProductsMap.get(product.sku);
+      if (!dbProduct) {
+        results.set(product.sku, 'not_found');
+        return;
+      }
+      
+      // Simple name similarity check
+      const resultNameNorm = product.name.toLowerCase().replace(/[\s\W]/g, '');
+      const dbNameNorm = dbProduct.name.toLowerCase().replace(/[\s\W]/g, '');
+
+      if (dbNameNorm.includes(resultNameNorm) || resultNameNorm.includes(dbNameNorm)) {
+        results.set(product.sku, 'ok');
+      } else {
+        results.set(product.sku, 'divergent');
+      }
+    });
+    setVerificationResults(results);
+  };
 
 
   const filteredAndSortedProducts = useMemo(() => {
@@ -194,6 +228,10 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={handleVerifyResults}>
+            <BrainCircuit className="mr-2 h-4 w-4" />
+            Analisar Resultado
+          </Button>
           <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportXLSX}>
             <Download className="mr-2 h-4 w-4" />
             Exportar XLSX
@@ -202,6 +240,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
+          <TooltipProvider>
             <Table>
             <TableHeader>
                 <TableRow>
@@ -217,13 +256,24 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
             </TableHeader>
             <TableBody>
                 {filteredAndSortedProducts.length > 0 ? (
-                filteredAndSortedProducts.map((product, index) => (
-                    <TableRow key={index}>
-                    <TableCell className="font-mono">{product.sku}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrencyForTable(product.costPrice)}</TableCell>
-                    </TableRow>
-                ))
+                filteredAndSortedProducts.map((product, index) => {
+                    const verificationKey = product.sku === 'SEM CÓDIGO' ? product.name : product.sku;
+                    const status = verificationResults.get(verificationKey) || 'unchecked';
+                    return (
+                        <TableRow key={index}>
+                            <TableCell className="font-mono">
+                                <div className="flex items-center gap-2">
+                                  {status === 'ok' && <Tooltip><TooltipTrigger><CheckCircle className="h-4 w-4 text-green-500" /></TooltipTrigger><TooltipContent><p>O nome do produto corresponde ao do banco de dados.</p></TooltipContent></Tooltip>}
+                                  {status === 'divergent' && <Tooltip><TooltipTrigger><AlertTriangle className="h-4 w-4 text-amber-500" /></TooltipTrigger><TooltipContent><p>O nome do produto diverge do que está no banco de dados para este SKU.</p></TooltipContent></Tooltip>}
+                                  {status === 'not_found' && product.sku !== 'SEM CÓDIGO' && <Tooltip><TooltipTrigger><AlertTriangle className="h-4 w-4 text-red-500" /></TooltipTrigger><TooltipContent><p>Este SKU não foi encontrado no banco de dados.</p></TooltipContent></Tooltip>}
+                                  <span>{product.sku}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{product.name}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrencyForTable(product.costPrice)}</TableCell>
+                        </TableRow>
+                    );
+                })
                 ) : (
                 <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center">
@@ -233,6 +283,7 @@ export function ProductTable({ products, unprocessedItems = [] }: ProductTablePr
                 )}
             </TableBody>
             </Table>
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>
