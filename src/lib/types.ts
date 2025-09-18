@@ -113,6 +113,7 @@ export interface Sale {
   paidAmount: number;
   discount: number;
   discountMarketplace: number;
+  deliveryType: string;
   
   // Other potential fields from sheets/API
   friendlyName: string;
@@ -191,6 +192,7 @@ export interface ColumnMapping {
     paidAmount?: string;
     discount?: string;
     discountMarketplace?: string;
+    deliveryType?: string;
     friendlyName?: string;
     statusDescription?: string;
     verified?: string;

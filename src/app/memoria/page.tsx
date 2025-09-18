@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -174,6 +175,7 @@ export default function MemoryPage() {
                                         <TableHead>ID Pedido</TableHead>
                                         <TableHead>Cód. Pedido</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Tipo Frete</TableHead>
                                         <TableHead>Data Pagamento</TableHead>
                                         <TableHead>Data Envio</TableHead>
                                         <TableHead>Marketplace</TableHead>
@@ -218,6 +220,7 @@ export default function MemoryPage() {
                                             <TableCell>{(item as any).order_id}</TableCell>
                                             <TableCell className="font-mono text-xs">{(item as any).order_code}</TableCell>
                                             <TableCell><Badge variant="secondary">{(item as any).status}</Badge></TableCell>
+                                            <TableCell>{(item as any).deliveryType}</TableCell>
                                             <TableCell>{formatDate((item as any).payment_approved_date)}</TableCell>
                                             <TableCell>{formatDate((item as any).sent_date)}</TableCell>
                                             <TableCell><Badge variant="outline">{(item as any).marketplace_name}</Badge></TableCell>
@@ -257,7 +260,7 @@ export default function MemoryPage() {
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={38} className="h-24 text-center">
+                                            <TableCell colSpan={39} className="h-24 text-center">
                                                 Nenhum registro encontrado com os filtros atuais.
                                             </TableCell>
                                         </TableRow>

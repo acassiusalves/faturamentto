@@ -12,6 +12,7 @@ export const iderisFields: { key: string; label: string, path: string }[] = [
     
     // Shipping Details
     { key: "deliveryTrackingCode", label: "Código de Rastreio", path: "deliveryTrackingCode" },
+    { key: "deliveryType", label: "Tipo de Frete", path: "deliveryType" },
 
     // Dates
     { key: "sent_date", label: "Data de Envio", path: "sent" },
