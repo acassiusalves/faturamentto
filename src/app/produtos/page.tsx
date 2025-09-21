@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Link2, Hash, AlertTriangle, Upload, Download } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Link2, Hash, AlertTriangle, Upload, Download, Settings } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -77,6 +77,7 @@ export default function EstoquePage() {
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictResults, setConflictResults] = useState<SkuConflict[]>([]);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
@@ -372,243 +373,306 @@ export default function EstoquePage() {
   return (
     <>
       <div className="flex flex-col gap-8 p-4 md:p-8">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Gerenciador de Produtos</h1>
-          <p className="text-muted-foreground">Crie e gerencie os modelos de produtos (produtos pai) do seu sistema.</p>
+        <div className="flex justify-between items-start gap-4">
+            <div>
+              <h1 className="text-3xl font-bold font-headline">Gerenciador de Produtos</h1>
+              <p className="text-muted-foreground">Crie e gerencie os modelos de produtos (produtos pai) do seu sistema.</p>
+            </div>
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                        <Settings />
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle>Configurações de Produtos</DialogTitle>
+                        <DialogDescription>Gerencie atributos e opções para as categorias de produtos.</DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-grow overflow-y-auto -mx-6 px-6">
+                        <ProductSettings />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
 
-        <Tabs defaultValue="models" className="w-full">
-          <TabsList>
-            <TabsTrigger value="models">Modelos</TabsTrigger>
-            <TabsTrigger value="settings">Configurações</TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="models" className="mt-6">
-            <div className="grid md:grid-cols-3 gap-8 items-start">
-              <div className="md:col-span-1 space-y-4">
-                  <Form {...form}>
-                    <form onSubmit={handleSubmit(onSubmit)}>
-                      <Card>
-                          <CardHeader>
-                            <CardTitle>Criar Novo Modelo de Celular</CardTitle>
-                            <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {settings ? orderedAttributes.map(attr => (
-                                <FormField
-                                  key={attr.key}
-                                  control={control}
-                                  name={attr.key}
-                                  rules={{ required: true }}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>{attr.label}</FormLabel>
-                                      {attr.key === 'modelo' ? (
-                                        <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
-                                          <PopoverTrigger asChild>
-                                            <FormControl>
-                                              <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
-                                              >
-                                                {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                            </FormControl>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                              <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                              <CommandList>
-                                                <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
-                                                <CommandGroup>
-                                                  {attr.values.map(val => (
-                                                    <CommandItem
-                                                      key={val}
-                                                      value={val}
-                                                      onSelect={() => {
-                                                        field.onChange(val);
-                                                        setOpenPopovers(prev => ({...prev, [attr.key]: false}));
-                                                      }}
+        <Tabs defaultValue="celular" className="w-full">
+            <TabsList>
+                <TabsTrigger value="celular">Modelos (Celular)</TabsTrigger>
+                <TabsTrigger value="geral">Produtos Gerais</TabsTrigger>
+            </TabsList>
+
+            {/* Aba para Celulares (formulário complexo existente) */}
+            <TabsContent value="celular" className="mt-6">
+                <div className="grid md:grid-cols-3 gap-8 items-start">
+                    <div className="md:col-span-1 space-y-4">
+                        <Form {...form}>
+                            <form onSubmit={handleSubmit(onSubmit)}>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Criar Novo Modelo de Celular</CardTitle>
+                                    <CardDescription>Selecione os atributos para gerar o nome padronizado.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {settings ? orderedAttributes.map(attr => (
+                                        <FormField
+                                        key={attr.key}
+                                        control={control}
+                                        name={attr.key}
+                                        rules={{ required: true }}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>{attr.label}</FormLabel>
+                                            {attr.key === 'modelo' ? (
+                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
+                                                <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
                                                     >
-                                                      <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
-                                                      {val}
-                                                    </CommandItem>
-                                                  ))}
-                                                </CommandGroup>
-                                              </CommandList>
-                                            </Command>
-                                          </PopoverContent>
-                                        </Popover>
-                                      ) : (
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                          <FormControl>
-                                            <SelectTrigger>
-                                              <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
-                                            </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent>
-                                            {attr.values.map(val => (
-                                              <SelectItem key={val} value={val}>{val}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      )}
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                            )) : <p>Carregando atributos...</p>}
+                                                        {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                    </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                    <Command>
+                                                    <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                                    <CommandList>
+                                                        <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                                        <CommandGroup>
+                                                        {attr.values.map(val => (
+                                                            <CommandItem
+                                                            key={val}
+                                                            value={val}
+                                                            onSelect={() => {
+                                                                field.onChange(val);
+                                                                setOpenPopovers(prev => ({...prev, [attr.key]: false}));
+                                                            }}
+                                                            >
+                                                            <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
+                                                            {val}
+                                                            </CommandItem>
+                                                        ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                                </Popover>
+                                            ) : (
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                    <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {attr.values.map(val => (
+                                                    <SelectItem key={val} value={val}>{val}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                                </Select>
+                                            )}
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                    )) : <p>Carregando atributos...</p>}
 
-                            <div className="grid grid-cols-2 gap-4 pt-4">
-                                <div className="space-y-2 col-span-2">
-                                  <Label className="text-muted-foreground">Nome Gerado</Label>
-                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                    <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                      {generatedName || "Selecione as opções acima..."}
-                                    </span>
-                                  </div>
+                                    <div className="grid grid-cols-2 gap-4 pt-4">
+                                        <div className="space-y-2 col-span-2">
+                                        <Label className="text-muted-foreground">Nome Gerado</Label>
+                                        <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                            <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                            {generatedName || "Selecione as opções acima..."}
+                                            </span>
+                                        </div>
+                                        </div>
+                                        <div className="space-y-2 col-span-2">
+                                        <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
+                                        <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
+                                            <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
+                                            {generatedSku || "Selecione as opções..."}
+                                            </span>
+                                        </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
+                                    {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                    Criar Modelo de Produto
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                            </form>
+                        </Form>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <Card>
+                            <CardHeader>
+                                <div className="flex justify-between items-center gap-4 flex-wrap">
+                                <div className="flex-1 min-w-[200px]">
+                                    <CardTitle>Modelos Cadastrados</CardTitle>
+                                    <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
                                 </div>
-                                <div className="space-y-2 col-span-2">
-                                  <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
-                                  <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                    <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                      {generatedSku || "Selecione as opções..."}
-                                    </span>
-                                  </div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="relative">
+                                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar por nome ou SKU..."
+                                        className="pl-9 w-full sm:w-auto"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    </div>
+                                    <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
+                                    <Upload className="mr-2 h-4 w-4" /> Importar
+                                    </Button>
+                                    <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
+                                    <Link2 className="mr-2 h-4 w-4" /> Associar
+                                    </Button>
+
+                                    {hasConflicts && (
+                                    <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
+                                        {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                                        Verificar Conflitos
+                                    </Button>
+                                    )}
+                                </div>
+                                </div>
+                            </CardHeader>
+
+                            <CardContent>
+                                <div className="rounded-md border max-h-[600px] overflow-y-auto">
+                                <Table>
+                                    <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Nome do Produto</TableHead>
+                                        <TableHead>SKU</TableHead>
+                                        <TableHead>Data de Criação</TableHead>
+                                        <TableHead className="text-right">Ações</TableHead>
+                                    </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                    {filteredProducts.length ? (
+                                        filteredProducts.map(product => (
+                                        <TableRow key={product.id}>
+                                            <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                <span>{product.name}</span>
+                                                {!!product.associatedSkus?.length && (
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
+                                                        <Link2 className="h-4 w-4" />
+                                                        <span>{product.associatedSkus.length}</span>
+                                                    </div>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0 z-[9999]">
+                                                    <div className="p-3 space-y-2">
+                                                        <p className="text-sm font-semibold text-foreground">SKUs associados</p>
+                                                        <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
+                                                        {product.associatedSkus.map(sku => (
+                                                            <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
+                                                        ))}
+                                                        </div>
+                                                    </div>
+                                                    </PopoverContent>
+                                                </Popover>
+                                                )}
+                                            </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
+                                            <TableCell>{formatDate(product.createdAt)}</TableCell>
+                                            <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
+                                                <Download className="h-4 w-4" />
+                                            </Button>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                                    <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                            </TableCell>
+                                        </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell>
+                                        </TableRow>
+                                    )}
+                                    </TableBody>
+                                </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </TabsContent>
+
+            {/* Aba para Produtos Gerais (novo formulário simples) */}
+            <TabsContent value="geral" className="mt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Criar Novo Produto Geral</CardTitle>
+                        <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="max-w-md mx-auto">
+                        <form className="space-y-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="geral-nome">Nome do Produto</Label>
+                                <Input id="geral-nome" placeholder="Ex: Fone de Ouvido Bluetooth" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="geral-marca">Marca</Label>
+                                    <Input id="geral-marca" placeholder="Ex: Sony" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="geral-modelo">Modelo</Label>
+                                    <Input id="geral-modelo" placeholder="Ex: WH-1000XM5" />
                                 </div>
                             </div>
-                          </CardContent>
-                          <CardFooter>
-                            <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                              {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                              Criar Modelo de Produto
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="geral-codigo">Código/SKU</Label>
+                                    <Input id="geral-codigo" placeholder="SKU do produto" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="geral-cor">Cor</Label>
+                                    <Input id="geral-cor" placeholder="Ex: Preto" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="geral-ean">EAN / SN</Label>
+                                <Input id="geral-ean" placeholder="Código de barras ou número de série" />
+                            </div>
+                             <Button type="submit" className="w-full" disabled>
+                                <PlusCircle className="mr-2" />
+                                Criar Produto
                             </Button>
-                          </CardFooter>
-                      </Card>
-                    </form>
-                  </Form>
-              </div>
-
-              <div className="md:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center gap-4 flex-wrap">
-                      <div className="flex-1 min-w-[200px]">
-                        <CardTitle>Modelos Cadastrados</CardTitle>
-                        <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="relative">
-                          <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Buscar por nome ou SKU..."
-                            className="pl-9 w-full sm:w-auto"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </div>
-                        <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
-                          <Upload className="mr-2 h-4 w-4" /> Importar
-                        </Button>
-                        <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
-                          <Link2 className="mr-2 h-4 w-4" /> Associar
-                        </Button>
-
-                        {hasConflicts && (
-                          <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
-                            {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                            Verificar Conflitos
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div className="rounded-md border max-h-[600px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Nome do Produto</TableHead>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>Data de Criação</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredProducts.length ? (
-                            filteredProducts.map(product => (
-                              <TableRow key={product.id}>
-                                <TableCell className="font-medium">
-                                  <div className="flex items-center gap-2">
-                                    <span>{product.name}</span>
-                                    {!!product.associatedSkus?.length && (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
-                                            <Link2 className="h-4 w-4" />
-                                            <span>{product.associatedSkus.length}</span>
-                                          </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0 z-[9999]">
-                                          <div className="p-3 space-y-2">
-                                            <p className="text-sm font-semibold text-foreground">SKUs associados</p>
-                                            <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
-                                              {product.associatedSkus.map(sku => (
-                                                <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
-                                <TableCell>{formatDate(product.createdAt)}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
-                                    <Download className="h-4 w-4" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon">
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                        <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
+                             <p className="text-xs text-center text-muted-foreground pt-2">Esta funcionalidade está em desenvolvimento.</p>
+                        </form>
+                    </CardContent>
                 </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="settings" className="mt-6">
-            <ProductSettings />
-          </TabsContent>
+            </TabsContent>
         </Tabs>
       </div>
 
@@ -647,4 +711,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
