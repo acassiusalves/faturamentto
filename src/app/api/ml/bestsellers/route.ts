@@ -6,13 +6,24 @@ const ML_API = "https://api.mercadolibre.com";
 
 async function fetchMaybeAuth(url: string) {
   // tenta sem token e, se 401/403, tenta com token
-  let r = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
+  let r = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      // alguns endpoints do ML rejeitam requests sem UA
+      "User-Agent": "Fechamentto/1.0 (+contato@seu-dominio.com)",
+    },
+  });
   if (r.status === 401 || r.status === 403) {
     try {
       const token = await getMlToken();
       r = await fetch(url, {
         cache: "no-store",
-        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "User-Agent": "Fechamentto/1.0 (+contato@seu-dominio.com)",
+        },
       });
     } catch {}
   }
@@ -28,17 +39,22 @@ async function getHighlights(site: string, category: string) {
     return [];
   }
   const j = await r.json();
-  const content = Array.isArray(j?.content) ? j.content : (Array.isArray(j) ? j : []);
+  // o payload pode vir como {content: [...]}, ou array puro, ou {results: [...]}
+  const content =
+    (Array.isArray(j?.content) && j.content) ||
+    (Array.isArray(j?.results) && j.results) ||
+    (Array.isArray(j) ? j : []);
   if (!Array.isArray(content)) {
     console.warn("ML highlights: payload inesperado", j);
     return [];
   }
+  if (content.length) console.log("ML highlights sample:", content[0]); // ajuda a depurar no server log
   return content
     .map((row: any) => {
       const rawType = (row?.type ?? "").toString().toUpperCase();
       const type = rawType === "PRODUCT" ? "PRODUCT" : "ITEM"; // fallback ITEM
       return {
-        id: row?.id || row?.item_id,
+        id: row?.id || row?.item_id, // alguns payloads usam item_id
         type,
         position: row?.position ?? null,
       };
@@ -48,8 +64,8 @@ async function getHighlights(site: string, category: string) {
 
 async function enrichItemsByType(base: Array<{ id: string; type: string; position: number | null }>, site: string, limit: number) {
   const out: Record<string, any> = {};
-  const items = base.filter(b => b.type === "ITEM").map(b => b.id);
-  const products = base.filter(b => b.type === "PRODUCT").map(b => b.id);
+  const items = base.filter((b) => b.type === "ITEM").map((b) => b.id);
+  const products = base.filter((b) => b.type === "PRODUCT").map((b) => b.id);
 
   // --- ITEM: /items?ids=... (em lote)
   if (items.length) {
@@ -57,7 +73,9 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
     const ATTRS = "id,title,price,secure_thumbnail,thumbnail,permalink,pictures,attributes";
     for (let i = 0; i < items.length; i += CHUNK) {
       const batch = items.slice(i, i + CHUNK);
-      const r = await fetchMaybeAuth(`${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`);
+      const r = await fetchMaybeAuth(
+        `${ML_API}/items?ids=${batch.join(",")}&attributes=${encodeURIComponent(ATTRS)}`
+      );
       if (!r.ok) continue;
       const rows = await r.json();
       for (const row of rows || []) {
@@ -90,40 +108,30 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
       const batch = products.slice(i, i + CONC);
       await Promise.all(
         batch.map(async (pid) => {
-          // detalhes do produto (nome + fotos + atributos)
           const pR = await fetchMaybeAuth(`${ML_API}/products/${pid}?attributes=name,pictures,attributes`);
-          // um item “winner” para pegar o preço
           const iR = await fetchMaybeAuth(`${ML_API}/products/${pid}/items?limit=1`);
-
           let title = "";
           let thumbnail: string | null = null;
           let price = 0;
           let model = "";
-
           if (pR.ok) {
             const p = await pR.json();
             title = p?.name ?? "";
             const pic = p?.pictures?.[0];
             thumbnail = pic?.secure_url || pic?.url || null;
-            model = p?.attributes?.find((a: any) => a.id === 'MODEL')?.value_name || '';
+            model = p?.attributes?.find((a: any) => a.id === "MODEL")?.value_name || "";
           }
-
           if (iR.ok) {
             const j = await iR.json();
-            // resposta costuma vir como { results: [ { id, price, ... } ] }
             const winner = j?.results?.[0] || (Array.isArray(j) ? j[0] : null);
-            if (winner) {
-              if (Number.isFinite(winner.price)) price = winner.price;
-            }
+            if (winner && Number.isFinite(winner.price)) price = winner.price;
           }
-
           out[pid] = {
             id: pid,
             title,
             price,
             thumbnail,
             model,
-            // na planilha você linka para a página de catálogo (p/PRODUCT)
             permalink: `https://www.mercadolivre.com.br/p/${pid}`,
           };
         })
@@ -131,7 +139,6 @@ async function enrichItemsByType(base: Array<{ id: string; type: string; positio
     }
   }
 
-  // devolve na ordem e com a posição
   return base
     .slice(0, limit)
     .map((b) => ({ position: b.position, ...out[b.id] }))
@@ -150,6 +157,7 @@ export async function GET(req: Request) {
     }
 
     const base = await getHighlights(site, category);
+    console.log("Highlights recebidos:", base.length, "itens");
     if (!base.length) return NextResponse.json({ site, category, items: [] });
 
     const items = await enrichItemsByType(base, site, limit);
