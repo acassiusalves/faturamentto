@@ -163,6 +163,14 @@ export default function EstoquePage() {
 
     return results.sort((a, b) => (b.associatedSkus?.length || 0) - (a.associatedSkus?.length || 0));
   }, [products, searchTerm]);
+  
+  const filteredCellularProducts = useMemo(() => {
+    return filteredProducts.filter(p => p.category === 'Celular');
+  }, [filteredProducts]);
+
+  const filteredGeneralProducts = useMemo(() => {
+    return filteredProducts.filter(p => p.category !== 'Celular');
+  }, [filteredProducts]);
 
   const orderedAttributes = useMemo(() => {
     if (!settings) return [];
@@ -360,6 +368,119 @@ export default function EstoquePage() {
     }
   };
 
+  const ProductListTable = ({ productList }: { productList: Product[] }) => (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <CardTitle>Produtos Cadastrados</CardTitle>
+            <CardDescription>Lista de todos os produtos que você já criou.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou SKU..."
+                className="pl-9 w-full sm:w-auto"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {productList.some(p => p.category === 'Celular') && (
+                <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" /> Importar
+                </Button>
+            )}
+            <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
+              <Link2 className="mr-2 h-4 w-4" /> Associar
+            </Button>
+            {hasConflicts && (
+              <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
+                {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                Verificar Conflitos
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border max-h-[600px] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome do Produto</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Data de Criação</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {productList.length ? (
+                productList.map(product => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{product.name}</span>
+                        {!!product.associatedSkus?.length && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
+                                <Link2 className="h-4 w-4" />
+                                <span>{product.associatedSkus.length}</span>
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 z-[9999]">
+                              <div className="p-3 space-y-2">
+                                <p className="text-sm font-semibold text-foreground">SKUs associados</p>
+                                <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
+                                  {product.associatedSkus.map(sku => (
+                                    <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
+                    <TableCell>{formatDate(product.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">Nenhum produto encontrado.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
 
   if (isLoading) {
     return (
@@ -513,165 +634,65 @@ export default function EstoquePage() {
                     </div>
 
                     <div className="md:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <div className="flex justify-between items-center gap-4 flex-wrap">
-                                <div className="flex-1 min-w-[200px]">
-                                    <CardTitle>Modelos Cadastrados</CardTitle>
-                                    <CardDescription>Lista de todos os modelos de produtos que você já criou.</CardDescription>
-                                </div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <div className="relative">
-                                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Buscar por nome ou SKU..."
-                                        className="pl-9 w-full sm:w-auto"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                    </div>
-                                    <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
-                                    <Upload className="mr-2 h-4 w-4" /> Importar
-                                    </Button>
-                                    <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
-                                    <Link2 className="mr-2 h-4 w-4" /> Associar
-                                    </Button>
-
-                                    {hasConflicts && (
-                                    <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
-                                        {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                                        Verificar Conflitos
-                                    </Button>
-                                    )}
-                                </div>
-                                </div>
-                            </CardHeader>
-
-                            <CardContent>
-                                <div className="rounded-md border max-h-[600px] overflow-y-auto">
-                                <Table>
-                                    <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nome do Produto</TableHead>
-                                        <TableHead>SKU</TableHead>
-                                        <TableHead>Data de Criação</TableHead>
-                                        <TableHead className="text-right">Ações</TableHead>
-                                    </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                    {filteredProducts.length ? (
-                                        filteredProducts.map(product => (
-                                        <TableRow key={product.id}>
-                                            <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <span>{product.name}</span>
-                                                {!!product.associatedSkus?.length && (
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                    <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
-                                                        <Link2 className="h-4 w-4" />
-                                                        <span>{product.associatedSkus.length}</span>
-                                                    </div>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0 z-[9999]">
-                                                    <div className="p-3 space-y-2">
-                                                        <p className="text-sm font-semibold text-foreground">SKUs associados</p>
-                                                        <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
-                                                        {product.associatedSkus.map(sku => (
-                                                            <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
-                                                        ))}
-                                                        </div>
-                                                    </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                                )}
-                                            </div>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
-                                            <TableCell>{formatDate(product.createdAt)}</TableCell>
-                                            <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
-                                                <Download className="h-4 w-4" />
-                                            </Button>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                                                    <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            </TableCell>
-                                        </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">Nenhum modelo encontrado.</TableCell>
-                                        </TableRow>
-                                    )}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <ProductListTable productList={filteredCellularProducts} />
                     </div>
                 </div>
             </TabsContent>
 
             {/* Aba para Produtos Gerais (novo formulário simples) */}
             <TabsContent value="geral" className="mt-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Criar Novo Produto Geral</CardTitle>
-                        <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="max-w-md mx-auto">
-                        <form className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="geral-nome">Nome do Produto</Label>
-                                <Input id="geral-nome" placeholder="Ex: Fone de Ouvido Bluetooth" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="geral-marca">Marca</Label>
-                                    <Input id="geral-marca" placeholder="Ex: Sony" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="geral-modelo">Modelo</Label>
-                                    <Input id="geral-modelo" placeholder="Ex: WH-1000XM5" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="geral-codigo">Código/SKU</Label>
-                                    <Input id="geral-codigo" placeholder="SKU do produto" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="geral-cor">Cor</Label>
-                                    <Input id="geral-cor" placeholder="Ex: Preto" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="geral-ean">EAN / SN</Label>
-                                <Input id="geral-ean" placeholder="Código de barras ou número de série" />
-                            </div>
-                             <Button type="submit" className="w-full" disabled>
-                                <PlusCircle className="mr-2" />
-                                Criar Produto
-                            </Button>
-                             <p className="text-xs text-center text-muted-foreground pt-2">Esta funcionalidade está em desenvolvimento.</p>
-                        </form>
-                    </CardContent>
-                </Card>
+                 <div className="grid md:grid-cols-3 gap-8 items-start">
+                    <div className="md:col-span-1">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Criar Novo Produto Geral</CardTitle>
+                                <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="geral-nome">Nome do Produto</Label>
+                                        <Input id="geral-nome" placeholder="Ex: Fone de Ouvido Bluetooth" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geral-marca">Marca</Label>
+                                            <Input id="geral-marca" placeholder="Ex: Sony" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geral-modelo">Modelo</Label>
+                                            <Input id="geral-modelo" placeholder="Ex: WH-1000XM5" />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geral-codigo">Código/SKU</Label>
+                                            <Input id="geral-codigo" placeholder="SKU do produto" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="geral-cor">Cor</Label>
+                                            <Input id="geral-cor" placeholder="Ex: Preto" />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="geral-ean">EAN / SN</Label>
+                                        <Input id="geral-ean" placeholder="Código de barras ou número de série" />
+                                    </div>
+                                </form>
+                            </CardContent>
+                             <CardFooter className="flex flex-col gap-2">
+                                <Button type="submit" className="w-full" disabled>
+                                    <PlusCircle className="mr-2" />
+                                    Criar Produto
+                                </Button>
+                                 <p className="text-xs text-center text-muted-foreground pt-2">Esta funcionalidade está em desenvolvimento.</p>
+                            </CardFooter>
+                        </Card>
+                    </div>
+                     <div className="md:col-span-2">
+                        <ProductListTable productList={filteredGeneralProducts} />
+                    </div>
+                </div>
             </TabsContent>
         </Tabs>
       </div>
