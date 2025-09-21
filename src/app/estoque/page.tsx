@@ -54,7 +54,6 @@ const inventorySchema = z.object({
 const generalProductEntrySchema = z.object({
   id: z.string().optional(),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
-  sku: z.string().min(1, "SKU é obrigatório."),
   name: z.string().optional(),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
   quantity: z.coerce.number().min(1, "A quantidade deve ser pelo menos 1."),
@@ -62,6 +61,7 @@ const generalProductEntrySchema = z.object({
   modelo: z.string().optional(),
   condition: z.string().min(1, "A condição é obrigatória."),
   eanOrCode: z.string().optional(),
+  sku: z.string().min(1, "SKU é obrigatório."),
 });
 
 
@@ -268,8 +268,8 @@ export default function EstoquePage() {
                 createdAt: new Date().toISOString(),
                 category: 'Geral' // Add category field
             };
-            const savedItem = await saveInventoryItem(newItem as any);
-            setInventory(prev => [savedItem, ...prev]);
+            await saveInventoryItem(newItem as any);
+            await fetchInventory();
 
             toast({
                 title: `${quantity} Item(ns) Adicionado(s)!`,
@@ -296,8 +296,8 @@ export default function EstoquePage() {
                 category: 'Celular' // Add category field
             }));
 
-            const savedItems = await saveMultipleInventoryItems(newItems as any);
-            setInventory(prev => [...savedItems, ...prev]);
+            await saveMultipleInventoryItems(newItems as any);
+            await fetchInventory();
              toast({
                 title: `${newItems.length} Item(ns) Adicionado(s)!`,
                 description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
@@ -335,8 +335,8 @@ export default function EstoquePage() {
 
     if (product) {
         form.setValue('productId', product.id);
-        form.setValue('sku', product.sku, { shouldValidate: true });
         form.setValue('name', product.name, { shouldValidate: true });
+        form.setValue('sku', product.sku, { shouldValidate: true });
         form.setValue('marca' as any, product.attributes.marca || '');
         form.setValue('modelo' as any, product.attributes.modelo || '');
         form.setValue('eanOrCode' as any, code);
@@ -380,32 +380,32 @@ export default function EstoquePage() {
   }
 
   const filteredAndSortedInventory = useMemo(() => {
-      let itemsToDisplay: (InventoryItem & {count?: number; totalCost?: number})[] = inventory;
-      
-      // Filter by category (Celular/Geral)
-      itemsToDisplay = itemsToDisplay.filter(item => {
-        const category = (item as any).category || 'Celular'; // Default to Celular if not specified
+    let itemsToDisplay: (InventoryItem & { count?: number; totalCost?: number })[] = inventory;
+
+    // Filter by category (Celular/Geral)
+    itemsToDisplay = itemsToDisplay.filter(item => {
+        const category = (item as any).category || 'Celular';
         if (showCellular && showGeneral) return true;
         if (showCellular) return category === 'Celular';
         if (showGeneral) return category === 'Geral';
         return false;
+    });
+
+    if (selectedConditions.length > 0 && selectedConditions.length < availableConditions.length) {
+      itemsToDisplay = itemsToDisplay.filter(item => {
+          const condition = item.condition || 'Novo';
+          return selectedConditions.includes(condition);
       });
+    }
 
-      if (selectedConditions.length > 0 && selectedConditions.length < availableConditions.length) {
-        itemsToDisplay = itemsToDisplay.filter(item => {
-            const condition = item.condition || 'Novo';
-            return selectedConditions.includes(condition);
-        });
-      }
-
-      if (searchTerm) {
-          const lowercasedTerm = searchTerm.toLowerCase();
-          itemsToDisplay = itemsToDisplay.filter(item =>
-              item.name.toLowerCase().includes(lowercasedTerm) ||
-              item.sku.toLowerCase().includes(lowercasedTerm) ||
-              (item.serialNumber && item.serialNumber.toLowerCase().includes(lowercasedTerm))
-          );
-      }
+    if (searchTerm) {
+        const lowercasedTerm = searchTerm.toLowerCase();
+        itemsToDisplay = itemsToDisplay.filter(item =>
+            item.name.toLowerCase().includes(lowercasedTerm) ||
+            item.sku.toLowerCase().includes(lowercasedTerm) ||
+            (item.serialNumber && item.serialNumber.toLowerCase().includes(lowercasedTerm))
+        );
+    }
       
       if (!isGrouped) {
           return itemsToDisplay;
