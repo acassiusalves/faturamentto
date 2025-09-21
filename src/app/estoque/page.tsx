@@ -4,12 +4,12 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
-import * * as z from 'zod';
+import * as z from 'zod';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
-import type { InventoryItem, Product } from '@/lib/types';
+import type { InventoryItem, Product, ProductCategorySettings } from '@/lib/types';
 import { saveInventoryItem, saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,7 +79,7 @@ export default function EstoquePage() {
   const [availableConditions, setAvailableConditions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGrouped, setIsGrouped] = useState(isGrouped);
+  const [isGrouped, setIsGrouped] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -262,7 +262,7 @@ export default function EstoquePage() {
                 sku: data.sku,
                 costPrice: data.costPrice,
                 quantity: quantity,
-                serialNumber: generalData.eanOrCode || `LOTE-${generalData.sku}-${Date.now()}`,
+                serialNumber: generalData.eanOrCode || '',
                 origin: selectedProduct.attributes.marca || 'Geral',
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
@@ -564,7 +564,7 @@ export default function EstoquePage() {
           <h1 className="text-3xl font-bold font-headline">Gerenciador de Estoque</h1>
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
             <Button asChild>
                 <Link href="/estoque/devolucoes">
                     <Undo2 />
@@ -1026,7 +1026,5 @@ export default function EstoquePage() {
     </>
   );
 }
-
-    
 
     
