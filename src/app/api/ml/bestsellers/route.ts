@@ -21,7 +21,7 @@ async function fetchMaybeAuth(url: string) {
 
 async function getHighlights(site: string, category: string) {
   // devolve id, type, position
-  const url = `${ML_API}/highlights/${site}/category/${category}`;
+  const url = `${ML_API}/highlights/SITE/${site}/category/${category}`;
   const r = await fetchMaybeAuth(url);
   if (!r.ok) return [];
   const j = await r.json();
