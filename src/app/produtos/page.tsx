@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -649,34 +648,35 @@ export default function EstoquePage() {
                                 <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form className="space-y-4">
+                                 <form className="space-y-4">
+                                    {settings?.attributes.filter(attr => ['marca', 'modelo', 'cor'].includes(attr.key)).map(attr => (
+                                         <div className="space-y-2" key={attr.key}>
+                                            <Label>{attr.label}</Label>
+                                            <Select>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {attr.values.map(val => (
+                                                        <SelectItem key={val} value={val}>{val}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ))}
                                     <div className="space-y-2">
-                                        <Label htmlFor="geral-nome">Nome do Produto</Label>
-                                        <Input id="geral-nome" placeholder="Ex: Fone de Ouvido Bluetooth" />
+                                        <Label htmlFor="geral-nome">Nome do Produto (gerado)</Label>
+                                        <Input id="geral-nome" placeholder="Gerado automaticamente" readOnly className="bg-muted/50" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="geral-marca">Marca</Label>
-                                            <Input id="geral-marca" placeholder="Ex: Sony" />
+                                            <Label htmlFor="geral-codigo">Código/SKU (gerado)</Label>
+                                            <Input id="geral-codigo" placeholder="Gerado automaticamente" readOnly className="bg-muted/50" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="geral-modelo">Modelo</Label>
-                                            <Input id="geral-modelo" placeholder="Ex: WH-1000XM5" />
+                                            <Label htmlFor="geral-ean">EAN / SN</Label>
+                                            <Input id="geral-ean" placeholder="Opcional" />
                                         </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="geral-codigo">Código/SKU</Label>
-                                            <Input id="geral-codigo" placeholder="SKU do produto" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="geral-cor">Cor</Label>
-                                            <Input id="geral-cor" placeholder="Ex: Preto" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="geral-ean">EAN / SN</Label>
-                                        <Input id="geral-ean" placeholder="Código de barras ou número de série" />
                                     </div>
                                 </form>
                             </CardContent>
@@ -732,3 +732,5 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
