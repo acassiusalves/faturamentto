@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -100,6 +99,11 @@ export default function EstoquePage() {
   // Pagination State
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  
+  // Category Filter State
+  const [showCellular, setShowCellular] = useState(true);
+  const [showGeneral, setShowGeneral] = useState(true);
+
 
   // Column Visibility State
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
@@ -149,6 +153,7 @@ export default function EstoquePage() {
             const conditionAttribute = productSettings.attributes.find(attr => attr.key === 'condicao');
             if (conditionAttribute) {
                 setAvailableConditions(conditionAttribute.values);
+                setSelectedConditions(conditionAttribute.values); // Seleciona todos por padrão
             }
         }
         setIsLoading(false);
@@ -242,12 +247,11 @@ export default function EstoquePage() {
         }
 
         if (isGeneralProductMode) {
-            // Logic for General Products (grouped entry)
             const generalData = data as GeneralProductFormValues;
             const quantity = generalData.quantity || 1;
 
-            if (quantity === 0) {
-                 toast({ variant: 'destructive', title: 'Quantidade Inválida', description: 'A quantidade deve ser de pelo menos 1.' });
+            if (quantity <= 0) {
+                 toast({ variant: 'destructive', title: 'Quantidade Inválida', description: 'A quantidade deve ser pelo menos 1.' });
                  setIsSubmitting(false);
                  return;
             }
@@ -262,6 +266,7 @@ export default function EstoquePage() {
                 origin: selectedProduct.attributes.marca || 'Geral',
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
+                category: 'Geral' // Add category field
             };
             const savedItem = await saveInventoryItem(newItem as any);
             setInventory(prev => [savedItem, ...prev]);
@@ -271,7 +276,6 @@ export default function EstoquePage() {
                 description: `O produto "${selectedProduct.name}" foi adicionado ao estoque.`,
             });
         } else {
-            // Logic for Cellular Products (individual entry per SN)
             if (serialNumbers.length === 0) {
                 toast({ variant: 'destructive', title: 'Nenhum item para adicionar', description: 'Por favor, adicione pelo menos um número de série.' });
                 setIsSubmitting(false);
@@ -284,11 +288,12 @@ export default function EstoquePage() {
                 name: selectedProduct.name,
                 sku: data.sku,
                 costPrice: data.costPrice,
-                quantity: 1, // Each item is saved individually
+                quantity: 1, 
                 serialNumber: sn,
                 origin: originToSave,
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
+                category: 'Celular' // Add category field
             }));
 
             const savedItems = await saveMultipleInventoryItems(newItems as any);
@@ -301,7 +306,6 @@ export default function EstoquePage() {
         
         localStorage.setItem('stockDataDirty', 'true');
         
-        // Reset logic
         form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', marca: '', modelo: '', quantity: 1, eanOrCode: '' });
         setSerialNumbers([]);
         setEanCode('');
@@ -378,9 +382,18 @@ export default function EstoquePage() {
   const filteredAndSortedInventory = useMemo(() => {
       let itemsToDisplay: (InventoryItem & {count?: number; totalCost?: number})[] = inventory;
       
-      if (selectedConditions.length > 0) {
+      // Filter by category (Celular/Geral)
+      itemsToDisplay = itemsToDisplay.filter(item => {
+        const category = (item as any).category || 'Celular'; // Default to Celular if not specified
+        if (showCellular && showGeneral) return true;
+        if (showCellular) return category === 'Celular';
+        if (showGeneral) return category === 'Geral';
+        return false;
+      });
+
+      if (selectedConditions.length > 0 && selectedConditions.length < availableConditions.length) {
         itemsToDisplay = itemsToDisplay.filter(item => {
-            const condition = item.condition || 'Novo'; // Treat null/undefined as 'Novo'
+            const condition = item.condition || 'Novo';
             return selectedConditions.includes(condition);
         });
       }
@@ -444,7 +457,7 @@ export default function EstoquePage() {
       }
       
       return groupedArray;
-  }, [inventory, isGrouped, sortConfig, searchTerm, selectedConditions]);
+  }, [inventory, isGrouped, sortConfig, searchTerm, selectedConditions, showCellular, showGeneral, availableConditions.length]);
 
   const pageCount = useMemo(() => Math.ceil(filteredAndSortedInventory.length / pageSize), [filteredAndSortedInventory.length, pageSize]);
   
@@ -462,18 +475,26 @@ export default function EstoquePage() {
   }, [filteredAndSortedInventory, pageIndex, pageCount]);
 
 
-  const totals = useMemo(() => {
-    const itemsToSum = selectedConditions.length > 0
-      ? inventory.filter(item => {
-          const condition = item.condition || 'Novo';
-          return selectedConditions.includes(condition);
-        })
-      : inventory;
+  const summaryStats = useMemo(() => {
+    const stats: Record<string, { count: number; value: number }> = {};
+    
+    availableConditions.forEach(cond => {
+        stats[cond] = { count: 0, value: 0 };
+    });
+    stats['total'] = { count: 0, value: 0 };
 
-    const totalItems = itemsToSum.reduce((sum, item) => sum + item.quantity, 0);
-    const totalValue = itemsToSum.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
-    return { totalItems, totalValue };
-  }, [inventory, selectedConditions]);
+    inventory.forEach(item => {
+        const condition = item.condition || 'Novo';
+        if (stats[condition]) {
+            stats[condition].count += item.quantity;
+            stats[condition].value += item.costPrice * item.quantity;
+        }
+        stats['total'].count += item.quantity;
+        stats['total'].value += item.costPrice * item.quantity;
+    });
+
+    return stats;
+  }, [inventory, availableConditions]);
   
   const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
     switch (condition || 'Novo') { // Default to 'Novo' for styling
@@ -508,6 +529,20 @@ export default function EstoquePage() {
     setEanCode("");
     setIsGeneralProductMode(false);
   };
+  
+  const StatCard = ({ title, count, value, ...props }: { title: string, count: number, value: number } & React.HTMLAttributes<HTMLDivElement>) => (
+    <Card {...props}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Package className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{count}</div>
+        <p className="text-xs text-muted-foreground">{formatCurrency(value)}</p>
+      </CardContent>
+    </Card>
+  );
+
 
   if (isLoading) {
     return (
@@ -526,21 +561,19 @@ export default function EstoquePage() {
           <h1 className="text-3xl font-bold font-headline">Gerenciador de Estoque</h1>
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
-        <Button asChild>
-            <Link href="/estoque/devolucoes">
-                <Undo2 />
-                Devoluções
-            </Link>
-        </Button>
-      </div>
-      
-       <div className="flex justify-between items-center gap-4">
+        <div className="flex flex-col items-end gap-2">
+            <Button asChild>
+                <Link href="/estoque/devolucoes">
+                    <Undo2 />
+                    Devoluções
+                </Link>
+            </Button>
             <Dialog open={isNewEntryDialogOpen} onOpenChange={(open) => {
                 if(!open) resetDialog();
                 setIsNewEntryDialogOpen(open);
             }}>
                 <DialogTrigger asChild>
-                     <Button size="lg">
+                     <Button>
                         <PlusCircle className="mr-2"/>
                         Nova Entrada
                     </Button>
@@ -782,58 +815,15 @@ export default function EstoquePage() {
                     </Form>
                 </DialogContent>
             </Dialog>
-            <div className="grid sm:grid-cols-2 gap-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Itens em Estoque</CardTitle>
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{totals.totalItems}</div>
-                        <p className="text-xs text-muted-foreground">Unidades totais de todos os produtos.</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Estoque Imobilizado Total</CardTitle>
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(totals.totalValue)}</div>
-                         <div className="flex items-center gap-2 mt-1">
-                            <Label htmlFor="condition-filter" className="text-xs text-muted-foreground whitespace-nowrap">Filtrar por:</Label>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="h-7 text-xs w-full justify-between">
-                                       <span className="truncate">
-                                            {selectedConditions.length === 0
-                                                ? "Todos"
-                                                : selectedConditions.length === 1
-                                                ? selectedConditions[0]
-                                                : `${selectedConditions.length} selecionados`}
-                                        </span>
-                                       <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
-                                    <DropdownMenuLabel>Filtrar por Condição</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                     {availableConditions.map(cond => (
-                                        <DropdownMenuCheckboxItem
-                                            key={cond}
-                                            checked={selectedConditions.includes(cond)}
-                                            onCheckedChange={(checked) => handleConditionFilterChange(cond, !!checked)}
-                                        >
-                                            {cond}
-                                        </DropdownMenuCheckboxItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+        </div>
       </div>
+      
+       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <StatCard title="Total em Estoque" count={summaryStats.total.count} value={summaryStats.total.value} className="col-span-full sm:col-span-1 lg:col-span-1" />
+            {Object.entries(summaryStats).filter(([key]) => key !== 'total').map(([condition, data]) => (
+                <StatCard key={condition} title={condition} count={data.count} value={data.value} />
+            ))}
+       </div>
       
         <div className="space-y-8">
           <Card>
@@ -844,6 +834,16 @@ export default function EstoquePage() {
                     <CardDescription>Lista de todos os produtos cadastrados no seu inventário.</CardDescription>
                   </div>
                   <div className="flex items-center gap-4">
+                     <div className="flex flex-col gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch id="cellular-switch" checked={showCellular} onCheckedChange={setShowCellular} />
+                          <Label htmlFor="cellular-switch">Apenas celular</Label>
+                        </div>
+                         <div className="flex items-center space-x-2">
+                          <Switch id="general-switch" checked={showGeneral} onCheckedChange={setShowGeneral} />
+                          <Label htmlFor="general-switch">Produtos Gerais</Label>
+                        </div>
+                      </div>
                      <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline"><View className="mr-2" />Exibir</Button>
