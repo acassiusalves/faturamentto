@@ -58,6 +58,7 @@ const generalProductEntrySchema = z.object({
   sku: z.string().min(1, "SKU é obrigatório."),
   name: z.string().optional(),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
+  quantity: z.coerce.number().min(1, "A quantidade deve ser pelo menos 1."),
   marca: z.string().optional(), 
   modelo: z.string().optional(),
   condition: z.string().min(1, "A condição é obrigatória."),
@@ -121,6 +122,7 @@ export default function EstoquePage() {
       origin: '',
       condition: 'Novo',
       serialNumber: '',
+      quantity: 1,
     },
   });
   
@@ -230,13 +232,22 @@ export default function EstoquePage() {
 
   const onSubmit = async (data: InventoryFormValues | GeneralProductFormValues) => {
     const isGeneral = isGeneralProductMode;
-    // For general products, we need a unique identifier. We'll auto-generate one.
-    const finalSerialNumbers = isGeneral 
-        ? [`${data.eanOrCode || data.sku}-${Date.now()}`]
-        : serialNumbers;
+    let finalSerialNumbers: string[] = [];
+
+    if (isGeneral) {
+        const generalData = data as GeneralProductFormValues;
+        const quantity = generalData.quantity || 1;
+        // For general products, we generate a unique identifier for each unit.
+        for (let i = 0; i < quantity; i++) {
+            finalSerialNumbers.push(`${generalData.eanOrCode || generalData.sku}-${Date.now()}-${i}`);
+        }
+    } else {
+        finalSerialNumbers = serialNumbers;
+    }
+
 
     if (finalSerialNumbers.length === 0) {
-      toast({ variant: 'destructive', title: 'Nenhum SN Adicionado', description: 'Por favor, adicione pelo menos um número de série.' });
+      toast({ variant: 'destructive', title: 'Nenhum item para adicionar', description: 'Por favor, adicione um número de série ou defina a quantidade.' });
       return;
     }
 
@@ -249,14 +260,14 @@ export default function EstoquePage() {
         return;
     }
     
-    const originToSave = isGeneral ? (selectedProduct.attributes.marca || 'Geral') : data.origin || '';
+    const originToSave = isGeneral ? (selectedProduct.attributes.marca || 'Geral') : (data as InventoryFormValues).origin || '';
 
     const newItems: Omit<InventoryItem, 'id'>[] = finalSerialNumbers.map(sn => ({
       productId: data.productId,
       name: selectedProduct.name,
       sku: data.sku,
       costPrice: data.costPrice,
-      quantity: 1,
+      quantity: 1, // Each item is saved individually
       serialNumber: sn,
       origin: originToSave,
       condition: data.condition || 'Novo',
@@ -272,7 +283,7 @@ export default function EstoquePage() {
         description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
       });
       // Reset logic
-      form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '' });
+      form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: '', marca: '', modelo: '' });
       setSerialNumbers([]);
       setEanCode('');
       
@@ -309,8 +320,7 @@ export default function EstoquePage() {
 
         toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
     } else {
-        form.reset();
-        form.setValue('eanOrCode' as any, code);
+        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: code });
         toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
     }
   }
@@ -473,7 +483,7 @@ export default function EstoquePage() {
   };
 
   const resetDialog = () => {
-    form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', marca: '', modelo: '' });
+    form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', marca: '', modelo: '', quantity: 1, eanOrCode: '' });
     setSerialNumbers([]);
     setCurrentSN("");
     setEanCode("");
@@ -682,6 +692,15 @@ export default function EstoquePage() {
                                     <FormMessage />
                                 </FormItem>
                             )} />
+                            {isGeneralProductMode && (
+                                <FormField control={form.control} name="quantity" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Quantidade</FormLabel>
+                                        <FormControl><Input type="number" min="1" placeholder="1" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
                             {!isGeneralProductMode && (
                                 <FormField
                                     control={form.control}
@@ -985,3 +1004,4 @@ export default function EstoquePage() {
     </>
   );
 }
+
