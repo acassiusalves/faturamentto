@@ -266,7 +266,7 @@ export default function EstoquePage() {
                 origin: selectedProduct.attributes.marca || 'Geral',
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
-                category: 'Geral' // Add category field
+                category: 'Geral'
             };
             await saveInventoryItem(newItem as any);
             await fetchInventory();
@@ -293,7 +293,7 @@ export default function EstoquePage() {
                 origin: originToSave,
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
-                category: 'Celular' // Add category field
+                category: 'Celular'
             }));
 
             await saveMultipleInventoryItems(newItems as any);
@@ -385,9 +385,9 @@ export default function EstoquePage() {
     // Filter by category (Celular/Geral)
     itemsToDisplay = itemsToDisplay.filter(item => {
         const category = (item as any).category || 'Celular';
-        if (showCellular && showGeneral) return true;
-        if (showCellular) return category === 'Celular';
-        if (showGeneral) return category === 'Geral';
+        if (showCellular && category === 'Celular') return true;
+        if (showGeneral && category === 'Geral') return true;
+        if (!showCellular && !showGeneral) return false;
         return false;
     });
 
@@ -483,18 +483,21 @@ export default function EstoquePage() {
     });
     stats['total'] = { count: 0, value: 0 };
 
-    inventory.forEach(item => {
+    filteredAndSortedInventory.forEach(item => {
         const condition = item.condition || 'Novo';
+        const quantity = isGrouped ? item.quantity : (item as InventoryItem).quantity;
+        const value = isGrouped ? (item as any).totalCost : (item as InventoryItem).costPrice * (item as InventoryItem).quantity;
+
         if (stats[condition]) {
-            stats[condition].count += item.quantity;
-            stats[condition].value += item.costPrice * item.quantity;
+            stats[condition].count += quantity;
+            stats[condition].value += value;
         }
-        stats['total'].count += item.quantity;
-        stats['total'].value += item.costPrice * item.quantity;
+        stats['total'].count += quantity;
+        stats['total'].value += value;
     });
 
     return stats;
-  }, [inventory, availableConditions]);
+  }, [filteredAndSortedInventory, availableConditions, isGrouped]);
   
   const getConditionBadgeVariant = (condition?: string): { variant: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined, className: string } => {
     switch (condition || 'Novo') { // Default to 'Novo' for styling
@@ -1023,3 +1026,5 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
