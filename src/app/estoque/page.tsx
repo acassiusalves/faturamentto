@@ -11,7 +11,7 @@ import { ptBR } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import type { InventoryItem, Product } from '@/lib/types';
-import { saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
+import { saveInventoryItem, saveMultipleInventoryItems, loadInventoryItems, deleteInventoryItem, loadProducts, findInventoryItemBySN, loadProductSettings } from '@/services/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -231,75 +231,94 @@ export default function EstoquePage() {
   };
 
   const onSubmit = async (data: InventoryFormValues | GeneralProductFormValues) => {
-    const isGeneral = isGeneralProductMode;
-    let finalSerialNumbers: string[] = [];
-
-    if (isGeneral) {
-        const generalData = data as GeneralProductFormValues;
-        const quantity = generalData.quantity || 1;
-        // For general products, we generate a unique identifier for each unit.
-        for (let i = 0; i < quantity; i++) {
-            finalSerialNumbers.push(`${generalData.eanOrCode || generalData.sku}-${Date.now()}-${i}`);
-        }
-    } else {
-        finalSerialNumbers = serialNumbers;
-    }
-
-
-    if (finalSerialNumbers.length === 0) {
-      toast({ variant: 'destructive', title: 'Nenhum item para adicionar', description: 'Por favor, adicione um número de série ou defina a quantidade.' });
-      return;
-    }
-
     setIsSubmitting(true);
-    
-    const selectedProduct = products.find(p => p.id === data.productId);
-    if (!selectedProduct) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Produto selecionado não encontrado.' });
-        setIsSubmitting(false);
-        return;
-    }
-    
-    const originToSave = isGeneral ? (selectedProduct.attributes.marca || 'Geral') : (data as InventoryFormValues).origin || '';
-
-    const newItems: Omit<InventoryItem, 'id'>[] = finalSerialNumbers.map(sn => ({
-      productId: data.productId,
-      name: selectedProduct.name,
-      sku: data.sku,
-      costPrice: data.costPrice,
-      quantity: 1, // Each item is saved individually
-      serialNumber: sn,
-      origin: originToSave,
-      condition: data.condition || 'Novo',
-      createdAt: new Date().toISOString(),
-    }));
 
     try {
-      const savedItems = await saveMultipleInventoryItems(newItems as any);
-      setInventory(prev => [...savedItems, ...prev]);
-      localStorage.setItem('stockDataDirty', 'true');
-      toast({
-        title: `${newItems.length} Item(ns) Adicionado(s)!`,
-        description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
-      });
-      // Reset logic
-      form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: '', marca: '', modelo: '' });
-      setSerialNumbers([]);
-      setEanCode('');
-      
-      if(isGeneral) {
-        eanInputRef.current?.focus();
-      } else {
-        setIsNewEntryDialogOpen(false);
-      }
+        const selectedProduct = products.find(p => p.id === data.productId);
+        if (!selectedProduct) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Produto selecionado não encontrado.' });
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (isGeneralProductMode) {
+            // Logic for General Products (grouped entry)
+            const generalData = data as GeneralProductFormValues;
+            const quantity = generalData.quantity || 1;
+
+            if (quantity === 0) {
+                 toast({ variant: 'destructive', title: 'Quantidade Inválida', description: 'A quantidade deve ser de pelo menos 1.' });
+                 setIsSubmitting(false);
+                 return;
+            }
+
+            const newItem: Omit<InventoryItem, 'id'> = {
+                productId: data.productId,
+                name: selectedProduct.name,
+                sku: data.sku,
+                costPrice: data.costPrice,
+                quantity: quantity,
+                serialNumber: `LOTE-${generalData.sku}-${Date.now()}`, // Batch identifier
+                origin: selectedProduct.attributes.marca || 'Geral',
+                condition: data.condition || 'Novo',
+                createdAt: new Date().toISOString(),
+            };
+            const savedItem = await saveInventoryItem(newItem as any);
+            setInventory(prev => [savedItem, ...prev]);
+
+            toast({
+                title: `${quantity} Item(ns) Adicionado(s)!`,
+                description: `O produto "${selectedProduct.name}" foi adicionado ao estoque.`,
+            });
+        } else {
+            // Logic for Cellular Products (individual entry per SN)
+            if (serialNumbers.length === 0) {
+                toast({ variant: 'destructive', title: 'Nenhum item para adicionar', description: 'Por favor, adicione pelo menos um número de série.' });
+                setIsSubmitting(false);
+                return;
+            }
+
+            const originToSave = (data as InventoryFormValues).origin || '';
+            const newItems: Omit<InventoryItem, 'id'>[] = serialNumbers.map(sn => ({
+                productId: data.productId,
+                name: selectedProduct.name,
+                sku: data.sku,
+                costPrice: data.costPrice,
+                quantity: 1, // Each item is saved individually
+                serialNumber: sn,
+                origin: originToSave,
+                condition: data.condition || 'Novo',
+                createdAt: new Date().toISOString(),
+            }));
+
+            const savedItems = await saveMultipleInventoryItems(newItems as any);
+            setInventory(prev => [...savedItems, ...prev]);
+             toast({
+                title: `${newItems.length} Item(ns) Adicionado(s)!`,
+                description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
+            });
+        }
+        
+        localStorage.setItem('stockDataDirty', 'true');
+        
+        // Reset logic
+        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: '', marca: '', modelo: '' });
+        setSerialNumbers([]);
+        setEanCode('');
+        
+        if (isGeneralProductMode) {
+            eanInputRef.current?.focus();
+        } else {
+            setIsNewEntryDialogOpen(false);
+        }
 
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar os itens.' });
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar os itens.' });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
-  };
+};
   
   const handleEanCodeSearch = (code: string) => {
     if (!code) return;
@@ -572,6 +591,13 @@ export default function EstoquePage() {
                                             <FormMessage />
                                         </FormItem>
                                     )} />
+                                     <FormField control={form.control} name="sku" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>SKU do Produto</FormLabel>
+                                            <FormControl><Input placeholder="Preenchido pela busca" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={form.control} name="marca" render={({ field }) => (
                                             <FormItem>
@@ -588,13 +614,6 @@ export default function EstoquePage() {
                                             </FormItem>
                                         )} />
                                     </div>
-                                    <FormField control={form.control} name="sku" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>SKU do Produto</FormLabel>
-                                            <FormControl><Input placeholder="Preenchido pela busca" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
                                 </>
                             ) : (
                                 <>

@@ -133,6 +133,19 @@ export const loadInventoryItems = async (): Promise<InventoryItem[]> => {
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as InventoryItem);
 };
 
+export const saveInventoryItem = async (newItem: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
+  const batch = writeBatch(db);
+  const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
+  const docRef = doc(inventoryCol);
+
+  const itemWithId: InventoryItem = { ...newItem, id: docRef.id };
+  batch.set(docRef, toFirestore(itemWithId));
+  await logInventoryEntry(batch, itemWithId);
+
+  await batch.commit();
+  return itemWithId;
+}
+
 export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, 'id'>[]): Promise<InventoryItem[]> {
   const batch = writeBatch(db);
   const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
