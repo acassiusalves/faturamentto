@@ -56,11 +56,13 @@ const generalProductEntrySchema = z.object({
   id: z.string().optional(),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   sku: z.string().min(1, "SKU é obrigatório."),
-  name: z.string().optional(), // Added for display
+  name: z.string().optional(),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
-  origin: z.string().min(1, "A origem é obrigatória."),
+  // Os campos de origem/marca e modelo não são parte do form, são preenchidos
+  marca: z.string().optional(), 
+  modelo: z.string().optional(),
   condition: z.string().min(1, "A condição é obrigatória."),
-  serialNumber: z.string().min(1, "O SN/Código é obrigatório."),
+  serialNumber: z.string().min(1, "O SN/Código é obrigatório."), // Campo que o usuário realmente digita
   eanOrCode: z.string().optional(),
 });
 
@@ -110,8 +112,8 @@ export default function EstoquePage() {
     actions: true,
   });
 
-  const form = useForm<InventoryFormValues>({
-    resolver: zodResolver(inventorySchema),
+  const form = useForm<InventoryFormValues | GeneralProductFormValues>({
+    resolver: zodResolver(isGeneralProductMode ? generalProductEntrySchema : inventorySchema),
     defaultValues: {
       productId: '',
       sku: '',
@@ -119,6 +121,7 @@ export default function EstoquePage() {
       costPrice: 0,
       origin: '',
       condition: 'Novo',
+      serialNumber: '',
     },
   });
   
@@ -226,7 +229,7 @@ export default function EstoquePage() {
     setSerialNumbers(prev => prev.filter(sn => sn !== snToRemove));
   };
 
-  const onSubmit = async (data: InventoryFormValues) => {
+  const onSubmit = async (data: InventoryFormValues | GeneralProductFormValues) => {
     const isGeneral = isGeneralProductMode;
     const finalSerialNumbers = isGeneral ? [form.getValues('serialNumber')].filter(Boolean) as string[] : serialNumbers;
 
@@ -244,6 +247,9 @@ export default function EstoquePage() {
         setIsSubmitting(false);
         return;
     }
+    
+    // Para produtos gerais, a origem é a marca. Para celulares, é o que foi selecionado.
+    const originToSave = isGeneral ? (selectedProduct.attributes.marca || 'Geral') : data.origin || '';
 
     const newItems: Omit<InventoryItem, 'id'>[] = finalSerialNumbers.map(sn => ({
       productId: data.productId,
@@ -252,7 +258,7 @@ export default function EstoquePage() {
       costPrice: data.costPrice,
       quantity: 1,
       serialNumber: sn,
-      origin: data.origin || '',
+      origin: originToSave,
       condition: data.condition || 'Novo',
       createdAt: new Date().toISOString(),
     }));
@@ -262,7 +268,7 @@ export default function EstoquePage() {
       setInventory(prev => [...savedItems, ...prev]);
       localStorage.setItem('stockDataDirty', 'true');
       toast({
-        title: `${newItems.length} Iten(s) Adicionado(s)!`,
+        title: `${newItems.length} Item(ns) Adicionado(s)!`,
         description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
       });
       // Reset logic
@@ -297,11 +303,17 @@ export default function EstoquePage() {
         form.setValue('productId', product.id);
         form.setValue('sku', product.sku);
         form.setValue('name', product.name);
+        // Preenche os campos de marca e modelo
+        form.setValue('marca' as any, product.attributes.marca || '');
+        form.setValue('modelo' as any, product.attributes.modelo || '');
+
         toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
     } else {
         form.setValue('productId', '');
         form.setValue('sku', '');
         form.setValue('name', '');
+        form.setValue('marca' as any, '');
+        form.setValue('modelo' as any, '');
         toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
     }
   }
@@ -464,7 +476,7 @@ export default function EstoquePage() {
   };
 
   const resetDialog = () => {
-    form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '' });
+    form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', marca: '', modelo: '' });
     setSerialNumbers([]);
     setCurrentSN("");
     setEanCode("");
@@ -553,10 +565,26 @@ export default function EstoquePage() {
                                             <FormMessage />
                                         </FormItem>
                                     )} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="marca" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Marca</FormLabel>
+                                                <FormControl><Input placeholder="-" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="modelo" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Modelo</FormLabel>
+                                                <FormControl><Input placeholder="-" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
                                      <FormField control={form.control} name="serialNumber" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>SN (Código do Fabricante)</FormLabel>
-                                            <FormControl><Input placeholder="Bipe ou digite o SN" {...field} /></FormControl>
+                                            <FormLabel>Serial Number / Código Único</FormLabel>
+                                            <FormControl><Input placeholder="Bipe ou digite o código único do item" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -657,30 +685,32 @@ export default function EstoquePage() {
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <FormField
-                                control={form.control}
-                                name="origin"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>Origem</FormLabel>
-                                    <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value} value={field.value}>
-                                        <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecione uma origem..." />
-                                        </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                        {origins.map((origin) => (
-                                            <SelectItem key={origin} value={origin}>
-                                            {origin}
-                                            </SelectItem>
-                                        ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            {!isGeneralProductMode && (
+                                <FormField
+                                    control={form.control}
+                                    name="origin"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Origem</FormLabel>
+                                        <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value} value={field.value}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione uma origem..." />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                            {origins.map((origin) => (
+                                                <SelectItem key={origin} value={origin}>
+                                                {origin}
+                                                </SelectItem>
+                                            ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                              <FormField
                                 control={form.control}
                                 name="condition"
