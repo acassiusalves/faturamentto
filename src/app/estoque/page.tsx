@@ -47,7 +47,20 @@ const inventorySchema = z.object({
   sku: z.string().min(1, "SKU é obrigatório."),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
   origin: z.string().min(1, "A origem é obrigatória"),
+  condition: z.string().min(1, "A condição é obrigatória"),
 });
+
+const generalProductEntrySchema = z.object({
+  id: z.string().optional(),
+  productId: z.string().min(1, "É obrigatório selecionar um produto."),
+  sku: z.string().min(1, "SKU é obrigatório."),
+  costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
+  origin: z.string().min(1, "A origem é obrigatória."),
+  condition: z.string().min(1, "A condição é obrigatória."),
+  serialNumber: z.string().min(1, "O SN/Código é obrigatório."),
+  eanOrCode: z.string().optional(),
+});
+
 
 type InventoryFormValues = z.infer<typeof inventorySchema>;
 type SortKey = 'quantity' | 'totalCost';
@@ -74,6 +87,11 @@ export default function EstoquePage() {
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
   const [isNewEntryDialogOpen, setIsNewEntryDialogOpen] = useState(false);
 
+  // New states for general products entry
+  const [isGeneralProductMode, setIsGeneralProductMode] = useState(false);
+  const [eanCode, setEanCode] = useState("");
+  const eanInputRef = useRef<HTMLInputElement>(null);
+
   // Pagination State
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -96,6 +114,7 @@ export default function EstoquePage() {
       sku: '',
       costPrice: 0,
       origin: '',
+      condition: 'Novo',
     },
   });
   
@@ -202,7 +221,10 @@ export default function EstoquePage() {
   };
 
   const onSubmit = async (data: InventoryFormValues) => {
-    if (serialNumbers.length === 0) {
+    const isGeneral = isGeneralProductMode;
+    const finalSerialNumbers = isGeneral ? [form.getValues('serialNumber')].filter(Boolean) : serialNumbers;
+
+    if (finalSerialNumbers.length === 0) {
       toast({ variant: 'destructive', title: 'Nenhum SN Adicionado', description: 'Por favor, adicione pelo menos um número de série.' });
       return;
     }
@@ -216,7 +238,7 @@ export default function EstoquePage() {
         return;
     }
 
-    const newItems: Omit<InventoryItem, 'id'>[] = serialNumbers.map(sn => ({
+    const newItems: Omit<InventoryItem, 'id'>[] = finalSerialNumbers.map(sn => ({
       productId: data.productId,
       name: selectedProduct.name,
       sku: data.sku,
@@ -224,7 +246,7 @@ export default function EstoquePage() {
       quantity: 1,
       serialNumber: sn,
       origin: data.origin || '',
-      condition: 'Novo',
+      condition: data.condition || 'Novo',
       createdAt: new Date().toISOString(),
     }));
 
@@ -233,12 +255,20 @@ export default function EstoquePage() {
       setInventory(prev => [...savedItems, ...prev]);
       localStorage.setItem('stockDataDirty', 'true');
       toast({
-        title: `${newItems.length} Itens Adicionados!`,
-        description: `Os produtos "${selectedProduct.name}" foram salvos com sucesso.`,
+        title: `${newItems.length} Iten(s) Adicionado(s)!`,
+        description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
       });
-      form.reset({ productId: '', sku: '', costPrice: 0, origin: '' });
+      // Reset logic
+      form.reset({ productId: '', sku: '', costPrice: 0, origin: '', condition: 'Novo' });
       setSerialNumbers([]);
-      setIsNewEntryDialogOpen(false); // Close dialog on success
+      setEanCode('');
+      
+      if(isGeneral) {
+        eanInputRef.current?.focus();
+      } else {
+        setIsNewEntryDialogOpen(false);
+      }
+
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar os itens.' });
@@ -246,6 +276,27 @@ export default function EstoquePage() {
       setIsSubmitting(false);
     }
   };
+  
+  const handleEanCodeSearch = (code: string) => {
+    if (!code) return;
+    const lowerCode = code.toLowerCase();
+    
+    const product = products.find(p => 
+        (p.attributes.ean && p.attributes.ean.toLowerCase() === lowerCode) || 
+        p.sku.toLowerCase() === lowerCode
+    );
+
+    if (product) {
+        form.setValue('productId', product.id);
+        form.setValue('sku', product.sku);
+        toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
+    } else {
+        form.setValue('productId', '');
+        form.setValue('sku', '');
+        toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
+    }
+  }
+
 
   const handleDelete = async (itemId: string) => {
     try {
@@ -403,6 +454,14 @@ export default function EstoquePage() {
     }
   };
 
+  const resetDialog = () => {
+    form.reset({ productId: '', sku: '', costPrice: 0, origin: '', condition: 'Novo' });
+    setSerialNumbers([]);
+    setCurrentSN("");
+    setEanCode("");
+    setIsGeneralProductMode(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -429,7 +488,10 @@ export default function EstoquePage() {
       </div>
       
        <div className="flex justify-between items-center gap-4">
-            <Dialog open={isNewEntryDialogOpen} onOpenChange={setIsNewEntryDialogOpen}>
+            <Dialog open={isNewEntryDialogOpen} onOpenChange={(open) => {
+                if(!open) resetDialog();
+                setIsNewEntryDialogOpen(open);
+            }}>
                 <DialogTrigger asChild>
                      <Button size="lg">
                         <PlusCircle className="mr-2"/>
@@ -438,109 +500,161 @@ export default function EstoquePage() {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-xl">
                      <DialogHeader>
-                        <DialogTitle>Adicionar Item ao Estoque</DialogTitle>
+                        <div className="flex justify-between items-center">
+                            <DialogTitle>Adicionar Item ao Estoque</DialogTitle>
+                            <div className="flex items-center space-x-2">
+                                <Label htmlFor="general-product-switch" className="text-sm font-medium">
+                                    Produtos Gerais
+                                </Label>
+                                <Switch 
+                                    id="general-product-switch" 
+                                    checked={isGeneralProductMode}
+                                    onCheckedChange={setIsGeneralProductMode}
+                                />
+                            </div>
+                        </div>
                     </DialogHeader>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                            <FormField
-                                control={form.control}
-                                name="productId"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Nome do Produto</FormLabel>
-                                    <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    className={cn(
-                                                        "w-full justify-between font-normal",
-                                                        !field.value && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione um produto..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Buscar produto..." autoFocus />
-                                                <CommandList>
-                                                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {products.map((p) => (
-                                                            <CommandItem
-                                                                value={p.name}
-                                                                key={p.id}
-                                                                onSelect={() => handleProductSelectionChange(p.id)}
-                                                            >
-                                                                <Check
-                                                                    className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
-                                                                />
-                                                                {p.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            <FormField control={form.control} name="sku" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>SKU</FormLabel>
-                                    <FormControl><Input placeholder="Selecione um produto acima" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="costPrice" render={({ field }) => (
+                            {isGeneralProductMode ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="ean-code-input">EAN / Código</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="ean-code-input"
+                                                ref={eanInputRef}
+                                                placeholder="Bipe ou digite o código/EAN"
+                                                value={eanCode}
+                                                onChange={(e) => setEanCode(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if(e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleEanCodeSearch(eanCode);
+                                                    }
+                                                }}
+                                            />
+                                            <Button type="button" variant="secondary" onClick={() => handleEanCodeSearch(eanCode)}><Search /></Button>
+                                        </div>
+                                    </div>
+                                    <FormField control={form.control} name="sku" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nome do Produto (SKU)</FormLabel>
+                                            <FormControl><Input placeholder="Preenchido pela busca" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                     <FormField control={form.control} name="serialNumber" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>SN (Código do Fabricante)</FormLabel>
+                                            <FormControl><Input placeholder="Bipe ou digite o SN" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </>
+                            ) : (
+                                <>
+                                <FormField
+                                    control={form.control}
+                                    name="productId"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nome do Produto</FormLabel>
+                                        <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn(
+                                                            "w-full justify-between font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                    {field.value ? products.find((p) => p.id === field.value)?.name : "Selecione um produto..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                <Command>
+                                                    <CommandInput placeholder="Buscar produto..." autoFocus />
+                                                    <CommandList>
+                                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {products.map((p) => (
+                                                                <CommandItem
+                                                                    value={p.name}
+                                                                    key={p.id}
+                                                                    onSelect={() => handleProductSelectionChange(p.id)}
+                                                                >
+                                                                    <Check
+                                                                        className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
+                                                                    />
+                                                                    {p.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField control={form.control} name="sku" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>SKU</FormLabel>
+                                        <FormControl><Input placeholder="Selecione um produto acima" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <div className="space-y-2">
+                                    <Label htmlFor="serial-numbers-input">SN (Código do Fabricante)</Label>
+                                    <Input
+                                        id="serial-numbers-input"
+                                        placeholder="Bipe ou digite o SN"
+                                        value={currentSN}
+                                        onChange={handleSNInputChange}
+                                        autoComplete="off"
+                                    />
+                                    <div className="p-2 border rounded-md min-h-[60px] max-h-[120px] overflow-y-auto bg-muted/50">
+                                        {serialNumbers.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {serialNumbers.map(sn => (
+                                                    <Badge key={sn} variant="secondary" className="flex items-center gap-1.5 pr-1">
+                                                        {sn}
+                                                        <button type="button" onClick={() => handleRemoveSerialNumber(sn)} className="rounded-full hover:bg-muted-foreground/20">
+                                                            <XCircle className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground text-center py-2">Nenhum SN adicionado.</p>
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        Contagem: <span className="font-semibold text-primary">{serialNumbers.length}</span>
+                                    </div>
+                                </div>
+                                </>
+                            )}
+                             <FormField control={form.control} name="costPrice" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Preço de Custo (R$)</FormLabel>
                                     <FormControl><Input type="number" step="0.01" placeholder="Ex: 12.50" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <div className="space-y-2">
-                                <Label htmlFor="serial-numbers-input">SN (Código do Fabricante)</Label>
-                                <Input
-                                    id="serial-numbers-input"
-                                    placeholder="Bipe ou digite o SN"
-                                    value={currentSN}
-                                    onChange={handleSNInputChange}
-                                    autoComplete="off"
-                                />
-                                <div className="p-2 border rounded-md min-h-[60px] max-h-[120px] overflow-y-auto bg-muted/50">
-                                    {serialNumbers.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                            {serialNumbers.map(sn => (
-                                                <Badge key={sn} variant="secondary" className="flex items-center gap-1.5 pr-1">
-                                                    {sn}
-                                                    <button type="button" onClick={() => handleRemoveSerialNumber(sn)} className="rounded-full hover:bg-muted-foreground/20">
-                                                        <XCircle className="h-3 w-3" />
-                                                    </button>
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum SN adicionado.</p>
-                                    )}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                    Contagem: <span className="font-semibold text-primary">{serialNumbers.length}</span>
-                                </div>
-                            </div>
                             <FormField
                                 control={form.control}
                                 name="origin"
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Origem</FormLabel>
-                                    <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value}>
+                                    <Select onValueChange={handleOriginSelectionChange} defaultValue={field.value} value={field.value}>
                                         <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Selecione uma origem..." />
@@ -558,6 +672,31 @@ export default function EstoquePage() {
                                     </FormItem>
                                 )}
                             />
+                             <FormField
+                                control={form.control}
+                                name="condition"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Condição</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione uma condição..." />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        {availableConditions.map((cond) => (
+                                            <SelectItem key={cond} value={cond}>
+                                            {cond}
+                                            </SelectItem>
+                                        ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
                             <DialogFooter>
                                  <Button type="button" variant="ghost" onClick={() => setIsNewEntryDialogOpen(false)}>Cancelar</Button>
                                  <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -810,3 +949,4 @@ export default function EstoquePage() {
     </>
   );
 }
+
