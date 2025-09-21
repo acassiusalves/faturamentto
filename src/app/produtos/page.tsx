@@ -47,17 +47,16 @@ import { ProductSettings } from '@/components/product-settings';
 
 const attributeOrder: string[] = ['marca', 'modelo', 'armazenamento', 'memoria', 'cor', 'rede'];
 
-const inventorySchema = z.object({
-  id: z.string().optional(),
-  productId: z.string().min(1, "É obrigatório selecionar um produto."),
-  sku: z.string().min(1, "SKU é obrigatório."),
-  costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
-  origin: z.string().min(1, "A origem é obrigatória"),
+const generalProductSchema = z.object({
+    name: z.string().min(3, "O nome do produto é obrigatório."),
+    sku: z.string().min(1, "O SKU é obrigatório."),
+    marca: z.string().min(1, "A marca é obrigatória."),
+    modelo: z.string().min(1, "O modelo é obrigatório."),
+    cor: z.string().min(1, "A cor é obrigatória."),
+    ean: z.string().optional(),
 });
+type GeneralProductFormValues = z.infer<typeof generalProductSchema>;
 
-type InventoryFormValues = z.infer<typeof inventorySchema>;
-type SortKey = 'quantity' | 'totalCost';
-type SortDirection = 'ascending' | 'descending';
 
 export default function EstoquePage() {
   const { toast } = useToast();
@@ -80,11 +79,14 @@ export default function EstoquePage() {
 
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
-  const form = useForm<Record<string, string>>({
+  const cellularForm = useForm<Record<string, string>>({
     defaultValues: {},
   });
-  const { control, watch, handleSubmit, reset, formState: { isSubmitting } } = form;
-  const formValues = watch();
+  
+  const generalProductForm = useForm<GeneralProductFormValues>({
+    resolver: zodResolver(generalProductSchema),
+    defaultValues: { name: "", sku: "", marca: "", modelo: "", cor: "", ean: "" }
+  });
 
   const runConflictCheck = useCallback((productsToCheck: Product[], showToast: boolean) => {
     const skuMap = new Map<string, { sku: string; name: string; productId: string }[]>();
@@ -128,12 +130,12 @@ export default function EstoquePage() {
       if (loadedSettings) {
         const initialFormState: Record<string, string> = {};
         loadedSettings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
-        reset(initialFormState);
+        cellularForm.reset(initialFormState);
       }
       setIsLoading(false);
     }
     loadData();
-  }, [fetchProducts, reset]);
+  }, [fetchProducts, cellularForm.reset]);
 
 
   const handleOpenSkuDialog = (product: Product) => {
@@ -178,26 +180,26 @@ export default function EstoquePage() {
       .filter((attr): attr is ProductAttribute => !!attr);
   }, [settings]);
 
-  const generatedName = useMemo(() => {
+  const generatedCellularName = useMemo(() => {
     if (!settings) return "";
     return orderedAttributes
-      .map(attr => formValues[attr.key])
+      .map(attr => cellularForm.watch(attr.key))
       .filter(Boolean)
       .join(" ");
-  }, [formValues, orderedAttributes, settings]);
+  }, [cellularForm, orderedAttributes, settings]);
   
-  const canSubmit = useMemo(() => {
+  const canSubmitCellular = useMemo(() => {
     if (!settings || !orderedAttributes.length) return false;
-    const allRequiredFilled = orderedAttributes.every(attr => !!formValues[attr.key]);
-    return allRequiredFilled && generatedName.length > 0;
-  }, [settings, formValues, generatedName, orderedAttributes]);
+    const allRequiredFilled = orderedAttributes.every(attr => !!cellularForm.watch(attr.key));
+    return allRequiredFilled && generatedCellularName.length > 0;
+  }, [settings, cellularForm, generatedCellularName, orderedAttributes]);
 
-  const generatedSku = useMemo(() => {
-    if (!canSubmit) return "";
+  const generatedCellularSku = useMemo(() => {
+    if (!canSubmitCellular) return "";
     
     const baseName = orderedAttributes
       .filter(attr => attr.key !== 'cor')
-      .map(attr => formValues[attr.key])
+      .map(attr => cellularForm.watch(attr.key))
       .filter(Boolean)
       .join(" ");
 
@@ -223,30 +225,30 @@ export default function EstoquePage() {
         sequentialNumberPart = (maxSkuNum + 1).toString();
     }
     
-    const color = formValues['cor'] || '';
+    const color = cellularForm.watch('cor') || '';
     const colorCode = color.length > 2 && color.includes(' ') 
       ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase() 
       : color.charAt(0).toUpperCase();
 
     return `#${sequentialNumberPart}${colorCode}`;
-  }, [products, formValues, canSubmit, orderedAttributes]);
+  }, [products, cellularForm, canSubmitCellular, orderedAttributes]);
 
-  const onSubmit = async (data: Record<string, string>) => {
-    if (!canSubmit || !generatedSku) return;
-    if (products.some(p => p.name.toLowerCase() === generatedName.toLowerCase())) {
-      toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedName}" já existe.` });
+  const onCellularSubmit = async (data: Record<string, string>) => {
+    if (!canSubmitCellular || !generatedCellularSku) return;
+    if (products.some(p => p.name.toLowerCase() === generatedCellularName.toLowerCase())) {
+      toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${generatedCellularName}" já existe.` });
       return;
     }
-    if (products.some(p => p.sku === generatedSku)) {
-      toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${generatedSku}" já está sendo usado.` });
+    if (products.some(p => p.sku === generatedCellularSku)) {
+      toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${generatedCellularSku}" já está sendo usado.` });
       return;
     }
 
     const newProduct: Product = {
       id: `prod-${Date.now()}`,
       category: 'Celular',
-      name: generatedName,
-      sku: generatedSku,
+      name: generatedCellularName,
+      sku: generatedCellularSku,
       attributes: data,
       createdAt: new Date().toISOString(),
       associatedSkus: [],
@@ -258,17 +260,58 @@ export default function EstoquePage() {
         runConflictCheck(np, false);
         return np;
       });
-      toast({ title: "Produto Criado!", description: `O modelo "${generatedName}" foi salvo com sucesso.` });
+      toast({ title: "Produto Criado!", description: `O modelo "${generatedCellularName}" foi salvo com sucesso.` });
       if (settings) {
         const initialFormState: Record<string, string> = {};
         settings.attributes.forEach(attr => { initialFormState[attr.key] = ""; });
-        reset(initialFormState);
+        cellularForm.reset(initialFormState);
       }
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o modelo do produto.' });
     }
   };
+  
+  const onGeneralSubmit = async (data: GeneralProductFormValues) => {
+    if (products.some(p => p.name.toLowerCase() === data.name.toLowerCase())) {
+      toast({ variant: 'destructive', title: 'Produto Duplicado', description: `Um produto com o nome "${data.name}" já existe.` });
+      return;
+    }
+    if (products.some(p => p.sku === data.sku)) {
+      toast({ variant: 'destructive', title: 'SKU Duplicado', description: `O SKU "${data.sku}" já está sendo usado.` });
+      return;
+    }
+    
+    const newProduct: Product = {
+      id: `prod-${Date.now()}`,
+      category: 'Geral', // Differentiate category
+      name: data.name,
+      sku: data.sku,
+      attributes: {
+        marca: data.marca,
+        modelo: data.modelo,
+        cor: data.cor,
+        ean: data.ean || ''
+      },
+      createdAt: new Date().toISOString(),
+      associatedSkus: [],
+    };
+    
+    try {
+      await saveProduct(newProduct);
+      setProducts(prev => {
+        const np = [newProduct, ...prev];
+        runConflictCheck(np, false);
+        return np;
+      });
+      toast({ title: "Produto Criado!", description: `O produto "${data.name}" foi salvo com sucesso.` });
+      generalProductForm.reset();
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o produto.' });
+    }
+  };
+
 
   const handleDelete = async (productId: string) => {
     try {
@@ -527,8 +570,8 @@ export default function EstoquePage() {
             <TabsContent value="celular" className="mt-6">
                 <div className="grid md:grid-cols-3 gap-8 items-start">
                     <div className="md:col-span-1 space-y-4">
-                        <Form {...form}>
-                            <form onSubmit={handleSubmit(onSubmit)}>
+                        <Form {...cellularForm}>
+                            <form onSubmit={cellularForm.handleSubmit(onCellularSubmit)}>
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Criar Novo Modelo de Celular</CardTitle>
@@ -538,7 +581,7 @@ export default function EstoquePage() {
                                     {settings ? orderedAttributes.map(attr => (
                                         <FormField
                                         key={attr.key}
-                                        control={control}
+                                        control={cellularForm.control}
                                         name={attr.key}
                                         rules={{ required: true }}
                                         render={({ field }) => (
@@ -606,24 +649,24 @@ export default function EstoquePage() {
                                         <div className="space-y-2 col-span-2">
                                         <Label className="text-muted-foreground">Nome Gerado</Label>
                                         <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                            <span className={generatedName ? "text-primary font-semibold" : "text-muted-foreground"}>
-                                            {generatedName || "Selecione as opções acima..."}
+                                            <span className={generatedCellularName ? "text-primary font-semibold" : "text-muted-foreground"}>
+                                            {generatedCellularName || "Selecione as opções acima..."}
                                             </span>
                                         </div>
                                         </div>
                                         <div className="space-y-2 col-span-2">
                                         <Label className="text-muted-foreground flex items-center gap-1"><Hash className="size-3" /> SKU Gerado</Label>
                                         <div className="w-full min-h-[40px] px-3 py-2 rounded-md border border-dashed flex items-center">
-                                            <span className={generatedSku ? "text-accent font-semibold" : "text-muted-foreground"}>
-                                            {generatedSku || "Selecione as opções..."}
+                                            <span className={generatedCellularSku ? "text-accent font-semibold" : "text-muted-foreground"}>
+                                            {generatedCellularSku || "Selecione as opções..."}
                                             </span>
                                         </div>
                                         </div>
                                     </div>
                                 </CardContent>
                                 <CardFooter>
-                                    <Button type="submit" className="w-full" disabled={isSubmitting || !canSubmit}>
-                                    {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                    <Button type="submit" className="w-full" disabled={cellularForm.formState.isSubmitting || !canSubmitCellular}>
+                                    {cellularForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
                                     Criar Modelo de Produto
                                     </Button>
                                 </CardFooter>
@@ -642,52 +685,112 @@ export default function EstoquePage() {
             <TabsContent value="geral" className="mt-6">
                  <div className="grid md:grid-cols-3 gap-8 items-start">
                     <div className="md:col-span-1">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Criar Novo Produto Geral</CardTitle>
-                                <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                 <form className="space-y-4">
-                                    {settings?.attributes.filter(attr => ['marca', 'modelo', 'cor'].includes(attr.key)).map(attr => (
-                                         <div className="space-y-2" key={attr.key}>
-                                            <Label>{attr.label}</Label>
-                                            <Select>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder={`Selecione ${attr.label.toLowerCase()}...`} />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {attr.values.map(val => (
-                                                        <SelectItem key={val} value={val}>{val}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    ))}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="geral-nome">Nome do Produto (gerado)</Label>
-                                        <Input id="geral-nome" placeholder="Gerado automaticamente" readOnly className="bg-muted/50" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="geral-codigo">Código/SKU (gerado)</Label>
-                                            <Input id="geral-codigo" placeholder="Gerado automaticamente" readOnly className="bg-muted/50" />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="geral-ean">EAN / SN</Label>
-                                            <Input id="geral-ean" placeholder="Opcional" />
-                                        </div>
-                                    </div>
-                                </form>
-                            </CardContent>
-                             <CardFooter className="flex flex-col gap-2">
-                                <Button type="submit" className="w-full" disabled>
-                                    <PlusCircle className="mr-2" />
-                                    Criar Produto
-                                </Button>
-                                 <p className="text-xs text-center text-muted-foreground pt-2">Esta funcionalidade está em desenvolvimento.</p>
-                            </CardFooter>
-                        </Card>
+                       <Form {...generalProductForm}>
+                            <form onSubmit={generalProductForm.handleSubmit(onGeneralSubmit)}>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Criar Novo Produto Geral</CardTitle>
+                                        <CardDescription>Use este formulário para cadastrar produtos que não são celulares.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                         <FormField
+                                            control={generalProductForm.control}
+                                            name="name"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Nome do Produto</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Ex: Capa para iPhone 15" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                         <FormField
+                                            control={generalProductForm.control}
+                                            name="sku"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Código/SKU</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Ex: CAPA-IP15-BLK" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={generalProductForm.control}
+                                            name="marca"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Marca</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger><SelectValue placeholder="Selecione a marca..." /></SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {settings?.attributes.find(a => a.key === 'marca')?.values.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                         <FormField
+                                            control={generalProductForm.control}
+                                            name="modelo"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Modelo</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Ex: Silicone Case" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                          <FormField
+                                            control={generalProductForm.control}
+                                            name="cor"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Cor</FormLabel>
+                                                     <Select onValueChange={field.onChange} value={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger><SelectValue placeholder="Selecione a cor..." /></SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {settings?.attributes.find(a => a.key === 'cor')?.values.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                         <FormField
+                                            control={generalProductForm.control}
+                                            name="ean"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>EAN / SN (Opcional)</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Código de barras ou serial" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </CardContent>
+                                     <CardFooter>
+                                        <Button type="submit" className="w-full" disabled={generalProductForm.formState.isSubmitting}>
+                                            {generalProductForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                            Criar Produto
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            </form>
+                        </Form>
                     </div>
                      <div className="md:col-span-2">
                         <ProductListTable productList={filteredGeneralProducts} />
@@ -733,4 +836,3 @@ export default function EstoquePage() {
   );
 }
 
-    
