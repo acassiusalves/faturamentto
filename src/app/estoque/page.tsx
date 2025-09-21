@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from 'zod';
+import * * as z from 'zod';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -79,7 +79,7 @@ export default function EstoquePage() {
   const [availableConditions, setAvailableConditions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGrouped, setIsGrouped] = useState(false);
+  const [isGrouped, setIsGrouped] = useState(isGrouped);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -343,7 +343,7 @@ export default function EstoquePage() {
 
         toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
     } else {
-        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: code });
+        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: code, marca: '', modelo: '' });
         toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
     }
   }
@@ -384,10 +384,10 @@ export default function EstoquePage() {
 
     // Filter by category (Celular/Geral)
     itemsToDisplay = itemsToDisplay.filter(item => {
-        const category = (item as any).category || 'Celular';
-        if (showCellular && category === 'Celular') return true;
-        if (showGeneral && category === 'Geral') return true;
-        if (!showCellular && !showGeneral) return false;
+        const category = (item as any).category || 'Celular'; // Default old items to Celular
+        if (showCellular && !showGeneral) return category === 'Celular';
+        if (!showCellular && showGeneral) return category === 'Geral';
+        if (showCellular && showGeneral) return true;
         return false;
     });
 
@@ -541,7 +541,7 @@ export default function EstoquePage() {
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{count}</div>
-        <p className="text-xs text-muted-foreground">{formatCurrency(value)}</p>
+        <p className="text-xs text-green-600 bg-green-100/50 dark:bg-green-900/50 rounded-full px-2 py-1 font-semibold w-fit mt-1">{formatCurrency(value)}</p>
       </CardContent>
     </Card>
   );
@@ -1026,5 +1026,7 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
 
     
