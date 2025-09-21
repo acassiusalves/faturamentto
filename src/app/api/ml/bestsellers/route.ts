@@ -28,13 +28,21 @@ async function getHighlights(site: string, category: string) {
     return [];
   }
   const j = await r.json();
-  const content = Array.isArray(j?.content) ? j.content : Array.isArray(j) ? j : [];
+  const content = Array.isArray(j?.content) ? j.content : (Array.isArray(j) ? j : []);
+  if (!Array.isArray(content)) {
+    console.warn("ML highlights: payload inesperado", j);
+    return [];
+  }
   return content
-    .map((row: any) => ({
-      id: row?.id || row?.item_id,
-      type: row?.type || null, // "ITEM" | "PRODUCT"
-      position: row?.position ?? null,
-    }))
+    .map((row: any) => {
+      const rawType = (row?.type ?? "").toString().toUpperCase();
+      const type = rawType === "PRODUCT" ? "PRODUCT" : "ITEM"; // fallback ITEM
+      return {
+        id: row?.id || row?.item_id,
+        type,
+        position: row?.position ?? null,
+      };
+    })
     .filter((x: any) => x.id);
 }
 
