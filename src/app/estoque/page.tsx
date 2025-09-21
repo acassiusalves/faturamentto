@@ -58,16 +58,15 @@ const generalProductEntrySchema = z.object({
   sku: z.string().min(1, "SKU é obrigatório."),
   name: z.string().optional(),
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
-  // Os campos de origem/marca e modelo não são parte do form, são preenchidos
   marca: z.string().optional(), 
   modelo: z.string().optional(),
   condition: z.string().min(1, "A condição é obrigatória."),
-  serialNumber: z.string().min(1, "O SN/Código é obrigatório."), // Campo que o usuário realmente digita
   eanOrCode: z.string().optional(),
 });
 
 
 type InventoryFormValues = z.infer<typeof inventorySchema>;
+type GeneralProductFormValues = z.infer<typeof generalProductEntrySchema>;
 type SortKey = 'quantity' | 'totalCost';
 type SortDirection = 'ascending' | 'descending';
 
@@ -231,8 +230,10 @@ export default function EstoquePage() {
 
   const onSubmit = async (data: InventoryFormValues | GeneralProductFormValues) => {
     const isGeneral = isGeneralProductMode;
-    const finalSerialNumbers = isGeneral ? [form.getValues('serialNumber')].filter(Boolean) as string[] : serialNumbers;
-
+    // For general products, we need a unique identifier. We'll auto-generate one.
+    const finalSerialNumbers = isGeneral 
+        ? [`${data.eanOrCode || data.sku}-${Date.now()}`]
+        : serialNumbers;
 
     if (finalSerialNumbers.length === 0) {
       toast({ variant: 'destructive', title: 'Nenhum SN Adicionado', description: 'Por favor, adicione pelo menos um número de série.' });
@@ -248,7 +249,6 @@ export default function EstoquePage() {
         return;
     }
     
-    // Para produtos gerais, a origem é a marca. Para celulares, é o que foi selecionado.
     const originToSave = isGeneral ? (selectedProduct.attributes.marca || 'Geral') : data.origin || '';
 
     const newItems: Omit<InventoryItem, 'id'>[] = finalSerialNumbers.map(sn => ({
@@ -303,17 +303,14 @@ export default function EstoquePage() {
         form.setValue('productId', product.id);
         form.setValue('sku', product.sku);
         form.setValue('name', product.name);
-        // Preenche os campos de marca e modelo
         form.setValue('marca' as any, product.attributes.marca || '');
         form.setValue('modelo' as any, product.attributes.modelo || '');
+        form.setValue('eanOrCode' as any, code);
 
         toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
     } else {
-        form.setValue('productId', '');
-        form.setValue('sku', '');
-        form.setValue('name', '');
-        form.setValue('marca' as any, '');
-        form.setValue('modelo' as any, '');
+        form.reset();
+        form.setValue('eanOrCode' as any, code);
         toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
     }
   }
@@ -581,10 +578,10 @@ export default function EstoquePage() {
                                             </FormItem>
                                         )} />
                                     </div>
-                                     <FormField control={form.control} name="serialNumber" render={({ field }) => (
+                                    <FormField control={form.control} name="sku" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Serial Number / Código Único</FormLabel>
-                                            <FormControl><Input placeholder="Bipe ou digite o código único do item" {...field} /></FormControl>
+                                            <FormLabel>SKU do Produto</FormLabel>
+                                            <FormControl><Input placeholder="Preenchido pela busca" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
