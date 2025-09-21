@@ -258,7 +258,7 @@ export default function EstoquePage() {
                 sku: data.sku,
                 costPrice: data.costPrice,
                 quantity: quantity,
-                serialNumber: `LOTE-${generalData.sku}-${Date.now()}`, // Batch identifier
+                serialNumber: generalData.eanOrCode || `LOTE-${generalData.sku}-${Date.now()}`,
                 origin: selectedProduct.attributes.marca || 'Geral',
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
@@ -302,7 +302,7 @@ export default function EstoquePage() {
         localStorage.setItem('stockDataDirty', 'true');
         
         // Reset logic
-        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', quantity: 1, eanOrCode: '', marca: '', modelo: '' });
+        form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '', marca: '', modelo: '', quantity: 1, eanOrCode: '' });
         setSerialNumbers([]);
         setEanCode('');
         
@@ -331,8 +331,8 @@ export default function EstoquePage() {
 
     if (product) {
         form.setValue('productId', product.id);
-        form.setValue('sku', product.sku);
-        form.setValue('name', product.name);
+        form.setValue('sku', product.sku, { shouldValidate: true });
+        form.setValue('name', product.name, { shouldValidate: true });
         form.setValue('marca' as any, product.attributes.marca || '');
         form.setValue('modelo' as any, product.attributes.modelo || '');
         form.setValue('eanOrCode' as any, code);
@@ -1023,4 +1023,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
