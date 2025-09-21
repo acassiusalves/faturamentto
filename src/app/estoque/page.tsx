@@ -45,15 +45,18 @@ const inventorySchema = z.object({
   id: z.string().optional(),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   sku: z.string().min(1, "SKU é obrigatório."),
+  name: z.string().optional(), // Added for display
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
   origin: z.string().min(1, "A origem é obrigatória"),
   condition: z.string().min(1, "A condição é obrigatória"),
+  serialNumber: z.string().optional(),
 });
 
 const generalProductEntrySchema = z.object({
   id: z.string().optional(),
   productId: z.string().min(1, "É obrigatório selecionar um produto."),
   sku: z.string().min(1, "SKU é obrigatório."),
+  name: z.string().optional(), // Added for display
   costPrice: z.coerce.number().min(0, "Preço de custo deve ser positivo."),
   origin: z.string().min(1, "A origem é obrigatória."),
   condition: z.string().min(1, "A condição é obrigatória."),
@@ -112,6 +115,7 @@ export default function EstoquePage() {
     defaultValues: {
       productId: '',
       sku: '',
+      name: '',
       costPrice: 0,
       origin: '',
       condition: 'Novo',
@@ -170,8 +174,10 @@ export default function EstoquePage() {
     const selectedProduct = products.find(p => p.id === productId);
     if (selectedProduct) {
         form.setValue('sku', selectedProduct.sku, { shouldValidate: true });
+        form.setValue('name', selectedProduct.name, { shouldValidate: true });
     } else {
         form.setValue('sku', '', { shouldValidate: true });
+        form.setValue('name', '', { shouldValidate: true });
     }
     setIsProductSelectorOpen(false);
   };
@@ -222,7 +228,8 @@ export default function EstoquePage() {
 
   const onSubmit = async (data: InventoryFormValues) => {
     const isGeneral = isGeneralProductMode;
-    const finalSerialNumbers = isGeneral ? [form.getValues('serialNumber')].filter(Boolean) : serialNumbers;
+    const finalSerialNumbers = isGeneral ? [form.getValues('serialNumber')].filter(Boolean) as string[] : serialNumbers;
+
 
     if (finalSerialNumbers.length === 0) {
       toast({ variant: 'destructive', title: 'Nenhum SN Adicionado', description: 'Por favor, adicione pelo menos um número de série.' });
@@ -259,7 +266,7 @@ export default function EstoquePage() {
         description: `O(s) produto(s) "${selectedProduct.name}" foram salvos com sucesso.`,
       });
       // Reset logic
-      form.reset({ productId: '', sku: '', costPrice: 0, origin: '', condition: 'Novo' });
+      form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '' });
       setSerialNumbers([]);
       setEanCode('');
       
@@ -289,10 +296,12 @@ export default function EstoquePage() {
     if (product) {
         form.setValue('productId', product.id);
         form.setValue('sku', product.sku);
+        form.setValue('name', product.name);
         toast({ title: 'Produto Encontrado!', description: `Dados de "${product.name}" carregados.`});
     } else {
         form.setValue('productId', '');
         form.setValue('sku', '');
+        form.setValue('name', '');
         toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Verifique o código ou cadastre o produto.'});
     }
   }
@@ -455,7 +464,7 @@ export default function EstoquePage() {
   };
 
   const resetDialog = () => {
-    form.reset({ productId: '', sku: '', costPrice: 0, origin: '', condition: 'Novo' });
+    form.reset({ productId: '', sku: '', name: '', costPrice: 0, origin: '', condition: 'Novo', serialNumber: '' });
     setSerialNumbers([]);
     setCurrentSN("");
     setEanCode("");
@@ -537,9 +546,9 @@ export default function EstoquePage() {
                                             <Button type="button" variant="secondary" onClick={() => handleEanCodeSearch(eanCode)}><Search /></Button>
                                         </div>
                                     </div>
-                                    <FormField control={form.control} name="sku" render={({ field }) => (
+                                    <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Nome do Produto (SKU)</FormLabel>
+                                            <FormLabel>Nome do Produto</FormLabel>
                                             <FormControl><Input placeholder="Preenchido pela busca" {...field} readOnly className="bg-muted/50 cursor-not-allowed" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -949,4 +958,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
