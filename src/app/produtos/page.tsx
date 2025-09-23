@@ -57,6 +57,144 @@ const generalProductSchema = z.object({
 });
 type GeneralProductFormValues = z.infer<typeof generalProductSchema>;
 
+interface ProductListTableProps {
+  productList: Product[];
+  searchTerm: string;
+  onSearchTermChange: (term: string) => void;
+  hasConflicts: boolean;
+  isCheckingConflicts: boolean;
+  onOpenConflictDialog: () => void;
+  onBulkImportOpen: () => void;
+  onBulkAssociateOpen: () => void;
+  onOpenSkuDialog: (product: Product) => void;
+  onDeleteProduct: (productId: string) => void;
+  formatDate: (date: any) => string;
+}
+
+const ProductListTable = ({ 
+    productList, 
+    searchTerm, 
+    onSearchTermChange, 
+    hasConflicts, 
+    isCheckingConflicts, 
+    onOpenConflictDialog,
+    onBulkImportOpen,
+    onBulkAssociateOpen,
+    onOpenSkuDialog,
+    onDeleteProduct,
+    formatDate
+}: ProductListTableProps) => (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-[200px]">
+            <CardTitle>Produtos Cadastrados</CardTitle>
+            <CardDescription>Lista de todos os produtos que você já criou.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou SKU..."
+                className="pl-9 w-full sm:w-auto"
+                value={searchTerm}
+                onChange={(e) => onSearchTermChange(e.target.value)}
+              />
+            </div>
+            {productList.some(p => p.category === 'Celular') && (
+                <Button variant="outline" onClick={onBulkImportOpen}>
+                    <Upload className="mr-2 h-4 w-4" /> Importar
+                </Button>
+            )}
+            <Button variant="outline" onClick={onBulkAssociateOpen}>
+              <Link2 className="mr-2 h-4 w-4" /> Associar
+            </Button>
+            {hasConflicts && (
+              <Button variant="destructive" onClick={onOpenConflictDialog} disabled={isCheckingConflicts}>
+                {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                Verificar Conflitos
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border max-h-[600px] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome do Produto</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Data de Criação</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {productList.length ? (
+                productList.map(product => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{product.name}</span>
+                        {!!product.associatedSkus?.length && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
+                                <Link2 className="h-4 w-4" />
+                                <span>{product.associatedSkus.length}</span>
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 z-[9999]">
+                              <div className="p-3 space-y-2">
+                                <p className="text-sm font-semibold text-foreground">SKUs associados</p>
+                                <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
+                                  {product.associatedSkus.map(sku => (
+                                    <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
+                    <TableCell>{formatDate(product.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => onOpenSkuDialog(product)}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDeleteProduct(product.id)}>Continuar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">Nenhum produto encontrado.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+);
 
 export default function EstoquePage() {
   const { toast } = useToast();
@@ -410,120 +548,6 @@ export default function EstoquePage() {
     }
   };
 
-  const ProductListTable = ({ productList }: { productList: Product[] }) => (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <CardTitle>Produtos Cadastrados</CardTitle>
-            <CardDescription>Lista de todos os produtos que você já criou.</CardDescription>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou SKU..."
-                className="pl-9 w-full sm:w-auto"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            {productList.some(p => p.category === 'Celular') && (
-                <Button variant="outline" onClick={() => setIsBulkImportOpen(true)}>
-                    <Upload className="mr-2 h-4 w-4" /> Importar
-                </Button>
-            )}
-            <Button variant="outline" onClick={() => setIsBulkAssociateOpen(true)}>
-              <Link2 className="mr-2 h-4 w-4" /> Associar
-            </Button>
-            {hasConflicts && (
-              <Button variant="destructive" onClick={handleOpenConflictDialog} disabled={isCheckingConflicts}>
-                {isCheckingConflicts ? <Loader2 className="animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-                Verificar Conflitos
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border max-h-[600px] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome do Produto</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Data de Criação</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {productList.length ? (
-                productList.map(product => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <span>{product.name}</span>
-                        {!!product.associatedSkus?.length && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <div className="flex items-center text-sm text-primary font-semibold cursor-pointer">
-                                <Link2 className="h-4 w-4" />
-                                <span>{product.associatedSkus.length}</span>
-                              </div>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 z-[9999]">
-                              <div className="p-3 space-y-2">
-                                <p className="text-sm font-semibold text-foreground">SKUs associados</p>
-                                <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto pr-2">
-                                  {product.associatedSkus.map(sku => (
-                                    <Badge key={sku} variant="secondary" className="font-mono justify-center">{sku}</Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{product.sku}</TableCell>
-                    <TableCell>{formatDate(product.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenSkuDialog(product)}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                            <AlertDialogDescription>Isso removerá permanentemente o modelo.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(product.id)}>Continuar</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">Nenhum produto encontrado.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -676,7 +700,19 @@ export default function EstoquePage() {
                     </div>
 
                     <div className="md:col-span-2">
-                        <ProductListTable productList={filteredCellularProducts} />
+                        <ProductListTable
+                            productList={filteredCellularProducts}
+                            searchTerm={searchTerm}
+                            onSearchTermChange={setSearchTerm}
+                            hasConflicts={hasConflicts}
+                            isCheckingConflicts={isCheckingConflicts}
+                            onOpenConflictDialog={handleOpenConflictDialog}
+                            onBulkImportOpen={() => setIsBulkImportOpen(true)}
+                            onBulkAssociateOpen={() => setIsBulkAssociateOpen(true)}
+                            onOpenSkuDialog={handleOpenSkuDialog}
+                            onDeleteProduct={handleDelete}
+                            formatDate={formatDate}
+                        />
                     </div>
                 </div>
             </TabsContent>
@@ -793,7 +829,19 @@ export default function EstoquePage() {
                         </Form>
                     </div>
                      <div className="md:col-span-2">
-                        <ProductListTable productList={filteredGeneralProducts} />
+                        <ProductListTable 
+                           productList={filteredGeneralProducts}
+                           searchTerm={searchTerm}
+                           onSearchTermChange={setSearchTerm}
+                           hasConflicts={hasConflicts}
+                           isCheckingConflicts={isCheckingConflicts}
+                           onOpenConflictDialog={handleOpenConflictDialog}
+                           onBulkImportOpen={() => setIsBulkImportOpen(true)}
+                           onBulkAssociateOpen={() => setIsBulkAssociateOpen(true)}
+                           onOpenSkuDialog={handleOpenSkuDialog}
+                           onDeleteProduct={handleDelete}
+                           formatDate={formatDate}
+                        />
                     </div>
                 </div>
             </TabsContent>
@@ -835,4 +883,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
