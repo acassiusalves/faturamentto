@@ -11,7 +11,7 @@ import {
     DialogDescription,
 } from '@/components/ui/dialog';
 import { searchMercadoLivreAction } from '@/app/actions';
-import { Loader2, Package, Search, CheckCircle, ExternalLink } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle, ExternalLink, TrendingDown, Wallet, HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,13 @@ interface SearchResultsDialogProps {
     product: SearchableProduct | null;
 }
 
+interface EnrichedOffer extends SearchableProduct {
+    sale_fee_amount?: number;
+    shipping_estimate?: { service: string; cost: number } | null;
+    net_estimated?: number | null;
+}
+
+
 const listingTypeMap: Record<string, string> = {
     "gold_special": "Clássico",
     "gold_pro": "Premium"
@@ -34,14 +41,16 @@ const listingTypeMap: Record<string, string> = {
 
 export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [isEnriching, setIsEnriching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<EnrichedOffer[]>([]);
     const [showOnlyActive, setShowOnlyActive] = useState(true);
 
     useEffect(() => {
         if (isOpen && product) {
             const performSearch = async () => {
                 setIsLoading(true);
+                setIsEnriching(true);
                 setError(null);
                 setResults([]);
                 try {
@@ -49,16 +58,36 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                     formData.append('productName', product.refinedQuery || product.name);
                     formData.append('quantity', '50'); // Fetch more results
                     const searchResult = await searchMercadoLivreAction({ result: null, error: null }, formData);
+                    
                     if (searchResult.error) {
                         throw new Error(searchResult.error);
                     }
                     if (searchResult.result) {
-                        setResults(searchResult.result);
+                        setResults(searchResult.result); // Set initial results
+
+                        // Now, enrich with cost data
+                        const costResponse = await fetch('/api/ml/costs', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ results: searchResult.result })
+                        });
+                        if (!costResponse.ok) {
+                            console.warn("Could not fetch costs, but showing results anyway.");
+                        } else {
+                            const costData = await costResponse.json();
+                            const costMap = new Map(costData.items.map((item: any) => [item.id, item]));
+                            
+                            setResults(prevResults => prevResults.map(res => {
+                                const costs = costMap.get(res.id);
+                                return costs ? { ...res, ...costs } : res;
+                            }));
+                        }
                     }
                 } catch (err: any) {
                     setError(err.message || 'Falha ao buscar ofertas.');
                 } finally {
                     setIsLoading(false);
+                    setIsEnriching(false);
                 }
             };
             performSearch();
@@ -75,7 +104,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+            <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Resultados da Busca: <span className="text-primary">{product?.refinedQuery || product?.name}</span></DialogTitle>
                     <DialogDescription>
@@ -103,6 +132,9 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                     <TableHead className="w-[100px]">Imagem</TableHead>
                                     <TableHead>Nome do Produto</TableHead>
                                     <TableHead className="text-right">Preço</TableHead>
+                                    <TableHead className="text-right">Comissão</TableHead>
+                                    <TableHead className="text-right">Frete</TableHead>
+                                    <TableHead className="text-right">Líquido Est.</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -136,10 +168,19 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-lg">{formatBRL(offer.price)}</TableCell>
+                                        <TableCell className="text-right text-sm text-destructive">
+                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.sale_fee_amount ? formatBRL(offer.sale_fee_amount) : '–'}
+                                        </TableCell>
+                                        <TableCell className="text-right text-sm text-destructive">
+                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.shipping_estimate ? formatBRL(offer.shipping_estimate.cost) : '–'}
+                                        </TableCell>
+                                        <TableCell className="text-right text-sm font-bold text-green-600">
+                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.net_estimated ? formatBRL(offer.net_estimated) : '–'}
+                                        </TableCell>
                                      </TableRow>
                                 )}) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                             Nenhum anúncio encontrado para os filtros aplicados.
                                         </TableCell>
                                     </TableRow>
@@ -152,3 +193,4 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         </Dialog>
     );
 }
+
