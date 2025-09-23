@@ -292,38 +292,24 @@ function GeneralNoticesTab() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Exibir para as Funções:</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2 rounded-md border p-4">
+                      <div className="space-y-2 rounded-md border p-4">
                           {noticeRoles.map((role) => (
-                            <FormField
-                              key={role.key}
-                              control={control}
-                              name="targetRoles"
-                              render={({ field }) => (
-                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                              <FormItem key={role.key} className="flex flex-row items-center space-x-3 space-y-0">
                                   <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(role.key)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value, role.key])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== role.key
-                                              )
-                                            )
-                                      }}
-                                    />
+                                      <Checkbox
+                                          checked={field.value?.includes(role.key)}
+                                          onCheckedChange={(checked) => {
+                                              const updatedRoles = checked
+                                                  ? [...(field.value || []), role.key]
+                                                  : (field.value || []).filter(value => value !== role.key);
+                                              field.onChange(updatedRoles);
+                                          }}
+                                      />
                                   </FormControl>
-                                  <FormLabel className="font-normal">
-                                    {role.name}
-                                  </FormLabel>
-                                </FormItem>
-                              )}
-                            />
+                                  <FormLabel className="font-normal">{role.name}</FormLabel>
+                              </FormItem>
                           ))}
-                        </div>
-                      </FormControl>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -332,44 +318,32 @@ function GeneralNoticesTab() {
                 <FormField
                   control={control}
                   name="targetPages"
-                  render={() => (
+                  render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Exibir nas Páginas (opcional):</FormLabel>
+                       <FormLabel>Exibir nas Páginas (opcional):</FormLabel>
                        <p className="text-xs text-muted-foreground">Se nenhuma página for selecionada, o aviso aparecerá em todas.</p>
                       <FormControl>
                         <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
                             {availablePages.map((page) => (
-                                <FormField
-                                key={page.href}
-                                control={control}
-                                name="targetPages"
-                                render={({ field }) => {
-                                    return (
-                                    <FormItem
-                                        key={page.href}
-                                        className="flex flex-row items-start space-x-3 space-y-0"
-                                    >
-                                        <FormControl>
-                                        <Checkbox
-                                            checked={field.value?.includes(page.href)}
-                                            onCheckedChange={(checked) => {
-                                            return checked
-                                                ? field.onChange([...(field.value || []), page.href])
-                                                : field.onChange(
-                                                    (field.value || [])?.filter(
-                                                    (value) => value !== page.href
-                                                    )
-                                                )
-                                            }}
-                                        />
-                                        </FormControl>
-                                        <FormLabel className="font-normal">
-                                        {page.label}
-                                        </FormLabel>
-                                    </FormItem>
-                                    )
-                                }}
-                                />
+                                <FormItem
+                                    key={page.href}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                    <FormControl>
+                                    <Checkbox
+                                        checked={field.value?.includes(page.href)}
+                                        onCheckedChange={(checked) => {
+                                            const updatedPages = checked
+                                                ? [...(field.value || []), page.href]
+                                                : (field.value || []).filter(value => value !== page.href);
+                                            field.onChange(updatedPages);
+                                        }}
+                                    />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                    {page.label}
+                                    </FormLabel>
+                                </FormItem>
                             ))}
                         </div>
                        </FormControl>
@@ -703,5 +677,3 @@ export default function NoticesPage() {
     </div>
   );
 }
-
-    
