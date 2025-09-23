@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { FullIcon, MercadoEnviosIcon } from '@/components/icons';
-import { cn } from '@/lib/utils';
+import { cn, formatBRL } from '@/lib/utils';
 
 interface SearchResultsDialogProps {
     isOpen: boolean;
@@ -72,12 +72,6 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         }
         return results;
     }, [results, showOnlyActive]);
-
-
-    const formatCurrency = (value: number) => {
-        if (isNaN(value)) return 'R$ 0,00';
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -141,7 +135,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(offer.price)}</TableCell>
+                                        <TableCell className="text-right font-bold text-lg">{formatBRL(offer.price)}</TableCell>
                                      </TableRow>
                                 )}) : (
                                     <TableRow>

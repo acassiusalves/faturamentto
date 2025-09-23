@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -21,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { parsePriceToNumber, formatBRL } from '@/lib/utils';
+
 
 // PDF.js dinâmico
 let pdfjs: any = null;
@@ -300,23 +303,7 @@ export default function CatalogoPdfPage() {
             return newProducts;
         });
     };
-
-    const formatCurrency = (value: number | string) => {
-      let numericValue: number;
-      if (typeof value === 'string') {
-        numericValue = parseFloat(value.replace('.', '').replace(',', '.'));
-      } else {
-        numericValue = value;
-      }
     
-      if (isNaN(numericValue)) return 'R$ 0,00';
-    
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-      }).format(numericValue);
-    };
-
     const handleCheckTrends = () => {
         const queries = allProducts.map(trendQueryFor);
       
@@ -529,7 +516,7 @@ export default function CatalogoPdfPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {paginatedProducts.map((product, index) => {
-                                        const unitPrice = parseFloat(product.price?.replace('.', '').replace(',', '.') || '0');
+                                        const unitPrice = parsePriceToNumber(product.price);
                                         const totalBox = unitPrice * (product.quantityPerBox || 1);
                                         const trendingKeywords = product.matchedKeywords || [];
 
@@ -576,8 +563,8 @@ export default function CatalogoPdfPage() {
                                                             className="h-8 bg-muted/50"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="font-mono">{formatCurrency(unitPrice)}</TableCell>
-                                                    <TableCell className="font-mono font-semibold">{formatCurrency(totalBox)}</TableCell>
+                                                    <TableCell className="font-mono">{formatBRL(unitPrice)}</TableCell>
+                                                    <TableCell className="font-mono font-semibold">{formatBRL(totalBox)}</TableCell>
                                                     <TableCell>
                                                         <Input
                                                             value={product.refinedQuery || ''}
@@ -675,7 +662,7 @@ export default function CatalogoPdfPage() {
                                                         </div>
                                                     </div>
                                                     <div className="text-right font-semibold text-lg text-primary">
-                                                        {formatCurrency(offer.price)}
+                                                        {formatBRL(offer.price)}
                                                     </div>
                                                 </div>
                                             ))}

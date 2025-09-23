@@ -12,6 +12,7 @@ import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 import { AnalyzeCatalogInputSchema, AnalyzeCatalogOutputSchema } from '@/lib/types';
 import type { AnalyzeCatalogInput, AnalyzeCatalogOutput } from '@/lib/types';
+import { parsePriceToNumber } from '@/lib/utils';
 
 
 export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<AnalyzeCatalogOutput> {
@@ -45,6 +46,7 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
             - model: O modelo específico do produto (ex: "CS-C20", "CS-M31BTL").
             - description: Uma breve descrição do produto, se disponível (incluindo cor, memória, etc.).
             - price: O preço do produto. Formate o preço como uma string com ponto como separador decimal (ex: "2235.00", "27.50"). CRÍTICO: Remova todos os separadores de milhar. NÃO use vírgula.
+            IMPORTANTE: Se o preço for menor que 1000 e tiver 2 casas decimais (ex.: "22.35"), mantenha o ponto como decimal e NÃO remova esse ponto. Exemplos válidos: "22.35", "27.50", "31.25". Nunca transforme "22.35" em "2235.00".
             - quantityPerBox: Se a descrição mencionar a quantidade de itens por caixa (ex: "50 PCS / CX"), extraia esse número. Se não for mencionado, deixe em branco.
             - imageUrl: Se uma URL de imagem for mencionada, use-a. Caso contrário, deixe em branco.
 
@@ -59,10 +61,18 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
         });
 
         const { output } = await prompt(flowInput);
+
+        // Sanitize all prices returned by the model
+        if (output && output.products) {
+            output.products = output.products.map(p => {
+                const num = parsePriceToNumber(p.price);
+                return { ...p, price: Number.isFinite(num) ? num.toFixed(2) : '' };
+            });
+        }
+        
         return output!;
     }
   );
   
   return analyzeFlow(input);
 }
-
