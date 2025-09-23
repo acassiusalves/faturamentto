@@ -80,7 +80,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Resultados da Busca: <span className="text-primary">{product?.refinedQuery || product?.name}</span></DialogTitle>
                     <DialogDescription>
