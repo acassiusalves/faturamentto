@@ -364,7 +364,8 @@ export default function CatalogoPdfPage() {
                 if (matchingOffers.length > 0) {
                     const offersWithProductInfo = matchingOffers.map(offer => ({
                         ...offer,
-                        originalProductName: product.name
+                        originalProductName: product.name,
+                        originalProductPrice: product.price // Adicionando o preço original aqui
                     }));
                     setBatchSearchResults(prev => [...prev, ...offersWithProductInfo]);
                 }
@@ -377,13 +378,13 @@ export default function CatalogoPdfPage() {
     };
 
     const groupedBatchResults = useMemo(() => {
-        const groups = new Map<string, any[]>();
+        const groups = new Map<string, { offers: any[], originalPrice: string }>();
         batchSearchResults.forEach(offer => {
             const modelKey = offer.model || 'Outros Modelos';
             if (!groups.has(modelKey)) {
-                groups.set(modelKey, []);
+                groups.set(modelKey, { offers: [], originalPrice: offer.originalProductPrice });
             }
-            groups.get(modelKey)!.push(offer);
+            groups.get(modelKey)!.offers.push(offer);
         });
         return Array.from(groups.entries());
     }, [batchSearchResults]);
@@ -646,14 +647,24 @@ export default function CatalogoPdfPage() {
                     </CardHeader>
                     <CardContent>
                         <Accordion type="multiple" className="space-y-4">
-                            {paginatedGroupedResults.map(([model, offers]) => (
+                            {paginatedGroupedResults.map(([model, data]) => {
+                                const { offers, originalPrice } = data;
+                                const catalogCost = parsePriceToNumber(originalPrice);
+                                return (
                                 <AccordionItem key={model} value={model} className="border rounded-lg">
                                     <AccordionTrigger className="p-4 hover:no-underline font-semibold">
-                                        {model} ({offers.length} anúncios)
+                                        <div className="flex justify-between items-center w-full">
+                                            <span>{model} ({offers.length} anúncios)</span>
+                                            {Number.isFinite(catalogCost) && (
+                                                <Badge variant="outline" className="text-sm">
+                                                    Custo Catálogo: {formatBRL(catalogCost)}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 pt-0">
                                         <div className="space-y-4">
-                                            {offers.map((offer) => (
+                                            {offers.map((offer: any) => (
                                                 <div key={offer.id} className="flex items-center gap-4 p-2 border-b last:border-b-0">
                                                     <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
                                                         {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
@@ -675,7 +686,8 @@ export default function CatalogoPdfPage() {
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
-                            ))}
+                                )
+                            })}
                         </Accordion>
                     </CardContent>
                     <CardFooter className="flex items-center justify-between flex-wrap gap-4">
@@ -730,6 +742,8 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
+    
+
     
 
     
