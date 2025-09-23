@@ -514,7 +514,7 @@ export default function CatalogoPdfPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
-                                        <TableHead className="w-[150px]">Modelo</TableHead>
+                                        <TableHead className="min-w-[220px] w-[260px]">Modelo</TableHead>
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Preço Unit.</TableHead>
                                         <TableHead>Total Cx</TableHead>
@@ -562,13 +562,16 @@ export default function CatalogoPdfPage() {
                                                         )}
                                                       </div>
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <Input 
-                                                            value={product.model || ''} 
+                                                    <TableCell className="align-top max-w-[480px]">
+                                                        <div className="flex items-center gap-2">
+                                                            <Input
+                                                            value={product.model || ''}
                                                             onChange={(e) => handleModelChange(index, e.target.value)}
                                                             placeholder="Modelo..."
-                                                            className="h-8"
-                                                        />
+                                                            className="h-8 w-full text-sm whitespace-normal break-words"
+                                                            title={product.model || ''}
+                                                            />
+                                                        </div>
                                                     </TableCell>
                                                      <TableCell>
                                                         <Input 
