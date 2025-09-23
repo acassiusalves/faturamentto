@@ -69,7 +69,11 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                         const costResponse = await fetch('/api/ml/costs', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ results: searchResult.result })
+                            body: JSON.stringify({ 
+                                results: searchResult.result,
+                                siteId: 'MLB',
+                                zipCode: '01001-000' // CEP de São Paulo como padrão
+                            })
                         });
                         if (!costResponse.ok) {
                             console.warn("Could not fetch costs, but showing results anyway.");
@@ -139,7 +143,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                             </TableHeader>
                             <TableBody>
                                 {filteredResults.length > 0 ? filteredResults.map(offer => {
-                                    const isModelMatch = offer.model?.toLowerCase() === product?.model?.toLowerCase();
+                                    const isModelMatch = product?.model && offer.model && offer.model?.toLowerCase() === product?.model?.toLowerCase();
                                     return (
                                      <TableRow key={offer.id}>
                                         <TableCell>
@@ -193,4 +197,3 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         </Dialog>
     );
 }
-
