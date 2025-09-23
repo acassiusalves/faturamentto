@@ -87,6 +87,8 @@ export default function CatalogoPdfPage() {
     // Estados para busca
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
     const [selectedProductForSearch, setSelectedProductForSearch] = useState<SearchableProduct | null>(null);
+    const [productSearchTerm, setProductSearchTerm] = useState('');
+
 
     // Paginação
     const [productsPageIndex, setProductsPageIndex] = useState(0);
@@ -332,12 +334,25 @@ export default function CatalogoPdfPage() {
 
     const isProcessingAny = isParsing || isAnalyzingPending;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
+    
+    const filteredProducts = useMemo(() => {
+        if (!productSearchTerm.trim()) {
+            return allProducts;
+        }
+        const lowercasedTerm = productSearchTerm.toLowerCase();
+        return allProducts.filter(product => 
+            product.name.toLowerCase().includes(lowercasedTerm) ||
+            (product.model && product.model.toLowerCase().includes(lowercasedTerm)) ||
+            (product.refinedQuery && product.refinedQuery.toLowerCase().includes(lowercasedTerm))
+        );
+    }, [allProducts, productSearchTerm]);
 
-    const productsPageCount = useMemo(() => Math.ceil(allProducts.length / productsPageSize), [allProducts.length, productsPageSize]);
+
+    const productsPageCount = useMemo(() => Math.ceil(filteredProducts.length / productsPageSize), [filteredProducts.length, productsPageSize]);
     const paginatedProducts = useMemo(() => {
         const startIndex = productsPageIndex * productsPageSize;
-        return allProducts.slice(startIndex, startIndex + productsPageSize);
-    }, [allProducts, productsPageIndex, productsPageSize]);
+        return filteredProducts.slice(startIndex, startIndex + productsPageSize);
+    }, [filteredProducts, productsPageIndex, productsPageSize]);
 
     const handleBatchSearch = async () => {
         if (isBatchSearching || allProducts.length === 0) return;
@@ -476,13 +491,22 @@ export default function CatalogoPdfPage() {
                             <div>
                                 <CardTitle className="flex items-center gap-2">
                                     <FileText />
-                                    Produtos Extraídos ({allProducts.length})
+                                    Produtos Extraídos ({filteredProducts.length})
                                 </CardTitle>
                                 <CardDescription>
                                     Abaixo estão os produtos que a IA conseguiu extrair do catálogo.
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center flex-wrap justify-end gap-2">
+                                <div className="relative w-full sm:w-auto">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Buscar produto..."
+                                        className="pl-9 w-full sm:w-64"
+                                        value={productSearchTerm}
+                                        onChange={(e) => setProductSearchTerm(e.target.value)}
+                                    />
+                                </div>
                                 <Button onClick={handleCheckTrends} disabled={isTrendingPending} variant="outline">
                                     {isTrendingPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
                                     Verificar Tendências
@@ -596,7 +620,7 @@ export default function CatalogoPdfPage() {
                     </CardContent>
                     <CardFooter className="flex items-center justify-between flex-wrap gap-4">
                         <div className="text-sm text-muted-foreground">
-                            Total de {allProducts.length} produtos.
+                            Total de {filteredProducts.length} produtos.
                         </div>
                         <div className="flex items-center gap-4 sm:gap-6 lg:gap-8">
                             <div className="flex items-center gap-2">
@@ -742,6 +766,8 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
+    
+
     
 
     
