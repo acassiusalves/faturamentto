@@ -29,6 +29,10 @@ interface SearchResultsDialogProps {
 
 interface EnrichedOffer extends SearchableProduct {
     sale_fee_amount?: number;
+    sale_fee_details?: {
+        percentage_fee?: number;
+        fixed_fee?: number;
+    } | null;
     shipping_estimate?: { service: string; cost: number } | null;
     net_estimated?: number | null;
 }
@@ -63,26 +67,32 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                         throw new Error(searchResult.error);
                     }
                     if (searchResult.result) {
-                        setResults(searchResult.result); // Set initial results
+                        setResults(searchResult.result);
 
-                        // Now, enrich with cost data
                         const costResponse = await fetch('/api/ml/costs', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
                                 results: searchResult.result,
                                 siteId: 'MLB',
-                                zipCode: '01001-000' // CEP de São Paulo como padrão
+                                zipCode: '01001-000'
                             })
                         });
+
                         if (!costResponse.ok) {
                             console.warn("Could not fetch costs, but showing results anyway.");
                         } else {
                             const costData = await costResponse.json();
-                            const costMap = new Map(costData.items.map((item: any) => [item.id, item]));
-                            
+                            const costMap = new Map<string, any>();
+                            for (const item of costData.items ?? []) {
+                              if (item?.id) costMap.set(item.id, item);
+                              if (item?.catalog_product_id) costMap.set(item.catalog_product_id, item);
+                            }
+
                             setResults(prevResults => prevResults.map(res => {
-                                const costs = costMap.get(res.id);
+                                const key1 = res.id;
+                                const key2 = res.catalog_product_id;
+                                const costs = (key1 && costMap.get(key1)) || (key2 && costMap.get(key2));
                                 return costs ? { ...res, ...costs } : res;
                             }));
                         }
@@ -173,7 +183,19 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-lg">{formatBRL(offer.price)}</TableCell>
                                         <TableCell className="text-right text-sm text-destructive">
-                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.sale_fee_amount ? formatBRL(offer.sale_fee_amount) : '–'}
+                                          {isEnriching ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                          ) : offer.sale_fee_amount ? (
+                                            <div className="flex flex-col items-end">
+                                              <span>{formatBRL(offer.sale_fee_amount)}</span>
+                                              {offer.sale_fee_details?.percentage_fee != null && (
+                                                <span className="text-xs text-muted-foreground">
+                                                  {String(offer.sale_fee_details.percentage_fee).replace(".", ",")}%
+                                                  {offer.sale_fee_details.fixed_fee ? ` • Tarifa: ${formatBRL(offer.sale_fee_details.fixed_fee)}` : ""}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : "–"}
                                         </TableCell>
                                         <TableCell className="text-right text-sm text-destructive">
                                             {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.shipping_estimate ? formatBRL(offer.shipping_estimate.cost) : '–'}

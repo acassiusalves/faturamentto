@@ -4,7 +4,11 @@ import { getMlToken } from "@/services/mercadolivre";
 
 const ML_API = "https://api.mercadolibre.com";
 
-type FeeResp = Array<{ listing_type_id: string; sale_fee_amount?: number }>;
+type FeeResp = Array<{
+  listing_type_id: string;
+  sale_fee_amount?: number;
+  sale_fee_details?: any;
+}>;
 
 async function resolveItemIdFromCatalog(catalogProductId: string, token: string) {
   const r = await fetch(`${ML_API}/catalog_products/${catalogProductId}`, {
@@ -14,7 +18,7 @@ async function resolveItemIdFromCatalog(catalogProductId: string, token: string)
   if (!r.ok) throw new Error(`catalog_products/${catalogProductId} ${r.status}`);
   const data = await r.json();
 
-  const winner = data?.buy_box_winner?.item_id || data?.buy_box_winner; 
+  const winner = data?.buy_box_winner?.item_id || data?.buy_box_winner;
   if (winner && typeof winner === "string") return winner;
 
   const items: string[] = data?.items || [];
@@ -47,20 +51,53 @@ async function getItemMeta(id: string, token: string) {
   }>;
 }
 
-async function getSaleFee(siteId: string, price: number, categoryId: string, listingTypeId: string) {
+async function getSaleFee(
+  siteId: string,
+  price: number,
+  categoryId: string,
+  listingTypeId: string,
+  token: string
+) {
   const url = new URL(`${ML_API}/sites/${siteId}/listing_prices`);
   url.searchParams.set("price", String(price));
   url.searchParams.set("category_id", categoryId);
   url.searchParams.set("listing_type_id", listingTypeId);
 
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(url, {
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+
   if (!r.ok) {
-    console.warn(`listing_prices falhou (${r.status}) for ${siteId}/${categoryId}/${listingTypeId}/${price}`);
-    return 0;
+    const body = await r.text().catch(() => "");
+    console.warn(
+      `listing_prices ${r.status} for ${siteId}/${categoryId}/${listingTypeId}/${price} → ${body}`
+    );
+    return { saleFee: 0, details: null as any };
   }
-  const data = (await r.json()) as FeeResp;
-  const match = data.find(d => d.listing_type_id === listingTypeId) ?? data[0];
-  return match?.sale_fee_amount ?? 0;
+
+  const data = await r.json();
+
+  let saleFee = 0;
+  let details: any = null;
+
+  if (Array.isArray(data)) {
+    const match =
+      data.find((d) => d.listing_type_id === listingTypeId) ?? data[0] ?? {};
+    saleFee =
+      Number(match.sale_fee_amount) ??
+      Number(match.sale_fee_details?.gross_amount) ??
+      0;
+    details = match.sale_fee_details ?? null;
+  } else if (data && typeof data === "object") {
+    saleFee =
+      Number((data as any).sale_fee_amount) ??
+      Number((data as any).sale_fee_details?.gross_amount) ??
+      0;
+    details = (data as any).sale_fee_details ?? null;
+  }
+
+  return { saleFee: Number.isFinite(saleFee) ? saleFee : 0, details };
 }
 
 async function getShippingEstimate(itemId: string, zip: string, token: string) {
@@ -117,18 +154,26 @@ export async function POST(req: Request) {
           if (!price || price <= 0 || meta.status !== "active") {
             return {
               id: itemId,
+              catalog_product_id: raw.catalog_product_id,
               site_id: meta.site_id,
               price: 0,
               status: meta.status,
               category_id: meta.category_id,
               listing_type_id: meta.listing_type_id,
               sale_fee_amount: 0,
+              sale_fee_details: null,
               shipping_estimate: null,
               net_estimated: 0,
             };
           }
 
-          const saleFee = await getSaleFee(meta.site_id || siteId, price, meta.category_id, meta.listing_type_id);
+          const { saleFee, details } = await getSaleFee(
+            meta.site_id || siteId,
+            price,
+            meta.category_id,
+            meta.listing_type_id,
+            token
+          );
 
           const shipping = await getShippingEstimate(itemId, zipCode || "", token);
           const shippingCost = shipping?.cost ?? 0;
@@ -137,12 +182,14 @@ export async function POST(req: Request) {
 
           return {
             id: itemId,
+            catalog_product_id: raw.catalog_product_id,
             site_id: meta.site_id,
             price,
             status: meta.status,
             category_id: meta.category_id,
             listing_type_id: meta.listing_type_id,
             sale_fee_amount: saleFee,
+            sale_fee_details: details ?? null,
             shipping_estimate: shipping,
             net_estimated: Number.isFinite(net) ? Number(net.toFixed(2)) : null,
           };
