@@ -44,7 +44,7 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
             - brand: A marca do produto, conforme informada na entrada. Se não for informada, tente inferir.
             - model: O modelo específico do produto (ex: "CS-C20", "CS-M31BTL").
             - description: Uma breve descrição do produto, se disponível (incluindo cor, memória, etc.).
-            - price: O preço do produto. Formate o preço como uma string com ponto como separador decimal (ex: "22.35", "27.50"). NÃO use vírgula.
+            - price: O preço do produto. Formate o preço como uma string com ponto como separador decimal (ex: "2235.00", "27.50"). CRÍTICO: Remova todos os separadores de milhar. NÃO use vírgula.
             - quantityPerBox: Se a descrição mencionar a quantidade de itens por caixa (ex: "50 PCS / CX"), extraia esse número. Se não for mencionado, deixe em branco.
             - imageUrl: Se uma URL de imagem for mencionada, use-a. Caso contrário, deixe em branco.
 
@@ -65,3 +65,4 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
   
   return analyzeFlow(input);
 }
+
