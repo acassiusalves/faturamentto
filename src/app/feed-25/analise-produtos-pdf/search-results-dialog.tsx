@@ -27,15 +27,8 @@ interface SearchResultsDialogProps {
     product: SearchableProduct | null;
 }
 
-interface EnrichedOffer extends SearchableProduct {
-    sale_fee_amount?: number;
-    sale_fee_details?: {
-        percentage_fee?: number;
-        fixed_fee?: number;
-    } | null;
-    shipping_estimate?: { service: string; cost: number } | null;
-    net_estimated?: number | null;
-}
+// Revertendo para não ter os campos de custo
+type Offer = SearchableProduct;
 
 
 const listingTypeMap: Record<string, string> = {
@@ -45,16 +38,14 @@ const listingTypeMap: Record<string, string> = {
 
 export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [isEnriching, setIsEnriching] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [results, setResults] = useState<EnrichedOffer[]>([]);
+    const [results, setResults] = useState<Offer[]>([]);
     const [showOnlyActive, setShowOnlyActive] = useState(true);
 
     useEffect(() => {
         if (isOpen && product) {
             const performSearch = async () => {
                 setIsLoading(true);
-                setIsEnriching(true);
                 setError(null);
                 setResults([]);
                 try {
@@ -68,40 +59,11 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                     }
                     if (searchResult.result) {
                         setResults(searchResult.result);
-
-                        const costResponse = await fetch('/api/ml/costs', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                results: searchResult.result,
-                                siteId: 'MLB',
-                                zipCode: '01001-000'
-                            })
-                        });
-
-                        if (!costResponse.ok) {
-                            console.warn("Could not fetch costs, but showing results anyway.");
-                        } else {
-                            const costData = await costResponse.json();
-                            const costMap = new Map<string, any>();
-                            for (const item of costData.items ?? []) {
-                              if (item?.id) costMap.set(item.id, item);
-                              if (item?.catalog_product_id) costMap.set(item.catalog_product_id, item);
-                            }
-
-                            setResults(prevResults => prevResults.map(res => {
-                                const key1 = res.id;
-                                const key2 = res.catalog_product_id;
-                                const costs = (key1 && costMap.get(key1)) || (key2 && costMap.get(key2));
-                                return costs ? { ...res, ...costs } : res;
-                            }));
-                        }
                     }
                 } catch (err: any) {
                     setError(err.message || 'Falha ao buscar ofertas.');
                 } finally {
                     setIsLoading(false);
-                    setIsEnriching(false);
                 }
             };
             performSearch();
@@ -146,9 +108,6 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                     <TableHead className="w-[100px]">Imagem</TableHead>
                                     <TableHead>Nome do Produto</TableHead>
                                     <TableHead className="text-right">Preço</TableHead>
-                                    <TableHead className="text-right">Comissão</TableHead>
-                                    <TableHead className="text-right">Frete</TableHead>
-                                    <TableHead className="text-right">Líquido Est.</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -182,31 +141,10 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-lg">{formatBRL(offer.price)}</TableCell>
-                                        <TableCell className="text-right text-sm text-destructive">
-                                          {isEnriching ? (
-                                            <Loader2 size={16} className="animate-spin" />
-                                          ) : offer.sale_fee_amount ? (
-                                            <div className="flex flex-col items-end">
-                                              <span>{formatBRL(offer.sale_fee_amount)}</span>
-                                              {offer.sale_fee_details?.percentage_fee != null && (
-                                                <span className="text-xs text-muted-foreground">
-                                                  {String(offer.sale_fee_details.percentage_fee).replace(".", ",")}%
-                                                  {offer.sale_fee_details.fixed_fee ? ` • Tarifa: ${formatBRL(offer.sale_fee_details.fixed_fee)}` : ""}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ) : "–"}
-                                        </TableCell>
-                                        <TableCell className="text-right text-sm text-destructive">
-                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.shipping_estimate ? formatBRL(offer.shipping_estimate.cost) : '–'}
-                                        </TableCell>
-                                        <TableCell className="text-right text-sm font-bold text-green-600">
-                                            {isEnriching ? <Loader2 size={16} className="animate-spin" /> : offer.net_estimated ? formatBRL(offer.net_estimated) : '–'}
-                                        </TableCell>
                                      </TableRow>
                                 )}) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                                             Nenhum anúncio encontrado para os filtros aplicados.
                                         </TableCell>
                                     </TableRow>
