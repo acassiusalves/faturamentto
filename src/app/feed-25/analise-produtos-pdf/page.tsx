@@ -331,6 +331,14 @@ export default function CatalogoPdfPage() {
         });
     };
 
+    const handleCopyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: 'Copiado!',
+            description: `O texto "${text}" foi copiado para a área de transferência.`,
+        });
+    };
+
     const isProcessingAny = isParsing || isAnalyzingPending;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
 
@@ -506,7 +514,7 @@ export default function CatalogoPdfPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
-                                        <TableHead>Modelo</TableHead>
+                                        <TableHead className="w-[150px]">Modelo</TableHead>
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Preço Unit.</TableHead>
                                         <TableHead>Total Cx</TableHead>
@@ -526,7 +534,13 @@ export default function CatalogoPdfPage() {
                                                     <TableCell>
                                                       <div className="flex items-center gap-4">
                                                         <div>
-                                                          <p className="font-semibold">{product.name}</p>
+                                                          <p 
+                                                            className="font-semibold cursor-pointer hover:text-primary"
+                                                            onClick={() => handleCopyToClipboard(product.name)}
+                                                            title="Clique para copiar"
+                                                          >
+                                                              {product.name}
+                                                          </p>
                                                           <p className="text-xs text-muted-foreground">{product.description}</p>
                                                         </div>
                                                         {product.isTrending && (
@@ -724,4 +738,6 @@ export default function CatalogoPdfPage() {
         </>
     );
 }
+    
+
     
