@@ -286,15 +286,6 @@ export default function CatalogoPdfPage() {
         setIsSearchDialogOpen(true);
     }, []);
     
-    const handleModelChange = (index: number, newModel: string) => {
-        setAllProducts(prev => {
-            const newProducts = [...prev];
-            const originalIndex = (productsPageIndex * productsPageSize) + index;
-            newProducts[originalIndex] = { ...newProducts[originalIndex], model: newModel };
-            return newProducts;
-        });
-    };
-    
     const handleRefinedQueryChange = (index: number, newQuery: string) => {
         setAllProducts(prev => {
             const newProducts = [...prev];
@@ -563,14 +554,12 @@ export default function CatalogoPdfPage() {
                                                       </div>
                                                     </TableCell>
                                                     <TableCell className="align-top max-w-[480px]">
-                                                        <div className="flex items-center gap-2">
-                                                            <Input
-                                                            value={product.model || ''}
-                                                            onChange={(e) => handleModelChange(index, e.target.value)}
-                                                            placeholder="Modelo..."
-                                                            className="h-8 w-full text-sm whitespace-normal break-words"
-                                                            title={product.model || ''}
-                                                            />
+                                                        <div
+                                                            className="px-2 py-1 rounded-md border bg-muted/40 text-sm leading-tight whitespace-normal break-words w-full cursor-pointer hover:bg-muted"
+                                                            title="Clique para copiar"
+                                                            onClick={() => handleCopyToClipboard(product.model || '')}
+                                                            >
+                                                            {product.model || '—'}
                                                         </div>
                                                     </TableCell>
                                                      <TableCell>
