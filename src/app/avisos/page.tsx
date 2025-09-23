@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { availableRoles, navLinks } from '@/lib/permissions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 
 const noticeSchema = z.object({
@@ -37,7 +38,10 @@ const noticeSchema = z.object({
   type: z.enum(['info', 'warning', 'success', 'destructive']),
   dateRange: z.object({
     from: z.date({ required_error: "A data de início é obrigatória." }),
-    to: z.date({ required_error: "A data de término é obrigatória." }),
+    to: z.date().optional(),
+  }).refine(data => data.from, {
+      message: "O período de exibição é obrigatório.",
+      path: ['from']
   }),
   startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
   endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -76,6 +80,10 @@ function GeneralNoticesTab() {
       isActive: true,
       startTime: "00:00",
       endTime: "23:59",
+      dateRange: {
+          from: undefined,
+          to: undefined,
+      }
     },
   });
 
@@ -117,7 +125,7 @@ function GeneralNoticesTab() {
       targetRoles: [],
       targetPages: [],
       isActive: true,
-      dateRange: undefined,
+      dateRange: { from: undefined, to: undefined },
       startTime: "00:00",
       endTime: "23:59",
     });
@@ -131,7 +139,7 @@ function GeneralNoticesTab() {
 
   const onSubmit = async (data: NoticeFormValues) => {
     if (!user) return;
-    if (!data.dateRange?.from || !data.dateRange?.to) {
+    if (!data.dateRange?.from) {
         toast({
             variant: "destructive",
             title: "Erro de Validação",
@@ -144,7 +152,9 @@ function GeneralNoticesTab() {
     const [endHours, endMinutes] = data.endTime.split(':').map(Number);
 
     const finalStartDate = setMinutes(setHours(data.dateRange.from, startHours), startMinutes);
-    const finalEndDate = setMinutes(setHours(data.dateRange.to, endHours), endMinutes);
+    // Use `to` date if available, otherwise use `from` date
+    const finalEndDate = setMinutes(setHours(data.dateRange.to || data.dateRange.from, endHours), endMinutes);
+
 
     const noticeToSave: Partial<Notice> = {
       title: data.title,
@@ -176,44 +186,51 @@ function GeneralNoticesTab() {
   return (
     <div className="grid md:grid-cols-3 gap-8 items-start">
         <div className="md:col-span-1">
+          <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)}>
             <Card>
               <CardHeader>
                 <CardTitle>{editingNotice ? 'Editar Aviso' : 'Criar Novo Aviso'}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Controller
+                 <FormField
+                  control={control}
                   name="title"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Título</Label>
-                      <Input id="title" placeholder="Ex: Manutenção Programada" {...field} />
-                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                    </div>
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Título</FormLabel>
+                      <FormControl>
+                        <Input id="title" placeholder="Ex: Manutenção Programada" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
                 />
-                <Controller
+                 <FormField
+                  control={control}
                   name="message"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <div className="space-y-2">
-                      <Label htmlFor="message">Mensagem</Label>
-                      <Textarea id="message" placeholder="Descreva o aviso em detalhes aqui..." {...field} rows={5} />
-                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                    </div>
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mensagem</FormLabel>
+                      <FormControl>
+                        <Textarea id="message" placeholder="Descreva o aviso em detalhes aqui..." {...field} rows={5} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
                 />
-                 <Controller
-                    name="type"
+                 <FormField
                     control={control}
-                    render={({ field, fieldState }) => (
-                         <div className="space-y-2">
-                            <Label>Tipo de Aviso</Label>
+                    name="type"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tipo de Aviso</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
+                               <FormControl>
                                 <SelectTrigger>
                                 <SelectValue placeholder="Selecione um tipo..." />
                                 </SelectTrigger>
+                                </FormControl>
                                 <SelectContent>
                                 <SelectItem value="info">Informação</SelectItem>
                                 <SelectItem value="warning">Aviso</SelectItem>
@@ -221,112 +238,156 @@ function GeneralNoticesTab() {
                                 <SelectItem value="destructive">Urgente</SelectItem>
                                 </SelectContent>
                             </Select>
-                            {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                        </div>
+                            <FormMessage />
+                        </FormItem>
                     )}
                 />
-                <div className="space-y-2">
-                  <Label>Período de Exibição</Label>
-                  <Controller
-                      name="dateRange"
-                      control={control}
-                      render={({ field, fieldState }) => (
-                        <>
-                          <DateRangePicker date={field.value} onDateChange={field.onChange} />
-                          {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                        </>
-                      )}
-                  />
+                
+                <FormField
+                  control={control}
+                  name="dateRange"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Período de Exibição</FormLabel>
+                      <FormControl>
+                         <DateRangePicker date={field.value} onDateChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                   <div className="flex gap-4">
-                      <Controller
-                          name="startTime"
+                      <FormField
                           control={control}
-                          render={({ field, fieldState }) => (
-                              <div className="flex-1 space-y-1">
-                                  <Label htmlFor="start-time" className="text-xs">Hora Início</Label>
-                                  <Input id="start-time" type="time" {...field} />
-                                  {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                              </div>
+                          name="startTime"
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                                  <FormLabel htmlFor="start-time" className="text-xs">Hora Início</FormLabel>
+                                  <FormControl>
+                                    <Input id="start-time" type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
                           )}
                       />
-                      <Controller
-                          name="endTime"
+                      <FormField
                           control={control}
-                          render={({ field, fieldState }) => (
-                              <div className="flex-1 space-y-1">
-                                  <Label htmlFor="end-time" className="text-xs">Hora Fim</Label>
-                                  <Input id="end-time" type="time" {...field} />
-                                   {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                              </div>
+                          name="endTime"
+                          render={({ field }) => (
+                             <FormItem className="flex-1">
+                                  <FormLabel htmlFor="end-time" className="text-xs">Hora Fim</FormLabel>
+                                  <FormControl>
+                                    <Input id="end-time" type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
                           )}
                       />
                   </div>
-                </div>
 
-                 <Controller
-                    name="targetRoles"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                        <div className="space-y-2">
-                            <Label>Exibir para as Funções:</Label>
-                            <div className="space-y-2 rounded-md border p-4">
-                                {noticeRoles.map((role) => (
-                                    <div key={role.key} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`role-${role.key}`}
-                                            checked={field.value?.includes(role.key)}
-                                            onCheckedChange={(checked) => {
-                                                const currentRoles = field.value || [];
-                                                return checked
-                                                ? field.onChange([...currentRoles, role.key])
-                                                : field.onChange(currentRoles.filter((value) => value !== role.key))
-                                            }}
-                                        />
-                                        <Label htmlFor={`role-${role.key}`} className="font-normal">{role.name}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                            {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                <FormField
+                  control={control}
+                  name="targetRoles"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Exibir para as Funções:</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2 rounded-md border p-4">
+                          {noticeRoles.map((role) => (
+                            <FormField
+                              key={role.key}
+                              control={control}
+                              name="targetRoles"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(role.key)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, role.key])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== role.key
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal">
+                                    {role.name}
+                                  </FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                          ))}
                         </div>
-                    )}
-                 />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                 <Controller
-                    name="targetPages"
-                    control={control}
-                    render={({ field }) => (
-                        <div className="space-y-2">
-                            <Label>Exibir nas Páginas (opcional):</Label>
-                             <p className="text-xs text-muted-foreground">Se nenhuma página for selecionada, o aviso aparecerá em todas.</p>
-                            <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
-                                {availablePages.map((page) => (
-                                    <div key={page.href} className="flex items-center space-x-2">
+                <FormField
+                  control={control}
+                  name="targetPages"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Exibir nas Páginas (opcional):</FormLabel>
+                       <p className="text-xs text-muted-foreground">Se nenhuma página for selecionada, o aviso aparecerá em todas.</p>
+                      <FormControl>
+                        <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
+                            {availablePages.map((page) => (
+                                <FormField
+                                key={page.href}
+                                control={control}
+                                name="targetPages"
+                                render={({ field }) => {
+                                    return (
+                                    <FormItem
+                                        key={page.href}
+                                        className="flex flex-row items-start space-x-3 space-y-0"
+                                    >
+                                        <FormControl>
                                         <Checkbox
-                                            id={`page-${page.href}`}
                                             checked={field.value?.includes(page.href)}
                                             onCheckedChange={(checked) => {
-                                                const currentPages = field.value || [];
-                                                return checked
-                                                ? field.onChange([...currentPages, page.href])
-                                                : field.onChange(currentPages.filter((value) => value !== page.href))
+                                            return checked
+                                                ? field.onChange([...(field.value || []), page.href])
+                                                : field.onChange(
+                                                    (field.value || [])?.filter(
+                                                    (value) => value !== page.href
+                                                    )
+                                                )
                                             }}
                                         />
-                                        <Label htmlFor={`page-${page.href}`} className="font-normal">{page.label}</Label>
-                                    </div>
-                                ))}
-                            </div>
+                                        </FormControl>
+                                        <FormLabel className="font-normal">
+                                        {page.label}
+                                        </FormLabel>
+                                    </FormItem>
+                                    )
+                                }}
+                                />
+                            ))}
                         </div>
-                    )}
-                 />
-
-                 <Controller
-                    name="isActive"
+                       </FormControl>
+                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 
+                 <FormField
                     control={control}
+                    name="isActive"
                     render={({ field }) => (
-                        <div className="flex items-center justify-between rounded-lg border p-3">
-                            <Label htmlFor="is-active">Aviso Ativo</Label>
+                        <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                           <FormLabel htmlFor="is-active">Aviso Ativo</FormLabel>
+                           <FormControl>
                              <Switch id="is-active" checked={field.value} onCheckedChange={field.onChange} />
-                        </div>
+                           </FormControl>
+                        </FormItem>
                     )}
                  />
               </CardContent>
@@ -339,6 +400,7 @@ function GeneralNoticesTab() {
               </CardFooter>
             </Card>
           </form>
+          </Form>
         </div>
         <div className="md:col-span-2">
             <Card>
@@ -641,3 +703,5 @@ export default function NoticesPage() {
     </div>
   );
 }
+
+    
