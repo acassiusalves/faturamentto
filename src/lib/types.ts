@@ -284,6 +284,7 @@ export interface ApprovalRequest {
     createdAt: string; // ISO Date
     orderData: Sale;
     scannedItem: InventoryItem;
+    processedItem?: InventoryItem;
     processedBy?: string; // User's email
     processedAt?: string; // ISO Date
 }
@@ -488,7 +489,10 @@ export const CatalogProductSchema = z.object({
 });
 
 export const AnalyzeCatalogOutputSchema = z.object({
-  products: z.array(CatalogProductSchema).describe('A list of products extracted from the page.'),
+  products: z.array(CatalogProductSchema.extend({
+    isTrending: z.boolean().optional(),
+    matchedKeywords: z.array(z.string()).optional(),
+  })).describe('A list of products extracted from the page.'),
 });
 export type AnalyzeCatalogOutput = z.infer<typeof AnalyzeCatalogOutputSchema>;
 
@@ -550,5 +554,7 @@ export interface SavedMlAnalysis {
   mainCategoryId: string;
   results: MlAnalysisResult[];
 }
+
+    
 
     

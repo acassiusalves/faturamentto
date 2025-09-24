@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -434,6 +434,21 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
     
     const { analyzeCatalog } = await import('@/ai/flows/analyze-catalog-flow');
     const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand });
+    
+    if (result && result.products.length > 0) {
+        const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');
+        const productNames = result.products.map(p => p.name);
+        const trendingResult = await findTrendingProducts(productNames);
+        
+        const trendMap = new Map(trendingResult.trendingProducts.map(tp => [tp.productName, tp.matchedKeywords]));
+        
+        result.products = result.products.map(p => ({
+            ...p,
+            isTrending: trendMap.has(p.name),
+            matchedKeywords: trendMap.get(p.name) || [],
+        }));
+    }
+
     return { result, error: null };
   } catch (e: any) {
     return { result, error: e.message || "Falha ao analisar o catálogo." };
@@ -473,7 +488,7 @@ export async function refineSearchTermAction(
     const result = await refineSearchTerm(input);
     return { result, error: null };
   } catch (e: any) {
-    return { result, error: e.message || 'Falha ao refinar o termo de busca.' };
+    return { result: null, error: e.message || 'Falha ao refinar o termo de busca.' };
   }
 }
 
@@ -639,3 +654,5 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    

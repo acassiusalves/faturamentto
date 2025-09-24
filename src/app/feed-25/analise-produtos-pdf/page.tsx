@@ -180,13 +180,6 @@ export default function CatalogoPdfPage() {
         error: string | null;
     }>({ result: null, error: null });
     
-    // Estados para tendências
-    const [isTrendingPending, startTrendingTransition] = useTransition();
-    const [trendingState, setTrendingState] = useState<{
-        trendingProducts: any[] | null;
-        error: string | null;
-    }>({ trendingProducts: null, error: null });
-    
     // Estados para busca
     const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
     const [selectedProductForSearch, setSelectedProductForSearch] = useState<SearchableProduct | null>(null);
@@ -207,16 +200,6 @@ export default function CatalogoPdfPage() {
     const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
     
-    const trendQueryFor = (p: SearchableProduct) => {
-        const q =
-            p.refinedQuery?.trim() ||
-            buildSearchQuery({ name: p.name, model: p.model, brand: p.brand || brand }).trim() ||
-            '';
-        return q;
-    };
-    
-    const productTrendKey = (p: SearchableProduct) => norm(trendQueryFor(p));
-
 
     // Inicializa PDF.js
     useEffect(() => {
@@ -272,7 +255,7 @@ export default function CatalogoPdfPage() {
       }
     }, [pdfDoc, brand, toast, analyzeState]);
 
-    // Effect para processar resultados da análise
+    // Effect para processar resultados da análise e tendências
     useEffect(() => {
         if (analyzeState.error) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: analyzeState.error });
@@ -306,62 +289,8 @@ export default function CatalogoPdfPage() {
                 setIsAnalyzingAll(false);
             }
         }
-    }, [analyzeState, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
-    
-    // useEffect das tendências com fallback de inclusão caso o mapa venha vazio
-    useEffect(() => {
-        if (!trendingState.trendingProducts && !trendingState.error) return;
+    }, [analyzeState, brand, toast]);
 
-        if (trendingState.error) {
-            toast({
-            variant: 'destructive',
-            title: 'Erro ao Verificar Tendências',
-            description: trendingState.error,
-            });
-            return;
-        }
-
-        // 1) Mapa direto pelo payload
-        const trendingMap = normalizeTrendingPayload(
-            trendingState.trendingProducts,
-            allProducts,
-            productTrendKey
-        );
-
-        // 2) Se não veio nada “chaveado”, tenta um fallback por inclusão:
-        //    pega todas as keywords do payload e marca se aparecer na query do produto.
-        let globalKeywords: string[] = [];
-        const arr = Array.isArray(trendingState.trendingProducts) ? trendingState.trendingProducts : [];
-        for (const item of arr) {
-            if (typeof item === 'string') globalKeywords.push(norm(item));
-            else if (item && typeof item === 'object') {
-            const kws =
-                item.matchedKeywords ??
-                item.keywords ??
-                item.matches ??
-                item.terms ??
-                item.trending ??
-                item.keys ??
-                [];
-            if (Array.isArray(kws)) globalKeywords.push(...kws.map(norm));
-            }
-        }
-        globalKeywords = Array.from(new Set(globalKeywords.filter(Boolean)));
-
-        setAllProducts(prev =>
-            prev.map(prod => {
-            const key = productTrendKey(prod);
-            const direct = trendingMap.get(key) ?? [];
-            const inclusion = globalKeywords.filter(kw => kw && key.includes(kw));
-            const matched = direct.length > 0 ? direct : inclusion;
-            return {
-                ...prod,
-                isTrending: matched.length > 0,
-                matchedKeywords: matched,
-            };
-            })
-        );
-    }, [trendingState, toast]);
 
     // Effect para analisar próxima página automaticamente
     useEffect(() => {
@@ -438,48 +367,6 @@ export default function CatalogoPdfPage() {
         });
     };
     
-    const handleCheckTrends = () => {
-        const queries = allProducts
-            .map(trendQueryFor)
-            .map(q => q?.trim())
-            .filter(q => !!q && q.length > 0) as string[];
-
-        if (queries.length === 0) {
-            toast({
-            variant: 'destructive',
-            title: 'Nenhum produto extraído',
-            description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
-            });
-            return;
-        }
-
-        startTrendingTransition(async () => {
-            try {
-            const trendFormData = new FormData();
-            const payload = JSON.stringify(queries);
-
-            // Envie com vários nomes para garantir compatibilidade:
-            trendFormData.append('productNames', payload);
-            trendFormData.append('queries', payload);
-            trendFormData.append('keywords', payload);
-            trendFormData.append('terms', payload);
-
-            const raw = await findTrendingProductsAction(trendingState, trendFormData);
-
-            const trendingProducts = extractTrendingArray(raw);
-            const error = raw?.error ?? null;
-
-            setTrendingState({ trendingProducts, error });
-
-            } catch (error) {
-            setTrendingState({
-                trendingProducts: null,
-                error: 'Erro ao verificar tendências'
-            });
-            }
-        });
-    };
-
     const handleCopyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         toast({
@@ -663,10 +550,6 @@ export default function CatalogoPdfPage() {
                                         onChange={(e) => setProductSearchTerm(e.target.value)}
                                     />
                                 </div>
-                                <Button onClick={handleCheckTrends} disabled={isTrendingPending} variant="outline">
-                                    {isTrendingPending ? <Loader2 className="animate-spin" /> : <TrendingUp />}
-                                    Verificar Tendências
-                                </Button>
                                 <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
                                     {isBatchSearching ? <Loader2 className="animate-spin" /> : <Search />}
                                     Buscar todos no ML
@@ -936,3 +819,6 @@ export default function CatalogoPdfPage() {
 
 
 
+
+
+    
