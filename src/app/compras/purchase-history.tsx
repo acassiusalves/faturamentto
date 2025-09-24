@@ -265,7 +265,7 @@ export function PurchaseHistory() {
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
                             
-                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + item.quantity, 0);
+                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + (item.quantity || 0) + (item.surplus || 0), 0);
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
                             const totalEntriesToday = entryLogsByDate.get(purchaseDateKey)?.length || 0;
 
@@ -475,3 +475,5 @@ export function PurchaseHistory() {
         </Card>
     );
 }
+
+    
