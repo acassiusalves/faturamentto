@@ -280,7 +280,7 @@ export const saveProductSettings = async (categoryId: string, settings: ProductC
 // --- PICKING LOGS ---
 export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
   const todayStart = startOfDay(new Date());
-  const logCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'picking-log');
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
   const q = query(logCol, where('pickedAt', '>=', todayStart), orderBy('pickedAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => fromFirestore({ ...docSnap.data(), id: docSnap.id }) as PickedItemLog);
@@ -938,5 +938,7 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     return { count: updatedCount };
 };
 
+
+    
 
     
