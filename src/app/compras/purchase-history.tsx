@@ -475,5 +475,3 @@ export function PurchaseHistory() {
         </Card>
     );
 }
-
-    
