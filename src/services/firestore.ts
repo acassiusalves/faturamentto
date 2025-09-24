@@ -890,14 +890,15 @@ export async function loadAllTrendKeywords(): Promise<string[]> {
   try {
     const analyses = await loadMlAnalyses();
     
-    if (analyses.length === 0) {
+    if (!analyses || analyses.length === 0) {
+      console.log("Nenhuma análise de ML encontrada para carregar palavras-chave.");
       return [];
     }
     
     const allKeywords = new Set<string>();
     
-    analyses.forEach((analysis, index) => {
-      analysis.results.forEach((result, resultIndex) => {
+    analyses.forEach((analysis) => {
+      analysis.results.forEach((result) => {
         result.trends.forEach(trend => {
           if (trend.keyword && trend.keyword.trim()) {
             allKeywords.add(trend.keyword.trim());
@@ -907,13 +908,14 @@ export async function loadAllTrendKeywords(): Promise<string[]> {
     });
     
     const keywords = Array.from(allKeywords);
-    
+    console.log(`Carregadas ${keywords.length} palavras-chave de tendência únicas.`);
     return keywords;
   } catch (error) {
-    console.error('Erro ao carregar tendências:', error);
+    console.error('Erro ao carregar palavras-chave de tendências:', error);
     return [];
   }
 }
+
 
 export const removeGlobalFromAllProducts = async (): Promise<{count: number}> => {
     const products = await loadProducts();

@@ -353,7 +353,7 @@ export default function CatalogoPdfPage() {
             const key = productTrendKey(prod);
             const direct = trendingMap.get(key) ?? [];
             const inclusion = globalKeywords.filter(kw => kw && key.includes(kw));
-            const matched = direct.length ? direct : inclusion;
+            const matched = direct.length > 0 ? direct : inclusion;
             return {
                 ...prod,
                 isTrending: matched.length > 0,
@@ -931,6 +931,7 @@ export default function CatalogoPdfPage() {
     
 
     
+
 
 
 

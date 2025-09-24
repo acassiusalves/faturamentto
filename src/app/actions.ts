@@ -501,18 +501,32 @@ export async function findTrendingProductsAction(
   formData: FormData
 ): Promise<{ trendingProducts: any[] | null; error: string | null }> {
   try {
-    const productNames = JSON.parse(formData.get('productNames') as string);
-    if (!Array.isArray(productNames) || productNames.length === 0) {
+    const productNamesPayload = 
+        formData.get('productNames') || 
+        formData.get('queries') || 
+        formData.get('keywords') || 
+        formData.get('terms');
+        
+    if (!productNamesPayload) {
       return { trendingProducts: [], error: 'Nenhum nome de produto fornecido.' };
     }
+
+    const productNames = JSON.parse(productNamesPayload as string);
+
+    if (!Array.isArray(productNames) || productNames.length === 0) {
+      return { trendingProducts: [], error: 'Nomes de produtos em formato inválido.' };
+    }
+    
     const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');
     const result = await findTrendingProducts(productNames);
     return { trendingProducts: result.trendingProducts, error: null };
+    
   } catch (e: any) {
     console.error("Error in findTrendingProductsAction:", e);
     return { trendingProducts: null, error: e.message || "Falha ao verificar tendências." };
   }
 }
+
 
 export async function saveAveragePricesAction(
   _prevState: any,
