@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -280,7 +280,7 @@ export const saveProductSettings = async (categoryId: string, settings: ProductC
 // --- PICKING LOGS ---
 export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
   const todayStart = startOfDay(new Date());
-  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+  const logCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'picking-log');
   const q = query(logCol, where('pickedAt', '>=', todayStart), orderBy('pickedAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(docSnap => fromFirestore({ ...docSnap.data(), id: docSnap.id }) as PickedItemLog);
@@ -693,9 +693,14 @@ const settingsDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 's
 export const loadAppSettings = async (): Promise<AppSettings | null> => {
     const snapshot = await getDoc(settingsDocRef);
     if (snapshot.exists()) {
-        return snapshot.data() as AppSettings;
+        const settings = snapshot.data() as AppSettings;
+        // Ensure favoriteCategories is always an array
+        if (!Array.isArray(settings.favoriteCategories)) {
+            settings.favoriteCategories = [];
+        }
+        return settings;
     }
-    return null;
+    return { favoriteCategories: [] }; // Return default structure if not exists
 }
 
 export const saveAppSettings = async (settings: Partial<AppSettings>): Promise<void> => {

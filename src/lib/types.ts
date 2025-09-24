@@ -347,6 +347,7 @@ export interface AppSettings {
     organizePrompt?: string;
     standardizePrompt?: string;
     lookupPrompt?: string;
+    favoriteCategories?: MLCategory[];
 }
 
 // -- Purchase History Types --

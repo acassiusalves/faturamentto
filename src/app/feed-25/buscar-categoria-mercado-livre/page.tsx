@@ -1,19 +1,21 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, Home, ShoppingCart, Bot, ChevronsDown, ChevronsUp, FileText, TrendingUp, Sparkles, Save } from 'lucide-react';
-import type { MLCategory, SavedMlAnalysis, MlAnalysisResult } from '@/lib/types';
+import { Loader2, ChevronRight, Home, ShoppingCart, Bot, Sparkles, Save, Star } from 'lucide-react';
+import type { MLCategory, SavedMlAnalysis } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Progress } from '@/components/ui/progress';
-import { saveMlAnalysis } from '@/services/firestore';
+import { saveMlAnalysis, loadAppSettings, saveAppSettings } from '@/services/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TrendingUp, FileText } from 'lucide-react';
 
 
 // Interface para os itens mais vendidos
@@ -53,6 +55,34 @@ export default function BuscarCategoriaMercadoLivrePage() {
   const [automationProgress, setAutomationProgress] = useState(0);
   const [automationResults, setAutomationResults] = useState<AutomatedResult[]>([]);
   const [currentAutomationTask, setCurrentAutomationTask] = useState("");
+
+  // Favorites state
+  const [favoriteCats, setFavoriteCats] = useState<MLCategory[]>([]);
+
+  // Carrega categorias favoritas ao iniciar
+  useEffect(() => {
+    async function loadFavorites() {
+        const settings = await loadAppSettings();
+        setFavoriteCats(settings?.favoriteCategories || []);
+    }
+    loadFavorites();
+  }, []);
+
+  const toggleFavorite = async (category: MLCategory) => {
+    let updatedFavorites: MLCategory[];
+    const isFavorite = favoriteCats.some(fc => fc.id === category.id);
+
+    if (isFavorite) {
+        updatedFavorites = favoriteCats.filter(fc => fc.id !== category.id);
+        toast({ title: "Removido dos Favoritos", description: `A categoria "${category.name}" foi removida.` });
+    } else {
+        updatedFavorites = [...favoriteCats, category];
+        toast({ title: "Adicionado aos Favoritos!", description: `A categoria "${category.name}" foi favoritada.` });
+    }
+    
+    setFavoriteCats(updatedFavorites);
+    await saveAppSettings({ favoriteCategories: updatedFavorites });
+  };
 
 
   async function fetchRootCategories() {
@@ -126,25 +156,16 @@ export default function BuscarCategoriaMercadoLivrePage() {
     }
   }
   
-   const runAutomation = async () => {
-    if (!selectedCat) return;
+   const runAutomation = async (categoriesToProcess: MLCategory[], isFavoriteAnalysis: boolean = false) => {
+    if (categoriesToProcess.length === 0) return;
 
     setIsAutomating(true);
     setAutomationProgress(0);
     setAutomationResults([]);
     setCurrentAutomationTask("Preparando análise…");
 
-    const mainCategory =
-      ancestors.length > 0
-        ? ancestors[ancestors.length - 1]
-        : childCats.find(c => c.id === selectedCat) ?? { id: selectedCat, name: "Categoria selecionada" } as MLCategory;
+    const mainCategoryName = isFavoriteAnalysis ? "Favoritas" : (ancestors[ancestors.length - 1]?.name || "Desconhecida");
 
-    setCurrentAutomationTask(`Coletando dados: ${mainCategory.name}`);
-    const { trends: mainTrends, bestsellers: mainBestsellers } = await fetchCategoryData(mainCategory.id);
-
-    setAutomationResults([{ category: mainCategory, trends: mainTrends, bestsellers: mainBestsellers }]);
-
-    const categoriesToProcess = [...childCats];
     const totalSteps = categoriesToProcess.length;
     for (let i = 0; i < totalSteps; i++) {
       const subCat = categoriesToProcess[i];
@@ -185,11 +206,14 @@ export default function BuscarCategoriaMercadoLivrePage() {
 
         setIsSaving(true);
         try {
-            const mainCategory = automationResults[0].category;
+            // Se for análise de favoritos, não há categoria principal única, podemos usar um ID genérico.
+            const mainCategoryId = selectedCat || 'favorites-analysis';
+            const mainCategoryName = ancestors.length > 0 ? ancestors[ancestors.length - 1]?.name : "Análise de Favoritos";
+
             const dataToSave: Omit<SavedMlAnalysis, 'id'> = {
                 createdAt: new Date().toISOString(),
-                mainCategoryId: mainCategory.id,
-                mainCategoryName: mainCategory.name,
+                mainCategoryId: mainCategoryId,
+                mainCategoryName: mainCategoryName,
                 results: automationResults.map(r => ({
                     category: r.category,
                     trends: r.trends,
@@ -223,6 +247,31 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setAutomationProgress(0);
   };
 
+  const renderCategoryButton = (category: MLCategory, context: 'root' | 'child' | 'favorite') => {
+    const isFavorite = favoriteCats.some(fc => fc.id === category.id);
+    return (
+        <Button
+            key={category.id}
+            variant={context === 'favorite' ? 'default' : 'secondary'}
+            size="sm"
+            onClick={() => loadChildren(category.id)}
+            disabled={isLoading}
+            className="group relative"
+        >
+            {category.name}
+             <button 
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(category); }} 
+                className={cn(
+                    "ml-2 rounded-full p-1 transition-colors",
+                    isFavorite ? "text-yellow-400 hover:bg-yellow-500/20" : "text-muted-foreground/50 group-hover:text-muted-foreground group-hover:bg-muted-foreground/10"
+                )}
+            >
+                <Star className={cn("h-4 w-4", isFavorite && "fill-current")} />
+            </button>
+        </Button>
+    );
+  }
+
   return (
     <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
       <div>
@@ -248,6 +297,27 @@ export default function BuscarCategoriaMercadoLivrePage() {
           )}
         </CardContent>
       </Card>
+      
+      {favoriteCats.length > 0 && (
+         <Card>
+            <CardHeader className="py-3">
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
+                        Categorias Favoritas
+                    </CardTitle>
+                     <Button onClick={() => runAutomation(favoriteCats, true)} disabled={isAutomating}>
+                        <Bot className="mr-2 h-4 w-4" />
+                        Analisar Favoritas
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+                {favoriteCats.map(c => renderCategoryButton(c, 'favorite'))}
+            </CardContent>
+        </Card>
+      )}
+
 
       {isLoading && rootCats.length === 0 ? (
         <div className="flex justify-center items-center h-48">
@@ -260,17 +330,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
             <CardDescription>Escolha uma categoria para refinar sua busca</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            {rootCats.map(c => (
-              <Button
-                key={c.id}
-                variant={'secondary'}
-                size="sm"
-                onClick={() => loadChildren(c.id)}
-                disabled={isLoading}
-              >
-                {c.name}
-              </Button>
-            ))}
+            {rootCats.map(c => renderCategoryButton(c, 'root'))}
           </CardContent>
         </Card>
       ) : null}
@@ -295,7 +355,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                         <CardTitle className="text-base">Subcategorias</CardTitle>
                         <CardDescription>Refine sua busca ou analise todas abaixo.</CardDescription>
                     </div>
-                     <Button onClick={runAutomation} disabled={isAutomating || childCats.length === 0}>
+                     <Button onClick={() => runAutomation(childCats)} disabled={isAutomating || childCats.length === 0}>
                         {isAutomating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
                         Analisar Subcategorias
                     </Button>
@@ -307,11 +367,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
                       <Loader2 className="animate-spin text-primary"/>
                     </div>
                   ) : childCats.length > 0 ? (
-                    childCats.map(c => (
-                      <Button key={c.id} variant="outline" size="sm" onClick={() => loadChildren(c.id)}>
-                        {c.name}
-                      </Button>
-                    ))
+                    childCats.map(c => renderCategoryButton(c, 'child'))
                   ) : (
                     <p className="text-sm text-muted-foreground">Nenhuma subcategoria encontrada.</p>
                   )}
@@ -427,16 +483,16 @@ export default function BuscarCategoriaMercadoLivrePage() {
       )}
 
         {automationResults.length > 0 && (
-            <Card>
+             <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div>
                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
                                 <Sparkles className="text-primary"/>
-                                Análise Automatizada de Subcategorias
+                                Análise Automatizada de Categorias
                             </CardTitle>
                             <CardDescription>
-                                Resultados da busca por tendências e mais vendidos em todas as subcategorias de "{ancestors[ancestors.length - 1]?.name}".
+                                Resultados da busca por tendências e mais vendidos.
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-4 text-sm font-medium whitespace-nowrap">
