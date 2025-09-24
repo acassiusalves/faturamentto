@@ -51,13 +51,12 @@ const initPDFjs = async () => {
 
 
 const trendQueryFor = (p: SearchableProduct) => {
-  const q =
-    (p.refinedQuery?.trim() ||
-     p.description?.trim() ||
-     p.name?.trim() ||
-     "").trim();
-
-  return q;
+    // Prioriza o termo refinado pela IA, senão usa uma combinação mais limpa
+    const q =
+      p.refinedQuery?.trim() ||
+      buildSearchQuery({ name: p.name, model: p.model }).trim() ||
+      '';
+    return q;
 };
 
 export default function CatalogoPdfPage() {
