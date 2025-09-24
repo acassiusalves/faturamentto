@@ -265,39 +265,36 @@ export default function CatalogoPdfPage() {
     
     // Effect para processar tendências
     useEffect(() => {
-      if (trendingState.trendingProducts) {
-        // Constrói o mapa independente do formato
-        const trendingMap = normalizeTrendingPayload(
-          trendingState.trendingProducts,
-          allProducts,
-          productTrendKey // já normaliza internamente
-        );
-
-        // Aplica no grid
-        setAllProducts(prev =>
-          prev.map(prod => {
-            const key = productTrendKey(prod);
-            const matched = trendingMap.get(key) ?? [];
-            return {
-              ...prod,
-              isTrending: matched.length > 0,
-              matchedKeywords: matched,
-            };
-          })
-        );
-
-        console.debug('[Trends] trendingMap (keys):', Array.from(trendingMap.keys()));
-      }
-
-      if (trendingState.error) {
-        console.error('Erro ao buscar tendências:', trendingState.error);
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao Verificar Tendências',
-          description: trendingState.error,
-        });
-      }
-    }, [trendingState, toast, allProducts]);
+        if (trendingState.trendingProducts) {
+            // Constrói o mapa independente do formato
+            const trendingMap = normalizeTrendingPayload(
+                trendingState.trendingProducts,
+                allProducts,
+                productTrendKey
+            );
+    
+            // Aplica no grid
+            setAllProducts(prev =>
+                prev.map(prod => {
+                    const key = productTrendKey(prod);
+                    const matched = trendingMap.get(key) ?? [];
+                    return {
+                        ...prod,
+                        isTrending: matched.length > 0,
+                        matchedKeywords: matched,
+                    };
+                })
+            );
+        }
+    
+        if (trendingState.error) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Verificar Tendências',
+                description: trendingState.error,
+            });
+        }
+    }, [trendingState, toast]);
 
     // Effect para analisar próxima página automaticamente
     useEffect(() => {
@@ -865,5 +862,6 @@ export default function CatalogoPdfPage() {
     
 
     
+
 
 
