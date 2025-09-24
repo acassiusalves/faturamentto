@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChevronRight, Home, ShoppingCart, Bot, Sparkles, Save, Star } from 'lucide-react';
-import type { MLCategory, SavedMlAnalysis } from '@/lib/types';
+import type { MLCategory, SavedMlAnalysis, Trend } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ import { saveMlAnalysis, loadAppSettings, saveAppSettings } from '@/services/fir
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TrendingUp, FileText } from 'lucide-react';
+import { generateEmbedding } from '@/ai/flows/generate-embedding-flow';
 
 
 // Interface para os itens mais vendidos
@@ -31,7 +32,7 @@ interface BestSellerItem {
 
 interface AutomatedResult {
     category: MLCategory;
-    trends: { keyword: string }[];
+    trends: Trend[];
     bestsellers: BestSellerItem[];
     parentCategoryName?: string;
 }
@@ -45,7 +46,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [trends, setTrends] = useState<{ keyword: string }[]>([]);
+  const [trends, setTrends] = useState<Trend[]>([]);
   const [isLoadingTrends, setIsLoadingTrends] = useState(false);
   const [bestSellers, setBestSellers] = useState<BestSellerItem[]>([]);
   const [isLoadingBestSellers, setIsLoadingBestSellers] = useState(false);
@@ -114,7 +115,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
     }
   }
   
-  async function fetchCategoryData(catId: string): Promise<{ trends: { keyword: string }[], bestsellers: BestSellerItem[], children: MLCategory[] }> {
+  async function fetchCategoryData(catId: string): Promise<{ trends: Trend[], bestsellers: BestSellerItem[], children: MLCategory[] }> {
     const [trendsResponse, bestsellersResponse, childrenResponse] = await Promise.all([
         fetch(`/api/ml/trends?category=${catId}&climb=1`),
         fetch(`/api/ml/bestsellers?category=${catId}&limit=24`),
@@ -202,17 +203,27 @@ export default function BuscarCategoriaMercadoLivrePage() {
       const { subCat, parentName } = allSubCatsToProcess[i];
       try {
         setCurrentAutomationTask(`Analisando: ${subCat.name}`);
-        // Aqui, fetchCategoryData é chamado novamente, mas focamos nos trends e bestsellers
-        const { trends, bestsellers } = await fetchCategoryData(subCat.id);
         
-        setAutomationResults(prev => [...prev, { category: subCat, trends, bestsellers, parentCategoryName: parentName }]);
+        const { trends, bestsellers } = await fetchCategoryData(subCat.id);
+        let trendsWithEmbeddings: Trend[] = [];
+
+        if (trends.length > 0) {
+            const trendKeywords = trends.map(t => t.keyword);
+            const embeddingResult = await generateEmbedding({ texts: trendKeywords });
+            trendsWithEmbeddings = trends.map((trend, index) => ({
+                ...trend,
+                embedding: embeddingResult.embeddings[index]
+            }));
+        }
+        
+        setAutomationResults(prev => [...prev, { category: subCat, trends: trendsWithEmbeddings, bestsellers, parentCategoryName: parentName }]);
       } catch (e) {
         console.error(`Falha ao buscar dados para ${subCat.name}:`, e);
         setAutomationResults(prev => [...prev, { category: subCat, trends: [], bestsellers: [], parentCategoryName: parentName }]);
       }
 
       setAutomationProgress(((i + 1) / Math.max(totalSteps, 1)) * 100);
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500)); // Rate limiting
     }
 
     setCurrentAutomationTask("Análise concluída!");
@@ -251,25 +262,39 @@ export default function BuscarCategoriaMercadoLivrePage() {
 
         setIsSaving(true);
         try {
-            // Se for análise de favoritos, não há categoria principal única, podemos usar um ID genérico.
-            const mainCategoryId = selectedCat || 'favorites-analysis';
-            const mainCategoryName = ancestors.length > 0 ? ancestors[ancestors.length - 1]?.name : "Análise de Favoritos";
+            // Group results by main category to save as separate documents
+            const resultsByMainCategory = new Map<string, Omit<SavedMlAnalysis, 'id'>>();
 
-            const dataToSave: Omit<SavedMlAnalysis, 'id'> = {
-                createdAt: new Date().toISOString(),
-                mainCategoryId: mainCategoryId,
-                mainCategoryName: mainCategoryName,
-                results: automationResults.map(r => ({
+            automationResults.forEach(r => {
+                const mainCategoryName = r.parentCategoryName || r.category.name;
+                const mainCategoryId = ancestors.find(anc => anc.name === mainCategoryName)?.id || r.category.id;
+
+                if (!resultsByMainCategory.has(mainCategoryId)) {
+                    resultsByMainCategory.set(mainCategoryId, {
+                        createdAt: new Date().toISOString(),
+                        mainCategoryId: mainCategoryId,
+                        mainCategoryName: mainCategoryName,
+                        results: [],
+                    });
+                }
+                
+                resultsByMainCategory.get(mainCategoryId)!.results.push({
                     category: r.category,
                     trends: r.trends,
                     bestsellers: r.bestsellers,
-                })),
-            };
-            await saveMlAnalysis(dataToSave);
-            toast({
-                title: 'Análise Salva!',
-                description: 'Você pode consultar os dados na página de Arquivo -> Dados Mercado Livre.',
+                });
             });
+
+            // Save each group as a separate analysis document
+            for (const analysis of resultsByMainCategory.values()) {
+                 await saveMlAnalysis(analysis);
+            }
+
+            toast({
+                title: 'Análise(s) Salva(s)!',
+                description: `Você pode consultar os dados na página de Arquivo -> Dados Mercado Livre.`,
+            });
+
         } catch (error) {
             console.error('Failed to save analysis:', error);
             toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar a análise.' });
@@ -605,3 +630,5 @@ export default function BuscarCategoriaMercadoLivrePage() {
     </main>
   );
 }
+
+    

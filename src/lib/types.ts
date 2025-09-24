@@ -522,6 +522,11 @@ export interface MLCategory {
   name: string;
 }
 
+export interface Trend {
+    keyword: string;
+    embedding?: number[];
+}
+
 export interface BestSellerItem {
   id: string;
   position: number | null;
@@ -534,7 +539,7 @@ export interface BestSellerItem {
 
 export interface MlAnalysisResult {
     category: MLCategory;
-    trends: { keyword: string }[];
+    trends: Trend[];
     bestsellers: BestSellerItem[];
 }
 
@@ -545,3 +550,5 @@ export interface SavedMlAnalysis {
   mainCategoryId: string;
   results: MlAnalysisResult[];
 }
+
+    

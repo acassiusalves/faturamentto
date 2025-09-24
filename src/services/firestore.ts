@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -497,7 +497,7 @@ export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
 }
 
 
-export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string }[]> {
+export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string; }[]> {
   const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
   const snapshot = await getDocs(query(salesCol));
   return snapshot.docs.map(doc => {
@@ -822,12 +822,13 @@ export const loadInitialStockForToday = async (): Promise<number> => {
 
 // --- ML ANALYSIS ---
 export const saveMlAnalysis = async (analysis: Omit<SavedMlAnalysis, 'id'>): Promise<void> => {
-  const docId = analysis.mainCategoryId;
-  if (!docId) {
-      throw new Error("mainCategoryId é obrigatório para salvar a análise.");
-  }
+  const mainCategoryName = analysis.mainCategoryName.replace(/\//g, '-');
+  const date = new Date().toISOString().split('T')[0];
+  const docId = `${mainCategoryName}-${date}`;
+
   const analysisRef = doc(db, 'ml-analysis', docId);
-  const dataToSave = { ...analysis, id: docId };
+  const dataToSave: SavedMlAnalysis = { ...analysis, id: docId };
+  
   await setDoc(analysisRef, toFirestore(dataToSave), { merge: true });
 };
 
@@ -843,6 +844,32 @@ export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
   const docRef = doc(db, 'ml-analysis', analysisId);
   await deleteDoc(docRef);
 };
+
+export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
+  try {
+    const analyses = await loadMlAnalyses();
+    if (analyses.length === 0) {
+      return [];
+    }
+    
+    const allTrends = new Set<Trend>();
+    
+    analyses.forEach(analysis => {
+      analysis.results.forEach(result => {
+        result.trends.forEach(trend => {
+          if (trend.keyword && trend.keyword.trim() && trend.embedding) {
+            allTrends.add(trend);
+          }
+        });
+      });
+    });
+    
+    return Array.from(allTrends);
+  } catch (error) {
+    console.error('Erro ao carregar embeddings de tendências:', error);
+    return [];
+  }
+}
 
 // --- Permanent Entry Log ---
 export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Promise<EntryLog[]> => {
@@ -911,3 +938,6 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
+
+
+    
