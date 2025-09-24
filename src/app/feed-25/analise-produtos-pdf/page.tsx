@@ -50,7 +50,13 @@ const initPDFjs = async () => {
 };
 
 
-const norm = (s?: string | null) => (s ?? '').trim().toLowerCase();
+const stripAccents = (s: string) =>
+  s.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+const norm = (s?: string | null) => {
+  const t = (s ?? '').trim().toLowerCase();
+  return stripAccents(t);
+};
 
 // Normaliza qualquer payload de "tendências" para um Map<queryNormalizada, string[] de keywords>
 const normalizeTrendingPayload = (
@@ -61,47 +67,78 @@ const normalizeTrendingPayload = (
   const map = new Map<string, string[]>();
   if (!payload) return map;
 
-  // Caso 1: payload já seja array
+  // Helper p/ extrair possível "chave" do item retornado
+  const extractItemKey = (item: any) =>
+    norm(
+      item?.query ??
+      item?.productName ??
+      item?.name ??
+      item?.term ??
+      item?.keyword ??
+      item?.key ??
+      item?.queryText ??
+      item?.q
+    );
+
+  // Helper p/ extrair lista de keywords do item
+  const extractItemKeywords = (item: any): string[] => {
+    const kws =
+      item?.matchedKeywords ??
+      item?.keywords ??
+      item?.matches ??
+      item?.terms ??
+      item?.trending ??
+      item?.keys ??
+      [];
+    return Array.isArray(kws) ? kws.map(norm) : [];
+  };
+
+  // Caso 1: array
   if (Array.isArray(payload)) {
-    // a) Array de objetos com { query | productName, matchedKeywords | keywords | matches }
-    let hasObjectsWithKeys = false;
+    let keyed = false;
+
     for (const item of payload) {
-      if (item && (item.query || item.productName)) {
-        hasObjectsWithKeys = true;
-        const k = norm(item.query) || norm(item.productName);
-        const kws = item.matchedKeywords ?? item.keywords ?? item.matches ?? [];
-        map.set(k, Array.isArray(kws) ? kws : []);
+      if (item && typeof item === 'object') {
+        const k = extractItemKey(item);
+        const kws = extractItemKeywords(item);
+        if (k) {
+          map.set(k, kws);
+          keyed = true;
+        }
       }
     }
-    if (hasObjectsWithKeys) return map;
 
-    // b) Array de strings (keywords soltas). Fazemos um "best effort":
-    //    para cada produto, se a query contém alguma keyword, marcamos.
-    const keywords = payload.filter(x => typeof x === 'string').map(norm);
+    if (keyed) return map;
+
+    // Sem chave → pode ser array de strings (keywords soltas)
+    const keywords = payload.filter((x) => typeof x === 'string').map(norm);
     if (keywords.length) {
+      // Fallback: marca “em alta” se a query do produto contiver alguma keyword
       for (const p of products) {
-        const key = keyForProduct(p); // já vem normalizado
-        const hits: string[] = [];
-        for (const kw of keywords) {
-          if (kw && key.includes(kw)) hits.push(kw);
-        }
+        const key = keyForProduct(p);
+        const hits = keywords.filter((kw) => kw && key.includes(kw));
         if (hits.length) map.set(key, hits);
       }
       return map;
     }
   }
 
-  // Caso 2: payload seja um objeto tipo { [query]: string[] }
+  // Caso 2: objeto simples { [query]: string[] }
   if (payload && typeof payload === 'object') {
     for (const [k, v] of Object.entries(payload)) {
-      if (typeof k === 'string' && Array.isArray(v)) {
-        map.set(norm(k), v as string[]);
+      if (typeof k === 'string') {
+        if (Array.isArray(v)) map.set(norm(k), v.map(norm));
+        else if (v && typeof v === 'object') {
+          // também aceita { [query]: { keywords:[...] } }
+          const kws = extractItemKeywords(v);
+          map.set(norm(k), kws);
+        }
       }
     }
     if (map.size) return map;
   }
 
-  return map; // vazio se não conseguiu interpretar
+  return map;
 };
 
 // Extrai "trendingProducts" independentemente do envelope que a action usar
@@ -109,10 +146,18 @@ const extractTrendingArray = (raw: any) => {
   if (!raw) return null;
   if (Array.isArray(raw)) return raw;
 
-  // Tenta encontrar nos campos mais comuns
+  // caminhos comuns
   if (Array.isArray(raw.trendingProducts)) return raw.trendingProducts;
-  if (raw.result && Array.isArray(raw.result.trendingProducts)) return raw.result.trendingProducts;
-  if (raw.result && Array.isArray(raw.result)) return raw.result;
+  if (Array.isArray(raw.trends)) return raw.trends;
+  if (Array.isArray(raw.matches)) return raw.matches;
+  if (Array.isArray(raw.data)) return raw.data;
+
+  if (raw.result) {
+    if (Array.isArray(raw.result.trendingProducts)) return raw.result.trendingProducts;
+    if (Array.isArray(raw.result.trends)) return raw.result.trends;
+    if (Array.isArray(raw.result.matches)) return raw.result.matches;
+    if (Array.isArray(raw.result)) return raw.result;
+  }
 
   return null;
 };
@@ -263,37 +308,59 @@ export default function CatalogoPdfPage() {
         }
     }, [analyzeState, brand, toast, pdfDoc, isAnalyzingAll, currentPage]);
     
-    // Effect para processar tendências
+    // useEffect das tendências com fallback de inclusão caso o mapa venha vazio
     useEffect(() => {
-        if (trendingState.trendingProducts) {
-            // Constrói o mapa independente do formato
-            const trendingMap = normalizeTrendingPayload(
-                trendingState.trendingProducts,
-                allProducts,
-                productTrendKey
-            );
-    
-            // Aplica no grid
-            setAllProducts(prev =>
-                prev.map(prod => {
-                    const key = productTrendKey(prod);
-                    const matched = trendingMap.get(key) ?? [];
-                    return {
-                        ...prod,
-                        isTrending: matched.length > 0,
-                        matchedKeywords: matched,
-                    };
-                })
-            );
-        }
-    
+        if (!trendingState.trendingProducts && !trendingState.error) return;
+
         if (trendingState.error) {
             toast({
-                variant: 'destructive',
-                title: 'Erro ao Verificar Tendências',
-                description: trendingState.error,
+            variant: 'destructive',
+            title: 'Erro ao Verificar Tendências',
+            description: trendingState.error,
             });
+            return;
         }
+
+        // 1) Mapa direto pelo payload
+        const trendingMap = normalizeTrendingPayload(
+            trendingState.trendingProducts,
+            allProducts,
+            productTrendKey
+        );
+
+        // 2) Se não veio nada “chaveado”, tenta um fallback por inclusão:
+        //    pega todas as keywords do payload e marca se aparecer na query do produto.
+        let globalKeywords: string[] = [];
+        const arr = Array.isArray(trendingState.trendingProducts) ? trendingState.trendingProducts : [];
+        for (const item of arr) {
+            if (typeof item === 'string') globalKeywords.push(norm(item));
+            else if (item && typeof item === 'object') {
+            const kws =
+                item.matchedKeywords ??
+                item.keywords ??
+                item.matches ??
+                item.terms ??
+                item.trending ??
+                item.keys ??
+                [];
+            if (Array.isArray(kws)) globalKeywords.push(...kws.map(norm));
+            }
+        }
+        globalKeywords = Array.from(new Set(globalKeywords.filter(Boolean)));
+
+        setAllProducts(prev =>
+            prev.map(prod => {
+            const key = productTrendKey(prod);
+            const direct = trendingMap.get(key) ?? [];
+            const inclusion = globalKeywords.filter(kw => kw && key.includes(kw));
+            const matched = direct.length ? direct : inclusion;
+            return {
+                ...prod,
+                isTrending: matched.length > 0,
+                matchedKeywords: matched,
+            };
+            })
+        );
     }, [trendingState, toast]);
 
     // Effect para analisar próxima página automaticamente
@@ -372,43 +439,45 @@ export default function CatalogoPdfPage() {
     };
     
     const handleCheckTrends = () => {
-      const queries = allProducts
-        .map(trendQueryFor)
-        .map(q => q?.trim())
-        .filter(q => !!q && q.length > 0) as string[];
+        const queries = allProducts
+            .map(trendQueryFor)
+            .map(q => q?.trim())
+            .filter(q => !!q && q.length > 0) as string[];
 
-      if (queries.length === 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Nenhum produto extraído',
-          description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
-        });
-        return;
-      }
-
-      startTrendingTransition(async () => {
-        try {
-          const trendFormData = new FormData();
-          trendFormData.append('productNames', JSON.stringify(queries));
-
-          const raw = await findTrendingProductsAction(trendingState, trendFormData);
-
-          // Normaliza o estado aqui para sempre ter { trendingProducts, error }
-          const trendingProducts = extractTrendingArray(raw);
-          const error = raw?.error ?? null;
-
-          setTrendingState({ trendingProducts, error });
-
-          // Logs úteis (pode remover depois)
-          console.debug('[Trends] payload bruto:', raw);
-          console.debug('[Trends] array normalizado:', trendingProducts);
-        } catch (error) {
-          setTrendingState({
-            trendingProducts: null,
-            error: 'Erro ao verificar tendências'
-          });
+        if (queries.length === 0) {
+            toast({
+            variant: 'destructive',
+            title: 'Nenhum produto extraído',
+            description: 'Analise uma página primeiro para extrair produtos antes de verificar as tendências.',
+            });
+            return;
         }
-      });
+
+        startTrendingTransition(async () => {
+            try {
+            const trendFormData = new FormData();
+            const payload = JSON.stringify(queries);
+
+            // Envie com vários nomes para garantir compatibilidade:
+            trendFormData.append('productNames', payload);
+            trendFormData.append('queries', payload);
+            trendFormData.append('keywords', payload);
+            trendFormData.append('terms', payload);
+
+            const raw = await findTrendingProductsAction(trendingState, trendFormData);
+
+            const trendingProducts = extractTrendingArray(raw);
+            const error = raw?.error ?? null;
+
+            setTrendingState({ trendingProducts, error });
+
+            } catch (error) {
+            setTrendingState({
+                trendingProducts: null,
+                error: 'Erro ao verificar tendências'
+            });
+            }
+        });
     };
 
     const handleCopyToClipboard = (text: string) => {
@@ -862,6 +931,7 @@ export default function CatalogoPdfPage() {
     
 
     
+
 
 
 
