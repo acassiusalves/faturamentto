@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -559,32 +560,34 @@ export default function CatalogoPdfPage() {
                                                           </p>
                                                           <p className="text-xs text-muted-foreground">{product.description}</p>
                                                         </div>
-                                                        {product.isTrending && (
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger>
-                                                                        <div className="flex items-center gap-2 text-green-600 font-semibold text-sm whitespace-nowrap cursor-pointer">
-                                                                            em alta <TrendingUp className="h-5 w-5" />
-                                                                        </div>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        <p className="font-semibold">Buscas no Mercado Livre</p>
-                                                                        <ul className="list-disc list-inside">
-                                                                            {trendingKeywords.map(kw => <li key={kw}>{kw}</li>)}
-                                                                        </ul>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        )}
                                                       </div>
                                                     </TableCell>
                                                     <TableCell className="align-top max-w-[480px]">
-                                                        <div
-                                                            className="px-2 py-1 rounded-md border bg-muted/40 text-sm leading-tight whitespace-normal break-words w-full cursor-pointer hover:bg-muted"
-                                                            title="Clique para copiar"
-                                                            onClick={() => handleCopyToClipboard(product.model || '')}
-                                                            >
-                                                            {product.model || '—'}
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <div
+                                                                className="px-2 py-1 rounded-md border bg-muted/40 text-sm leading-tight whitespace-normal break-words w-full cursor-pointer hover:bg-muted"
+                                                                title="Clique para copiar"
+                                                                onClick={() => handleCopyToClipboard(product.model || '')}
+                                                                >
+                                                                {product.model || '—'}
+                                                            </div>
+                                                            {product.isTrending && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger>
+                                                                            <div className="flex items-center gap-2 text-green-600 font-semibold text-xs whitespace-nowrap cursor-pointer">
+                                                                                em alta <TrendingUp className="h-4 w-4" />
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p className="font-semibold">Buscas no Mercado Livre</p>
+                                                                            <ul className="list-disc list-inside">
+                                                                                {trendingKeywords.map(kw => <li key={kw}>{kw}</li>)}
+                                                                            </ul>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
                                                         </div>
                                                     </TableCell>
                                                      <TableCell>
