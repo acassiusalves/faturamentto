@@ -33,6 +33,7 @@ interface AutomatedResult {
     category: MLCategory;
     trends: { keyword: string }[];
     bestsellers: BestSellerItem[];
+    parentCategoryName?: string;
 }
 
 
@@ -113,21 +114,25 @@ export default function BuscarCategoriaMercadoLivrePage() {
     }
   }
   
-  async function fetchCategoryData(catId: string): Promise<{ trends: { keyword: string }[], bestsellers: BestSellerItem[] }> {
-    const [trendsResponse, bestsellersResponse] = await Promise.all([
+  async function fetchCategoryData(catId: string): Promise<{ trends: { keyword: string }[], bestsellers: BestSellerItem[], children: MLCategory[] }> {
+    const [trendsResponse, bestsellersResponse, childrenResponse] = await Promise.all([
         fetch(`/api/ml/trends?category=${catId}&climb=1`),
-        fetch(`/api/ml/bestsellers?category=${catId}&limit=24`)
+        fetch(`/api/ml/bestsellers?category=${catId}&limit=24`),
+        fetch(`/api/ml/categories?parent=${catId}`)
     ]);
 
     const trendsData = await trendsResponse.json();
     const bestsellersData = await bestsellersResponse.json();
+    const childrenData = await childrenResponse.json();
 
     if (!trendsResponse.ok) console.error(`Erro trends para ${catId}:`, trendsData.error);
     if (!bestsellersResponse.ok) console.error(`Erro bestsellers para ${catId}:`, bestsellersData.error);
+    if (!childrenResponse.ok) console.error(`Erro children para ${catId}:`, childrenData.error);
 
     return {
         trends: trendsData.trends || [],
-        bestsellers: bestsellersData.items || []
+        bestsellers: bestsellersData.items || [],
+        children: childrenData.categories || []
     };
 }
 
@@ -144,9 +149,16 @@ export default function BuscarCategoriaMercadoLivrePage() {
       setChildCats(data.categories || []);
       setAncestors(data.ancestors || []);
       
-      const { trends, bestsellers } = await fetchCategoryData(catId);
-      setTrends(trends);
-      setBestSellers(bestsellers);
+      // We only need trends and bestsellers for the *selected* category here, not its children yet
+      const [trendsResponse, bestsellersResponse] = await Promise.all([
+        fetch(`/api/ml/trends?category=${catId}&climb=1`),
+        fetch(`/api/ml/bestsellers?category=${catId}&limit=24`)
+      ]);
+      const trendsData = await trendsResponse.json();
+      const bestsellersData = await bestsellersResponse.json();
+      setTrends(trendsData.trends || []);
+      setBestSellers(bestsellersData.items || []);
+
 
     } catch (error: any) {
       console.error(`Failed to load children for ${catId}:`, error);
@@ -162,21 +174,41 @@ export default function BuscarCategoriaMercadoLivrePage() {
     setIsAutomating(true);
     setAutomationProgress(0);
     setAutomationResults([]);
-    setCurrentAutomationTask("Preparando análise…");
+    
+    let allSubCatsToProcess: { subCat: MLCategory, parentName: string }[] = [];
 
-    const mainCategoryName = isFavoriteAnalysis ? "Favoritas" : (ancestors[ancestors.length - 1]?.name || "Desconhecida");
+    // Se for análise de favoritos, busca as subcategorias de cada favorito
+    if (isFavoriteAnalysis) {
+        setCurrentAutomationTask("Buscando subcategorias das favoritas...");
+        for (const favCat of categoriesToProcess) {
+            try {
+                const { children } = await fetchCategoryData(favCat.id);
+                // Adiciona a própria categoria favorita + suas filhas na lista de processamento
+                allSubCatsToProcess.push({ subCat: favCat, parentName: favCat.name });
+                children.forEach(child => allSubCatsToProcess.push({ subCat: child, parentName: favCat.name }));
+            } catch (e) {
+                console.error(`Falha ao buscar subcategorias de ${favCat.name}:`, e);
+            }
+        }
+    } else {
+        // Se for análise de subcategorias normais
+        const parentName = ancestors[ancestors.length - 1]?.name || "Desconhecida";
+        allSubCatsToProcess = categoriesToProcess.map(subCat => ({ subCat, parentName }));
+    }
 
-    const totalSteps = categoriesToProcess.length;
+
+    const totalSteps = allSubCatsToProcess.length;
     for (let i = 0; i < totalSteps; i++) {
-      const subCat = categoriesToProcess[i];
+      const { subCat, parentName } = allSubCatsToProcess[i];
       try {
         setCurrentAutomationTask(`Analisando: ${subCat.name}`);
+        // Aqui, fetchCategoryData é chamado novamente, mas focamos nos trends e bestsellers
         const { trends, bestsellers } = await fetchCategoryData(subCat.id);
-
-        setAutomationResults(prev => [...prev, { category: subCat, trends, bestsellers }]);
+        
+        setAutomationResults(prev => [...prev, { category: subCat, trends, bestsellers, parentCategoryName: parentName }]);
       } catch (e) {
         console.error(`Falha ao buscar dados para ${subCat.name}:`, e);
-        setAutomationResults(prev => [...prev, { category: subCat, trends: [], bestsellers: [] }]);
+        setAutomationResults(prev => [...prev, { category: subCat, trends: [], bestsellers: [], parentCategoryName: parentName }]);
       }
 
       setAutomationProgress(((i + 1) / Math.max(totalSteps, 1)) * 100);
@@ -197,6 +229,19 @@ export default function BuscarCategoriaMercadoLivrePage() {
     
         return { totalTrends, totalBestsellers };
     }, [automationResults]);
+
+    const groupedAutomationResults = useMemo(() => {
+        const grouped = new Map<string, AutomatedResult[]>();
+        automationResults.forEach(res => {
+            const key = res.parentCategoryName || res.category.name;
+            if (!grouped.has(key)) {
+                grouped.set(key, []);
+            }
+            grouped.get(key)!.push(res);
+        });
+        return Array.from(grouped.entries());
+    }, [automationResults]);
+
 
     const handleSaveAnalysis = async () => {
         if (automationResults.length === 0) {
@@ -482,7 +527,7 @@ export default function BuscarCategoriaMercadoLivrePage() {
         </div>
       )}
 
-        {automationResults.length > 0 && (
+        {groupedAutomationResults.length > 0 && (
              <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
@@ -503,37 +548,40 @@ export default function BuscarCategoriaMercadoLivrePage() {
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" className="w-full space-y-4">
-                        {automationResults.map(({ category, trends, bestsellers }) => (
-                            <AccordionItem value={category.id} key={category.id} className="border-b-0">
+                        {groupedAutomationResults.map(([parentName, results]) => (
+                            <AccordionItem value={parentName} key={parentName} className="border-b-0">
                                 <Card>
-                                     <AccordionTrigger className="p-4 hover:no-underline font-semibold text-lg w-full justify-between">
-                                        {category.name}
-                                        <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-                                            <span>{trends.length} tendências</span>
-                                            <span>{bestsellers.length} mais vendidos</span>
-                                        </div>
+                                    <AccordionTrigger className="p-4 hover:no-underline font-semibold text-xl w-full justify-between">
+                                        {parentName}
                                     </AccordionTrigger>
-                                    <AccordionContent className="p-4 pt-0">
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            <div>
-                                                <h4 className="font-semibold mb-2 flex items-center gap-2"><TrendingUp/> Tendências</h4>
-                                                <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[50px]">
-                                                    {trends.length > 0 ? trends.map(t => <Badge key={t.keyword} variant="secondary">{t.keyword}</Badge>) : <p className="text-xs text-muted-foreground">Nenhuma tendência encontrada.</p>}
-                                                </div>
-                                            </div>
-                                             <div>
-                                                <h4 className="font-semibold mb-2 flex items-center gap-2"><ShoppingCart/> Mais Vendidos</h4>
-                                                <div className="space-y-2 p-2 border rounded-md max-h-80 overflow-y-auto">
-                                                    {bestsellers.length > 0 ? bestsellers.map(item => (
-                                                        <div key={item.id} className="flex items-center gap-2 text-sm">
-                                                            <span className="font-bold w-6 text-right">#{item.position}</span>
-                                                            <p className="flex-1 truncate" title={item.title}>{item.title}</p>
-                                                            <span className="font-semibold text-primary">{formatCurrency(item.price)}</span>
+                                    <AccordionContent className="p-4 pt-0 space-y-4">
+                                        {results.map(({ category, trends, bestsellers }) => (
+                                             <Card key={category.id} className="bg-muted/30">
+                                                <CardHeader className="pb-4">
+                                                    <CardTitle className="text-base">{category.name}</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <h4 className="font-semibold mb-2 flex items-center gap-2"><TrendingUp/> Tendências</h4>
+                                                        <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[50px] bg-background">
+                                                            {trends.length > 0 ? trends.map(t => <Badge key={t.keyword} variant="secondary">{t.keyword}</Badge>) : <p className="text-xs text-muted-foreground">Nenhuma tendência encontrada.</p>}
                                                         </div>
-                                                    )) : <p className="text-xs text-muted-foreground">Nenhum item encontrado.</p>}
-                                                </div>
-                                            </div>
-                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold mb-2 flex items-center gap-2"><ShoppingCart/> Mais Vendidos</h4>
+                                                        <div className="space-y-2 p-2 border rounded-md max-h-80 overflow-y-auto bg-background">
+                                                            {bestsellers.length > 0 ? bestsellers.map(item => (
+                                                                <div key={item.id} className="flex items-center gap-2 text-sm">
+                                                                    <span className="font-bold w-6 text-right">#{item.position}</span>
+                                                                    <p className="flex-1 truncate" title={item.title}>{item.title}</p>
+                                                                    <span className="font-semibold text-primary">{formatCurrency(item.price)}</span>
+                                                                </div>
+                                                            )) : <p className="text-xs text-muted-foreground">Nenhum item encontrado.</p>}
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                             </Card>
+                                        ))}
                                     </AccordionContent>
                                 </Card>
                             </AccordionItem>
