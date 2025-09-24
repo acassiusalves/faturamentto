@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings } from '@/services/firestore';
-import type { PurchaseList, PurchaseListItem } from '@/lib/types';
+import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings, loadEntryLogsByDate } from '@/services/firestore';
+import type { PurchaseList, PurchaseListItem, InventoryItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck } from 'lucide-react';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export function PurchaseHistory() {
     const [isSaving, setIsSaving] = useState(false);
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
     const [availableStores, setAvailableStores] = useState<string[]>([]);
+    const [entryLogsByDate, setEntryLogsByDate] = useState<Map<string, InventoryItem[]>>(new Map());
 
 
     const fetchHistory = useCallback(async () => {
@@ -42,6 +43,17 @@ export function PurchaseHistory() {
             loadPurchaseHistory(),
             loadAppSettings()
         ]);
+
+        const uniqueDates = Array.from(new Set(purchaseHistory.map(p => p.createdAt.split('T')[0])));
+        const entryLogsMap = new Map<string, InventoryItem[]>();
+
+        for (const date of uniqueDates) {
+            const logs = await loadEntryLogsByDate(new Date(date));
+            const cellularLogs = logs.filter(log => (log as any).category !== 'Geral');
+            entryLogsMap.set(date, cellularLogs);
+        }
+
+        setEntryLogsByDate(entryLogsMap);
         setHistory(purchaseHistory);
         if (settings?.stores) {
             setAvailableStores(settings.stores);
@@ -192,7 +204,7 @@ export function PurchaseHistory() {
             // Clean up tempId and isSplit before saving
             const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
-                const totalQuantity = (item.quantity || 0) + (item.surplus || 0);
+                const totalQuantity = (item.quantity || 0); // Surplus já está em quantity
                 return acc + (item.unitCost * totalQuantity);
             }, 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
@@ -248,10 +260,15 @@ export function PurchaseHistory() {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
                             const currentTotal = itemsToDisplay.reduce((acc, item) => {
-                                const totalQuantity = (item.quantity || 0) + (item.surplus || 0);
+                                const totalQuantity = item.quantity || 0;
                                 return acc + (item.unitCost * totalQuantity);
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
+                            
+                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + item.quantity, 0);
+                            const purchaseDateKey = purchase.createdAt.split('T')[0];
+                            const totalEntriesToday = entryLogsByDate.get(purchaseDateKey)?.length || 0;
+
 
                             return (
                                 <AccordionItem key={purchase.id} value={purchase.id} className="border rounded-lg">
@@ -263,6 +280,15 @@ export function PurchaseHistory() {
                                             </div>
                                         </AccordionTrigger>
                                         <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
+                                            <div className="text-sm font-semibold text-center">
+                                                <div className="flex items-center gap-2">
+                                                    <Package className="h-4 w-4 text-muted-foreground"/> Total em compras: <Badge variant="secondary">{totalPurchaseQuantity} unidades</Badge>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <PackageCheck className="h-4 w-4 text-muted-foreground"/> Total de entradas: <Badge variant={totalEntriesToday === totalPurchaseQuantity ? 'default' : 'destructive'} className={cn(totalEntriesToday === totalPurchaseQuantity && 'bg-green-600')}>{totalEntriesToday} unidades</Badge>
+                                                </div>
+                                            </div>
+
                                             <div className="flex items-center gap-2">
                                                  <Wallet className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
                                                 {isEditingThis ? (
@@ -384,7 +410,7 @@ export function PurchaseHistory() {
                                                                     formatCurrency(item.unitCost)
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * (item.quantity || 0))}</TableCell>
                                                              <TableCell className="text-center">
                                                                 {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
                                                                     <Switch
@@ -449,3 +475,5 @@ export function PurchaseHistory() {
         </Card>
     );
 }
+
+    

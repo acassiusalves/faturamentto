@@ -640,7 +640,12 @@ export const loadPurchaseHistory = async (): Promise<PurchaseList[]> => {
 
 export const updatePurchaseList = async (id: string, data: Partial<Omit<PurchaseList, 'id'>>): Promise<void> => {
     const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'purchase-history', id);
-    await updateDoc(docRef, data);
+    const dataToUpdate = { ...data };
+    // Recalcula o totalCost antes de salvar
+    if (data.items) {
+        dataToUpdate.totalCost = data.items.reduce((acc, item) => acc + (item.unitCost * item.quantity), 0);
+    }
+    await updateDoc(docRef, dataToUpdate);
 };
 
 export const deletePurchaseList = async (id: string): Promise<void> => {
@@ -841,7 +846,7 @@ export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
 };
 
 export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
-  const docRef = doc(db, 'ml-analysis', analysisId);
+  const docRef = doc(db, 'ml-analys-is', analysisId);
   await deleteDoc(docRef);
 };
 
@@ -884,6 +889,18 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
 };
+
+export const loadEntryLogsByDate = async (date: Date): Promise<EntryLog[]> => {
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
+    const q = query(
+        logCol, 
+        where('entryDate', '>=', startOfDay(date).toISOString()),
+        where('entryDate', '<=', endOfDay(date).toISOString())
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore(doc.data()) as EntryLog);
+};
+
 
 // --- TRENDS FOR CATALOG ---
 export async function loadAllTrendKeywords(): Promise<string[]> {
@@ -938,6 +955,8 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     return { count: updatedCount };
 };
 
+
+    
 
     
 
