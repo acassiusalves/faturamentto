@@ -848,23 +848,20 @@ export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
 export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
   try {
     const analyses = await loadMlAnalyses();
-    if (analyses.length === 0) {
-      return [];
-    }
-    
-    const allTrends = new Set<Trend>();
-    
-    analyses.forEach(analysis => {
-      analysis.results.forEach(result => {
-        result.trends.forEach(trend => {
-          if (trend.keyword && trend.keyword.trim() && trend.embedding) {
-            allTrends.add(trend);
+    if (!analyses) return [];
+
+    const trendMap = new Map<string, Trend>();
+
+    for (const analysis of analyses) {
+      for (const result of analysis.results) {
+        for (const trend of result.trends) {
+          if (trend.keyword && trend.embedding && !trendMap.has(trend.keyword)) {
+            trendMap.set(trend.keyword, trend);
           }
-        });
-      });
-    });
-    
-    return Array.from(allTrends);
+        }
+      }
+    }
+    return Array.from(trendMap.values());
   } catch (error) {
     console.error('Erro ao carregar embeddings de tendências:', error);
     return [];
