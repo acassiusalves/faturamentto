@@ -451,7 +451,7 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
 
     return { result, error: null };
   } catch (e: any) {
-    return { result, error: e.message || "Falha ao analisar o catálogo." };
+    return { result: null, error: e.message || "Falha ao analisar o catálogo." };
   }
 }
 

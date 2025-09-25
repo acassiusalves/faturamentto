@@ -342,6 +342,7 @@ export default function BuscarMercadoLivrePage() {
                                                         {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                     </Link>
                                                     <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
+                                                    <div className="text-xs text-muted-foreground mt-1">Categoria: {product.category_id}</div>
                                                     <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
                                                     <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
                                                     <div className="text-xs text-muted-foreground mt-1">
@@ -482,7 +483,3 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
-
-    
-
-    
