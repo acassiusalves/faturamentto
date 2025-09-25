@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -612,11 +613,12 @@ export default function EstoquePage() {
                                             <FormItem>
                                             <FormLabel>{attr.label}</FormLabel>
                                             {attr.key === 'modelo' ? (
-                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
+                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))} modal={false}>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
                                                     <Button
                                                         variant="outline"
+                                                        type="button"
                                                         role="combobox"
                                                         className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
                                                     >
@@ -625,20 +627,22 @@ export default function EstoquePage() {
                                                     </Button>
                                                     </FormControl>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999] pointer-events-auto" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
                                                     <Command>
                                                     <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                                    <CommandList>
+                                                    <CommandList className="pointer-events-auto">
                                                         <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
                                                         <CommandGroup>
                                                         {attr.values.map(val => (
                                                             <CommandItem
                                                             key={val}
                                                             value={val}
+                                                            onMouseDown={(e) => e.preventDefault()}
                                                             onSelect={() => {
                                                                 field.onChange(val);
                                                                 setOpenPopovers(prev => ({...prev, [attr.key]: false}));
                                                             }}
+                                                            className="cursor-pointer"
                                                             >
                                                             <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
                                                             {val}

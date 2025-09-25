@@ -80,11 +80,12 @@ export function MappingForm({ marketplaceId, sourceFields, systemFieldsToMap, in
               >
                   {field.label}
               </Label>
-               <Popover open={openPopovers[field.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [field.key]: isOpen }))}>
+               <Popover open={openPopovers[field.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({ ...prev, [field.key]: isOpen }))} modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
+                    type="button"
                     aria-expanded={openPopovers[field.key]}
                     className="w-full justify-between font-normal"
                      id={`mapping-${marketplaceId}-${field.key}`}
@@ -95,25 +96,26 @@ export function MappingForm({ marketplaceId, sourceFields, systemFieldsToMap, in
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="p-0" style={{width: 'var(--radix-popover-trigger-width)'}}>
+                <PopoverContent className="p-0 z-[9999] pointer-events-auto w-[var(--radix-popover-trigger-width)]" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
                   <Command>
                     <CommandInput placeholder="Buscar campo..." />
-                    <CommandList>
+                    <CommandList className="pointer-events-auto">
                       <CommandEmpty>Nenhum campo encontrado.</CommandEmpty>
                       <CommandGroup>
                         {sourceFields
                           .filter(h => !currentlyUsedSourceFields.has(h) || h === currentSelectionKey)
                           .map((sourceFieldKey) => {
                             const label = isIderisApi ? getIderisFieldLabel(sourceFieldKey) : sourceFieldKey;
-                            // The value for searching should contain both the label and the key
                             const searchValue = `${label} ${sourceFieldKey}`.toLowerCase();
                             return (
                               <CommandItem
                                 key={sourceFieldKey}
                                 value={searchValue}
+                                onMouseDown={(e) => e.preventDefault()}
                                 onSelect={() => {
                                   handleMappingChange(field.key as keyof ColumnMapping, sourceFieldKey);
                                 }}
+                                className="cursor-pointer"
                               >
                                 <Check
                                   className={cn(

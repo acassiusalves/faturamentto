@@ -54,10 +54,10 @@ export function MultiSelect({
 
   return (
     <div className={cn("w-full md:w-[260px]", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen} modal={false}>
         <PopoverTrigger asChild>
           <Button
-            type="button"               // <— impede submit acidental
+            type="button"
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -76,12 +76,12 @@ export function MultiSelect({
         <PopoverContent
           align="start"
           sideOffset={6}
-          className="z-50 w-[var(--radix-popover-trigger-width)] p-0"
-          onOpenAutoFocus={(e) => e.preventDefault()} // evita focar e fechar sem querer
+          className="z-[9999] w-[var(--radix-popover-trigger-width)] p-0 pointer-events-auto"
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command>
             <CommandInput placeholder="Filtrar..." />
-            <CommandList className="max-h-64 overflow-auto">
+            <CommandList className="max-h-64 overflow-auto pointer-events-auto">
               <CommandEmpty>{emptyText}</CommandEmpty>
               <CommandGroup>
                 {options.map((opt) => {
@@ -90,21 +90,12 @@ export function MultiSelect({
                     <CommandItem
                       key={opt.value}
                       className="gap-2 cursor-pointer"
-                      onSelect={(ev) => {
-                        // garante toggle via teclado e alguns browsers
-                        ev?.preventDefault?.();
-                        toggle(opt.value);
-                      }}
-                      onClick={(e) => {
-                        // garante toggle via mouse em todos os casos
-                        e.preventDefault();
-                        toggle(opt.value);
-                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onSelect={() => toggle(opt.value)}
                     >
                       <Checkbox
                         checked={checked}
-                        onCheckedChange={() => toggle(opt.value)}
-                        onClick={(e) => e.stopPropagation()} // não deixa o CommandItem engolir o clique
+                        className="pointer-events-none"
                       />
                       <span className="flex-1 truncate">{opt.label}</span>
                       {checked && <Check className="h-4 w-4" />}

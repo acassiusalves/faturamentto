@@ -660,11 +660,12 @@ export default function EstoquePage() {
                                     render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Nome do Produto</FormLabel>
-                                        <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen}>
+                                        <Popover open={isProductSelectorOpen} onOpenChange={setIsProductSelectorOpen} modal={false}>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
                                                         variant="outline"
+                                                        type="button"
                                                         role="combobox"
                                                         className={cn(
                                                             "w-full justify-between font-normal",
@@ -676,17 +677,19 @@ export default function EstoquePage() {
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999] pointer-events-auto" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
                                                 <Command>
-                                                    <CommandInput placeholder="Buscar produto..." autoFocus />
-                                                    <CommandList>
+                                                    <CommandInput placeholder="Buscar produto..." />
+                                                    <CommandList className="pointer-events-auto">
                                                         <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                         <CommandGroup>
                                                             {products.map((p) => (
                                                                 <CommandItem
                                                                     value={p.name}
                                                                     key={p.id}
+                                                                    onMouseDown={(e) => e.preventDefault()}
                                                                     onSelect={() => handleProductSelectionChange(p.id)}
+                                                                    className="cursor-pointer"
                                                                 >
                                                                     <Check
                                                                         className={cn("mr-2 h-4 w-4", p.id === field.value ? "opacity-100" : "opacity-0")}
