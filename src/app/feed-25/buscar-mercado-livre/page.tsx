@@ -52,6 +52,11 @@ interface ProductResult {
     seller_state_id?: string | null;
     seller_city?: string | null;
     seller_city_id?: string | null;
+    fees?: {
+      listing_fee_amount: number;
+      sale_fee_amount: number;
+      sale_fee_percent: number;
+    };
 }
 
 const initialSearchState = {
@@ -418,7 +423,21 @@ export default function BuscarMercadoLivrePage() {
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="font-semibold">{formatCurrency(product.price)}</TableCell>
+                                                <TableCell className="font-semibold">
+                                                  {formatCurrency(product.price)}
+                                                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                                    {product.fees ? (
+                                                      <>
+                                                        <div>Comissão (estimada): <b>{formatCurrency(product.fees.sale_fee_amount)}</b> ({(product.fees.sale_fee_percent * 100).toFixed(2)}%)</div>
+                                                        {product.fees.listing_fee_amount > 0 && (
+                                                          <div>Taxa fixa: {formatCurrency(product.fees.listing_fee_amount)}</div>
+                                                        )}
+                                                      </>
+                                                    ) : (
+                                                      <span className="opacity-60">—</span>
+                                                    )}
+                                                  </div>
+                                                </TableCell>
                                             </TableRow>
                                         )}) : (
                                             <TableRow>

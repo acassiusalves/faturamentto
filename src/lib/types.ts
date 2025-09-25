@@ -25,6 +25,12 @@ export interface Product {
   associatedSkus?: string[];
   averagePrice?: number;
   averagePriceUpdatedAt?: string;
+  // Adicionado para busca de custos no ML
+  fees?: {
+    listing_fee_amount: number;
+    sale_fee_amount: number;
+    sale_fee_percent: number;
+  };
 }
 
 export interface InventoryItem {

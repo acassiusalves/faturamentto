@@ -5,7 +5,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -108,6 +108,62 @@ async function fetchUsersAddress(
       })
     );
   }
+  return out;
+}
+
+async function fetchListingFees(opts: {
+  site?: string;
+  price: number;
+  categoryId?: string;
+  listingTypeId?: string;
+}): Promise<{ listing_fee_amount: number; sale_fee_amount: number; sale_fee_percent: number } | null> {
+  const site = opts.site ?? "MLB";
+  const base = `https://api.mercadolibre.com/sites/${site}/listing_prices` + (opts.listingTypeId ? `/${opts.listingTypeId}` : "");
+  const url = new URL(base);
+  url.searchParams.set("price", String(opts.price));
+  if (opts.categoryId) url.searchParams.set("category_id", opts.categoryId);
+
+  // 1) tenta sem token
+  let r = await fetch(url.toString(), { cache: "no-store", headers: { Accept: "application/json" } });
+  // 2) fallback com token
+  if (r.status === 401 || r.status === 403) {
+    const token = await getMlToken();
+    r = await fetch(url.toString(), {
+      cache: "no-store",
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    });
+  }
+  if (!r.ok) return null;
+
+  const data = await r.json();
+  // quando chamamos sem listingType, vem array; com listingType, pode vir 1 só
+  const row = Array.isArray(data)
+    ? (opts.listingTypeId ? data.find((d: any) => d?.listing_type_id === opts.listingTypeId) ?? data[0] : data[0])
+    : data;
+
+  if (!row) return null;
+
+  const sale = Number(row.sale_fee_amount ?? row.selling_fee_amount ?? 0);
+  const list = Number(row.listing_fee_amount ?? 0);
+  const price = Number(opts.price || 0);
+  return {
+    listing_fee_amount: list,
+    sale_fee_amount: sale,
+    sale_fee_percent: price > 0 ? sale / price : 0,
+  };
+}
+
+async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: number) => Promise<R>) {
+  const out: R[] = new Array(arr.length) as any;
+  let i = 0;
+  async function worker() {
+    while (i < arr.length) {
+      const idx = i++;
+      out[idx] = await fn(arr[idx], idx);
+    }
+  }
+  const workers = Array(Math.min(limit, arr.length)).fill(0).map(worker);
+  await Promise.all(workers);
   return out;
 }
 
@@ -239,7 +295,22 @@ export async function searchMercadoLivreAction(
         })
     );
     
-    return { result: enrichedResults, error: null };
+    const resultsWithFees = await mapWithConcurrency(enrichedResults, 8, async (p) => {
+        if (!p?.price || p.price <= 0 || !p?.category_id) return p;
+        try {
+          const fees = await fetchListingFees({
+            site: "MLB",
+            price: p.price,
+            categoryId: p.category_id,
+            listingTypeId: p.listing_type_id, // ex.: gold_pro / gold_special
+          });
+          return { ...p, fees: fees ?? undefined };
+        } catch {
+          return p;
+        }
+    });
+
+    return { result: resultsWithFees, error: null };
 
   } catch (e: any) {
     return { result: null, error: e?.message || "Falha inesperada" };
