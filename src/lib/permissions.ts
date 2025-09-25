@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker } from 'lucide-react';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -61,6 +61,7 @@ export const navLinks = [
         { href: "/feed-25/buscar-categoria-mercado-livre", label: "Buscar Categoria ML", icon: Search },
       ]
     },
+    { href: "/laboratorio", label: "Laboratório", icon: Beaker },
 ];
 
 export const settingsLinks = [
@@ -106,4 +107,5 @@ export const pagePermissions: Record<string, string[]> = {
     '/anuncios': ['admin', 'socio'],
     '/etiquetas': ['admin', 'socio'],
     '/login': [], // Public page, no roles required
+    '/laboratorio': ['admin', 'socio'],
 };
