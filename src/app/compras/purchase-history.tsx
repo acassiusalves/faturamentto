@@ -521,5 +521,3 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
         </Card>
     );
 }
-
-    
