@@ -159,7 +159,7 @@ export default function SettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Lock /> Permissões por Função</CardTitle>
-                    <CardDescription>Defina o que cada função pode ver e fazer no sistema. A função de Administrador sempre tem acesso a tudo.</CardDescription>
+                    <CardDescription>Defina o que cada função pode ver e fazer no sistema. As funções de Administrador e Sócio sempre têm acesso a tudo.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-auto">
@@ -177,15 +177,19 @@ export default function SettingsPage() {
                                 {Object.keys(permissions).filter(p => p !== '/login' && p !== '/perfil').map(page => (
                                     <TableRow key={page}>
                                         <TableCell className="font-medium">{page}</TableCell>
-                                        {availableRoles.map(role => (
-                                            <TableCell key={`${page}-${role.key}`} className="text-center">
-                                                <Checkbox
-                                                    checked={permissions[page]?.includes(role.key)}
-                                                    onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
-                                                    disabled={role.key === 'admin'}
-                                                />
-                                            </TableCell>
-                                        ))}
+                                        {availableRoles.map(role => {
+                                            const isSuperUser = role.key === 'admin' || role.key === 'socio';
+                                            const isChecked = isSuperUser || permissions[page]?.includes(role.key);
+                                            return (
+                                                <TableCell key={`${page}-${role.key}`} className="text-center">
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
+                                                        disabled={isSuperUser}
+                                                    />
+                                                </TableCell>
+                                            );
+                                        })}
                                         <TableCell className="text-center">
                                             <Switch
                                                 checked={!inactivePages.includes(page)}
