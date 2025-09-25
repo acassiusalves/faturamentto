@@ -3,27 +3,27 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft, RefreshCw, DollarSign, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
 import {
     analyzeFeedAction,
     saveAveragePricesAction,
 } from '@/app/actions';
-import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, ProductCategorySettings, Product } from '@/lib/types'
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, ProductCategorySettings, Product, PurchaseList, PurchaseListItem } from '@/lib/types'
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ProductTable } from '@/components/product-table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
 import { Progress } from '@/components/ui/progress';
-import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings, deleteFeedEntry } from '@/services/firestore';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings, deleteFeedEntry, savePurchaseList } from '@/services/firestore';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +48,7 @@ import { ProductCreationDialog } from '@/components/product-creation-dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PurchaseHistory } from './purchase-history';
+import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
 
 
 // Interface para a nova lista de exibição
