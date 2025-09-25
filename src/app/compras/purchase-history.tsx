@@ -279,7 +279,7 @@ export function PurchaseHistory() {
 
                             // (A) Total em compras -> vem da própria lista de compras
                             const totalPurchaseQuantity = purchase.items.reduce(
-                                (sum, item) => sum + (item.quantity || 0) + (item.surplus || 0), 0
+                                (sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0
                             );
 
                             // (B) Total de entradas -> vem dos logs de entrada do dia (Celular + Novo)
