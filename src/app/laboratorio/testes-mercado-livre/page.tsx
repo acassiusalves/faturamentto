@@ -7,16 +7,18 @@ import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, DollarSign, Percent } from 'lucide-react';
+import { Loader2, Search, DollarSign, Percent, Database } from 'lucide-react';
 import type { SaleCost, SaleCosts } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function TestesMercadoLivrePage() {
     const [listingId, setListingId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [costs, setCosts] = useState<SaleCosts | null>(null);
+    const [rawResponse, setRawResponse] = useState<any | null>(null); // State for the raw API response
     const { toast } = useToast();
 
     const handleFetchCosts = async () => {
@@ -27,6 +29,7 @@ export default function TestesMercadoLivrePage() {
 
         setIsLoading(true);
         setCosts(null);
+        setRawResponse(null); // Reset raw response on new search
 
         try {
             const response = await fetch('/api/ml/costs', {
@@ -36,6 +39,7 @@ export default function TestesMercadoLivrePage() {
             });
 
             const data = await response.json();
+            setRawResponse(data); // Store the full raw response
 
             if (!response.ok) {
                 throw new Error(data.error || 'Falha ao buscar custos');
@@ -116,7 +120,7 @@ export default function TestesMercadoLivrePage() {
                                             <TableCell>{formatCurrency(cost.price)}</TableCell>
                                             <TableCell>{formatCurrency(cost.shipping_cost)}</TableCell>
                                             <TableCell>
-                                                {formatCurrency(cost.sale_fee)} ({cost.sale_fee_rate}%)
+                                                {formatCurrency(cost.sale_fee)} ({cost.sale_fee_rate.toFixed(2)}%)
                                             </TableCell>
                                             <TableCell>{formatCurrency(cost.fixed_fee)}</TableCell>
                                             <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(cost.net_amount)}</TableCell>
@@ -125,6 +129,25 @@ export default function TestesMercadoLivrePage() {
                                 </TableBody>
                             </Table>
                          </div>
+                    </CardFooter>
+                )}
+                 {rawResponse && !isLoading && (
+                    <CardFooter>
+                        <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="raw-response">
+                                <AccordionTrigger>
+                                    <span className="flex items-center gap-2 font-semibold">
+                                        <Database className="h-4 w-4" />
+                                        Ver Resposta Bruta da API
+                                    </span>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <pre className="mt-2 p-4 text-xs bg-muted rounded-lg overflow-auto max-h-96">
+                                        <code>{JSON.stringify(rawResponse, null, 2)}</code>
+                                    </pre>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     </CardFooter>
                 )}
             </Card>
