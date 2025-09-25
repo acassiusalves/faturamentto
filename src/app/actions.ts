@@ -158,9 +158,9 @@ async function fetchListingFees(opts: {
   return {
     calculated: {
       listing_fee_amount: isFinite(list) ? list : 0,
-      sale_fee_amount:    isFinite(sale) ? sale : 0,
-      sale_fee_percent:   price > 0 && row.percentage_fee ? row.percentage_fee / 100 : (price > 0 ? sale / price : 0),
-      fee_total:          (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
+      sale_fee_amount: isFinite(sale) ? sale : 0,
+      sale_fee_percent: price > 0 && row.percentage_fee ? row.percentage_fee / 100 : (price > 0 ? sale / price : 0),
+      fee_total: (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
     },
     raw: data,
   };
@@ -305,7 +305,6 @@ export async function searchMercadoLivreAction(
                     delayed_rate: reputationData.metrics?.delayed_rate ?? 0,
                   }
                 },
-                raw_data: { catalog_product: p, winner_item: winner },
             };
         })
     );
@@ -323,10 +322,6 @@ export async function searchMercadoLivreAction(
           return { 
             ...p, 
             fees: feesResult?.calculated,
-            raw_data: {
-              ...p.raw_data,
-              fees_data: feesResult?.raw,
-            }
           };
         } catch {
           return p;

@@ -32,7 +32,6 @@ export interface Product {
     sale_fee_percent: number;
     fee_total?: number;
   };
-  raw_data?: any;
 }
 
 export interface InventoryItem {
@@ -621,5 +620,4 @@ export interface ProductResult {
       sale_fee_percent: number;
       fee_total?: number;
     };
-    raw_data?: any;
 }
