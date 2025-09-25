@@ -406,7 +406,7 @@ export default function BuscarMercadoLivrePage() {
                                                         </TooltipProvider>
                                                     )}
                                                     
-                                                    <div className="flex flex-col items-start gap-1 mt-1.5">
+                                                    <div className="flex flex-col items-start gap-2 mt-2">
                                                         <div className="flex items-center gap-1.5 text-sm font-semibold">
                                                             {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
                                                             {product.shipping_type === 'Correios' && <CorreiosLogo />}
@@ -418,25 +418,23 @@ export default function BuscarMercadoLivrePage() {
                                                             )}
                                                         </div>
                                                         
-                                                        {product.listing_type_id && (
-                                                            <Badge variant="outline" className="text-xs">{listingTypeMap[product.listing_type_id] || product.listing_type_id || ''}</Badge>
-                                                        )}
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                          {product.listing_type_id && (
+                                                            <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                          )}
+                                                          {product.fees && (
+                                                            <div className="text-muted-foreground">
+                                                              <span>Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b> ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)</span>
+                                                              {product.fees.listing_fee_amount > 0 && (
+                                                                <span className="ml-2"> | Taxa Fixa: {formatCurrency(product.fees.listing_fee_amount)}</span>
+                                                              )}
+                                                            </div>
+                                                          )}
+                                                        </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="font-semibold">
+                                                <TableCell className="font-semibold text-lg text-right align-top">
                                                   {formatCurrency(product.price)}
-                                                  <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                                    {product.fees ? (
-                                                      <>
-                                                        <div>Comissão (estimada): <b>{formatCurrency(product.fees.sale_fee_amount)}</b> ({(product.fees.sale_fee_percent * 100).toFixed(2)}%)</div>
-                                                        {product.fees.listing_fee_amount > 0 && (
-                                                          <div>Taxa fixa: {formatCurrency(product.fees.listing_fee_amount)}</div>
-                                                        )}
-                                                      </>
-                                                    ) : (
-                                                      <span className="opacity-60">—</span>
-                                                    )}
-                                                  </div>
                                                 </TableCell>
                                             </TableRow>
                                         )}) : (
