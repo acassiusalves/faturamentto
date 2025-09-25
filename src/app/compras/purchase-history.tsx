@@ -44,14 +44,24 @@ export function PurchaseHistory() {
             loadAppSettings()
         ]);
 
-        const uniqueDates = Array.from(new Set(purchaseHistory.map(p => p.createdAt.split('T')[0])));
+        // Constrói a chave de data SEM perder fuso (usa createdAt completo)
+        const uniqueDates = Array.from(
+          new Set(
+            purchaseHistory.map(p => format(new Date(p.createdAt), 'yyyy-MM-dd'))
+          )
+        );
         const entryLogsMap = new Map<string, InventoryItem[]>();
         
         // Helper para normalização, evitando problemas com `undefined` ou `null`
         const norm = (v: any) => String(v ?? '').trim().toLowerCase();
 
-        for (const date of uniqueDates) {
-            const logs = await loadEntryLogsByDateFromPermanentLog(new Date(date));
+        for (const dateKey of uniqueDates) {
+            // Gera um Date no meio do dia local para evitar “deriva” de UTC
+            const [y, m, d] = dateKey.split('-').map(n => parseInt(n, 10));
+            const midLocal = new Date(y, (m - 1), d, 12, 0, 0); // 12:00 local
+
+            // Busca tolerante (Timestamp ou string) no serviço
+            const logs = await loadEntryLogsByDateFromPermanentLog(midLocal);
             
             // CORREÇÃO: Usa o mesmo fallback da página Arquivo, assumindo 'Celular' quando a categoria não está presente.
             const cellularLogs = logs.filter((log: any) => {
@@ -59,7 +69,7 @@ export function PurchaseHistory() {
                 const cond = norm(log.condition);
                 return cat === 'celular' && cond === 'novo';
             });
-            entryLogsMap.set(date, cellularLogs);
+            entryLogsMap.set(dateKey, cellularLogs);
         }
 
         setEntryLogsByDate(entryLogsMap);
@@ -273,7 +283,8 @@ export function PurchaseHistory() {
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
                             
-                            const purchaseDateKey = purchase.createdAt.split('T')[0];
+                            // Mesma chave usada no mapa
+                            const purchaseDateKey = format(new Date(purchase.createdAt), 'yyyy-MM-dd');
 
                             // (A) Total em compras -> soma da própria lista (quantidade + excedente)
                             const totalPurchaseQuantity = purchase.items.reduce(

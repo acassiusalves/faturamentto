@@ -105,7 +105,8 @@ const logInventoryEntry = async (batch, item: InventoryItem): Promise<void> => {
       ...item,
       id: logDocRef.id,
       originalInventoryId: item.id, // ID do item original no inventário
-      entryDate: item.createdAt, // A data de criação do item de inventário é a data de entrada
+      // **Padroniza como Date/Timestamp**, independente se veio string
+      entryDate: item.createdAt ? new Date(item.createdAt) : new Date(),
       logType: 'INVENTORY_ENTRY',
     };
     batch.set(logDocRef, toFirestore(payload));
@@ -423,7 +424,7 @@ export const saveReturnLogs = async (
             ...itemToReenter,
             id: entryLogDocRef.id,
             originalInventoryId: itemToReenter.id,
-            entryDate: now.toISOString(),
+            entryDate: now, // salva como Timestamp
             logType: 'RETURN_ENTRY'
         };
         batch.set(entryLogDocRef, toFirestore(entryLog));
@@ -877,31 +878,69 @@ export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
 }
 
 // --- Permanent Entry Log ---
-export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Promise<EntryLog[]> => {
+export const loadEntryLogsFromPermanentLog = async (date?: Date): Promise<EntryLog[]> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
 
-    let q = query(logCol, orderBy('entryDate', 'desc'));
+    if (date) {
+        const start = startOfDay(date);
+        const end = endOfDay(date);
 
-    if (dateRange?.from) {
-        q = query(q, where('entryDate', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
-    }
-    if (dateRange?.to) {
-        q = query(q, where('entryDate', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
-    }
+        // 1) Query by Timestamp (new standard)
+        const qTimestamp = query(
+            logCol,
+            where('entryDate', '>=', Timestamp.fromDate(start)),
+            where('entryDate', '<=', Timestamp.fromDate(end))
+        );
+        let snapshot = await getDocs(qTimestamp);
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
+        // 2) Fallback: Query by ISO string (for older records)
+        if (snapshot.empty) {
+            const startIso = start.toISOString();
+            const endIso = end.toISOString();
+            const qString = query(
+                logCol,
+                where('entryDate', '>=', startIso),
+                where('entryDate', '<=', endIso)
+            );
+            snapshot = await getDocs(qString);
+        }
+        return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
+
+    } else {
+        // Load all if no date is provided
+        const q = query(logCol, orderBy('entryDate', 'desc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
+    }
 };
+
 
 export const loadEntryLogsByDateFromPermanentLog = async (date: Date): Promise<EntryLog[]> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
-    const q = query(
-        logCol, 
-        where('entryDate', '>=', Timestamp.fromDate(startOfDay(date))),
-        where('entryDate', '<=', Timestamp.fromDate(endOfDay(date)))
+    const start = startOfDay(date);
+    const end   = endOfDay(date);
+
+    // 1) TENTATIVA COM TIMESTAMP (padrão novo)
+    let q1 = query(
+      logCol,
+      where('entryDate', '>=', Timestamp.fromDate(start)),
+      where('entryDate', '<=', Timestamp.fromDate(end))
     );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => fromFirestore(doc.data()) as EntryLog);
+    let snap = await getDocs(q1);
+
+    // 2) FALLBACK: documentos antigos com entryDate como string ISO
+    if (snap.empty) {
+      const startIso = start.toISOString();
+      const endIso   = end.toISOString();
+      const q2 = query(
+        logCol,
+        where('entryDate', '>=', startIso),
+        where('entryDate', '<=', endIso)
+      );
+      snap = await getDocs(q2);
+    }
+
+    return snap.docs.map(d => fromFirestore({ ...d.data(), id: d.id }) as EntryLog);
 };
 
 
