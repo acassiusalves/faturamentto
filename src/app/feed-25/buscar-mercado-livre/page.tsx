@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -422,11 +423,25 @@ export default function BuscarMercadoLivrePage() {
                                                           {product.listing_type_id && (
                                                             <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
                                                           )}
+                                                        
                                                           {product.fees && (
-                                                            <div className="text-muted-foreground">
-                                                              <span>Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b> ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)</span>
-                                                              {product.fees.listing_fee_amount > 0 && (
-                                                                <span className="ml-2"> | Taxa Fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b></span>
+                                                            <div className="text-muted-foreground space-x-2">
+                                                              {/* Comissão sempre que houver */}
+                                                              {(product.fees.sale_fee_amount ?? 0) > 0 && (
+                                                                <span>
+                                                                  Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b>
+                                                                  {" "}
+                                                                  <span className="opacity-70">
+                                                                    ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)
+                                                                  </span>
+                                                                </span>
+                                                              )}
+                                                        
+                                                              {/* Tarifa fixa: só mostra se for > 0 */}
+                                                              {(product.fees.listing_fee_amount ?? 0) > 0 && (
+                                                                <span>
+                                                                  • Tarifa fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b>
+                                                                </span>
                                                               )}
                                                             </div>
                                                           )}

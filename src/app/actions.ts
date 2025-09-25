@@ -116,7 +116,7 @@ async function fetchListingFees(opts: {
   price: number;
   categoryId?: string;
   listingTypeId?: string;
-}): Promise<{ listing_fee_amount: number; sale_fee_amount: number; sale_fee_percent: number } | null> {
+}): Promise<{ listing_fee_amount: number; sale_fee_amount: number; sale_fee_percent: number; fee_total?: number } | null> {
   const site = opts.site ?? "MLB";
   const base = `https://api.mercadolibre.com/sites/${site}/listing_prices` + (opts.listingTypeId ? `/${opts.listingTypeId}` : "");
   const url = new URL(base);
@@ -143,18 +143,20 @@ async function fetchListingFees(opts: {
 
   if (!row) return null;
 
-  const sale = Number(row.sale_fee_amount ?? 0);
-  const list = Number(row.listing_fee_amount ?? 0);
+  // ⚠️ NÃO somar aqui. Mantemos campos separados.
+  const sale = Number(row?.sale_fee_amount ?? 0);
+  const list = Number(row?.listing_fee_amount ?? 0);
   const price = Number(opts.price || 0);
 
-  // A comissão total REAL é a soma da taxa de venda + a taxa fixa
-  // O percentual deve ser calculado sobre a taxa de venda (sale_fee_amount), não o total.
   return {
-    listing_fee_amount: list,
-    sale_fee_amount: sale,
-    sale_fee_percent: price > 0 ? sale / price : 0,
+    listing_fee_amount: isFinite(list) ? list : 0,
+    sale_fee_amount:    isFinite(sale) ? sale : 0,
+    sale_fee_percent:   price > 0 ? sale / price : 0,
+    // Opcional: total somente para quem precisar explicitamente
+    fee_total:          (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
   };
 }
+
 
 async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: number) => Promise<R>) {
   const out: R[] = new Array(arr.length) as any;
@@ -695,7 +697,7 @@ export async function updateSalesDeliveryTypeAction(
       throw new Error('A chave da API da Ideris não está configurada.');
     }
     
-    // Ideris não tem um endpoint para buscar múltiplos pedidos por ID do nosso BD, então pegamos o order_id.
+    // Ideris não tem um endpoint para buscar múltiplos pedidos por ID, então pegamos o order_id.
     const { fetchSalesByIds } = await import('@/services/firestore');
     const salesToUpdate = await fetchSalesByIds(saleIds);
     const orderIds = salesToUpdate.map(s => (s as any).order_id);
