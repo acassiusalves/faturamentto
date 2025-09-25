@@ -24,8 +24,6 @@ import { useAuth } from '@/context/auth-context';
 // Add a temporary `isSplit` property to our item type for highlighting
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
 
-const qtyWithSurplus = (it: PurchaseListItem) => (it.quantity || 0) + (it.surplus || 0);
-
 export function PurchaseHistory() {
     const { toast } = useToast();
     const { user } = useAuth();
@@ -474,5 +472,3 @@ export function PurchaseHistory() {
         </Card>
     );
 }
-
-    
