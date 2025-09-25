@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +21,7 @@ import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 interface ProductResult {
@@ -57,7 +58,9 @@ interface ProductResult {
       listing_fee_amount: number;
       sale_fee_amount: number;
       sale_fee_percent: number;
+      fee_total?: number;
     };
+    raw_data?: any;
 }
 
 const initialSearchState = {
@@ -185,7 +188,7 @@ export default function BuscarMercadoLivrePage() {
             formData.append('productName', searchTerm);
             formData.append('quantity', String(quantity));
             const result = await searchMercadoLivreAction(initialSearchState, formData);
-            setState(result);
+            setState(result as any);
         });
     };
     
@@ -310,161 +313,182 @@ export default function BuscarMercadoLivrePage() {
                             )}
                         </CardHeader>
                         <CardContent>
-                            <div className="rounded-md border overflow-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[120px]">Imagem</TableHead>
-                                            <TableHead>Nome do Produto</TableHead>
-                                            <TableHead>Preço</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paginatedResults.length > 0 ? paginatedResults.map(product => {
-                                            const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
-                                            const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
-
-                                            return (
-                                            <TableRow key={product.id} className={cn(product.price === 0 && "opacity-50 bg-muted/50")}>
-                                                <TableCell>
-                                                    <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
-                                                        {product.thumbnail && !broken.has(product.id) ? (
-                                                            <Image 
-                                                                src={product.thumbnail}
-                                                                alt={displayName}
-                                                                fill
-                                                                sizes="96px"
-                                                                className="object-contain" 
-                                                                data-ai-hint="product image"
-                                                                onError={() => setBroken(prev => new Set(prev).add(product.id))}
-                                                            />
-                                                        ) : (
-                                                            <Package className="h-8 w-8 text-muted-foreground" />
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
-                                                        {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                    </Link>
-                                                    <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
-                                                    <div className="text-xs text-muted-foreground mt-1">Categoria: {product.category_id}</div>
-                                                    <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
-                                                    <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
-                                                    <div className="text-xs text-muted-foreground mt-1">
-                                                        Vendedor:
-                                                        {product.seller_nickname ? (
-                                                            <Link
-                                                            href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
-                                                            target="_blank"
-                                                            className="text-blue-600 hover:underline ml-1"
-                                                            >
-                                                            {product.seller_nickname}
-                                                            </Link>
-                                                        ) : null}
-                                                    </div>
-
-                                                    {(product.seller_city || product.seller_state) && (
-                                                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                        {product.seller_city
-                                                          ? `${product.seller_city}${product.seller_state ? " • " : ""}`
-                                                          : ""}
-                                                        {product.seller_state || ""}
-                                                      </div>
-                                                    )}
-                                                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                                        <Users className="h-3 w-3" />
-                                                        <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
-                                                    </div>
-                                                    {product.is_official_store && (
-                                                        <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
-                                                    )}
-
-                                                    {product.reputation && (
-                                                        <TooltipProvider>
-                                                        <div className="mt-2 flex items-center gap-4 text-xs">
-                                                            {repLevel && (
-                                                                <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
-                                                                    <repLevel.icon className="mr-1 h-3 w-3"/>
-                                                                    {repLevel.label}
-                                                                </Badge>
-                                                            )}
-                                                            <div className="flex items-center gap-3">
-                                                                <Tooltip>
-                                                                    <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                    <TooltipContent>Reclamações</TooltipContent>
-                                                                </Tooltip>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                    <TooltipContent>Cancelamentos</TooltipContent>
-                                                                </Tooltip>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                    <TooltipContent>Atrasos no Envio</TooltipContent>
-                                                                </Tooltip>
-                                                            </div>
-                                                        </div>
-                                                        </TooltipProvider>
-                                                    )}
-                                                    
-                                                    <div className="flex flex-col items-start gap-2 mt-2">
-                                                        <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                            {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
-                                                            {product.shipping_type === 'Correios' && <CorreiosLogo />}
-                                                            {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
-                                                            {product.free_shipping && (
-                                                                <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
-                                                                    <FreteGratisIcon />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="flex items-center gap-2 text-sm">
-                                                          {product.listing_type_id && (
-                                                            <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
-                                                          )}
-                                                        
-                                                          {product.fees && (
-                                                            <div className="text-muted-foreground space-x-2">
-                                                              {/* Comissão sempre que houver */}
-                                                              {(product.fees.sale_fee_amount ?? 0) > 0 && (
-                                                                <span>
-                                                                  Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b>
-                                                                  {" "}
-                                                                  <span className="opacity-70">
-                                                                    ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)
-                                                                  </span>
-                                                                </span>
-                                                              )}
-                                                        
-                                                              {/* Tarifa fixa: só mostra se for > 0 */}
-                                                              {(product.fees.listing_fee_amount ?? 0) > 0 && (
-                                                                <span>
-                                                                  • Tarifa fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b>
-                                                                </span>
-                                                              )}
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="font-semibold text-lg text-right align-top">
-                                                  {formatCurrency(product.price)}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}) : (
+                            <Accordion type="multiple" className="w-full">
+                                <div className="rounded-md border overflow-auto">
+                                    <Table>
+                                        <TableHeader>
                                             <TableRow>
-                                                <TableCell colSpan={3} className="h-24 text-center">
-                                                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                                        <Package className="h-10 w-10 mb-2"/>
-                                                        Nenhum produto encontrado para os filtros selecionados.
-                                                    </div>
-                                                </TableCell>
+                                                <TableHead className="w-[120px]">Imagem</TableHead>
+                                                <TableHead>Nome do Produto</TableHead>
+                                                <TableHead>Preço</TableHead>
                                             </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {paginatedResults.length > 0 ? paginatedResults.map(product => {
+                                                const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
+                                                const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
+
+                                                return (
+                                                <AccordionItem value={product.id} key={product.id} className="border-b-0">
+                                                    <TableRow className={cn("align-top", product.price === 0 && "opacity-50 bg-muted/50")}>
+                                                        <TableCell>
+                                                            <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
+                                                                {product.thumbnail && !broken.has(product.id) ? (
+                                                                    <Image 
+                                                                        src={product.thumbnail}
+                                                                        alt={displayName}
+                                                                        fill
+                                                                        sizes="96px"
+                                                                        className="object-contain" 
+                                                                        data-ai-hint="product image"
+                                                                        onError={() => setBroken(prev => new Set(prev).add(product.id))}
+                                                                    />
+                                                                ) : (
+                                                                    <Package className="h-8 w-8 text-muted-foreground" />
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
+                                                                {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                            </Link>
+                                                            <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">Categoria: {product.category_id}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">
+                                                                Vendedor:
+                                                                {product.seller_nickname ? (
+                                                                    <Link
+                                                                    href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
+                                                                    target="_blank"
+                                                                    className="text-blue-600 hover:underline ml-1"
+                                                                    >
+                                                                    {product.seller_nickname}
+                                                                    </Link>
+                                                                ) : null}
+                                                            </div>
+
+                                                            {(product.seller_city || product.seller_state) && (
+                                                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                                                                {product.seller_city
+                                                                  ? `${product.seller_city}${product.seller_state ? " • " : ""}`
+                                                                  : ""}
+                                                                {product.seller_state || ""}
+                                                              </div>
+                                                            )}
+                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                                                <Users className="h-3 w-3" />
+                                                                <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
+                                                            </div>
+                                                            {product.is_official_store && (
+                                                                <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
+                                                            )}
+
+                                                            {product.reputation && (
+                                                                <TooltipProvider>
+                                                                <div className="mt-2 flex items-center gap-4 text-xs">
+                                                                    {repLevel && (
+                                                                        <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
+                                                                            <repLevel.icon className="mr-1 h-3 w-3"/>
+                                                                            {repLevel.label}
+                                                                        </Badge>
+                                                                    )}
+                                                                    <div className="flex items-center gap-3">
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Reclamações</TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Cancelamentos</TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Atrasos no Envio</TooltipContent>
+                                                                        </Tooltip>
+                                                                    </div>
+                                                                </div>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            
+                                                            <div className="flex flex-col items-start gap-2 mt-2">
+                                                                <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                                                    {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
+                                                                    {product.shipping_type === 'Correios' && <CorreiosLogo />}
+                                                                    {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                                    {product.free_shipping && (
+                                                                        <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
+                                                                            <FreteGratisIcon />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                <div className="flex items-center gap-2 text-sm">
+                                                                    {product.listing_type_id && (
+                                                                        <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                                    )}
+                                                                    
+                                                                    {product.fees && (
+                                                                        <div className="text-muted-foreground space-x-2">
+                                                                        {/* Comissão sempre que houver */}
+                                                                        {(product.fees.sale_fee_amount ?? 0) > 0 && (
+                                                                            <span>
+                                                                            Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b>
+                                                                            {" "}
+                                                                            <span className="opacity-70">
+                                                                                ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)
+                                                                            </span>
+                                                                            </span>
+                                                                        )}
+                                                                    
+                                                                        {/* Tarifa fixa: só mostra se for > 0 */}
+                                                                        {(product.fees.listing_fee_amount ?? 0) > 0 && (
+                                                                            <span>
+                                                                            • Tarifa fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b>
+                                                                            </span>
+                                                                        )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <AccordionTrigger className="text-xs text-muted-foreground hover:no-underline p-1 mt-2 w-fit">
+                                                                <div className="flex items-center gap-1">
+                                                                    <Database className="h-3 w-3" />
+                                                                    Ver Dados Brutos
+                                                                </div>
+                                                            </AccordionTrigger>
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold text-lg text-right align-top">
+                                                          {formatCurrency(product.price)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    <AccordionContent>
+                                                        <TableCell colSpan={3} className="p-0">
+                                                            <div className="p-4 bg-muted overflow-hidden">
+                                                                <h4 className="font-semibold text-sm mb-2">Dados da API</h4>
+                                                                <pre className="text-xs p-2 bg-background/50 rounded-md max-h-64 overflow-auto">
+                                                                    <code>{JSON.stringify(product.raw_data, null, 2)}</code>
+                                                                </pre>
+                                                            </div>
+                                                        </TableCell>
+                                                    </AccordionContent>
+                                                </AccordionItem>
+                                                )
+                                            }) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={3} className="h-24 text-center">
+                                                        <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                                            <Package className="h-10 w-10 mb-2"/>
+                                                            Nenhum produto encontrado para os filtros selecionados.
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                             </Accordion>
                         </CardContent>
                         <CardFooter className="flex items-center justify-between flex-wrap gap-4">
                             <div className="text-sm text-muted-foreground">

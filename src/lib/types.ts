@@ -30,7 +30,9 @@ export interface Product {
     listing_fee_amount: number;
     sale_fee_amount: number;
     sale_fee_percent: number;
+    fee_total?: number;
   };
+  raw_data?: any;
 }
 
 export interface InventoryItem {

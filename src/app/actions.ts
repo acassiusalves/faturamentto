@@ -295,7 +295,8 @@ export async function searchMercadoLivreAction(
                     cancellations_rate: reputationData.metrics?.cancellations_rate ?? 0,
                     delayed_rate: reputationData.metrics?.delayed_rate ?? 0,
                   }
-                }
+                },
+                raw_data: { catalog_product: p, winner_item: winner },
             };
         })
     );
