@@ -442,30 +442,53 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                     <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
                                                                     <TableCell>
                                                                          {isEditingThis && item.isNew ? (
-                                                                            <Popover modal={false} open={openProductPickers[item.tempId]} onOpenChange={(isOpen) => setOpenProductPickers(prev => ({...prev, [item.tempId]: isOpen}))}>
+                                                                            <Popover
+                                                                                modal={false}
+                                                                                open={openProductPickers[item.tempId]}
+                                                                                onOpenChange={(isOpen) => setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: isOpen }))}
+                                                                              >
                                                                                 <PopoverTrigger asChild>
-                                                                                    <Button variant="outline" role="combobox" className="font-normal w-[300px] justify-between">
-                                                                                        {item.productName || "Selecione um produto..."}
-                                                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                                                    </Button>
+                                                                                  <Button
+                                                                                    type="button"
+                                                                                    variant="outline"
+                                                                                    role="combobox"
+                                                                                    className="font-normal w-[300px] justify-between"
+                                                                                  >
+                                                                                    {item.productName || "Selecione um produto..."}
+                                                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                                  </Button>
                                                                                 </PopoverTrigger>
-                                                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" onOpenAutoFocus={(e) => e.preventDefault()}>
-                                                                                    <Command>
-                                                                                        <CommandInput placeholder="Buscar produto..." />
-                                                                                        <CommandList>
-                                                                                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                                                            <CommandGroup>
-                                                                                                {allProducts.map((p) => (
-                                                                                                    <CommandItem value={p.name} key={p.id} onSelect={() => handleProductSelection(item.tempId, p)}>
-                                                                                                        <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
-                                                                                                        {p.name}
-                                                                                                    </CommandItem>
-                                                                                                ))}
-                                                                                            </CommandGroup>
-                                                                                        </CommandList>
-                                                                                    </Command>
+                                                                                <PopoverContent
+                                                                                  align="start"
+                                                                                  sideOffset={4}
+                                                                                  className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999] pointer-events-auto"
+                                                                                  onOpenAutoFocus={(e) => e.preventDefault()}
+                                                                                >
+                                                                                  <Command>
+                                                                                    <CommandInput placeholder="Buscar produto..." />
+                                                                                    <CommandList className="pointer-events-auto">
+                                                                                      <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                                                      <CommandGroup>
+                                                                                        {allProducts.map((p) => (
+                                                                                          <CommandItem
+                                                                                            key={p.id}
+                                                                                            value={p.name}
+                                                                                            onMouseDown={(e) => e.preventDefault()}
+                                                                                            onSelect={() => {
+                                                                                              handleProductSelection(item.tempId, p);
+                                                                                              setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: false }));
+                                                                                            }}
+                                                                                            className="cursor-pointer"
+                                                                                          >
+                                                                                            <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                                                            {p.name}
+                                                                                          </CommandItem>
+                                                                                        ))}
+                                                                                      </CommandGroup>
+                                                                                    </CommandList>
+                                                                                  </Command>
                                                                                 </PopoverContent>
-                                                                            </Popover>
+                                                                              </Popover>
                                                                         ) : (
                                                                             <div className="flex items-center gap-2">
                                                                                 {item.isManual && <AlertTriangle className="h-4 w-4 text-amber-500" title="Item adicionado manualmente"/>}
