@@ -222,7 +222,6 @@ export function PurchaseHistory() {
         }
     };
 
-
     const formatCurrency = (value: number) => {
         if (isNaN(value)) return 'R$ 0,00';
         return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -231,6 +230,16 @@ export function PurchaseHistory() {
     const formatDate = (dateString: string) => {
         return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     };
+
+    // Se seu log não tem `quantity`, considere 1 (cada log = 1 unidade).
+    const getLogQty = (log: any) => Number(log?.quantity) || 1;
+
+    // Soma a quantidade dos logs filtrados daquele dia
+    const getEntriesQtyForDate = (dateKey: string) => {
+      const logs = entryLogsByDate.get(dateKey) ?? [];
+      return logs.reduce((sum, log) => sum + getLogQty(log), 0);
+    };
+
 
     if (isLoading) {
         return (
@@ -266,11 +275,15 @@ export function PurchaseHistory() {
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
                             
-                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0);
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
+
+                            // (A) Total em compras -> usar SOMA dos logs Celular + Novo do dia
+                            const totalPurchaseQuantity = getEntriesQtyForDate(purchaseDateKey);
+
+                            // (B) Total de entradas -> manter independente (se quiser outra fonte/cálculo)
                             const totalEntriesToday =
                               (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
-                                (sum, log: any) => sum + (Number(log.quantity) || 1),
+                                (sum, log: any) => sum + getLogQty(log),
                                 0
                               );
 
