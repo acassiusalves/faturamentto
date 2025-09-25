@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings, loadEntryLogsByDateFromPermanentLog } from '@/services/firestore';
 import type { PurchaseList, PurchaseListItem, InventoryItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,20 @@ import { useAuth } from '@/context/auth-context';
 // Add a temporary `isSplit` property to our item type for highlighting
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
 
+// Helper para agrupar as compras por data (string 'yyyy-MM-dd')
+const groupPurchasesByDay = (purchases: PurchaseList[]) => {
+    const grouped = new Map<string, PurchaseList[]>();
+    purchases.forEach(p => {
+        const dateKey = format(new Date(p.createdAt), 'yyyy-MM-dd');
+        if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, []);
+        }
+        grouped.get(dateKey)!.push(p);
+    });
+    return Array.from(grouped.entries());
+};
+
+
 export function PurchaseHistory() {
     const { toast } = useToast();
     const { user } = useAuth();
@@ -44,28 +59,19 @@ export function PurchaseHistory() {
             loadAppSettings()
         ]);
 
-        // Constrói a chave de data SEM perder fuso (usa createdAt completo)
-        const uniqueDates = Array.from(
-          new Set(
-            purchaseHistory.map(p => format(new Date(p.createdAt), 'yyyy-MM-dd'))
-          )
-        );
+        const uniqueDates = Array.from(new Set(purchaseHistory.map(p => format(new Date(p.createdAt), 'yyyy-MM-dd'))));
         const entryLogsMap = new Map<string, InventoryItem[]>();
         
-        // Helper para normalização, evitando problemas com `undefined` ou `null`
         const norm = (v: any) => String(v ?? '').trim().toLowerCase();
 
         for (const dateKey of uniqueDates) {
-            // Gera um Date no meio do dia local para evitar “deriva” de UTC
             const [y, m, d] = dateKey.split('-').map(n => parseInt(n, 10));
-            const midLocal = new Date(y, (m - 1), d, 12, 0, 0); // 12:00 local
+            const midLocal = new Date(y, (m - 1), d, 12, 0, 0);
 
-            // Busca tolerante (Timestamp ou string) no serviço
             const logs = await loadEntryLogsByDateFromPermanentLog(midLocal);
             
-            // CORREÇÃO: Usa o mesmo fallback da página Arquivo, assumindo 'Celular' quando a categoria não está presente.
             const cellularLogs = logs.filter((log: any) => {
-                const cat  = norm(log.category ?? 'Celular'); // Fallback importante!
+                const cat  = norm(log.category ?? 'Celular');
                 const cond = norm(log.condition);
                 return cat === 'celular' && cond === 'novo';
             });
@@ -104,7 +110,6 @@ export function PurchaseHistory() {
     
     const handleEditStart = (purchase: PurchaseList) => {
         setEditingId(purchase.id);
-        // Add a temporary unique ID to each item for stable key in UI
         const itemsWithTempIds: EditablePurchaseListItem[] = purchase.items.map((item, index) => ({
              ...item,
              tempId: `${item.sku}-${index}-${Date.now()}` 
@@ -154,21 +159,20 @@ export function PurchaseHistory() {
             const itemToSplit = prev[itemIndex];
             if (itemToSplit.quantity <= 1) return prev;
 
-            // Remove highlight from previous splits before creating a new one
             const clearedItems = prev.map(it => ({ ...it, isSplit: false }));
 
             const newItem: EditablePurchaseListItem = {
                 ...itemToSplit,
                 quantity: 1,
                 surplus: 0,
-                isSplit: true, // Mark new item
+                isSplit: true,
                 tempId: `${itemToSplit.sku}-${clearedItems.length}-${Date.now()}`
             };
             
             const updatedOriginalItem: EditablePurchaseListItem = {
                 ...itemToSplit,
                 quantity: itemToSplit.quantity - 1,
-                isSplit: true, // Mark original item
+                isSplit: true, 
             };
 
             clearedItems[itemIndex] = updatedOriginalItem;
@@ -217,7 +221,6 @@ export function PurchaseHistory() {
         if (!editingId) return;
         setIsSaving(true);
         try {
-            // Clean up tempId and isSplit before saving
             const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
                 const q = (item.quantity || 0) + (item.surplus || 0);
@@ -246,8 +249,9 @@ export function PurchaseHistory() {
         return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     };
 
-    // Helper para somar quantidades dos logs
     const getLogQty = (log: any) => Number(log?.quantity) || 1;
+    
+    const groupedHistory = useMemo(() => groupPurchasesByDay(history), [history]);
 
     if (isLoading) {
         return (
@@ -266,230 +270,244 @@ export function PurchaseHistory() {
                     <div>
                         <CardTitle>Histórico de Listas de Compras</CardTitle>
                         <CardDescription>
-                            Consulte todas as listas de compras que foram salvas no sistema.
+                            Consulte todas as listas de compras que foram salvas no sistema, agrupadas por dia.
                         </CardDescription>
                     </div>
                 </div>
             </CardHeader>
             <CardContent>
                 {history.length > 0 ? (
-                    <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="w-full space-y-4">
-                        {history.map(purchase => {
-                            const isEditingThis = editingId === purchase.id;
-                            const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
-                            const currentTotal = itemsToDisplay.reduce((acc, item) => {
-                              const q = (item.quantity || 0) + (item.surplus || 0);
-                              return acc + (item.unitCost * q);
-                            }, 0);
-                            const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
-                            
-                            // Mesma chave usada no mapa
-                            const purchaseDateKey = format(new Date(purchase.createdAt), 'yyyy-MM-dd');
-
-                            // (A) Total em compras -> soma da própria lista (quantidade + excedente)
-                            const totalPurchaseQuantity = purchase.items.reduce(
-                                (sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0
-                            );
-
-                            // (B) Total de entradas -> soma das quantidades dos logs de entrada do dia
-                            const totalEntriesToday = (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
-                                (sum, log) => sum + getLogQty(log), 0
-                            );
-
+                    <Accordion type="multiple" className="w-full space-y-4">
+                        {groupedHistory.map(([dateKey, purchases]) => {
+                            const totalDayPurchases = purchases.reduce((sum, p) => sum + p.items.reduce((itemSum, i) => itemSum + ((i.quantity || 0) + (i.surplus || 0)), 0), 0);
+                            const totalDayEntries = (entryLogsByDate.get(dateKey) ?? []).reduce((sum, log) => sum + getLogQty(log), 0);
+                            const totalDayCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
 
                             return (
-                                <AccordionItem key={purchase.id} value={purchase.id} className="border rounded-lg">
-                                    <div className="flex justify-between items-center w-full px-4 py-3">
-                                        <AccordionTrigger className="p-0 hover:no-underline flex-1 text-left">
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold">Compra de {formatDate(purchase.createdAt)}</span>
-                                                <span className="text-sm text-muted-foreground">{purchase.items.length} produto(s) diferente(s)</span>
+                                <AccordionItem key={dateKey} value={dateKey} className="border rounded-lg bg-muted/20">
+                                    <AccordionTrigger className="px-4 py-3 hover:no-underline font-semibold">
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="flex flex-col text-left">
+                                                <span className="text-lg">Compras de {format(new Date(dateKey), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                                                <span className="text-sm font-normal text-muted-foreground">{purchases.length} lista(s) neste dia</span>
                                             </div>
-                                        </AccordionTrigger>
-                                        <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
-                                            <div className="text-sm font-semibold text-center">
-                                                <div className="flex items-center gap-2">
-                                                    <Package className="h-4 w-4 text-muted-foreground"/> Total em compras: <Badge variant="secondary">{totalPurchaseQuantity} unidades</Badge>
+                                             <div className="flex items-center gap-6 text-sm text-right">
+                                                <div className="flex flex-col">
+                                                    <span className="text-muted-foreground">Total Comprado</span>
+                                                    <Badge variant="secondary">{totalDayPurchases} unidades</Badge>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <PackageCheck className="h-4 w-4 text-muted-foreground"/> Total de entradas: <Badge variant={totalEntriesToday === totalPurchaseQuantity ? 'default' : 'destructive'} className={cn(totalEntriesToday === totalPurchaseQuantity && 'bg-green-600')}>{totalEntriesToday} unidades</Badge>
+                                                 <div className="flex flex-col">
+                                                    <span className="text-muted-foreground">Total Entradas</span>
+                                                    <Badge variant={totalDayEntries === totalDayPurchases ? 'default' : 'destructive'} className={cn(totalDayEntries === totalDayPurchases && 'bg-green-600')}>{totalDayEntries} unidades</Badge>
+                                                </div>
+                                                 <div className="flex flex-col">
+                                                    <span className="text-muted-foreground">Custo Total do Dia</span>
+                                                    <Badge variant="default" className="text-base">{formatCurrency(totalDayCost)}</Badge>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-4 space-y-4">
+                                        {purchases.map(purchase => {
+                                            const isEditingThis = editingId === purchase.id;
+                                            const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
+                                            const currentTotal = itemsToDisplay.reduce((acc, item) => {
+                                                const q = (item.quantity || 0) + (item.surplus || 0);
+                                                return acc + (item.unitCost * q);
+                                            }, 0);
+                                            const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
 
-                                            <div className="flex items-center gap-2">
-                                                 <Wallet className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
-                                                {isEditingThis ? (
-                                                    <>
-                                                        <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isSaving}>
-                                                            <XCircle className="mr-2" /> Cancelar
-                                                        </Button>
-                                                        <Button size="sm" onClick={handleSaveChanges} disabled={isSaving}>
-                                                            {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2" />}
-                                                            Salvar
-                                                        </Button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="destructive" size="sm"><Trash2 className="mr-2"/>Apagar</Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        Esta ação não pode ser desfeita. A lista de compras será permanentemente apagada.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                    <AlertDialogAction onClick={() => handleDelete(purchase.id)}>Sim, Apagar</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                        <Button variant="outline" size="sm" onClick={() => handleEditStart(purchase)}>
-                                                            <Pencil className="mr-2"/>
-                                                            Editar Lista
-                                                        </Button>
-                                                    </>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-muted-foreground">Custo Total:</span>
-                                                <Badge variant="default" className="text-base">{formatCurrency(currentTotal)}</Badge>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <AccordionContent className="px-4 pb-4">
-                                        <div className="rounded-md border mt-2">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Produto</TableHead>
-                                                        <TableHead>SKU</TableHead>
-                                                        <TableHead>Loja</TableHead>
-                                                        <TableHead className="text-center">Quantidade</TableHead>
-                                                        <TableHead className="text-center">Excedente</TableHead>
-                                                        <TableHead className="text-right">Custo Unit.</TableHead>
-                                                        <TableHead className="text-right">Custo Total</TableHead>
-                                                        <TableHead className="text-center">Pago</TableHead>
-                                                        {isEditingThis && <TableHead className="text-center">Ações</TableHead>}
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {itemsToDisplay.map((item) => (
-                                                        <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
-                                                            <TableCell>{item.productName}</TableCell>
-                                                            <TableCell className="font-mono">{item.sku}</TableCell>
-                                                            <TableCell>
-                                                                {isEditingThis ? (
-                                                                     <Select 
-                                                                        onValueChange={(value) => handleItemChange(item.tempId, 'storeName', value)} 
-                                                                        value={item.storeName}
-                                                                     >
-                                                                        <SelectTrigger className="w-32">
-                                                                            <SelectValue placeholder="Selecione..." />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            {availableStores.map(store => (
-                                                                                <SelectItem key={store} value={store}>{store}</SelectItem>
-                                                                            ))}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                ) : (
-                                                                    item.storeName || 'N/A'
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {isEditingThis ? (
-                                                                     <Input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        value={item.quantity}
-                                                                        onChange={(e) => handleItemChange(item.tempId, 'quantity', e.target.value)}
-                                                                        className="w-16 text-center"
-                                                                    />
-                                                                ) : (
-                                                                    item.quantity
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                {isEditingThis ? (
-                                                                    <Input
-                                                                        type="number"
-                                                                        defaultValue={item.surplus}
-                                                                        onChange={(e) => handleItemChange(item.tempId, 'surplus', e.target.value)}
-                                                                        className="w-20"
-                                                                    />
-                                                                ) : (
-                                                                    item.surplus || 0
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {isEditingThis ? (
-                                                                    <Input
-                                                                        type="number"
-                                                                        defaultValue={item.unitCost}
-                                                                        onChange={(e) => handleItemChange(item.tempId, 'unitCost', e.target.value)}
-                                                                        className="w-28 ml-auto text-right"
-                                                                    />
-                                                                ) : (
-                                                                    formatCurrency(item.unitCost)
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
-                                                             <TableCell className="text-center">
-                                                                {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
-                                                                    <Switch
-                                                                        checked={item.isPaid}
-                                                                        onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
-                                                                    />
-                                                                ) : (
-                                                                     <Badge variant={item.isPaid ? 'default' : 'secondary'} className={cn(item.isPaid && 'bg-green-600')}>
-                                                                        {item.isPaid ? 'Sim' : 'Não'}
-                                                                    </Badge>
-                                                                )}
-                                                            </TableCell>
-                                                            {isEditingThis && (
-                                                                <TableCell className="text-center">
-                                                                    <Button 
-                                                                        variant="ghost" 
-                                                                        size="icon" 
-                                                                        onClick={() => handleSplitItem(item.tempId)} 
-                                                                        disabled={item.quantity <= 1}
-                                                                        title="Dividir este item em duas linhas"
-                                                                    >
-                                                                        <SplitSquareHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                    <AlertDialog>
-                                                                        <AlertDialogTrigger asChild>
-                                                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                                                <XCircle className="h-4 w-4" />
+                                            return (
+                                                <Accordion key={purchase.id} type="single" collapsible className="w-full">
+                                                    <AccordionItem value={purchase.id} className="border rounded-lg bg-background">
+                                                        <div className="flex justify-between items-center w-full px-4 py-3">
+                                                            <AccordionTrigger className="p-0 hover:no-underline flex-1 text-left">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-semibold">Compra de {formatDate(purchase.createdAt)}</span>
+                                                                    <span className="text-sm text-muted-foreground">{purchase.items.length} produto(s) diferente(s)</span>
+                                                                </div>
+                                                            </AccordionTrigger>
+                                                            <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Wallet className={cn("h-6 w-6 text-muted-foreground", areAllItemsPaid && "text-green-600")} />
+                                                                    {isEditingThis ? (
+                                                                        <>
+                                                                            <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isSaving}>
+                                                                                <XCircle className="mr-2" /> Cancelar
                                                                             </Button>
-                                                                        </AlertDialogTrigger>
-                                                                        <AlertDialogContent>
-                                                                            <AlertDialogHeader>
-                                                                                <AlertDialogTitle>Remover este item?</AlertDialogTitle>
-                                                                                <AlertDialogDescription>
-                                                                                    Esta ação removerá o item "{item.productName}" desta lista de compras. A ação será permanente após salvar.
-                                                                                </AlertDialogDescription>
-                                                                            </AlertDialogHeader>
-                                                                            <AlertDialogFooter>
-                                                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                                                <AlertDialogAction onClick={() => handleRemoveItem(item.tempId)}>Sim, Remover</AlertDialogAction>
-                                                                            </AlertDialogFooter>
-                                                                        </AlertDialogContent>
-                                                                    </AlertDialog>
-                                                                </TableCell>
-                                                            )}
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                                                            <Button size="sm" onClick={handleSaveChanges} disabled={isSaving}>
+                                                                                {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2" />}
+                                                                                Salvar
+                                                                            </Button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <AlertDialog>
+                                                                                <AlertDialogTrigger asChild>
+                                                                                    <Button variant="destructive" size="sm"><Trash2 className="mr-2"/>Apagar</Button>
+                                                                                </AlertDialogTrigger>
+                                                                                <AlertDialogContent>
+                                                                                    <AlertDialogHeader>
+                                                                                        <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>
+                                                                                            Esta ação não pode ser desfeita. A lista de compras será permanentemente apagada.
+                                                                                        </AlertDialogDescription>
+                                                                                    </AlertDialogHeader>
+                                                                                    <AlertDialogFooter>
+                                                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                        <AlertDialogAction onClick={() => handleDelete(purchase.id)}>Sim, Apagar</AlertDialogAction>
+                                                                                    </AlertDialogFooter>
+                                                                                </AlertDialogContent>
+                                                                            </AlertDialog>
+                                                                            <Button variant="outline" size="sm" onClick={() => handleEditStart(purchase)}>
+                                                                                <Pencil className="mr-2"/>
+                                                                                Editar Lista
+                                                                            </Button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-muted-foreground">Custo:</span>
+                                                                    <Badge variant="default" className="text-sm">{formatCurrency(currentTotal)}</Badge>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <AccordionContent className="px-4 pb-4">
+                                                             <div className="rounded-md border mt-2">
+                                                                <Table>
+                                                                    <TableHeader>
+                                                                        <TableRow>
+                                                                            <TableHead>Produto</TableHead>
+                                                                            <TableHead>SKU</TableHead>
+                                                                            <TableHead>Loja</TableHead>
+                                                                            <TableHead className="text-center">Quantidade</TableHead>
+                                                                            <TableHead className="text-center">Excedente</TableHead>
+                                                                            <TableHead className="text-right">Custo Unit.</TableHead>
+                                                                            <TableHead className="text-right">Custo Total</TableHead>
+                                                                            <TableHead className="text-center">Pago</TableHead>
+                                                                            {isEditingThis && <TableHead className="text-center">Ações</TableHead>}
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {itemsToDisplay.map((item) => (
+                                                                            <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
+                                                                                <TableCell>{item.productName}</TableCell>
+                                                                                <TableCell className="font-mono">{item.sku}</TableCell>
+                                                                                <TableCell>
+                                                                                    {isEditingThis ? (
+                                                                                        <Select 
+                                                                                            onValueChange={(value) => handleItemChange(item.tempId, 'storeName', value)} 
+                                                                                            value={item.storeName}
+                                                                                        >
+                                                                                            <SelectTrigger className="w-32">
+                                                                                                <SelectValue placeholder="Selecione..." />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {availableStores.map(store => (
+                                                                                                    <SelectItem key={store} value={store}>{store}</SelectItem>
+                                                                                                ))}
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    ) : (
+                                                                                        item.storeName || 'N/A'
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="text-center">
+                                                                                    {isEditingThis ? (
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            min="1"
+                                                                                            value={item.quantity}
+                                                                                            onChange={(e) => handleItemChange(item.tempId, 'quantity', e.target.value)}
+                                                                                            className="w-16 text-center"
+                                                                                        />
+                                                                                    ) : (
+                                                                                        item.quantity
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="text-center">
+                                                                                    {isEditingThis ? (
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            defaultValue={item.surplus}
+                                                                                            onChange={(e) => handleItemChange(item.tempId, 'surplus', e.target.value)}
+                                                                                            className="w-20"
+                                                                                        />
+                                                                                    ) : (
+                                                                                        item.surplus || 0
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="text-right">
+                                                                                    {isEditingThis ? (
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            defaultValue={item.unitCost}
+                                                                                            onChange={(e) => handleItemChange(item.tempId, 'unitCost', e.target.value)}
+                                                                                            className="w-28 ml-auto text-right"
+                                                                                        />
+                                                                                    ) : (
+                                                                                        formatCurrency(item.unitCost)
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
+                                                                                <TableCell className="text-center">
+                                                                                    {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
+                                                                                        <Switch
+                                                                                            checked={item.isPaid}
+                                                                                            onCheckedChange={(checked) => isEditingThis ? handleItemChange(item.tempId, 'isPaid', checked) : handleItemPaidChange(purchase.id, item.sku, checked)}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <Badge variant={item.isPaid ? 'default' : 'secondary'} className={cn(item.isPaid && 'bg-green-600')}>
+                                                                                            {item.isPaid ? 'Sim' : 'Não'}
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </TableCell>
+                                                                                {isEditingThis && (
+                                                                                    <TableCell className="text-center">
+                                                                                        <Button 
+                                                                                            variant="ghost" 
+                                                                                            size="icon" 
+                                                                                            onClick={() => handleSplitItem(item.tempId)} 
+                                                                                            disabled={item.quantity <= 1}
+                                                                                            title="Dividir este item em duas linhas"
+                                                                                        >
+                                                                                            <SplitSquareHorizontal className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                        <AlertDialog>
+                                                                                            <AlertDialogTrigger asChild>
+                                                                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                                                                    <XCircle className="h-4 w-4" />
+                                                                                                </Button>
+                                                                                            </AlertDialogTrigger>
+                                                                                            <AlertDialogContent>
+                                                                                                <AlertDialogHeader>
+                                                                                                    <AlertDialogTitle>Remover este item?</AlertDialogTitle>
+                                                                                                    <AlertDialogDescription>
+                                                                                                        Esta ação removerá o item "{item.productName}" desta lista de compras. A ação será permanente após salvar.
+                                                                                                    </AlertDialogDescription>
+                                                                                                </AlertDialogHeader>
+                                                                                                <AlertDialogFooter>
+                                                                                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                                    <AlertDialogAction onClick={() => handleRemoveItem(item.tempId)}>Sim, Remover</AlertDialogAction>
+                                                                                                </AlertDialogFooter>
+                                                                                            </AlertDialogContent>
+                                                                                        </AlertDialog>
+                                                                                    </TableCell>
+                                                                                )}
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                </Accordion>
+                                            )
+                                        })}
                                     </AccordionContent>
-                                </AccordionItem>
-                            )
+                                </Card>
+                            </AccordionItem>
+                            );
                         })}
                     </Accordion>
                 ) : (

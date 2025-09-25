@@ -45,7 +45,7 @@ export interface InventoryItem {
 
 export interface EntryLog extends InventoryItem {
   originalInventoryId: string; // ID do item original na coleção inventory
-  entryDate: string; // Data de entrada no estoque
+  entryDate: string | Date; // Data de entrada no estoque
   logType: 'INVENTORY_ENTRY' | 'RETURN_ENTRY'; // Tipo de entrada
 }
 
@@ -368,6 +368,7 @@ export interface PurchaseList {
     createdAt: string; // ISO Date
     totalCost: number;
     items: PurchaseListItem[];
+    totalEntradas?: number; // Adicionando o campo para o total de entradas
 }
 
 // Feed 25 Types
