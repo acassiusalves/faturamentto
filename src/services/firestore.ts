@@ -913,7 +913,7 @@ export const loadEntryLogsByDateFromPermanentLog = async (date: Date): Promise<E
       const startIso = start.toISOString();
       const endIso   = end.toISOString();
       const q2 = query(
-        logGeral,
+        logCol,
         where('entryDate', '>=', startIso),
         where('entryDate', '<=', endIso)
       );
@@ -983,3 +983,4 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     
 
     
+
