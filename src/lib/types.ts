@@ -40,6 +40,7 @@ export interface InventoryItem {
   condition?: 'Novo' | 'Vitrine' | 'Usado' | 'Defeito' | 'Lacrado' | 'Seminovo';
   originalInventoryId?: string;
   orderNumber?: string;
+  category?: 'Celular' | 'Geral';
 }
 
 export interface EntryLog extends InventoryItem {
@@ -554,7 +555,3 @@ export interface SavedMlAnalysis {
   mainCategoryId: string;
   results: MlAnalysisResult[];
 }
-
-    
-
-    

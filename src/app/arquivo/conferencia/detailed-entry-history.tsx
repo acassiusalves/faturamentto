@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import type { InventoryItem } from "@/lib/types";
+import type { EntryLog } from "@/lib/types";
 import { loadProductSettings, loadEntryLogsFromPermanentLog } from "@/services/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export function DetailedEntryHistory() {
-  const [allItems, setAllItems] = useState<InventoryItem[]>([]);
+  const [allItems, setAllItems] = useState<EntryLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date(Date.now() - 29 * 24 * 3600 * 1000)),
@@ -26,6 +25,7 @@ export function DetailedEntryHistory() {
   });
   const [originFilter, setOriginFilter] = useState("all");
   const [conditionFilter, setConditionFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [availableOrigins, setAvailableOrigins] = useState<string[]>([]);
   const [availableConditions, setAvailableConditions] = useState<string[]>([]);
@@ -40,22 +40,7 @@ export function DetailedEntryHistory() {
       loadProductSettings('celular')
     ]);
     
-    // Converte EntryLog para InventoryItem para compatibilidade
-    const items: InventoryItem[] = entryLogs.map(log => ({
-      ...log,
-      id: log.id,
-      productId: log.productId,
-      name: log.name,
-      sku: log.sku,
-      costPrice: log.costPrice,
-      quantity: log.quantity,
-      serialNumber: log.serialNumber,
-      origin: log.origin,
-      condition: log.condition,
-      createdAt: log.entryDate, // Usa entryDate como createdAt
-    }));
-  
-    setAllItems(items);
+    setAllItems(entryLogs);
 
     if (productSettings) {
       const originAttribute = productSettings.attributes.find(attr => attr.key === 'origem');
@@ -87,6 +72,11 @@ export function DetailedEntryHistory() {
       if (conditionFilter !== "all" && item.condition !== conditionFilter) {
           return false;
       }
+      
+      // Category filter
+      if (categoryFilter !== "all" && (item.category || 'Celular') !== categoryFilter) {
+          return false;
+      }
 
       // Search term filter
       if (searchTerm) {
@@ -100,7 +90,7 @@ export function DetailedEntryHistory() {
 
       return true;
     });
-  }, [allItems, originFilter, conditionFilter, searchTerm]);
+  }, [allItems, originFilter, conditionFilter, categoryFilter, searchTerm]);
   
   const pageCount = Math.ceil(filteredItems.length / pageSize);
 
@@ -147,12 +137,22 @@ export function DetailedEntryHistory() {
                 />
             </div>
              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filtrar por Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as Categorias</SelectItem>
+                        <SelectItem value="Celular">Celular</SelectItem>
+                        <SelectItem value="Geral">Geral</SelectItem>
+                    </SelectContent>
+                </Select>
                  <Select value={originFilter} onValueChange={setOriginFilter}>
                     <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Filtrar por origem" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Todas as Origens</SelectItem>
+                        <SelectIte`m value="all">Todas as Origens</SelectItem>
                         {availableOrigins.map(origin => (
                              <SelectItem key={origin} value={origin}>{origin}</SelectItem>
                         ))}
@@ -180,6 +180,7 @@ export function DetailedEntryHistory() {
               <TableRow>
                 <TableHead>Data da Entrada</TableHead>
                 <TableHead>Produto</TableHead>
+                <TableHead>Categoria</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>SN</TableHead>
                 <TableHead>Condição</TableHead>
@@ -191,7 +192,7 @@ export function DetailedEntryHistory() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     <Loader2 className="mx-auto animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -200,6 +201,11 @@ export function DetailedEntryHistory() {
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{formatDate(item.createdAt)}</TableCell>
                     <TableCell>{item.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={(item.category || 'Celular') === 'Celular' ? 'outline' : 'secondary'}>
+                        {item.category || 'Celular'}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{item.sku}</TableCell>
                     <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
                     <TableCell>
@@ -214,7 +220,7 @@ export function DetailedEntryHistory() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     <div className="flex flex-col items-center justify-center text-center text-muted-foreground py-10">
                         <PackagePlus className="h-12 w-12 mb-4" />
                         <p>Nenhuma entrada de estoque encontrada.</p>
@@ -299,5 +305,3 @@ export function DetailedEntryHistory() {
     </Card>
   );
 }
-
-    
