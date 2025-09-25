@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings, loadEntryLogsByDate } from '@/services/firestore';
+import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings, loadEntryLogsByDateFromPermanentLog } from '@/services/firestore';
 import type { PurchaseList, PurchaseListItem, InventoryItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -48,7 +48,7 @@ export function PurchaseHistory() {
         const entryLogsMap = new Map<string, InventoryItem[]>();
 
         for (const date of uniqueDates) {
-            const logs = await loadEntryLogsByDate(new Date(date));
+            const logs = await loadEntryLogsByDateFromPermanentLog(new Date(date));
             const cellularLogs = logs.filter((log: any) => {
                 const cat = String(log.category || '').toLowerCase();
                 const cond = String(log.condition || '').toLowerCase();
@@ -480,5 +480,3 @@ export function PurchaseHistory() {
         </Card>
     );
 }
-
-    

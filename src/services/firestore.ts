@@ -890,7 +890,7 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
 };
 
-export const loadEntryLogsByDate = async (date: Date): Promise<EntryLog[]> => {
+export const loadEntryLogsByDateFromPermanentLog = async (date: Date): Promise<EntryLog[]> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
     const q = query(
         logCol, 
