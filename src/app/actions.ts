@@ -116,7 +116,15 @@ async function fetchListingFees(opts: {
   price: number;
   categoryId?: string;
   listingTypeId?: string;
-}): Promise<{ listing_fee_amount: number; sale_fee_amount: number; sale_fee_percent: number; fee_total?: number } | null> {
+}): Promise<{
+  calculated: {
+    listing_fee_amount: number;
+    sale_fee_amount: number;
+    sale_fee_percent: number;
+    fee_total?: number;
+  };
+  raw: any;
+} | null> {
   const site = opts.site ?? "MLB";
   const base = `https://api.mercadolibre.com/sites/${site}/listing_prices` + (opts.listingTypeId ? `/${opts.listingTypeId}` : "");
   const url = new URL(base);
@@ -149,11 +157,14 @@ async function fetchListingFees(opts: {
   const price = Number(opts.price || 0);
 
   return {
-    listing_fee_amount: isFinite(list) ? list : 0,
-    sale_fee_amount:    isFinite(sale) ? sale : 0,
-    sale_fee_percent:   price > 0 ? sale / price : 0,
-    // Opcional: total somente para quem precisar explicitamente
-    fee_total:          (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
+    calculated: {
+      listing_fee_amount: isFinite(list) ? list : 0,
+      sale_fee_amount:    isFinite(sale) ? sale : 0,
+      sale_fee_percent:   price > 0 ? sale / price : 0,
+      // Opcional: total somente para quem precisar explicitamente
+      fee_total:          (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
+    },
+    raw: data,
   };
 }
 
@@ -304,13 +315,21 @@ export async function searchMercadoLivreAction(
     const resultsWithFees = await mapWithConcurrency(enrichedResults, 8, async (p) => {
         if (!p?.price || p.price <= 0 || !p?.category_id) return p;
         try {
-          const fees = await fetchListingFees({
+          const feesResult = await fetchListingFees({
             site: "MLB",
             price: p.price,
             categoryId: p.category_id,
             listingTypeId: p.listing_type_id, // ex.: gold_pro / gold_special
           });
-          return { ...p, fees: fees ?? undefined };
+
+          return { 
+            ...p, 
+            fees: feesResult?.calculated,
+            raw_data: {
+              ...p.raw_data,
+              fees_data: feesResult?.raw,
+            }
+          };
         } catch {
           return p;
         }
@@ -731,5 +750,7 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    
 
     
