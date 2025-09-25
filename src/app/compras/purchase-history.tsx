@@ -27,7 +27,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
 import { Popover, PopoverContent, PopoverTrigger, PopoverPortal } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 
 interface PurchaseHistoryProps {
@@ -443,7 +442,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                     <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
                                                                     <TableCell>
                                                                         {isEditingThis && item.isNew ? (
-                                                                            <Popover
+                                                                             <Popover
                                                                                 open={openProductPickers[item.tempId]}
                                                                                 onOpenChange={(isOpen) => {
                                                                                     setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: isOpen }));
@@ -459,14 +458,14 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                         role="combobox"
                                                                                         className="font-normal w-[300px] justify-between"
                                                                                     >
-                                                                                        {item.productName || "Selecione um produto..."}
+                                                                                        <span className="truncate">{item.productName || "Selecione um produto..."}</span>
                                                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                                                     </Button>
                                                                                 </PopoverTrigger>
                                                                                 <PopoverContent
                                                                                     align="start"
                                                                                     sideOffset={4}
-                                                                                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                                                                                    className="w-[--radix-popover-trigger-width] p-0"
                                                                                 >
                                                                                     <div className="flex flex-col">
                                                                                         <div className="flex items-center border-b px-3">
@@ -500,9 +499,10 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                                     <button
                                                                                                         key={p.id}
                                                                                                         type="button"
+                                                                                                        onPointerDown={(e) => e.preventDefault()}
+                                                                                                        onMouseDown={(e) => e.preventDefault()}
                                                                                                         onClick={() => {
                                                                                                             handleProductSelection(item.tempId, p);
-                                                                                                            setProductSearchTerm(prev => ({ ...prev, [item.tempId]: '' }));
                                                                                                         }}
                                                                                                         className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
                                                                                                     >
@@ -661,5 +661,3 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
-
-    
