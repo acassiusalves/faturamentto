@@ -250,7 +250,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         setPendingItems(prev => prev.map(item => 
             item.tempId === tempId ? { ...item, productName: product.name, sku: product.sku, isNew: false } : item
         ));
-        setOpenProductPickers(prev => ({ ...prev, [tempId]: false }));
+        setOpenProductPickers(prev => ({ ...prev, [item.tempId]: false }));
     };
 
     const handleSaveChanges = async () => {
@@ -466,7 +466,10 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                 </PopoverContent>
                                                                             </Popover>
                                                                         ) : (
-                                                                            item.productName
+                                                                            <div className="flex items-center gap-2">
+                                                                                {item.isNew && <PlusCircle className="h-4 w-4 text-blue-500" />}
+                                                                                <span>{item.productName}</span>
+                                                                            </div>
                                                                         )}
                                                                     </TableCell>
                                                                     <TableCell className="font-mono">{item.sku || 'N/A'}</TableCell>
@@ -603,3 +606,4 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
+
