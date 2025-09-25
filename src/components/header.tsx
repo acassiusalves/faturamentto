@@ -1,7 +1,7 @@
 
 "use client"
 import Link from "next/link";
-import { LogOut, ChevronDown, Beaker } from 'lucide-react';
+import { LogOut, ChevronDown } from 'lucide-react';
 import { MarketFlowLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useAuth } from "@/context/auth-context";
@@ -47,21 +47,26 @@ export function Header() {
                         return (
                             <DropdownMenu key={link.label}>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
+                                    <Button variant="ghost" size="sm" className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground">
                                         {link.icon && <link.icon className="mr-2" />}
                                         {link.label}
                                         <ChevronDown className="ml-1 h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start">
-                                    {link.subItems.filter(sub => hasAccess(sub.href)).map(subItem => (
-                                        <DropdownMenuItem key={subItem.href} asChild>
-                                            <Link href={subItem.href}>
-                                                {subItem.icon && <subItem.icon className="mr-2" />}
-                                                {subItem.label}
-                                            </Link>
-                                        </DropdownMenuItem>
-                                    ))}
+                                    {link.subItems.map(subItem => {
+                                        if (hasAccess(subItem.href)) {
+                                            return (
+                                                <DropdownMenuItem key={subItem.href} asChild>
+                                                    <Link href={subItem.href}>
+                                                        {subItem.icon && <subItem.icon className="mr-2" />}
+                                                        {subItem.label}
+                                                    </Link>
+                                                </DropdownMenuItem>
+                                            )
+                                        }
+                                        return null;
+                                    })}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         )
@@ -96,14 +101,19 @@ export function Header() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        {link.subItems.filter(sub => hasAccess(sub.href)).map(subItem => (
-                                            <DropdownMenuItem key={subItem.href} asChild>
-                                                <Link href={subItem.href}>
-                                                    <subItem.icon className="mr-2" />
-                                                    {subItem.label}
-                                                </Link>
-                                            </DropdownMenuItem>
-                                        ))}
+                                        {link.subItems.map(subItem => {
+                                          if(hasAccess(subItem.href)) {
+                                            return (
+                                              <DropdownMenuItem key={subItem.href} asChild>
+                                                  <Link href={subItem.href}>
+                                                      <subItem.icon className="mr-2" />
+                                                      {subItem.label}
+                                                  </Link>
+                                              </DropdownMenuItem>
+                                            )
+                                          }
+                                          return null;
+                                        })}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             );
