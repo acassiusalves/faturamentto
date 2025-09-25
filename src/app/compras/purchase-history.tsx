@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -14,7 +15,7 @@ import type { PurchaseList, PurchaseListItem, InventoryItem, Product } from '@/l
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck, ChevronsUpDown, PlusCircle } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck, ChevronsUpDown, PlusCircle, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 
 interface PurchaseHistoryProps {
   onEdit: (purchase: PurchaseList) => void;
-  allProducts?: Product[];
+  allProducts: Product[];
 }
 
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean; isNew?: boolean };
@@ -242,6 +243,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
             surplus: 0,
             tempId: `new-${Date.now()}`,
             isNew: true,
+            isManual: true, // Mark as manually added
         };
         setPendingItems(prev => [...prev, newItem]);
     };
@@ -264,7 +266,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
 
         setIsSaving(true);
         try {
-            const itemsToSave = pendingItems.map(({ tempId, isSplit, isNew, ...rest }) => rest);
+            const itemsToSave: PurchaseListItem[] = pendingItems.map(({ tempId, isSplit, isNew, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
                 const q = (item.quantity || 0) + (item.surplus || 0);
                 return acc + (item.unitCost * q);
@@ -467,7 +469,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                             </Popover>
                                                                         ) : (
                                                                             <div className="flex items-center gap-2">
-                                                                                {isEditingThis && item.isNew && <PlusCircle className="h-4 w-4 text-blue-500" />}
+                                                                                {item.isManual && <AlertTriangle className="h-4 w-4 text-amber-500" title="Item adicionado manualmente"/>}
                                                                                 <span>{item.productName}</span>
                                                                             </div>
                                                                         )}
@@ -606,5 +608,3 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
-
-    

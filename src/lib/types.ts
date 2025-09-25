@@ -361,6 +361,7 @@ export interface PurchaseListItem {
     storeName: string;
     isPaid?: boolean;
     surplus?: number;
+    isManual?: boolean;
 }
 
 export interface PurchaseList {
