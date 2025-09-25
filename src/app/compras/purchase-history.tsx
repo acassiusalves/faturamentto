@@ -410,7 +410,7 @@ export function PurchaseHistory() {
                                                                     formatCurrency(item.unitCost)
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * (item.quantity || 0))}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * item.quantity)}</TableCell>
                                                              <TableCell className="text-center">
                                                                 {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
                                                                     <Switch
