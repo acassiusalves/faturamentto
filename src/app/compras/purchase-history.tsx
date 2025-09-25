@@ -14,7 +14,7 @@ import type { PurchaseList, PurchaseListItem, InventoryItem, Product } from '@/l
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck, ChevronsUpDown, PlusCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck, ChevronsUpDown, PlusCircle, AlertTriangle, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +51,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
     const [availableStores, setAvailableStores] = useState<string[]>([]);
     const [entryLogsByDate, setEntryLogsByDate] = useState<Map<string, InventoryItem[]>>(new Map());
     const [openProductPickers, setOpenProductPickers] = useState<Record<string, boolean>>({});
+    const [productSearchTerm, setProductSearchTerm] = useState<Record<string, string>>({});
 
     const fetchHistory = useCallback(async () => {
         setIsLoading(true);
@@ -441,11 +442,15 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                 {itemsToDisplay.map((item) => (
                                                                     <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
                                                                     <TableCell>
-                                                                         {isEditingThis && item.isNew ? (
+                                                                        {isEditingThis && item.isNew ? (
                                                                             <Popover
-                                                                                modal={false}
                                                                                 open={openProductPickers[item.tempId]}
-                                                                                onOpenChange={(isOpen) => setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: isOpen }))}
+                                                                                onOpenChange={(isOpen) => {
+                                                                                    setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: isOpen }));
+                                                                                    if (!isOpen) {
+                                                                                        setProductSearchTerm(prev => ({ ...prev, [item.tempId]: '' }));
+                                                                                    }
+                                                                                }}
                                                                             >
                                                                                 <PopoverTrigger asChild>
                                                                                     <Button
@@ -458,44 +463,62 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                                                     </Button>
                                                                                 </PopoverTrigger>
-                                                                                <PopoverPortal>
-                                                                                    <PopoverContent
-                                                                                        align="start"
-                                                                                        sideOffset={4}
-                                                                                        className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999] pointer-events-auto"
-                                                                                        onOpenAutoFocus={(e) => e.preventDefault()}
-                                                                                    >
-                                                                                        <Command>
-                                                                                            <CommandInput placeholder="Buscar produto..." />
-                                                                                            <CommandList className="pointer-events-auto">
-                                                                                                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                                                                <CommandGroup>
-                                                                                                    {allProducts.map((p) => (
-                                                                                                        <CommandItem
-                                                                                                            key={p.id}
-                                                                                                            value={p.name}
-                                                                                                            onPointerDown={(e) => e.preventDefault()}
-                                                                                                            onMouseDown={(e) => e.preventDefault()}
-                                                                                                            onClick={() => {
-                                                                                                                handleProductSelection(item.tempId, p);
-                                                                                                            }}
-                                                                                                            onSelect={(currentValue) => {
-                                                                                                                const product = allProducts.find(prod => prod.name === currentValue);
-                                                                                                                if (product) {
-                                                                                                                    handleProductSelection(item.tempId, product);
-                                                                                                                }
-                                                                                                            }}
-                                                                                                            className="cursor-pointer"
-                                                                                                        >
-                                                                                                            <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
-                                                                                                            {p.name}
-                                                                                                        </CommandItem>
-                                                                                                    ))}
-                                                                                                </CommandGroup>
-                                                                                            </CommandList>
-                                                                                        </Command>
-                                                                                    </PopoverContent>
-                                                                                </PopoverPortal>
+                                                                                <PopoverContent
+                                                                                    align="start"
+                                                                                    sideOffset={4}
+                                                                                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                                                                                >
+                                                                                    <div className="flex flex-col">
+                                                                                        <div className="flex items-center border-b px-3">
+                                                                                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                                            <Input
+                                                                                                placeholder="Buscar produto..."
+                                                                                                value={productSearchTerm[item.tempId] || ''}
+                                                                                                onChange={(e) => setProductSearchTerm(prev => ({ 
+                                                                                                    ...prev, 
+                                                                                                    [item.tempId]: e.target.value 
+                                                                                                }))}
+                                                                                                className="border-0 focus:ring-0 focus-visible:ring-0 h-11"
+                                                                                            />
+                                                                                        </div>
+                                                                                        <div className="max-h-[300px] overflow-y-auto p-1">
+                                                                                            {(() => {
+                                                                                                const searchTerm = (productSearchTerm[item.tempId] || '').toLowerCase();
+                                                                                                const filteredProducts = allProducts.filter(p => 
+                                                                                                    p.name.toLowerCase().includes(searchTerm)
+                                                                                                );
+                                                                                                
+                                                                                                if (filteredProducts.length === 0) {
+                                                                                                    return (
+                                                                                                        <div className="py-6 text-center text-sm text-muted-foreground">
+                                                                                                            Nenhum produto encontrado.
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                }
+                                                                                                
+                                                                                                return filteredProducts.map((p) => (
+                                                                                                    <button
+                                                                                                        key={p.id}
+                                                                                                        type="button"
+                                                                                                        onClick={() => {
+                                                                                                            handleProductSelection(item.tempId, p);
+                                                                                                            setProductSearchTerm(prev => ({ ...prev, [item.tempId]: '' }));
+                                                                                                        }}
+                                                                                                        className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                                                                                    >
+                                                                                                        <Check 
+                                                                                                            className={cn(
+                                                                                                                "mr-2 h-4 w-4",
+                                                                                                                item.sku === p.sku ? "opacity-100" : "opacity-0"
+                                                                                                            )} 
+                                                                                                        />
+                                                                                                        {p.name}
+                                                                                                    </button>
+                                                                                                ));
+                                                                                            })()}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </PopoverContent>
                                                                             </Popover>
                                                                         ) : (
                                                                             <div className="flex items-center gap-2">
@@ -638,7 +661,5 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
-
-    
 
     
