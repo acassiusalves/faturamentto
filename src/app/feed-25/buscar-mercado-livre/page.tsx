@@ -425,31 +425,31 @@ export default function BuscarMercadoLivrePage() {
                                                                 </div>
                                                                 
                                                                 <div className="flex items-center gap-2 text-sm">
-                                                                    {product.listing_type_id && (
-                                                                        <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
-                                                                    )}
-                                                                    
-                                                                    {product.fees && (
-                                                                        <div className="text-muted-foreground space-x-2">
-                                                                        {/* Comissão sempre que houver */}
-                                                                        {(product.fees.sale_fee_amount ?? 0) > 0 && (
-                                                                            <span>
-                                                                            Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b>
-                                                                            {" "}
-                                                                            <span className="opacity-70">
-                                                                                ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)
-                                                                            </span>
-                                                                            </span>
-                                                                        )}
-                                                                    
-                                                                        {/* Tarifa fixa: só mostra se for > 0 */}
-                                                                        {(product.fees.listing_fee_amount ?? 0) > 0 && (
-                                                                            <span>
-                                                                            • Tarifa fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b>
-                                                                            </span>
-                                                                        )}
-                                                                        </div>
-                                                                    )}
+                                                                  {product.listing_type_id && (
+                                                                    <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                                  )}
+                                                                
+                                                                  {product.fees && (
+                                                                    <div className="text-muted-foreground space-x-2">
+                                                                      {/* Comissão sempre que houver */}
+                                                                      {(product.fees.sale_fee_amount ?? 0) > 0 && (
+                                                                        <span>
+                                                                          Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b>
+                                                                          {" "}
+                                                                          <span className="opacity-70">
+                                                                            ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)
+                                                                          </span>
+                                                                        </span>
+                                                                      )}
+                                                                
+                                                                      {/* Tarifa fixa: só mostra se for > 0 */}
+                                                                      {(product.fees.listing_fee_amount ?? 0) > 0 && (
+                                                                        <span>
+                                                                          • Tarifa fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b>
+                                                                        </span>
+                                                                      )}
+                                                                    </div>
+                                                                  )}
                                                                 </div>
                                                             </div>
                                                             <AccordionTrigger className="text-xs text-muted-foreground hover:no-underline p-1 mt-2 w-fit">
@@ -539,3 +539,4 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
+

@@ -584,3 +584,42 @@ export interface SaleCosts {
     category_id: string;
     costs: SaleCost[];
 }
+
+export interface ProductResult {
+    thumbnail: string;
+    name: string;
+    catalog_product_id: string;
+    id: string;
+    brand: string;
+    model: string;
+    price: number;
+    shipping_type: string;
+    shipping_logistic_type: string;
+    free_shipping: boolean;
+    category_id: string;
+    listing_type_id: string;
+    seller_nickname: string;
+    official_store_id: number | null;
+    is_official_store: boolean;
+    offerCount: number;
+    reputation?: {
+        level_id: string | null;
+        power_seller_status: string | null;
+        metrics: {
+            claims_rate: number;
+            cancellations_rate: number;
+            delayed_rate: number;
+        }
+    }
+    seller_state?: string | null;
+    seller_state_id?: string | null;
+    seller_city?: string | null;
+    seller_city_id?: string | null;
+    fees?: {
+      listing_fee_amount: number;
+      sale_fee_amount: number;
+      sale_fee_percent: number;
+      fee_total?: number;
+    };
+    raw_data?: any;
+}

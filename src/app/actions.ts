@@ -126,10 +126,12 @@ async function fetchListingFees(opts: {
   raw: any;
 } | null> {
   const site = opts.site ?? "MLB";
-  const base = `https://api.mercadolibre.com/sites/${site}/listing_prices` + (opts.listingTypeId ? `/${opts.listingTypeId}` : "");
+  const base = `https://api.mercadolibre.com/sites/${site}/listing_prices`;
   const url = new URL(base);
   url.searchParams.set("price", String(opts.price));
   if (opts.categoryId) url.searchParams.set("category_id", opts.categoryId);
+  if (opts.listingTypeId) url.searchParams.set("listing_type_id", opts.listingTypeId);
+
 
   // 1) tenta sem token
   let r = await fetch(url.toString(), { cache: "no-store", headers: { Accept: "application/json" } });
@@ -145,23 +147,19 @@ async function fetchListingFees(opts: {
 
   const data = await r.json();
   // quando chamamos sem listingType, vem array; com listingType, pode vir 1 só
-  const row = Array.isArray(data)
-    ? (opts.listingTypeId ? data.find((d: any) => d?.listing_type_id === opts.listingTypeId) ?? data[0] : data[0])
-    : data;
+  const row = Array.isArray(data) ? data[0] : data;
 
   if (!row) return null;
-
-  // ⚠️ NÃO somar aqui. Mantemos campos separados.
-  const sale = Number(row?.sale_fee_amount ?? 0);
-  const list = Number(row?.listing_fee_amount ?? 0);
+  
+  const sale = Number(row?.sale_fee_amount ?? row?.gross_amount ?? 0);
+  const list = Number(row?.listing_fee_amount ?? row?.fixed_fee ?? 0);
   const price = Number(opts.price || 0);
 
   return {
     calculated: {
       listing_fee_amount: isFinite(list) ? list : 0,
       sale_fee_amount:    isFinite(sale) ? sale : 0,
-      sale_fee_percent:   price > 0 ? sale / price : 0,
-      // Opcional: total somente para quem precisar explicitamente
+      sale_fee_percent:   price > 0 && row.percentage_fee ? row.percentage_fee / 100 : (price > 0 ? sale / price : 0),
       fee_total:          (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
     },
     raw: data,
