@@ -295,14 +295,18 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                             <Badge variant="secondary">{totalPurchaseQtyDay} unidades</Badge>
                                         </div>
                                         <div className="flex items-center gap-2 text-sm font-semibold">
-                                            <PackageCheck className="h-4 w-4 text-muted-foreground" />
-                                            Total de entradas:
-                                            <Badge
-                                                variant={totalEntriesDay === totalPurchaseQtyDay ? 'default' : 'destructive'}
-                                                className={cn(totalEntriesDay === totalPurchaseQtyDay && 'bg-green-600')}
-                                            >
-                                                {totalEntriesDay} unidades
-                                            </Badge>
+                                          <PackageCheck className="h-4 w-4 text-muted-foreground" />
+                                          Total de entradas:
+                                          <Badge
+                                            variant="secondary"
+                                            className={cn(
+                                              totalEntriesDay === totalPurchaseQtyDay
+                                                ? 'bg-green-600 text-white hover:bg-green-600/90'
+                                                : 'bg-yellow-500 text-black hover:bg-yellow-500/90'
+                                            )}
+                                          >
+                                            {totalEntriesDay} unidades
+                                          </Badge>
                                         </div>
                                     </div>
                                 </div>
@@ -521,3 +525,5 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
         </Card>
     );
 }
+
+    
