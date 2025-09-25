@@ -277,15 +277,13 @@ export function PurchaseHistory() {
                             
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
 
-                            // (A) Total em compras -> usar SOMA dos logs Celular + Novo do dia
-                            const totalPurchaseQuantity = getEntriesQtyForDate(purchaseDateKey);
+                            // (A) Total em compras -> vem da própria lista de compras
+                            const totalPurchaseQuantity = purchase.items.reduce(
+                                (sum, item) => sum + (item.quantity || 0) + (item.surplus || 0), 0
+                            );
 
-                            // (B) Total de entradas -> manter independente (se quiser outra fonte/cálculo)
-                            const totalEntriesToday =
-                              (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
-                                (sum, log: any) => sum + getLogQty(log),
-                                0
-                              );
+                            // (B) Total de entradas -> vem dos logs de entrada do dia (Celular + Novo)
+                            const totalEntriesToday = getEntriesQtyForDate(purchaseDateKey);
 
 
                             return (
@@ -493,3 +491,5 @@ export function PurchaseHistory() {
         </Card>
     );
 }
+
+    
