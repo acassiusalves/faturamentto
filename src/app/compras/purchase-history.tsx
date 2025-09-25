@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
+import { format } from 'date-fns';
 
 
 interface PurchaseHistoryProps {
@@ -323,12 +323,15 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                             
                                             const purchaseDateKey = format(new Date(purchase.createdAt), 'yyyy-MM-dd');
                                             
+                                            // (A) Total em compras -> soma da própria lista (quantidade + excedente)
                                             const totalPurchaseQuantity = purchase.items.reduce(
                                                 (sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0
                                             );
-                                            
-                                            const totalEntriesToday = (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
-                                                (sum, log) => sum + getLogQty(log),
+
+                                            // (B) Total de entradas -> soma dos logs filtrados para o dia
+                                            const totalEntriesToday =
+                                            (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
+                                                (sum, log: any) => sum + getLogQty(log),
                                                 0
                                             );
 
