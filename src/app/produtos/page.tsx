@@ -613,7 +613,7 @@ export default function EstoquePage() {
                                             <FormItem>
                                             <FormLabel>{attr.label}</FormLabel>
                                             {attr.key === 'modelo' ? (
-                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))} modal={false}>
+                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
                                                     <Button
@@ -627,29 +627,30 @@ export default function EstoquePage() {
                                                     </Button>
                                                     </FormControl>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999] pointer-events-auto" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
+                                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
                                                     <Command>
-                                                    <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                                    <CommandList className="pointer-events-auto">
-                                                        <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
-                                                        <CommandGroup>
-                                                        {attr.values.map(val => (
-                                                            <CommandItem
-                                                            key={val}
-                                                            value={val}
-                                                            onMouseDown={(e) => e.preventDefault()}
-                                                            onSelect={() => {
-                                                                field.onChange(val);
-                                                                setOpenPopovers(prev => ({...prev, [attr.key]: false}));
-                                                            }}
-                                                            className="cursor-pointer"
-                                                            >
-                                                            <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
-                                                            {val}
-                                                            </CommandItem>
-                                                        ))}
-                                                        </CommandGroup>
-                                                    </CommandList>
+                                                        <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
+                                                        <CommandList>
+                                                            <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                                                            <CommandGroup>
+                                                            {attr.values.map(val => (
+                                                                <CommandItem
+                                                                    key={val}
+                                                                    value={val}
+                                                                    onPointerDown={(e) => e.preventDefault()}
+                                                                    onMouseDown={(e) => e.preventDefault()}
+                                                                    onSelect={() => {
+                                                                        field.onChange(val);
+                                                                        setOpenPopovers(prev => ({...prev, [attr.key]: false}));
+                                                                    }}
+                                                                    className="cursor-pointer"
+                                                                >
+                                                                    <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
+                                                                    {val}
+                                                                </CommandItem>
+                                                            ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
                                                     </Command>
                                                 </PopoverContent>
                                                 </Popover>
@@ -887,3 +888,5 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
