@@ -49,6 +49,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PurchaseHistory } from './purchase-history';
 import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
+import { Switch } from '@/components/ui/switch';
 
 
 // Interface para a nova lista de exibição
