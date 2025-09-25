@@ -498,7 +498,7 @@ export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
 
 
 export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string; }[]> {
-  const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+  const salesCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'sales');
   const snapshot = await getDocs(query(salesCol));
   return snapshot.docs.map(doc => {
       const data = doc.data();
@@ -964,3 +964,4 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     
 
     
+

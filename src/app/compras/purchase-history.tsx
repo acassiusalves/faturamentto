@@ -46,12 +46,17 @@ export function PurchaseHistory() {
 
         const uniqueDates = Array.from(new Set(purchaseHistory.map(p => p.createdAt.split('T')[0])));
         const entryLogsMap = new Map<string, InventoryItem[]>();
+        
+        // Helper para normalização, evitando problemas com `undefined` ou `null`
+        const norm = (v: any) => String(v ?? '').trim().toLowerCase();
 
         for (const date of uniqueDates) {
             const logs = await loadEntryLogsByDateFromPermanentLog(new Date(date));
+            
+            // CORREÇÃO: Usa o mesmo fallback da página Arquivo, assumindo 'Celular' quando a categoria não está presente.
             const cellularLogs = logs.filter((log: any) => {
-                const cat = String(log.category || '').toLowerCase();
-                const cond = String(log.condition || '').toLowerCase();
+                const cat  = norm(log.category ?? 'Celular'); // Fallback importante!
+                const cond = norm(log.condition);
                 return cat === 'celular' && cond === 'novo';
             });
             entryLogsMap.set(date, cellularLogs);
@@ -231,15 +236,8 @@ export function PurchaseHistory() {
         return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     };
 
-    // Se seu log não tem `quantity`, considere 1 (cada log = 1 unidade).
+    // Helper para somar quantidades dos logs
     const getLogQty = (log: any) => Number(log?.quantity) || 1;
-
-    // Soma a quantidade dos logs filtrados daquele dia
-    const getEntriesQtyForDate = (dateKey: string) => {
-      const logs = entryLogsByDate.get(dateKey) ?? [];
-      return logs.reduce((sum, log) => sum + getLogQty(log), 0);
-    };
-
 
     if (isLoading) {
         return (
@@ -277,13 +275,15 @@ export function PurchaseHistory() {
                             
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
 
-                            // (A) Total em compras -> vem da própria lista de compras
+                            // (A) Total em compras -> soma da própria lista (quantidade + excedente)
                             const totalPurchaseQuantity = purchase.items.reduce(
                                 (sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0
                             );
 
-                            // (B) Total de entradas -> vem dos logs de entrada do dia (Celular + Novo)
-                            const totalEntriesToday = getEntriesQtyForDate(purchaseDateKey);
+                            // (B) Total de entradas -> soma das quantidades dos logs de entrada do dia
+                            const totalEntriesToday = (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
+                                (sum, log) => sum + getLogQty(log), 0
+                            );
 
 
                             return (
@@ -491,5 +491,3 @@ export function PurchaseHistory() {
         </Card>
     );
 }
-
-    
