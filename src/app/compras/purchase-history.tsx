@@ -479,8 +479,11 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                                             onClick={() => {
                                                                                                                 handleProductSelection(item.tempId, p);
                                                                                                             }}
-                                                                                                            onSelect={() => {
-                                                                                                                handleProductSelection(item.tempId, p);
+                                                                                                            onSelect={(currentValue) => {
+                                                                                                                const product = allProducts.find(prod => prod.name === currentValue);
+                                                                                                                if (product) {
+                                                                                                                    handleProductSelection(item.tempId, product);
+                                                                                                                }
                                                                                                             }}
                                                                                                             className="cursor-pointer"
                                                                                                         >
@@ -635,5 +638,7 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
+
+    
 
     
