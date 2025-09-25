@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -293,7 +294,7 @@ export default function EstoquePage() {
                 origin: originToSave,
                 condition: data.condition || 'Novo',
                 createdAt: new Date().toISOString(),
-                category: 'Celular'
+                category: 'Celular' // AQUI é onde a categoria é definida para celulares
             }));
 
             await saveMultipleInventoryItems(newItems as any);
@@ -1027,4 +1028,3 @@ export default function EstoquePage() {
   );
 }
 
-    
