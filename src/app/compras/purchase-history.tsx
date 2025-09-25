@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -36,7 +35,7 @@ interface PurchaseHistoryProps {
   allProducts: Product[];
 }
 
-type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean; isNew?: boolean };
+type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean; isNew?: boolean, isManual?: boolean; };
 
 const getLogQty = (log: any) => Number(log?.quantity) || 1;
 
@@ -443,14 +442,14 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                     <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
                                                                     <TableCell>
                                                                          {isEditingThis && item.isNew ? (
-                                                                            <Popover open={openProductPickers[item.tempId]} onOpenChange={(isOpen) => setOpenProductPickers(prev => ({...prev, [item.tempId]: isOpen}))}>
+                                                                            <Popover modal={false} open={openProductPickers[item.tempId]} onOpenChange={(isOpen) => setOpenProductPickers(prev => ({...prev, [item.tempId]: isOpen}))}>
                                                                                 <PopoverTrigger asChild>
                                                                                     <Button variant="outline" role="combobox" className="font-normal w-[300px] justify-between">
                                                                                         {item.productName || "Selecione um produto..."}
                                                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                                                     </Button>
                                                                                 </PopoverTrigger>
-                                                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" onOpenAutoFocus={(e) => e.preventDefault()}>
                                                                                     <Command>
                                                                                         <CommandInput placeholder="Buscar produto..." />
                                                                                         <CommandList>
@@ -608,3 +607,5 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
+
+    
