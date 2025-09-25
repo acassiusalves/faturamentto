@@ -643,7 +643,10 @@ export const updatePurchaseList = async (id: string, data: Partial<Omit<Purchase
     const dataToUpdate = { ...data };
     // Recalcula o totalCost antes de salvar
     if (data.items) {
-        dataToUpdate.totalCost = data.items.reduce((acc, item) => acc + (item.unitCost * item.quantity), 0);
+        dataToUpdate.totalCost = data.items.reduce((acc, item) => {
+             const quantity = (item.quantity || 0) + (item.surplus || 0);
+             return acc + (item.unitCost * quantity);
+        }, 0);
     }
     await updateDoc(docRef, dataToUpdate);
 };
@@ -880,10 +883,10 @@ export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Prom
     let q = query(logCol, orderBy('entryDate', 'desc'));
 
     if (dateRange?.from) {
-        q = query(q, where('entryDate', '>=', Timestamp.fromDate(startOfDay(dateRange.from)).toDate().toISOString()));
+        q = query(q, where('entryDate', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
     }
     if (dateRange?.to) {
-        q = query(q, where('entryDate', '<=', Timestamp.fromDate(endOfDay(dateRange.to)).toDate().toISOString()));
+        q = query(q, where('entryDate', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
     }
 
     const snapshot = await getDocs(q);
@@ -894,8 +897,8 @@ export const loadEntryLogsByDateFromPermanentLog = async (date: Date): Promise<E
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
     const q = query(
         logCol, 
-        where('entryDate', '>=', startOfDay(date).toISOString()),
-        where('entryDate', '<=', endOfDay(date).toISOString())
+        where('entryDate', '>=', Timestamp.fromDate(startOfDay(date))),
+        where('entryDate', '<=', Timestamp.fromDate(endOfDay(date)))
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore(doc.data()) as EntryLog);
@@ -961,4 +964,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     
 
     
-
