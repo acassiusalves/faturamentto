@@ -261,8 +261,8 @@ export function PurchaseHistory() {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
                             const currentTotal = itemsToDisplay.reduce((acc, item) => {
-                                const q = (item.quantity || 0) + (item.surplus || 0);
-                                return acc + (item.unitCost * q);
+                              const q = (item.quantity || 0) + (item.surplus || 0);
+                              return acc + (item.unitCost * q);
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
                             
