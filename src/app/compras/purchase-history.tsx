@@ -24,6 +24,8 @@ import { useAuth } from '@/context/auth-context';
 // Add a temporary `isSplit` property to our item type for highlighting
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
 
+const qtyWithSurplus = (it: PurchaseListItem) => (it.quantity || 0) + (it.surplus || 0);
+
 export function PurchaseHistory() {
     const { toast } = useToast();
     const { user } = useAuth();
@@ -111,10 +113,7 @@ export function PurchaseHistory() {
                         updatedItem.unitCost = isNaN(numericCost) ? item.unitCost : numericCost;
                     } else if (field === 'surplus') {
                         const numericSurplus = parseInt(value as string, 10);
-                        const newSurplus = isNaN(numericSurplus) ? 0 : numericSurplus;
-                        const originalQuantity = item.quantity - (item.surplus || 0);
-                        updatedItem.surplus = newSurplus;
-                        updatedItem.quantity = originalQuantity + newSurplus;
+                        updatedItem.surplus = isNaN(numericSurplus) || numericSurplus < 0 ? 0 : numericSurplus;
                     } else if (field === 'quantity') {
                          const numericQuantity = parseInt(value as string, 10);
                          updatedItem.quantity = isNaN(numericQuantity) || numericQuantity < 1 ? 1 : numericQuantity;
@@ -204,8 +203,8 @@ export function PurchaseHistory() {
             // Clean up tempId and isSplit before saving
             const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
-                const totalQuantity = (item.quantity || 0); // Surplus já está em quantity
-                return acc + (item.unitCost * totalQuantity);
+                const q = (item.quantity || 0) + (item.surplus || 0);
+                return acc + (item.unitCost * q);
             }, 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
             
@@ -260,12 +259,12 @@ export function PurchaseHistory() {
                             const isEditingThis = editingId === purchase.id;
                             const itemsToDisplay = isEditingThis ? pendingItems : purchase.items;
                             const currentTotal = itemsToDisplay.reduce((acc, item) => {
-                                const totalQuantity = item.quantity || 0;
-                                return acc + (item.unitCost * totalQuantity);
+                                const q = (item.quantity || 0) + (item.surplus || 0);
+                                return acc + (item.unitCost * q);
                             }, 0);
                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
                             
-                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                            const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0);
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
                             const totalEntriesToday = entryLogsByDate.get(purchaseDateKey)?.length || 0;
 
@@ -410,7 +409,7 @@ export function PurchaseHistory() {
                                                                     formatCurrency(item.unitCost)
                                                                 )}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * item.quantity)}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(item.unitCost * ((item.quantity || 0) + (item.surplus || 0)))}</TableCell>
                                                              <TableCell className="text-center">
                                                                 {(user?.role === 'admin' || user?.role === 'socio' || user?.role === 'financeiro') ? (
                                                                     <Switch
