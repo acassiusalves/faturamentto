@@ -557,3 +557,22 @@ export interface SavedMlAnalysis {
   mainCategoryId: string;
   results: MlAnalysisResult[];
 }
+
+// Mercado Livre Cost Calculation Types
+export interface SaleCost {
+    listing_type_id: string;
+    listing_type_name: string;
+    price: number;
+    sale_fee_rate: number;
+    sale_fee: number;
+    fixed_fee: number;
+    shipping_cost: number;
+    net_amount: number;
+}
+
+export interface SaleCosts {
+    id: string;
+    title: string;
+    category_id: string;
+    costs: SaleCost[];
+}
