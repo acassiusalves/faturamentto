@@ -143,9 +143,12 @@ async function fetchListingFees(opts: {
 
   if (!row) return null;
 
-  const sale = Number(row.sale_fee_amount ?? row.selling_fee_amount ?? 0);
+  const sale = Number(row.sale_fee_amount ?? 0);
   const list = Number(row.listing_fee_amount ?? 0);
   const price = Number(opts.price || 0);
+
+  // A comissão total REAL é a soma da taxa de venda + a taxa fixa
+  // O percentual deve ser calculado sobre a taxa de venda (sale_fee_amount), não o total.
   return {
     listing_fee_amount: list,
     sale_fee_amount: sale,

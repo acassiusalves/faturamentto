@@ -426,7 +426,7 @@ export default function BuscarMercadoLivrePage() {
                                                             <div className="text-muted-foreground">
                                                               <span>Comissão: <b>{formatCurrency(product.fees.sale_fee_amount)}</b> ({(product.fees.sale_fee_percent * 100).toFixed(1)}%)</span>
                                                               {product.fees.listing_fee_amount > 0 && (
-                                                                <span className="ml-2"> | Taxa Fixa: {formatCurrency(product.fees.listing_fee_amount)}</span>
+                                                                <span className="ml-2"> | Taxa Fixa: <b>{formatCurrency(product.fees.listing_fee_amount)}</b></span>
                                                               )}
                                                             </div>
                                                           )}
