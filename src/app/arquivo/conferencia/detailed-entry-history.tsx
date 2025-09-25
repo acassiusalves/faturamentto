@@ -112,15 +112,15 @@ export function DetailedEntryHistory() {
     } catch {
         return "Data inválida";
     }
-  }
+  };
 
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Historico de Entradas Estoque</CardTitle>
-                 <CardDescription>Visualize o registo de todos os itens que foram adicionados ao inventário.</CardDescription>
+                 <CardTitle>Histórico de Entradas de Estoque</CardTitle>
+                 <CardDescription>Visualize o registro de todos os itens que foram adicionados ao inventário.</CardDescription>
             </div>
             <div className="text-sm font-semibold text-muted-foreground whitespace-nowrap bg-muted px-3 py-2 rounded-md">
                 {filteredItems.length} registros encontrados
@@ -152,7 +152,7 @@ export function DetailedEntryHistory() {
                         <SelectValue placeholder="Filtrar por origem" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectIte`m value="all">Todas as Origens</SelectItem>
+                        <SelectItem value="all">Todas as Origens</SelectItem>
                         {availableOrigins.map(origin => (
                              <SelectItem key={origin} value={origin}>{origin}</SelectItem>
                         ))}
