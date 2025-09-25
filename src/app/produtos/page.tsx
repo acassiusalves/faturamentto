@@ -217,6 +217,7 @@ export default function EstoquePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
+  const [modelSearchTerm, setModelSearchTerm] = useState('');
 
   const cellularForm = useForm<Record<string, string>>({
     defaultValues: {},
@@ -613,46 +614,83 @@ export default function EstoquePage() {
                                             <FormItem>
                                             <FormLabel>{attr.label}</FormLabel>
                                             {attr.key === 'modelo' ? (
-                                                <Popover open={openPopovers[attr.key]} onOpenChange={(isOpen) => setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}))}>
-                                                <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        type="button"
-                                                        role="combobox"
-                                                        className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                <Popover 
+                                                    open={openPopovers[attr.key]} 
+                                                    onOpenChange={(isOpen) => {
+                                                        setOpenPopovers(prev => ({...prev, [attr.key]: isOpen}));
+                                                        if (!isOpen) {
+                                                            setModelSearchTerm(''); // Limpa o termo de busca quando fecha
+                                                        }
+                                                    }}
+                                                >
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant="outline"
+                                                                type="button"
+                                                                role="combobox"
+                                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                            >
+                                                                {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent 
+                                                        className="w-[var(--radix-popover-trigger-width)] p-0" 
+                                                        align="start" 
+                                                        sideOffset={4}
                                                     >
-                                                        {field.value ? field.value : `Selecione ${attr.label.toLowerCase()}...`}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                    </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" sideOffset={4} onOpenAutoFocus={(e) => e.preventDefault()}>
-                                                    <Command>
-                                                        <CommandInput placeholder={`Buscar ${attr.label.toLowerCase()}...`} />
-                                                        <CommandList>
-                                                            <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
-                                                            <CommandGroup>
-                                                            {attr.values.map(val => (
-                                                                <CommandItem
-                                                                    key={val}
-                                                                    value={val}
-                                                                    onPointerDown={(e) => e.preventDefault()}
-                                                                    onMouseDown={(e) => e.preventDefault()}
-                                                                    onSelect={() => {
-                                                                        field.onChange(val);
-                                                                        setOpenPopovers(prev => ({...prev, [attr.key]: false}));
-                                                                    }}
-                                                                    className="cursor-pointer"
-                                                                >
-                                                                    <Check className={cn("mr-2 h-4 w-4", field.value === val ? "opacity-100" : "opacity-0")} />
-                                                                    {val}
-                                                                </CommandItem>
-                                                            ))}
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                </PopoverContent>
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center border-b px-3">
+                                                                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                <Input
+                                                                    placeholder={`Buscar ${attr.label.toLowerCase()}...`}
+                                                                    value={modelSearchTerm}
+                                                                    onChange={(e) => setModelSearchTerm(e.target.value)}
+                                                                    className="border-0 focus:ring-0 focus-visible:ring-0 h-11"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                />
+                                                            </div>
+                                                            <div className="max-h-[300px] overflow-y-auto p-1">
+                                                                {(() => {
+                                                                    const searchTerm = modelSearchTerm.toLowerCase();
+                                                                    const filteredValues = attr.values.filter(val => 
+                                                                        val.toLowerCase().includes(searchTerm)
+                                                                    );
+                                                                    
+                                                                    if (filteredValues.length === 0) {
+                                                                        return (
+                                                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                                                                Nenhum modelo encontrado.
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    
+                                                                    return filteredValues.map((val) => (
+                                                                        <button
+                                                                            key={val}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                field.onChange(val);
+                                                                                setOpenPopovers(prev => ({...prev, [attr.key]: false}));
+                                                                                setModelSearchTerm(''); // Limpa o termo após seleção
+                                                                            }}
+                                                                            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                                                        >
+                                                                            <Check 
+                                                                                className={cn(
+                                                                                    "mr-2 h-4 w-4", 
+                                                                                    field.value === val ? "opacity-100" : "opacity-0"
+                                                                                )} 
+                                                                            />
+                                                                            {val}
+                                                                        </button>
+                                                                    ));
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    </PopoverContent>
                                                 </Popover>
                                             ) : (
                                                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
@@ -888,5 +926,7 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
 
     
