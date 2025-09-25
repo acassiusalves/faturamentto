@@ -159,7 +159,7 @@ export default function SettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Lock /> Permissões por Função</CardTitle>
-                    <CardDescription>Defina o que cada função pode ver e fazer no sistema. As funções de Administrador e Sócio sempre têm acesso a tudo.</CardDescription>
+                    <CardDescription>Defina o que cada função pode ver e fazer no sistema. A função de Administrador sempre tem acesso a tudo.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border overflow-auto">
@@ -178,7 +178,7 @@ export default function SettingsPage() {
                                     <TableRow key={page}>
                                         <TableCell className="font-medium">{page}</TableCell>
                                         {availableRoles.map(role => {
-                                            const isSuperUser = role.key === 'admin' || role.key === 'socio';
+                                            const isSuperUser = role.key === 'admin';
                                             const isChecked = isSuperUser || permissions[page]?.includes(role.key);
                                             return (
                                                 <TableCell key={`${page}-${role.key}`} className="text-center">

@@ -51,14 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (appSettings) {
              if (appSettings.permissions) {
-                // Start with the permissions saved in Firestore
                 const dynamicPermissions = { ...appSettings.permissions };
                 
-                // CRITICAL: Ensure admin and socio always have access to all defined pages
+                // CRITICAL: Ensure admin always has access to all defined pages
                 for(const page in dynamicPermissions) {
                     const roles = new Set(dynamicPermissions[page]);
                     roles.add('admin');
-                    roles.add('socio');
                     dynamicPermissions[page] = Array.from(roles);
                 }
                 setPagePermissions(dynamicPermissions);
