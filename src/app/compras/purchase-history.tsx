@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger, PopoverPortal } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 
@@ -458,36 +458,36 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
                                                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                                                   </Button>
                                                                                 </PopoverTrigger>
-                                                                                <PopoverContent
-                                                                                  align="start"
-                                                                                  sideOffset={4}
-                                                                                  className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999] pointer-events-auto"
-                                                                                  onOpenAutoFocus={(e) => e.preventDefault()}
-                                                                                >
-                                                                                  <Command>
-                                                                                    <CommandInput placeholder="Buscar produto..." />
-                                                                                    <CommandList className="pointer-events-auto">
-                                                                                      <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                                                      <CommandGroup>
-                                                                                        {allProducts.map((p) => (
-                                                                                          <CommandItem
-                                                                                            key={p.id}
-                                                                                            value={p.name}
-                                                                                            onMouseDown={(e) => e.preventDefault()}
-                                                                                            onSelect={() => {
-                                                                                              handleProductSelection(item.tempId, p);
-                                                                                              setOpenProductPickers((prev) => ({ ...prev, [item.tempId]: false }));
-                                                                                            }}
-                                                                                            className="cursor-pointer"
-                                                                                          >
-                                                                                            <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
-                                                                                            {p.name}
-                                                                                          </CommandItem>
-                                                                                        ))}
-                                                                                      </CommandGroup>
-                                                                                    </CommandList>
-                                                                                  </Command>
-                                                                                </PopoverContent>
+                                                                                <PopoverPortal>
+                                                                                  <PopoverContent
+                                                                                    align="start"
+                                                                                    sideOffset={4}
+                                                                                    className="w-[var(--radix-popover-trigger-width)] p-0 z-[9999]"
+                                                                                    forceMount
+                                                                                  >
+                                                                                    <Command>
+                                                                                      <CommandInput placeholder="Buscar produto..." />
+                                                                                      <CommandList>
+                                                                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                                                        <CommandGroup>
+                                                                                          {allProducts.map((p) => (
+                                                                                            <CommandItem
+                                                                                              key={p.id}
+                                                                                              value={p.name}
+                                                                                              onSelect={() => {
+                                                                                                handleProductSelection(item.tempId, p);
+                                                                                              }}
+                                                                                              className="cursor-pointer"
+                                                                                            >
+                                                                                              <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                                                              {p.name}
+                                                                                            </CommandItem>
+                                                                                          ))}
+                                                                                        </CommandGroup>
+                                                                                      </CommandList>
+                                                                                    </Command>
+                                                                                  </PopoverContent>
+                                                                                </PopoverPortal>
                                                                               </Popover>
                                                                         ) : (
                                                                             <div className="flex items-center gap-2">
@@ -630,5 +630,3 @@ export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryPro
         </Card>
     );
 }
-
-    
