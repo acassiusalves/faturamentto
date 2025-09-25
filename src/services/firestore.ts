@@ -499,7 +499,7 @@ export async function getSaleByOrderId(orderId: string): Promise<Sale | null> {
 
 
 export async function loadSalesIdsAndOrderCodes(): Promise<{ id: string; order_code: string; }[]> {
-  const salesCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'sales');
+  const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
   const snapshot = await getDocs(query(salesCol));
   return snapshot.docs.map(doc => {
       const data = doc.data();
@@ -850,7 +850,7 @@ export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
 };
 
 export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
-  const docRef = doc(db, 'ml-analys-is', analysisId);
+  const docRef = doc(db, 'ml-analysis', analysisId);
   await deleteDoc(docRef);
 };
 
@@ -878,40 +878,20 @@ export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
 }
 
 // --- Permanent Entry Log ---
-export const loadEntryLogsFromPermanentLog = async (date?: Date): Promise<EntryLog[]> => {
+export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Promise<EntryLog[]> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
 
-    if (date) {
-        const start = startOfDay(date);
-        const end = endOfDay(date);
-
-        // 1) Query by Timestamp (new standard)
-        const qTimestamp = query(
-            logCol,
-            where('entryDate', '>=', Timestamp.fromDate(start)),
-            where('entryDate', '<=', Timestamp.fromDate(end))
-        );
-        let snapshot = await getDocs(qTimestamp);
-
-        // 2) Fallback: Query by ISO string (for older records)
-        if (snapshot.empty) {
-            const startIso = start.toISOString();
-            const endIso = end.toISOString();
-            const qString = query(
-                logCol,
-                where('entryDate', '>=', startIso),
-                where('entryDate', '<=', endIso)
-            );
-            snapshot = await getDocs(qString);
-        }
-        return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
-
-    } else {
-        // Load all if no date is provided
-        const q = query(logCol, orderBy('entryDate', 'desc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
+    let q = query(logCol, orderBy('entryDate', 'desc'));
+    
+    if (dateRange?.from) {
+         q = query(q, where('entryDate', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
     }
+     if (dateRange?.to) {
+        q = query(q, where('entryDate', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
+    }
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as EntryLog);
 };
 
 
@@ -933,7 +913,7 @@ export const loadEntryLogsByDateFromPermanentLog = async (date: Date): Promise<E
       const startIso = start.toISOString();
       const endIso   = end.toISOString();
       const q2 = query(
-        logCol,
+        logGeral,
         where('entryDate', '>=', startIso),
         where('entryDate', '<=', endIso)
       );
@@ -1003,4 +983,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     
 
     
-
