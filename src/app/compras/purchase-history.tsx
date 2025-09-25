@@ -49,7 +49,11 @@ export function PurchaseHistory() {
 
         for (const date of uniqueDates) {
             const logs = await loadEntryLogsByDate(new Date(date));
-            const cellularLogs = logs.filter(log => (log as any).category !== 'Geral' && log.condition === 'Novo');
+            const cellularLogs = logs.filter((log: any) => {
+                const cat = String(log.category || '').toLowerCase();
+                const cond = String(log.condition || '').toLowerCase();
+                return cat === 'celular' && cond === 'novo';
+            });
             entryLogsMap.set(date, cellularLogs);
         }
 
@@ -264,7 +268,11 @@ export function PurchaseHistory() {
                             
                             const totalPurchaseQuantity = purchase.items.reduce((sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0);
                             const purchaseDateKey = purchase.createdAt.split('T')[0];
-                            const totalEntriesToday = entryLogsByDate.get(purchaseDateKey)?.length || 0;
+                            const totalEntriesToday =
+                              (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
+                                (sum, log: any) => sum + (Number(log.quantity) || 1),
+                                0
+                              );
 
 
                             return (
@@ -472,3 +480,5 @@ export function PurchaseHistory() {
         </Card>
     );
 }
+
+    
