@@ -152,7 +152,7 @@ async function fetchListingFees(opts: {
   if (!row) return null;
   
   const sale = Number(row?.sale_fee_amount ?? row?.gross_amount ?? 0);
-  const list = Number(row?.listing_fee_amount ?? row?.fixed_fee ?? 0);
+  const list = Number(row?.listing_fee_amount ?? 0);
   const price = Number(opts.price || 0);
 
   return {
@@ -748,6 +748,8 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    
 
     
 
