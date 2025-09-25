@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck } from 'lucide-react';
-import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
 
+
+interface PurchaseHistoryProps {
+  onEdit: (purchase: PurchaseList) => void;
+}
 
 // Add a temporary `isSplit` property to our item type for highlighting
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
@@ -38,8 +41,10 @@ const groupPurchasesByDay = (purchases: PurchaseList[]) => {
     return Array.from(grouped.entries());
 };
 
+const getLogQty = (log: any) => Number(log?.quantity) || 1;
 
-export function PurchaseHistory() {
+
+export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
     const { toast } = useToast();
     const { user } = useAuth();
     const [history, setHistory] = useState<PurchaseList[]>([]);
@@ -246,10 +251,8 @@ export function PurchaseHistory() {
     };
 
     const formatDate = (dateString: string) => {
-        return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+        return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
     };
-
-    const getLogQty = (log: any) => Number(log?.quantity) || 1;
     
     const groupedHistory = useMemo(() => groupPurchasesByDay(history), [history]);
 
@@ -261,6 +264,7 @@ export function PurchaseHistory() {
             </div>
         );
     }
+
 
     return (
         <Card>
@@ -288,16 +292,16 @@ export function PurchaseHistory() {
                                     <AccordionTrigger className="px-4 py-3 hover:no-underline font-semibold">
                                         <div className="flex justify-between items-center w-full">
                                             <div className="flex flex-col text-left">
-                                                <span className="text-lg">Compras de {format(new Date(dateKey), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+                                                <span className="text-lg">Compras de {format(new Date(dateKey.replace(/-/g, '/')), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
                                                 <span className="text-sm font-normal text-muted-foreground">{purchases.length} lista(s) neste dia</span>
                                             </div>
                                              <div className="flex items-center gap-6 text-sm text-right">
                                                 <div className="flex flex-col">
-                                                    <span className="text-muted-foreground">Total Comprado</span>
+                                                    <span className="text-muted-foreground">Total em compras</span>
                                                     <Badge variant="secondary">{totalDayPurchases} unidades</Badge>
                                                 </div>
                                                  <div className="flex flex-col">
-                                                    <span className="text-muted-foreground">Total Entradas</span>
+                                                    <span className="text-muted-foreground">Total de entradas</span>
                                                     <Badge variant={totalDayEntries === totalDayPurchases ? 'default' : 'destructive'} className={cn(totalDayEntries === totalDayPurchases && 'bg-green-600')}>{totalDayEntries} unidades</Badge>
                                                 </div>
                                                  <div className="flex flex-col">
@@ -316,6 +320,18 @@ export function PurchaseHistory() {
                                                 return acc + (item.unitCost * q);
                                             }, 0);
                                             const areAllItemsPaid = itemsToDisplay.every(item => item.isPaid);
+                                            
+                                            const purchaseDateKey = format(new Date(purchase.createdAt), 'yyyy-MM-dd');
+                                            
+                                            const totalPurchaseQuantity = purchase.items.reduce(
+                                                (sum, item) => sum + ((item.quantity || 0) + (item.surplus || 0)), 0
+                                            );
+                                            
+                                            const totalEntriesToday = (entryLogsByDate.get(purchaseDateKey) ?? []).reduce(
+                                                (sum, log) => sum + getLogQty(log),
+                                                0
+                                            );
+
 
                                             return (
                                                 <Accordion key={purchase.id} type="single" collapsible className="w-full">
