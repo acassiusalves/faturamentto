@@ -32,14 +32,14 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 
 interface PurchaseHistoryProps {
   onEdit: (purchase: PurchaseList) => void;
-  allProducts: Product[];
+  allProducts?: Product[];
 }
 
 type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean; isNew?: boolean };
 
 const getLogQty = (log: any) => Number(log?.quantity) || 1;
 
-export function PurchaseHistory({ onEdit, allProducts }: PurchaseHistoryProps) {
+export function PurchaseHistory({ onEdit, allProducts = [] }: PurchaseHistoryProps) {
     const { toast } = useToast();
     const { user } = useAuth();
     const [history, setHistory] = useState<PurchaseList[]>([]);
