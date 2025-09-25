@@ -2,12 +2,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { loadPurchaseHistory, deletePurchaseList, updatePurchaseList, loadAppSettings, loadEntryLogsByDateFromPermanentLog } from '@/services/firestore';
-import type { PurchaseList, PurchaseListItem, InventoryItem } from '@/lib/types';
+import {
+  loadPurchaseHistory,
+  deletePurchaseList,
+  updatePurchaseList,
+  loadAppSettings,
+  loadEntryLogsByDateFromPermanentLog,
+  loadProducts,
+} from '@/services/firestore';
+import type { PurchaseList, PurchaseListItem, InventoryItem, Product } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck } from 'lucide-react';
+import { Loader2, History, PackageSearch, Pencil, Trash2, Save, XCircle, Wallet, SplitSquareHorizontal, Check, ShieldAlert, Package, PackageCheck, ChevronsUpDown, PlusCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -19,16 +26,20 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
 
 interface PurchaseHistoryProps {
   onEdit: (purchase: PurchaseList) => void;
+  allProducts: Product[];
 }
 
-type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean };
+type EditablePurchaseListItem = PurchaseListItem & { tempId: string; isSplit?: boolean; isNew?: boolean };
 
 const getLogQty = (log: any) => Number(log?.quantity) || 1;
 
-export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
+export function PurchaseHistory({ onEdit, allProducts }: PurchaseHistoryProps) {
     const { toast } = useToast();
     const { user } = useAuth();
     const [history, setHistory] = useState<PurchaseList[]>([]);
@@ -39,6 +50,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
     const [availableStores, setAvailableStores] = useState<string[]>([]);
     const [entryLogsByDate, setEntryLogsByDate] = useState<Map<string, InventoryItem[]>>(new Map());
+    const [openProductPickers, setOpenProductPickers] = useState<Record<string, boolean>>({});
 
     const fetchHistory = useCallback(async () => {
         setIsLoading(true);
@@ -218,21 +230,50 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
             toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o status de pagamento.' });
         }
     };
+    
+    const handleAddNewItem = () => {
+        const newItem: EditablePurchaseListItem = {
+            productName: '',
+            sku: '',
+            quantity: 1,
+            unitCost: 0,
+            storeName: '',
+            isPaid: false,
+            surplus: 0,
+            tempId: `new-${Date.now()}`,
+            isNew: true,
+        };
+        setPendingItems(prev => [...prev, newItem]);
+    };
+    
+    const handleProductSelection = (tempId: string, product: Product) => {
+        setPendingItems(prev => prev.map(item => 
+            item.tempId === tempId ? { ...item, productName: product.name, sku: product.sku, isNew: false } : item
+        ));
+        setOpenProductPickers(prev => ({ ...prev, [tempId]: false }));
+    };
 
     const handleSaveChanges = async () => {
         if (!editingId) return;
+
+        const invalidNewItems = pendingItems.filter(item => item.isNew || !item.sku);
+        if (invalidNewItems.length > 0) {
+            toast({ variant: 'destructive', title: 'Produto não selecionado', description: 'Por favor, selecione um produto para todas as novas linhas antes de salvar.'});
+            return;
+        }
+
         setIsSaving(true);
         try {
-            const itemsToSave = pendingItems.map(({ tempId, isSplit, ...rest }) => rest);
+            const itemsToSave = pendingItems.map(({ tempId, isSplit, isNew, ...rest }) => rest);
             const newTotalCost = itemsToSave.reduce((acc, item) => {
                 const q = (item.quantity || 0) + (item.surplus || 0);
                 return acc + (item.unitCost * q);
             }, 0);
             await updatePurchaseList(editingId, { items: itemsToSave, totalCost: newTotalCost });
             
-            setHistory(prev => prev.map(p => p.id === editingId ? { ...p, items: itemsToSave, totalCost: newTotalCost } : p));
+            await fetchHistory(); // Recarrega todos os dados
             
-            toast({ title: 'Alterações Salvas', description: 'O custo da lista de compras foi atualizado.'});
+            toast({ title: 'Alterações Salvas', description: 'A lista de compras foi atualizada.'});
             handleEditCancel();
         } catch(error) {
             console.error('Error saving changes:', error);
@@ -398,8 +439,37 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                                             <TableBody>
                                                                 {itemsToDisplay.map((item) => (
                                                                     <TableRow key={item.tempId || item.sku} className={cn(item.isSplit && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500')}>
-                                                                    <TableCell>{item.productName}</TableCell>
-                                                                    <TableCell className="font-mono">{item.sku}</TableCell>
+                                                                    <TableCell>
+                                                                         {isEditingThis && item.isNew ? (
+                                                                            <Popover open={openProductPickers[item.tempId]} onOpenChange={(isOpen) => setOpenProductPickers(prev => ({...prev, [item.tempId]: isOpen}))}>
+                                                                                <PopoverTrigger asChild>
+                                                                                    <Button variant="outline" role="combobox" className="font-normal w-[300px] justify-between">
+                                                                                        {item.productName || "Selecione um produto..."}
+                                                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                                    </Button>
+                                                                                </PopoverTrigger>
+                                                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                                                    <Command>
+                                                                                        <CommandInput placeholder="Buscar produto..." />
+                                                                                        <CommandList>
+                                                                                            <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                                                            <CommandGroup>
+                                                                                                {allProducts.map((p) => (
+                                                                                                    <CommandItem value={p.name} key={p.id} onSelect={() => handleProductSelection(item.tempId, p)}>
+                                                                                                        <Check className={cn("mr-2 h-4 w-4", item.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                                                                        {p.name}
+                                                                                                    </CommandItem>
+                                                                                                ))}
+                                                                                            </CommandGroup>
+                                                                                        </CommandList>
+                                                                                    </Command>
+                                                                                </PopoverContent>
+                                                                            </Popover>
+                                                                        ) : (
+                                                                            item.productName
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="font-mono">{item.sku || 'N/A'}</TableCell>
                                                                     <TableCell>
                                                                         {isEditingThis ? (
                                                                         <Select 
@@ -475,7 +545,7 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                                                                 variant="ghost" 
                                                                                 size="icon" 
                                                                                 onClick={() => handleSplitItem(item.tempId)} 
-                                                                                disabled={item.quantity <= 1}
+                                                                                disabled={item.quantity <= 1 || item.isNew}
                                                                                 title="Dividir este item em duas linhas"
                                                                             >
                                                                                 <SplitSquareHorizontal className="h-4 w-4" />
@@ -506,6 +576,14 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
                                                             </TableBody>
                                                         </Table>
                                                     </div>
+                                                    {isEditingThis && (
+                                                        <div className="mt-4 flex justify-start">
+                                                            <Button variant="outline" size="sm" onClick={handleAddNewItem}>
+                                                                <PlusCircle className="mr-2 h-4 w-4" />
+                                                                Adicionar Produto
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </AccordionContent>
                                             </AccordionItem>
                                         );
@@ -525,5 +603,3 @@ export function PurchaseHistory({ onEdit }: PurchaseHistoryProps) {
         </Card>
     );
 }
-
-    

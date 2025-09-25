@@ -1,25 +1,52 @@
 
-"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ShoppingCart, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package, Search, DollarSign, Save, XCircle, Pencil } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loadAppSettings, loadProducts, findProductByAssociatedSku, savePurchaseList, updatePurchaseList } from '@/services/firestore';
-import { fetchOpenOrdersFromIderis, fetchOrderById } from '@/services/ideris';
+'use client';
+
+import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
+import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import type { Product, PurchaseListItem, PurchaseList } from '@/lib/types';
-import { Input } from '@/components/ui/input';
+
+import {
+    analyzeFeedAction,
+    saveAveragePricesAction,
+} from '@/app/actions';
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, ProductCategorySettings, Product } from '@/lib/types'
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProductTable } from '@/components/product-table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { UnprocessedItemsTable } from '@/components/unprocessed-items-table';
+import { Progress } from '@/components/ui/progress';
+import { loadAppSettings, loadProducts, saveFeedEntry, loadAllFeedEntries, loadProductSettings, deleteFeedEntry } from '@/services/firestore';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/context/auth-context';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog";
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import * as XLSX from 'xlsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProductCreationDialog } from '@/components/product-creation-dialog';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PurchaseHistory } from './purchase-history';
 
 
@@ -625,7 +652,7 @@ export default function ComprasPage() {
         <TabsContent value="history" className="mt-6">
             <PurchaseHistory onEdit={(purchase) => {
                  setActiveTab('generator');
-            }}/>
+            }} allProducts={allProducts} />
         </TabsContent>
       </Tabs>
     </div>
