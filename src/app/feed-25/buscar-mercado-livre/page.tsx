@@ -59,7 +59,17 @@ interface ProductResult {
       sale_fee_amount: number;
       sale_fee_percent: number;
       fee_total?: number;
-      details?: any;
+      details?: {
+        sale?: {
+          gross_amount?: number;
+          fixed_fee?: number;
+          percentage_fee?: number;
+        };
+        listing?: {
+          fixed_fee?: number;
+          gross_amount?: number;
+        };
+      };
     };
 }
 
@@ -91,6 +101,17 @@ const freightMap: Record<string, string> = {
     "prepaid": "Frete pré-pago",
     "self_service": "Sem Mercado Envios",
     "custom": "A combinar"
+};
+
+const formatRawBRL = (v: string | number | null | undefined) => {
+  if (v === null || v === undefined) return null;
+  const s = String(v);
+  return `R$ ${s.replace('.', ',')}`;
+};
+
+const formatRawPercent = (v: string | number | null | undefined) => {
+  if (v === null || v === undefined) return null;
+  return `${String(v).replace('.', ',')}%`;
 };
 
 
@@ -423,38 +444,38 @@ export default function BuscarMercadoLivrePage() {
                                                             </div>
                                                             
                                                              <div className="flex items-center gap-2 text-sm">
-                                                              {product.listing_type_id && (
-                                                                <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
-                                                              )}
-                                                            
-                                                              {product.fees && (
-                                                                <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                  {(() => {
-                                                                    const d = product.fees.details?.sale;
-                                                                    const commission = (d?.gross_amount ?? product.fees.sale_fee_amount ?? 0);
-                                                                    const fixedFee = (d?.fixed_fee ?? product.fees.listing_fee_amount ?? 0);
-                                                                    const percent = (d?.percentage_fee ?? ((product.fees.sale_fee_percent ?? 0) * 100));
-                                                            
-                                                                    return (
-                                                                      <>
-                                                                        {percent > 0 && (
-                                                                          <span className="text-xs">({percent.toFixed(0)}%)</span>
-                                                                        )}
-                                                                        {commission > 0 && (
-                                                                          <span className="text-xs">
-                                                                            Comissão: <b className="font-semibold text-foreground">{formatCurrency(commission)}</b>
-                                                                          </span>
-                                                                        )}
-                                                                        {fixedFee > 0 && (
-                                                                          <span className="text-xs">
-                                                                            Tarifa: <b className="font-semibold text-foreground">{formatCurrency(fixedFee)}</b>
-                                                                          </span>
-                                                                        )}
-                                                                      </>
-                                                                    );
-                                                                  })()}
-                                                                </div>
-                                                              )}
+                                                                {product.listing_type_id && (
+                                                                    <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                                )}
+                                                                
+                                                                {product.fees && (
+                                                                  <div className="text-muted-foreground flex items-center gap-x-2">
+                                                                    {(() => {
+                                                                      const sale = product.fees.details?.sale;
+                                                                      const commissionRaw = sale?.gross_amount;
+                                                                      const fixedFeeRaw   = sale?.fixed_fee;
+                                                                      const percentRaw    = sale?.percentage_fee;
+
+                                                                      return (
+                                                                        <>
+                                                                          {percentRaw !== null && percentRaw !== undefined && (
+                                                                            <span className="text-xs">({formatRawPercent(percentRaw)})</span>
+                                                                          )}
+                                                                          {commissionRaw !== null && commissionRaw !== undefined && (
+                                                                            <span className="text-xs">
+                                                                              Comissão: <b className="font-semibold text-foreground">{formatRawBRL(commissionRaw)}</b>
+                                                                            </span>
+                                                                          )}
+                                                                          {fixedFeeRaw !== null && fixedFeeRaw !== undefined && (
+                                                                            <span className="text-xs">
+                                                                              Tarifa: <b className="font-semibold text-foreground">{formatRawBRL(fixedFeeRaw)}</b>
+                                                                            </span>
+                                                                          )}
+                                                                        </>
+                                                                      );
+                                                                    })()}
+                                                                  </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </TableCell>
@@ -529,3 +550,4 @@ export default function BuscarMercadoLivrePage() {
 
 
     
+

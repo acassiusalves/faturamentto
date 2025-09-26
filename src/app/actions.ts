@@ -111,25 +111,27 @@ async function fetchUsersAddress(
   return out;
 }
 
+type MoneyLike = string | number | null | undefined;
+
 async function fetchListingFees(opts: {
   site?: string;
   price: number;
   categoryId?: string;
   listingTypeId?: string;
 }): Promise<{
-  listing_fee_amount: number;
-  sale_fee_amount: number;
-  sale_fee_percent: number;
-  fee_total?: number;
+  listing_fee_amount: MoneyLike;
+  sale_fee_amount:   MoneyLike;
+  sale_fee_percent:  MoneyLike;
+  fee_total?:        MoneyLike;
   details?: {
     sale?: {
-      gross_amount?: number;
-      fixed_fee?: number;
-      percentage_fee?: number; // em %
+      gross_amount?:   MoneyLike;
+      fixed_fee?:      MoneyLike;
+      percentage_fee?: MoneyLike;
     };
     listing?: {
-      fixed_fee?: number;
-      gross_amount?: number;
+      fixed_fee?:      MoneyLike;
+      gross_amount?:   MoneyLike;
     };
   };
 } | null> {
@@ -153,27 +155,24 @@ async function fetchListingFees(opts: {
     : data;
   if (!row) return null;
 
-  const sale  = Number(row?.sale_fee_amount ?? 0);
-  const list  = Number(row?.listing_fee_amount ?? 0);
-  const price = Number(opts.price || 0);
+  const sale  = row?.sale_fee_amount ?? 0;
+  const list  = row?.listing_fee_amount ?? 0;
 
   return {
-    listing_fee_amount: Number.isFinite(list) ? list : 0,
-    sale_fee_amount: Number.isFinite(sale) ? sale : 0,
-    // percent como FRAÇÃO (0–1) para manter compatibilidade com o front
-    sale_fee_percent: price > 0 ? sale / price : 0,
-    fee_total: (Number.isFinite(list) ? list : 0) + (Number.isFinite(sale) ? sale : 0),
+    listing_fee_amount: list,
+    sale_fee_amount: sale,
+    sale_fee_percent: row?.sale_fee_percent ?? null,
+    fee_total: (row?.total_fee_amount ?? null),
 
-    // ✅ estrutura esperada pelo front
     details: {
       sale: {
-        gross_amount:    Number(row?.sale_fee_details?.gross_amount ?? sale),  // Comissão (R$)
-        fixed_fee:       Number(row?.sale_fee_details?.fixed_fee ?? 0),        // Tarifa fixa (R$)
-        percentage_fee:  Number(row?.sale_fee_details?.percentage_fee ?? (price > 0 ? (sale / price) * 100 : 0)), // %
+        gross_amount:   row?.sale_fee_details?.gross_amount ?? row?.sale_fee_amount ?? null,
+        fixed_fee:      row?.sale_fee_details?.fixed_fee ?? null,
+        percentage_fee: row?.sale_fee_details?.percentage_fee ?? null,
       },
       listing: {
-        fixed_fee:   Number(row?.listing_fee_details?.fixed_fee ?? row?.listing_fee_amount ?? 0),
-        gross_amount:Number(row?.listing_fee_details?.gross_amount ?? row?.listing_fee_amount ?? 0),
+        fixed_fee:    row?.listing_fee_details?.fixed_fee ?? row?.listing_fee_amount ?? null,
+        gross_amount: row?.listing_fee_details?.gross_amount ?? row?.listing_fee_amount ?? null,
       },
     },
   };
@@ -762,4 +761,3 @@ export async function updateSalesDeliveryTypeAction(
     
 
     
-

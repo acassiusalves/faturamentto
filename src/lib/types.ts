@@ -616,19 +616,19 @@ export interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     fees?: {
-      listing_fee_amount: number;
-      sale_fee_amount: number;
-      sale_fee_percent: number;
-      fee_total?: number;
+      listing_fee_amount: string | number | null | undefined;
+      sale_fee_amount: string | number | null | undefined;
+      sale_fee_percent: string | number | null | undefined;
+      fee_total?: string | number | null | undefined;
       details?: {
         sale?: {
-          gross_amount?: number;
-          fixed_fee?: number;
-          percentage_fee?: number;
+          gross_amount?: string | number | null | undefined;
+          fixed_fee?: string | number | null | undefined;
+          percentage_fee?: string | number | null | undefined;
         };
         listing?: {
-          fixed_fee?: number;
-          gross_amount?: number;
+          fixed_fee?: string | number | null | undefined;
+          gross_amount?: string | number | null | undefined;
         };
       };
     };
