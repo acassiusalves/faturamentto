@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
@@ -161,6 +161,15 @@ const extractTrendingArray = (raw: any) => {
   }
 
   return null;
+};
+
+const getShippingCostFor1To2Kg = (price: number): number | null => {
+    if (price >= 200) return 28.14;
+    if (price >= 150) return 25.80;
+    if (price >= 120) return 23.45;
+    if (price >= 100) return 21.11;
+    if (price >= 79) return 18.76;
+    return null;
 };
 
 export default function CatalogoPdfPage() {
@@ -738,26 +747,41 @@ export default function CatalogoPdfPage() {
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 pt-0">
-                                        <div className="space-y-4">
-                                            {offers.map((offer: any) => (
-                                                <div key={offer.id} className="flex items-center gap-4 p-2 border-b last:border-b-0">
-                                                    <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                                                        {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
-                                                    </div>
-                                                    <div className="flex-grow">
-                                                        <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
-                                                            {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                        </Link>
-                                                        <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
-                                                        <div className="text-xs text-muted-foreground mt-1">
-                                                            Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
+                                        <div className="space-y-2">
+                                            {offers.map((offer: any) => {
+                                                const shippingCost = getShippingCostFor1To2Kg(offer.price);
+                                                return (
+                                                    <div key={offer.id} className="flex items-center gap-4 p-2 border-b last:border-b-0">
+                                                        <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
+                                                            {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
+                                                        </div>
+                                                        <div className="flex-grow">
+                                                            <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
+                                                                {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                            </Link>
+                                                            <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
+                                                            <div className="text-xs text-muted-foreground mt-1">
+                                                                Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
+                                                            </div>
+                                                            {offer.fees && (
+                                                                <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
+                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(offer.fees.sale_fee_amount)}</b></span>
+                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees.listing_fee_amount)}</b></span>
+                                                                    {shippingCost !== null && (
+                                                                        <span className="flex items-center gap-1">
+                                                                            <Truck className="h-3 w-3" /> Frete:
+                                                                            <b className="font-semibold text-foreground">{formatBRL(shippingCost)}</b>
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right font-semibold text-lg text-primary">
+                                                            {formatBRL(offer.price)}
                                                         </div>
                                                     </div>
-                                                    <div className="text-right font-semibold text-lg text-primary">
-                                                        {formatBRL(offer.price)}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
