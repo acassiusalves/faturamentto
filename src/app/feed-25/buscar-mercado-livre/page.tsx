@@ -385,18 +385,18 @@ export default function BuscarMercadoLivrePage() {
                                                               {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                             </Link>
                                                             
-                                                            <div className="text-xs text-muted-foreground">
+                                                            <div className="text-xs text-muted-foreground mt-1">
                                                               ID Anúncio: {product.item_id ?? "-"}
                                                             </div>
 
-                                                            <div className="text-xs text-muted-foreground">
+                                                            <div className="text-xs text-muted-foreground mt-1">
                                                               Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
-                                                            <div className="text-xs text-muted-foreground">Marca: {product.brand || ''}</div>
-                                                            <div className="text-xs text-muted-foreground">Modelo: {product.model || ''}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
+                                                            <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
 
-                                                            <div className="text-xs text-muted-foreground">
+                                                            <div className="text-xs text-muted-foreground mt-1">
                                                               Vendedor:
                                                               {product.seller_nickname ? (
                                                                 <>
@@ -417,7 +417,7 @@ export default function BuscarMercadoLivrePage() {
                                                             </div>
 
                                                             {(product.seller_city || product.seller_state || product.seller_state_id) && (
-                                                              <div className="text-[11px] text-muted-foreground">
+                                                              <div className="text-[11px] text-muted-foreground mt-0.5">
                                                                 {product.seller_city ? `${product.seller_city}` : ""}
                                                                 {(product.seller_city && (product.seller_state || product.seller_state_id)) ? " • " : ""}
                                                                 {product.seller_state || product.seller_state_id || ""}
@@ -578,5 +578,6 @@ export default function BuscarMercadoLivrePage() {
 
 
     
+
 
 

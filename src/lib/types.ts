@@ -585,11 +585,13 @@ export interface SaleCosts {
     costs: SaleCost[];
 }
 
+type MoneyLike = string | number | null | undefined;
 export interface ProductResult {
     thumbnail: string;
     name: string;
     catalog_product_id: string;
     id: string;
+    item_id?: string | null;
     brand: string;
     model: string;
     price: number;
@@ -615,20 +617,21 @@ export interface ProductResult {
     seller_state_id?: string | null;
     seller_city?: string | null;
     seller_city_id?: string | null;
+    last_updated?: string | null;
     fees?: {
-      listing_fee_amount: string | number | null | undefined;
-      sale_fee_amount: string | number | null | undefined;
-      sale_fee_percent: string | number | null | undefined;
-      fee_total?: string | number | null | undefined;
+      listing_fee_amount: MoneyLike;
+      sale_fee_amount:   MoneyLike;
+      sale_fee_percent:  MoneyLike;
+      fee_total?:        MoneyLike;
       details?: {
         sale?: {
-          gross_amount?: string | number | null | undefined;
-          fixed_fee?: string | number | null | undefined;
-          percentage_fee?: string | number | null | undefined;
+          gross_amount?:   MoneyLike;
+          fixed_fee?:      MoneyLike;
+          percentage_fee?: MoneyLike;
         };
         listing?: {
-          fixed_fee?: string | number | null | undefined;
-          gross_amount?: string | number | null | undefined;
+          fixed_fee?:      MoneyLike;
+          gross_amount?:   MoneyLike;
         };
       };
     };

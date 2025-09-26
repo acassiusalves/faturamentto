@@ -25,14 +25,22 @@ async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<
 async function fetchItemsSellerAddresses(
   itemIds: string[],
   token: string
-): Promise<Record<string, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }>> {
-  const out: Record<string, { state_id: string|null; state_name: string|null; city_id: string|null; city_name: string|null }> = {};
+): Promise<Record<string, {
+  state_id: string|null; state_name: string|null;
+  city_id: string|null;  city_name: string|null;
+  last_updated: string|null;
+}>> {
+  const out: Record<string, {
+    state_id: string|null; state_name: string|null;
+    city_id: string|null;  city_name: string|null;
+    last_updated: string|null;
+  }> = {};
   if (!itemIds.length) return out;
 
   const CHUNK = 20; // seguro para /items?ids=
   for (let i = 0; i < itemIds.length; i += CHUNK) {
     const batch = itemIds.slice(i, i + CHUNK);
-    const url = `https://api.mercadolibre.com/items?ids=${batch.join(",")}&attributes=id,seller_address`;
+    const url = `https://api.mercadolibre.com/items?ids=${batch.join(",")}&attributes=id,seller_address,last_updated`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
     if (!r.ok) continue;
     const rows = await r.json();
@@ -45,6 +53,7 @@ async function fetchItemsSellerAddresses(
         state_name: s?.state?.name ?? null,
         city_id: s?.city?.id ?? null,
         city_name: s?.city?.name ?? null,
+        last_updated: body?.last_updated ?? null,
       };
     }
   }
@@ -266,17 +275,18 @@ export async function searchMercadoLivreAction(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
 
-            // official store (como já estava)
             let officialStoreId: number | null =
               (typeof winner?.official_store_id === "number") ? winner.official_store_id : null;
             if (!officialStoreId && winner?.id) {
               officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
             }
 
-            const sellerAddress =
-              (winner?.id && sellerAddrByItemId[winner.id]) ||
-              (winner?.seller_id && userAddrBySellerId[winner.seller_id]) ||
-              { state_id: null, state_name: null, city_id: null, city_name: null };
+            const itemMeta = (winner?.id && sellerAddrByItemId[winner.id]) || null;
+            const userMeta = (winner?.seller_id && userAddrBySellerId[winner.seller_id]) || null;
+
+            const sellerAddress = itemMeta || userMeta || {
+              state_id: null, state_name: null, city_id: null, city_name: null, last_updated: null
+            };
 
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
             const counted = await getCatalogOfferCount(p.id, accessToken);
@@ -285,6 +295,7 @@ export async function searchMercadoLivreAction(
             return {
                 id: p.id,
                 catalog_product_id: p.id,
+                item_id: winner?.id ?? null,
                 name: (p.name || "").trim(),
                 thumbnail: p.pictures?.[0]?.secure_url || p.pictures?.[0]?.url || "",
                 brand: p.attributes?.find((a: any) => a.id === "BRAND")?.value_name || "",
@@ -300,11 +311,11 @@ export async function searchMercadoLivreAction(
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
 
-                // 🔹 NOVOS CAMPOS
                 seller_state: sellerAddress.state_name,
                 seller_state_id: sellerAddress.state_id,
                 seller_city: sellerAddress.city_name,
                 seller_city_id: sellerAddress.city_id,
+                last_updated: itemMeta?.last_updated ?? winner?.last_updated ?? null,
 
                 offerCount,
 
@@ -328,7 +339,7 @@ export async function searchMercadoLivreAction(
             site: "MLB",
             price: p.price,
             categoryId: p.category_id,
-            listingTypeId: p.listing_type_id, // ex.: gold_pro / gold_special
+            listingTypeId: p.listing_type_id,
           });
 
           return { 
