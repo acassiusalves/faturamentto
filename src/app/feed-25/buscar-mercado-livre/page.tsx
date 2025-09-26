@@ -384,7 +384,7 @@ export default function BuscarMercadoLivrePage() {
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                              Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
@@ -572,5 +572,6 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+
 
 
