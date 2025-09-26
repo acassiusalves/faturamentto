@@ -21,6 +21,7 @@ import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 interface ProductResult {
@@ -58,6 +59,7 @@ interface ProductResult {
       sale_fee_amount: number;
       sale_fee_percent: number;
       fee_total?: number;
+      details?: any;
     };
 }
 
@@ -420,23 +422,39 @@ export default function BuscarMercadoLivrePage() {
                                                                 )}
                                                             </div>
                                                             
-                                                            <div className="flex items-center gap-2 text-sm">
-                                                                {product.listing_type_id && (
-                                                                    <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
-                                                                )}
-                                                                {product.fees && (
+                                                             <div className="flex items-center gap-2 text-sm">
+                                                              {product.listing_type_id && (
+                                                                <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                              )}
+                                                            
+                                                              {product.fees && (
                                                                 <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                    {(product.fees.sale_fee_percent > 0) && (
-                                                                        <span className="text-xs">({(product.fees.sale_fee_percent * 100).toFixed(0)}%)</span>
-                                                                    )}
-                                                                    {(product.fees.sale_fee_amount > 0) && (
-                                                                        <span className="text-xs">Comissão: <b className="font-semibold text-foreground">{formatCurrency(product.fees.sale_fee_amount)}</b></span>
-                                                                    )}
-                                                                    {(product.fees.listing_fee_amount > 0) && (
-                                                                        <span className="text-xs">Tarifa: <b className="font-semibold text-foreground">{formatCurrency(product.fees.listing_fee_amount)}</b></span>
-                                                                    )}
+                                                                  {(() => {
+                                                                    const d = product.fees.details?.sale;
+                                                                    const commission = (d?.gross_amount ?? product.fees.sale_fee_amount ?? 0);
+                                                                    const fixedFee = (d?.fixed_fee ?? product.fees.listing_fee_amount ?? 0);
+                                                                    const percent = (d?.percentage_fee ?? ((product.fees.sale_fee_percent ?? 0) * 100));
+                                                            
+                                                                    return (
+                                                                      <>
+                                                                        {percent > 0 && (
+                                                                          <span className="text-xs">({percent.toFixed(0)}%)</span>
+                                                                        )}
+                                                                        {commission > 0 && (
+                                                                          <span className="text-xs">
+                                                                            Comissão: <b className="font-semibold text-foreground">{formatCurrency(commission)}</b>
+                                                                          </span>
+                                                                        )}
+                                                                        {fixedFee > 0 && (
+                                                                          <span className="text-xs">
+                                                                            Tarifa: <b className="font-semibold text-foreground">{formatCurrency(fixedFee)}</b>
+                                                                          </span>
+                                                                        )}
+                                                                      </>
+                                                                    );
+                                                                  })()}
                                                                 </div>
-                                                                )}
+                                                              )}
                                                             </div>
                                                         </div>
                                                     </TableCell>

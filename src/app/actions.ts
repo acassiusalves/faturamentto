@@ -117,13 +117,11 @@ async function fetchListingFees(opts: {
   categoryId?: string;
   listingTypeId?: string;
 }): Promise<{
-  calculated: {
-    listing_fee_amount: number;
-    sale_fee_amount: number;
-    sale_fee_percent: number;
-    fee_total?: number;
-  };
-  raw: any;
+  listing_fee_amount: number;
+  sale_fee_amount: number;
+  sale_fee_percent: number;
+  fee_total?: number;
+  details?: any;
 } | null> {
   const site = opts.site ?? "MLB";
   const base = `https://api.mercadolibre.com/sites/${site}/listing_prices`;
@@ -151,18 +149,16 @@ async function fetchListingFees(opts: {
 
   if (!row) return null;
   
-  const sale = Number(row?.sale_fee_amount ?? row?.gross_amount ?? 0);
+  const sale = Number(row?.sale_fee_amount ?? 0);
   const list = Number(row?.listing_fee_amount ?? 0);
   const price = Number(opts.price || 0);
 
   return {
-    calculated: {
-      listing_fee_amount: isFinite(list) ? list : 0,
-      sale_fee_amount: isFinite(sale) ? sale : 0,
-      sale_fee_percent: price > 0 && row.percentage_fee ? row.percentage_fee / 100 : (price > 0 ? sale / price : 0),
-      fee_total: (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
-    },
-    raw: data,
+    listing_fee_amount: isFinite(list) ? list : 0,
+    sale_fee_amount: isFinite(sale) ? sale : 0,
+    sale_fee_percent: price > 0 ? sale / price : 0,
+    fee_total: (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
+    details: row?.sale_fee_details // Passando os detalhes brutos
   };
 }
 
@@ -321,7 +317,7 @@ export async function searchMercadoLivreAction(
 
           return { 
             ...p, 
-            fees: feesResult?.calculated,
+            fees: feesResult ?? undefined,
           };
         } catch {
           return p;

@@ -31,6 +31,7 @@ export interface Product {
     sale_fee_amount: number;
     sale_fee_percent: number;
     fee_total?: number;
+    details?: any;
   };
 }
 
@@ -619,5 +620,16 @@ export interface ProductResult {
       sale_fee_amount: number;
       sale_fee_percent: number;
       fee_total?: number;
+      details?: {
+        sale?: {
+          gross_amount?: number;
+          fixed_fee?: number;
+          percentage_fee?: number;
+        };
+        listing?: {
+          fixed_fee?: number;
+          gross_amount?: number;
+        };
+      };
     };
 }
