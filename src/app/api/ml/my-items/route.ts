@@ -24,7 +24,14 @@ async function getUserId(token: string): Promise<number> {
 
 export async function GET(req: Request) {
     try {
-        const token = await getMlToken();
+        const { searchParams } = new URL(req.url);
+        const account = searchParams.get('account') as 'primary' | 'secondary' | null;
+
+        if (!account) {
+            return NextResponse.json({ error: "O parâmetro 'account' é obrigatório (primary ou secondary)." }, { status: 400 });
+        }
+
+        const token = await getMlToken(account);
         const userId = await getUserId(token);
 
         let allItemIds: string[] = [];

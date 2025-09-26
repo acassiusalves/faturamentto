@@ -7,7 +7,7 @@ import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, DollarSign, Percent, Database, Package, ExternalLink } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink } from 'lucide-react';
 import type { SaleCost, SaleCosts } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
@@ -27,15 +27,108 @@ interface MyItem {
     catalog_product_id?: string | null;
 }
 
+const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', title: string }) => {
+    const [items, setItems] = useState<MyItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleFetchItems = async () => {
+        setIsLoading(true);
+        setItems([]);
+        try {
+            const response = await fetch(`/api/ml/my-items?account=${account}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar seus anúncios.');
+            }
+
+            setItems(data.items || []);
+            toast({
+                title: 'Sucesso!',
+                description: `${data.items?.length || 0} anúncios ativos foram encontrados.`
+            });
+
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Buscar Anúncios',
+                description: error.message,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    {title}
+                </CardTitle>
+                <CardDescription>
+                    Busca todos os anúncios com status "ativo" da sua conta no Mercado Livre.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleFetchItems} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
+                    {isLoading ? 'Buscando anúncios...' : 'Buscar Anúncios'}
+                </Button>
+            </CardContent>
+            {items.length > 0 && !isLoading && (
+                 <CardFooter className="flex-col items-start gap-4">
+                    <div className="w-full rounded-md border max-h-[600px] overflow-y-auto">
+                       <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Anúncio</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Preço</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {items.map(item => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain"/>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
+                                                        {item.title}
+                                                        <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                     </Link>
+                                                     <span className="text-xs text-muted-foreground font-mono">Item ID: {item.id}</span>
+                                                     {item.catalog_product_id && <span className="text-xs text-muted-foreground font-mono">Catálogo ID: {item.catalog_product_id}</span>}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={item.status === 'active' ? 'bg-green-600' : ''}>
+                                                {item.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                       </Table>
+                    </div>
+                </CardFooter>
+            )}
+        </Card>
+    )
+}
+
 export default function TestesMercadoLivrePage() {
     const [listingId, setListingId] = useState('');
     const [isLoadingCosts, setIsLoadingCosts] = useState(false);
     const [costs, setCosts] = useState<SaleCosts | null>(null);
     const [rawResponse, setRawResponse] = useState<any | null>(null);
     
-    const [myItems, setMyItems] = useState<MyItem[]>([]);
-    const [isLoadingItems, setIsLoadingItems] = useState(false);
-
     const { toast } = useToast();
 
     const handleFetchCosts = async () => {
@@ -78,34 +171,6 @@ export default function TestesMercadoLivrePage() {
             setIsLoadingCosts(false);
         }
     };
-
-    const handleFetchMyItems = async () => {
-        setIsLoadingItems(true);
-        setMyItems([]);
-        try {
-            const response = await fetch('/api/ml/my-items');
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Falha ao buscar seus anúncios.');
-            }
-
-            setMyItems(data.items || []);
-            toast({
-                title: 'Sucesso!',
-                description: `${data.items?.length || 0} anúncios ativos foram encontrados.`
-            });
-
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Buscar Anúncios',
-                description: error.message,
-            });
-        } finally {
-            setIsLoadingItems(false);
-        }
-    };
     
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -114,6 +179,11 @@ export default function TestesMercadoLivrePage() {
                 <p className="text-muted-foreground">
                     Esta área é dedicada a testes e integrações com o Mercado Livre.
                 </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                 <MyItemsList account="primary" title="Listar Anúncios Ativos (Conta 1)" />
+                 <MyItemsList account="secondary" title="Listar Anúncios Ativos (Conta 2)" />
             </div>
 
             <Card>
@@ -174,85 +244,6 @@ export default function TestesMercadoLivrePage() {
                                 </TableBody>
                             </Table>
                          </div>
-                    </CardFooter>
-                )}
-                 {rawResponse && !isLoadingCosts && (
-                    <CardFooter>
-                        <Accordion type="single" collapsible className="w-full">
-                            <AccordionItem value="raw-response">
-                                <AccordionTrigger>
-                                    <span className="flex items-center gap-2 font-semibold">
-                                        <Database className="h-4 w-4" />
-                                        Ver Resposta Bruta da API
-                                    </span>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <pre className="mt-2 p-4 text-xs bg-muted rounded-lg overflow-auto max-h-96">
-                                        <code>{JSON.stringify(rawResponse, null, 2)}</code>
-                                    </pre>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    </CardFooter>
-                )}
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Listar Meus Anúncios Ativos
-                    </CardTitle>
-                    <CardDescription>
-                        Busca todos os anúncios com status "ativo" da sua conta no Mercado Livre.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button onClick={handleFetchMyItems} disabled={isLoadingItems}>
-                        {isLoadingItems ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
-                        {isLoadingItems ? 'Buscando anúncios...' : 'Buscar Meus Anúncios'}
-                    </Button>
-                </CardContent>
-                {myItems.length > 0 && !isLoadingItems && (
-                     <CardFooter className="flex-col items-start gap-4">
-                        <div className="w-full rounded-md border max-h-[600px] overflow-y-auto">
-                           <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Anúncio</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Preço</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {myItems.map(item => (
-                                        <TableRow key={item.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                                                         <Image src={item.thumbnail} alt={item.title} fill className="object-contain"/>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                         <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
-                                                            {item.title}
-                                                            <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                         </Link>
-                                                         <span className="text-xs text-muted-foreground font-mono">Item ID: {item.id}</span>
-                                                         {item.catalog_product_id && <span className="text-xs text-muted-foreground font-mono">Catálogo ID: {item.catalog_product_id}</span>}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={item.status === 'active' ? 'bg-green-600' : ''}>
-                                                    {item.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                           </Table>
-                        </div>
                     </CardFooter>
                 )}
             </Card>

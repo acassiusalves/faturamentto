@@ -2,73 +2,66 @@
 'use server';
 
 import { loadAppSettings } from '@/services/firestore';
+import type { MercadoLivreCredentials } from '@/lib/types';
 
 type MlTokenResponse = {
   access_token: string;
   expires_in: number; // em segundos (geralmente ~21600 = 6h)
 };
 
-let _cachedToken: string | null = null;
-let _expiresAt = 0;
+// Agora o cache guarda tokens por conta
+const _tokenCache: Record<string, { token: string; expiresAt: number }> = {};
+const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 horas em ms
 
-export async function getMlToken(): Promise<string> {
-  // cache simples em memória do servidor
-  if (_cachedToken && Date.now() < _expiresAt - 60_000) {
-    return _cachedToken;
+export async function getMlToken(account: 'primary' | 'secondary' = 'primary'): Promise<string> {
+  const cacheKey = account;
+  const cached = _tokenCache[cacheKey];
+
+  if (cached && Date.now() < cached.expiresAt - 60_000) { // 1 min de margem
+    return cached.token;
   }
 
   const settings = await loadAppSettings().catch(() => null);
-
-  // 1) token “fixo” salvo nas settings (sem refresh)
-  if (settings?.mercadoLivre?.appId && !settings?.mercadoLivre?.refreshToken) {
-    _cachedToken = settings.mercadoLivre.appId;
-    // vence em ~55min só pra não deixar infinito
-    _expiresAt = Date.now() + 55 * 60 * 1000;
-    return _cachedToken;
+  
+  let creds: MercadoLivreCredentials | undefined;
+  if (account === 'primary') {
+    creds = settings?.mercadoLivre;
+  } else {
+    creds = settings?.mercadoLivre2;
   }
 
-  // 2) fluxo oficial com refresh_token (recomendado)
-  const clientId = settings?.mercadoLivre?.appId || process.env.ML_CLIENT_ID;
-  const clientSecret = settings?.mercadoLivre?.clientSecret || process.env.ML_CLIENT_SECRET;
-  const refreshToken = settings?.mercadoLivre?.refreshToken || process.env.ML_REFRESH_TOKEN;
-
-  if (clientId && clientSecret && refreshToken) {
-    const body = new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: String(clientId),
-      client_secret: String(clientSecret),
-      refresh_token: String(refreshToken),
-    });
-
-    const r = await fetch('https://api.mercadolibre.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-      cache: 'no-store',
-    });
-
-    if (!r.ok) {
-      const msg = await r.text();
-      throw new Error(`Falha ao renovar token do Mercado Livre: ${msg}`);
-    }
-
-    const j = (await r.json()) as MlTokenResponse;
-    _cachedToken = j.access_token;
-    _expiresAt = Date.now() + (j.expires_in ?? 21600) * 1000;
-    return _cachedToken;
+  if (!creds?.appId || !creds?.clientSecret || !creds?.refreshToken) {
+    throw new Error(`Credenciais para a conta '${account}' do Mercado Livre não estão configuradas.`);
   }
 
-  // 3) fallback env var com access token direto
-  const envToken = process.env.ML_ACCESS_TOKEN || process.env.NEXT_PUBLIC_ML_ACCESS_TOKEN;
-  if (envToken) {
-    _cachedToken = envToken;
-    _expiresAt = Date.now() + 55 * 60 * 1000;
-    return _cachedToken;
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: creds.appId,
+    client_secret: creds.clientSecret,
+    refresh_token: creds.refreshToken,
+  });
+
+  const r = await fetch('https://api.mercadolibre.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    cache: 'no-store',
+  });
+
+  if (!r.ok) {
+    const msg = await r.text();
+    console.error(`Falha ao renovar token do ML para conta '${account}':`, msg);
+    throw new Error(`Falha ao renovar token do Mercado Livre (${account}): ${msg}`);
   }
 
-  throw new Error(
-    'Token do Mercado Livre não configurado. Informe as credenciais na página de Mapeamento, ou use ML_ACCESS_TOKEN nas env vars.'
-  );
+  const j = (await r.json()) as MlTokenResponse;
+  
+  _tokenCache[cacheKey] = {
+    token: j.access_token,
+    expiresAt: Date.now() + (j.expires_in * 1000 || TOKEN_LIFETIME_MS),
+  };
+
+  return j.access_token;
 }
 
 /** Se já existir no arquivo, mantenha. Só certifique-se de exportar. */
