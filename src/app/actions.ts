@@ -536,89 +536,68 @@ export async function analyzeZplAction(_prevState: any, formData: FormData): Pro
 }
 
 export async function remixLabelDataAction(_prevState: any, formData: FormData): Promise<{ analysis: Partial<AnalyzeLabelOutput> | null; error: string | null; }> {
-  try {
-      const input: RemixLabelDataInput = JSON.parse(formData.get('remixInput') as string);
-      if (!input) {
-          throw new Error('Input para remix inválido.');
-      }
-      const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
-      const { newValue } = await remixLabelData(input);
-      return { analysis: { [input.fieldToRemix as RemixableField]: newValue }, error: null };
-
-  } catch (e: any) {
-      return { analysis: null, error: e.message || "Falha ao remixar dados." };
-  }
-}
-
-export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ result: any | null; error: string | null }> {
-    const originalZpl = formData.get('originalZpl') as string;
-    const editedDataStr = formData.get('editedData') as string;
-    
     try {
-        if (!originalZpl || !editedDataStr) {
-            throw new Error('Dados insuficientes para regenerar a etiqueta.');
+        const input: RemixLabelDataInput = JSON.parse(formData.get('remixInput') as string);
+        if (!input) {
+            throw new Error('Input para remix inválido.');
         }
-        const editedData = JSON.parse(editedDataStr);
-        const { regenerateZplDeterministic } = await import('@/services/zpl-corrector');
-        const result = await regenerateZplDeterministic(originalZpl, editedData);
-        
-        return { result, error: null };
+        const { remixLabelData } = await import('@/ai/flows/remix-label-data-flow');
+        const { newValue } = await remixLabelData(input);
+        return { analysis: { [input.fieldToRemix as RemixableField]: newValue }, error: null };
+
     } catch (e: any) {
-        return { result: null, error: e.message || 'Falha na regeneração da etiqueta ZPL.' };
+        return { analysis: null, error: e.message || 'Falha ao remixar os dados da etiqueta.' };
     }
 }
 
-
-export async function correctExtractedDataAction(_prevState: any, formData: FormData): Promise<{ analysis: AnalyzeLabelOutput | null; error: string | null; }> {
-    const originalZpl = formData.get('originalZpl') as string;
-    const extractedDataStr = formData.get('extractedData') as string;
-    
-    if (!originalZpl || !extractedDataStr) {
-      throw new Error('Dados de entrada ausentes para correção.');
-    }
-
+export async function regenerateZplAction(_prevState: any, formData: FormData): Promise<{ zpl: string | null; error: string | null; }> {
     try {
-        const { correctExtractedData } = await import('@/services/zpl-corrector');
-        const result = await correctExtractedData(JSON.parse(originalZpl), JSON.parse(extractedDataStr));
-        return { analysis: result, error: null };
+        const input = JSON.parse(formData.get('zplData') as string);
+        const { regenerateZpl } = await import('@/ai/flows/regenerate-zpl-flow');
+        const result = await regenerateZpl(input);
+        return { zpl: result.newZpl, error: null };
+    } catch(e: any) {
+        return { zpl: null, error: e.message || 'Falha ao gerar o novo ZPL.' };
+    }
+}
+
+
+export async function analyzeCatalogAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null; }> {
+    try {
+      const pdfContent = formData.get('pdfContent') as string;
+      const pageNumber = Number(formData.get('pageNumber'));
+      const totalPages = Number(formData.get('totalPages'));
+      const brand = formData.get('brand') as string;
+      const apiKey = formData.get('apiKey') as string | undefined;
+      
+      if (!pdfContent) throw new Error("Conteúdo do PDF está vazio.");
+      
+      const { analyzeCatalog } = await import('@/ai/flows/analyze-catalog-flow');
+      const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand, apiKey });
+      
+      // Re-integrando a verificação de tendências
+      if (result && result.products.length > 0) {
+          const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');
+          const productNames = result.products.map(p => p.name);
+          const trendingResult = await findTrendingProducts(productNames);
+          
+          const trendMap = new Map(trendingResult.trendingProducts.map(tp => [tp.productName, tp.matchedKeywords]));
+          
+          result.products = result.products.map(p => ({
+              ...p,
+              isTrending: trendMap.has(p.name),
+              matchedKeywords: trendMap.get(p.name) || [],
+          }));
+      }
+  
+      return { result, error: null };
     } catch (e: any) {
-         return { analysis: null, error: e.message || "Ocorreu um erro desconhecido durante a correção." };
+      return { result: null, error: e.message || "Falha ao analisar o catálogo." };
     }
-}
-
-export async function analyzeCatalogAction(_prevState: any, formData: FormData): Promise<{ result: AnalyzeCatalogOutput | null; error: string | null }> {
-  try {
-    const pdfContent = formData.get('pdfContent') as string;
-    const pageNumber = Number(formData.get('pageNumber'));
-    const totalPages = Number(formData.get('totalPages'));
-    const brand = formData.get('brand') as string | undefined;
-    const apiKey = formData.get('apiKey') as string | undefined;
-
-    if (!pdfContent) throw new Error("O conteúdo do PDF não pode estar vazio.");
-    if (isNaN(pageNumber) || isNaN(totalPages)) throw new Error("Número de página inválido.");
-    
-    const { analyzeCatalog } = await import('@/ai/flows/analyze-catalog-flow');
-    const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand, apiKey });
-    
-    if (result && result.products.length > 0) {
-        const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');
-        const productNames = result.products.map(p => p.name);
-        const trendingResult = await findTrendingProducts(productNames);
-        
-        const trendMap = new Map(trendingResult.trendingProducts.map(tp => [tp.productName, tp.matchedKeywords]));
-        
-        result.products = result.products.map(p => ({
-            ...p,
-            isTrending: trendMap.has(p.name),
-            matchedKeywords: trendMap.get(p.name) || [],
-        }));
-    }
-
-    return { result, error: null };
-  } catch (e: any) {
-    return { result: null, error: e.message || "Falha ao analisar o catálogo." };
   }
-}
 
 export async function savePromptAction(_prevState: any, formData: FormData) {
   try {
@@ -819,3 +798,5 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    
