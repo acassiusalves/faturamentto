@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck } from 'lucide-react';
 import { MercadoLivreLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -44,6 +44,7 @@ export const navLinks = [
         { href: "/arquivo", label: "Históricos de Atividades", icon: FileText },
         { href: "/arquivo/status-ideris", label: "Status Ideris", icon: ListChecks },
         { href: "/arquivo/dados-mercado-livre", label: "Dados Mercado Livre", icon: Database },
+        { href: "/arquivo/dados-frete-mercado-livre", label: "Dados Frete Mercado Livre", icon: Truck },
       ]
     },
     { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
@@ -97,6 +98,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/arquivo': ['admin', 'socio', 'expedicao', 'sac', 'financeiro'],
     '/arquivo/status-ideris': ['admin', 'socio', 'financeiro', 'sac'],
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],
+    '/arquivo/dados-frete-mercado-livre': ['admin', 'socio', 'financeiro'],
     '/relatorios': ['admin', 'socio', 'financeiro'],
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
