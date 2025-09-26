@@ -27,11 +27,21 @@ export interface Product {
   averagePriceUpdatedAt?: string;
   // Adicionado para busca de custos no ML
   fees?: {
-    listing_fee_amount: number;
-    sale_fee_amount: number;
-    sale_fee_percent: number;
-    fee_total?: number;
-    details?: any;
+    listing_fee_amount: MoneyLike;
+    sale_fee_amount:   MoneyLike;
+    sale_fee_percent:  MoneyLike;
+    fee_total?:        MoneyLike;
+    details?: {
+      sale?: {
+        gross_amount?:   MoneyLike;
+        fixed_fee?:      MoneyLike;
+        percentage_fee?: MoneyLike;
+      };
+      listing?: {
+        fixed_fee?:      MoneyLike;
+        gross_amount?:   MoneyLike;
+      };
+    };
   };
 }
 
@@ -636,3 +646,5 @@ export interface ProductResult {
       };
     };
 }
+
+    

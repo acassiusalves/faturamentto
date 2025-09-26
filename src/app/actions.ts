@@ -298,7 +298,7 @@ export async function searchMercadoLivreAction(
               itemMeta?.last_updated ??
               winner?.last_updated ??
               winner?.date_updated ??
-              winner?.stop_time ?? // às vezes vem como última alteração
+              winner?.stop_time ??
               null;
             
             // preço ativo?
@@ -786,5 +786,7 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    
 
     
