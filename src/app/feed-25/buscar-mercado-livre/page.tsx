@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -64,6 +64,7 @@ interface ProductResult {
       catalog_product?: any;
       winner_item?: any;
       fees_data?: any;
+      reviews_data?: any;
     };
     fees?: {
       listing_fee_amount: number;
@@ -119,6 +120,16 @@ const toNumberSafe = (v: string | number | null | undefined) => {
   if (v === null || v === undefined) return 0;
   const n = Number(String(v).replace(',', '.'));
   return isNaN(n) ? 0 : n;
+};
+
+// Calcula o custo do frete com base na faixa de preço para produtos entre 1kg e 2kg
+const getShippingCostFor1To2Kg = (price: number): number | null => {
+    if (price >= 200) return 28.14;
+    if (price >= 150) return 25.80;
+    if (price >= 120) return 23.45;
+    if (price >= 100) return 21.11;
+    if (price >= 79) return 18.76;
+    return null; // Retorna null se for menor que 79
 };
 
 
@@ -354,6 +365,7 @@ export default function BuscarMercadoLivrePage() {
                                         {paginatedResults.length > 0 ? paginatedResults.map(product => {
                                             const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
                                             const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
+                                            const shippingCost = getShippingCostFor1To2Kg(product.price);
 
                                             return (
                                                 <TableRow key={product.id} className={cn("align-top", product.price === 0 && "opacity-50 bg-muted/50")}>
@@ -449,30 +461,40 @@ export default function BuscarMercadoLivrePage() {
                                                                         <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
                                                                     )}
                                                                     
-                                                                    {product.fees && (
+                                                                  {product.fees && (
                                                                       <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                        {product.raw_data?.fees_data?.sale_fee_details?.percentage_fee != null && (
+                                                                          {/* % SEM ARREDONDAR: vem do bruto */}
+                                                                          {product.raw_data?.fees_data?.sale_fee_details?.percentage_fee != null && (
                                                                           <span className="text-xs">
                                                                               ({formatPercentNoRound(product.raw_data.fees_data.sale_fee_details.percentage_fee)})
                                                                           </span>
-                                                                        )}
+                                                                          )}
 
-                                                                        <span className="text-xs">
+                                                                          {/* Comissão: pode continuar usando o calculado */}
+                                                                          <span className="text-xs">
                                                                           Comissão: <b className="font-semibold text-foreground">{formatCurrency(product.fees.sale_fee_amount)}</b>
-                                                                        </span>
+                                                                          </span>
 
-                                                                        <span className="text-xs">
+                                                                          {/* Taxa fixa: usar sale_fee_details.fixed_fee; se não vier, cai pro listing_fee_amount */}
+                                                                          <span className="text-xs">
                                                                           Taxa fixa:{' '}
                                                                           <b className="font-semibold text-foreground">
-                                                                            {formatCurrency(
+                                                                              {formatCurrency(
                                                                               product.raw_data?.fees_data?.sale_fee_details?.fixed_fee != null
-                                                                                ? toNumberSafe(product.raw_data.fees_data.sale_fee_details.fixed_fee)
-                                                                                : toNumberSafe(product.raw_data?.fees_data?.listing_fee_amount)
-                                                                            )}
+                                                                                  ? toNumberSafe(product.raw_data.fees_data.sale_fee_details.fixed_fee)
+                                                                                  : toNumberSafe(product.raw_data?.fees_data?.listing_fee_amount)
+                                                                              )}
                                                                           </b>
-                                                                        </span>
+                                                                          </span>
+                                                                          {/* Custo de Frete Estimado */}
+                                                                          {shippingCost !== null && (
+                                                                            <span className="text-xs flex items-center gap-1">
+                                                                              <Truck className="h-3 w-3" /> Frete:
+                                                                              <b className="font-semibold text-foreground">{formatCurrency(shippingCost)}</b>
+                                                                            </span>
+                                                                          )}
                                                                       </div>
-                                                                    )}
+                                                                  )}
                                                                 </div>
                                                             </div>
 
@@ -561,17 +583,3 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
-
-
-    
-
-    
-
-    
-
-
-
-
-
-
-
