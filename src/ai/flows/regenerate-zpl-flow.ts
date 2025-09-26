@@ -2,7 +2,6 @@
 'use server';
 
 import { getAi } from '@/ai/genkit';
-import { gemini15Flash } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 import { loadAppSettings } from '@/services/firestore';
 
@@ -42,7 +41,7 @@ export async function regenerateZpl(input: RegenerateZplInput): Promise<Regenera
   
   const prompt = ai.definePrompt({
     name: 'regenerateZplPrompt',
-    model: gemini15Flash,
+    model: 'googleai/gemini-2.0-flash',
     input: { schema: RegenerateZplInputSchema },
     output: { schema: RegenerateZplOutputSchema },
     prompt: `
