@@ -213,6 +213,70 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
   return out;
 }
 
+// Fetches user's active item IDs and their catalog_product_ids
+async function fetchMyActiveCatalogIds(token: string): Promise<Set<string>> {
+  const myCatalogIds = new Set<string>();
+
+  try {
+    const userMeResponse = await fetch(`https://api.mercadolibre.com/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store'
+    });
+    if (!userMeResponse.ok) return myCatalogIds;
+
+    const userData = await userMeResponse.json();
+    const userId = userData.id;
+    if (!userId) return myCatalogIds;
+
+    let offset = 0;
+    const limit = 100;
+    let hasMore = true;
+    const allItemIds: string[] = [];
+
+    while (hasMore) {
+        const searchUrl = `https://api.mercadolibre.com/users/${userId}/items/search?status=active&limit=${limit}&offset=${offset}`;
+        const searchResponse = await fetch(searchUrl, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store'
+        });
+        if (!searchResponse.ok) break;
+
+        const result = await searchResponse.json();
+        const itemIds = result?.results || [];
+
+        if (itemIds.length > 0) {
+            allItemIds.push(...itemIds);
+            offset += itemIds.length;
+        } else {
+            hasMore = false;
+        }
+    }
+    
+    // Fetch catalog_product_id for all items in batches
+    for (let i = 0; i < allItemIds.length; i += 20) {
+      const batchIds = allItemIds.slice(i, i + 20).join(',');
+      const itemDetailsUrl = `https://api.mercadolibre.com/items?ids=${batchIds}&attributes=id,catalog_product_id`;
+      const itemsDataRes = await fetch(itemDetailsUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      });
+      if (itemsDataRes.ok) {
+        const itemsData = await itemsDataRes.json();
+        itemsData.forEach((item: any) => {
+          if (item.body?.catalog_product_id) {
+            myCatalogIds.add(item.body.catalog_product_id);
+          }
+        });
+      }
+    }
+
+  } catch (e) {
+    console.error("Failed to fetch user's active catalog IDs:", e);
+  }
+  
+  return myCatalogIds;
+}
+
 
 // Server Actions
 export async function searchMercadoLivreAction(
@@ -223,6 +287,9 @@ export async function searchMercadoLivreAction(
     const productName = String(formData.get("productName") || "").trim();
     const quantity = Number(formData.get("quantity") || 50);
     const accessToken = await getMlToken();
+    
+    // Fetch user's own active catalog IDs
+    const myActiveCatalogIds = await fetchMyActiveCatalogIds(accessToken);
     
     // 1. Search for catalog products
     const searchUrl = new URL("https://api.mercadolibre.com/products/search");
@@ -327,6 +394,9 @@ export async function searchMercadoLivreAction(
             // reviews
             const reviewsResult = await fetchProductReviews(winner?.id, p.id, accessToken);
 
+            // Check if this catalog product is already posted by the user
+            const isAlreadyPosted = myActiveCatalogIds.has(p.id);
+
             return {
                 id: p.id,
                 catalog_product_id: p.id,
@@ -366,10 +436,11 @@ export async function searchMercadoLivreAction(
                 },
                 rating_average: reviewsResult.rating_average ?? 0,
                 reviews_count: reviewsResult.reviews_count ?? 0,
+                isAlreadyPosted: isAlreadyPosted, // Add the new field
                 raw_data: { 
                   catalog_product: p, 
                   winner_item: winner,
-                  reviews_data: reviewsResult.data, // Adicionado aqui
+                  reviews_data: reviewsResult.data,
                 },
             };
         })
@@ -435,7 +506,7 @@ export async function standardizeListAction(
     const result = await standardizeList({ organizedList, apiKey, prompt_override });
     return { result, error: null };
   } catch (e: any) {
-    return { result: null, error: e.message || "Falha ao padronizar a lista." };
+    return { result, error: e.message || "Falha ao padronizar a lista." };
   }
 }
 

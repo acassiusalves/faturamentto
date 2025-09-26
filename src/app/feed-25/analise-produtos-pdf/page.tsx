@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
@@ -764,10 +764,10 @@ export default function CatalogoPdfPage() {
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
-                                                if (margin < 12) {
+                                                if (margin < 12 && (commissionValue + catalogCost + shippingCost) > 0) {
                                                    // Preço mínimo sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
                                                    suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
-                                                }
+                                                 }
 
 
                                                 return (
@@ -776,9 +776,18 @@ export default function CatalogoPdfPage() {
                                                             {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
                                                         </div>
                                                         <div className="flex-grow">
-                                                            <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
-                                                                {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                            </Link>
+                                                            <div className="flex items-center gap-2">
+                                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
+                                                                    {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                                </Link>
+                                                                {offer.isAlreadyPosted && (
+                                                                    <Badge className="bg-green-600 hover:bg-green-700">
+                                                                        <CheckCircle className="mr-1 h-3 w-3"/>
+                                                                        Ja postado
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+
                                                             <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                                 Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>

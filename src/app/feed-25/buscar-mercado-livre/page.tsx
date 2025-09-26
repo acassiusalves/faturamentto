@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -60,6 +60,7 @@ interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
+    isAlreadyPosted?: boolean;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -388,9 +389,17 @@ export default function BuscarMercadoLivrePage() {
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex flex-col gap-y-1">
-                                                            <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
-                                                              {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                            </Link>
+                                                            <div className="flex items-center gap-2">
+                                                                <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
+                                                                {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                                </Link>
+                                                                {product.isAlreadyPosted && (
+                                                                    <Badge className="bg-green-600 hover:bg-green-700">
+                                                                        <CheckCircle className="mr-1 h-3 w-3"/>
+                                                                        Ja postado
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                               ID Anúncio: {product.catalog_product_id ?? "-"}

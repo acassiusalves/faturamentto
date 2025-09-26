@@ -28,7 +28,7 @@ interface SearchResultsDialogProps {
 }
 
 // Revertendo para não ter os campos de custo
-type Offer = SearchableProduct;
+type Offer = SearchableProduct & { isAlreadyPosted?: boolean };
 
 
 const listingTypeMap: Record<string, string> = {
@@ -58,7 +58,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                         throw new Error(searchResult.error);
                     }
                     if (searchResult.result) {
-                        setResults(searchResult.result);
+                        setResults(searchResult.result as any);
                     }
                 } catch (err: any) {
                     setError(err.message || 'Falha ao buscar ofertas.');
@@ -73,7 +73,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     const filteredResults = useMemo(() => {
         if (!results) return [];
         if (showOnlyActive) {
-            return results.filter(r => r.price > 0);
+            return results.filter(r => (r as any).price > 0);
         }
         return results;
     }, [results, showOnlyActive]);
@@ -122,15 +122,23 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
-                                                <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
-                                                    {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                </Link>
+                                                <div className="flex items-center gap-2">
+                                                    <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
+                                                        {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                    </Link>
+                                                    {offer.isAlreadyPosted && (
+                                                        <Badge className="bg-green-600 hover:bg-green-700">
+                                                            <CheckCircle className="mr-1 h-3 w-3"/>
+                                                            Ja postado
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
                                                 <p className="text-xs text-muted-foreground">Marca: {offer.brand} | Modelo: {offer.model}</p>
-                                                <p className="text-xs text-muted-foreground">Vendedor: <span className="font-semibold">{offer.seller_nickname}</span> {offer.is_official_store && <Badge variant="outline">Loja Oficial</Badge>}</p>
+                                                <p className="text-xs text-muted-foreground">Vendedor: <span className="font-semibold">{(offer as any).seller_nickname}</span> {(offer as any).is_official_store && <Badge variant="outline">Loja Oficial</Badge>}</p>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {offer.shipping_logistic_type === 'fulfillment' ? <FullIcon /> : <MercadoEnviosIcon />}
-                                                    {offer.listing_type_id && <Badge variant="outline">{listingTypeMap[offer.listing_type_id] || offer.listing_type_id}</Badge>}
+                                                    {(offer as any).shipping_logistic_type === 'fulfillment' ? <FullIcon /> : <MercadoEnviosIcon />}
+                                                    {(offer as any).listing_type_id && <Badge variant="outline">{listingTypeMap[(offer as any).listing_type_id] || (offer as any).listing_type_id}</Badge>}
                                                     {isModelMatch && (
                                                         <Badge className="bg-green-600 text-white hover:bg-green-700">
                                                             <CheckCircle className="mr-1 h-3 w-3" />
@@ -140,7 +148,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right font-bold text-lg">{formatBRL(offer.price)}</TableCell>
+                                        <TableCell className="text-right font-bold text-lg">{formatBRL((offer as any).price)}</TableCell>
                                      </TableRow>
                                 )}) : (
                                     <TableRow>

@@ -630,6 +630,7 @@ export interface ProductResult {
     seller_city_id?: string | null;
     date_created?: string | null;
     reviews_count?: number;
+    isAlreadyPosted?: boolean;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
