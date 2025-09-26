@@ -761,12 +761,9 @@ export default function CatalogoPdfPage() {
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
-                                                const targetMargin = 0.10; // 10%
-                                                const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
 
                                                 if (margin < 10) {
-                                                    const coefficient = 0.88; 
-                                                    suggestedPrice = (catalogCost + fixedFee) / coefficient;
+                                                    suggestedPrice = catalogCost / 0.88;
                                                 }
 
 
@@ -786,7 +783,7 @@ export default function CatalogoPdfPage() {
                                                             {offer.fees && (
                                                                 <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
                                                                     <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commissionValue)}</b></span>
-                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(fixedFee)}</b></span>
+                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount))}</b></span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -801,7 +798,7 @@ export default function CatalogoPdfPage() {
                                                             {suggestedPrice !== null && (
                                                                 <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 rounded-md text-amber-800 dark:text-amber-300">
                                                                     <p className="text-xs font-semibold flex items-center gap-1"><AlertTriangle className="h-4 w-4"/>Preço Mínimo Sugerido:</p>
-                                                                    <p className="font-bold text-base">{formatBRL(catalogCost / 0.88)}</p>
+                                                                    <p className="font-bold text-base">{formatBRL(suggestedPrice)}</p>
                                                                     <p className="text-xs">para margem de 10%</p>
                                                                 </div>
                                                             )}
