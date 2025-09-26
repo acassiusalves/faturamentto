@@ -59,6 +59,7 @@ export default function MappingPage() {
   const [importStatus, setImportStatus] = useState({ current: 0, total: 0 });
   const [iderisPrivateKey, setIderisPrivateKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [googleSheetsApiKey, setGoogleSheetsApiKey] = useState("");
   const [googleSheetId, setGoogleSheetId] = useState("");
   const [sheetHeaders, setSheetHeaders] = useState<string[]>([]);
@@ -68,6 +69,7 @@ export default function MappingPage() {
   const [sheetAssociationKey, setSheetAssociationKey] = useState<string>("");
   const [iderisApiStatus, setIderisApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [geminiApiStatus, setGeminiApiStatus] = useState<ApiKeyStatus>('unchecked');
+  const [openaiApiStatus, setOpenaiApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [googleSheetsApiStatus, setGoogleSheetsApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [allMappings, setAllMappings] = useState<AllMappingsState>({});
   const [friendlyNames, setFriendlyNames] = useState<Record<string, string>>({});
@@ -111,12 +113,14 @@ export default function MappingPage() {
         if (settings) {
             setIderisPrivateKey(settings.iderisPrivateKey || "");
             setGeminiApiKey(settings.geminiApiKey || "");
+            setOpenaiApiKey(settings.openaiApiKey || "");
             setGoogleSheetsApiKey(settings.googleSheetsApiKey || "");
             setAllMappings(settings.allMappings || {});
             setFriendlyNames(settings.friendlyFieldNames || {});
             setFileNames(settings.fileNames || {});
             if (settings.iderisApiStatus) setIderisApiStatus(settings.iderisApiStatus as ApiKeyStatus);
             if (settings.geminiApiStatus) setGeminiApiStatus(settings.geminiApiStatus as ApiKeyStatus);
+            if (settings.openaiApiStatus) setOpenaiApiStatus(settings.openaiApiStatus as ApiKeyStatus);
             if (settings.googleSheetsApiStatus) setGoogleSheetsApiStatus(settings.googleSheetsApiStatus as ApiKeyStatus);
 
             // Load Mercado Livre credentials
@@ -311,6 +315,11 @@ export default function MappingPage() {
     setGeminiApiStatus("unchecked");
   }
 
+  const handleOpenaiApiKeyChange = (value: string) => {
+    setOpenaiApiKey(value);
+    setOpenaiApiStatus("unchecked");
+  }
+
   const handleSaveIderisCredentials = async () => {
     if (!iderisPrivateKey) {
         toast({ variant: "destructive", title: "A Chave Privada Ideris é obrigatória."});
@@ -353,6 +362,25 @@ export default function MappingPage() {
     } catch (e: any) {
       setGeminiApiStatus('invalid');
       await saveAppSettings({ geminiApiStatus: 'invalid' });
+      toast({ variant: "destructive", title: "Erro ao Salvar", description: "Não foi possível salvar a chave de API." });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  }
+
+  const handleSaveOpenaiApiKey = async () => {
+    if (!openaiApiKey) {
+      toast({ variant: "destructive", title: "A Chave de API da OpenAI é obrigatória."});
+      return;
+    }
+    setIsTestingConnection(true);
+    try {
+      await saveAppSettings({ openaiApiKey, openaiApiStatus: 'valid' });
+      setOpenaiApiStatus('valid');
+      toast({ title: "Sucesso!", description: "Sua chave de API da OpenAI foi salva." });
+    } catch (e: any) {
+      setOpenaiApiStatus('invalid');
+      await saveAppSettings({ openaiApiStatus: 'invalid' });
       toast({ variant: "destructive", title: "Erro ao Salvar", description: "Não foi possível salvar a chave de API." });
     } finally {
       setIsTestingConnection(false);
@@ -548,10 +576,11 @@ export default function MappingPage() {
         </div>
         
         <Tabs defaultValue="ideris-api" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="ideris-api"><Database />Ideris API (Base)</TabsTrigger>
             <TabsTrigger value="mercado-livre"><MercadoLivreLogo className="h-4 w-4" /> Mercado Livre</TabsTrigger>
             <TabsTrigger value="gemini-ai"><Sparkles />Gemini AI</TabsTrigger>
+            <TabsTrigger value="openai-gpt"><Sparkles />OpenAI (GPT)</TabsTrigger>
             <TabsTrigger value="google-sheets"><FileSpreadsheet/>Google Planilhas</TabsTrigger>
             <TabsTrigger value="local-file"><HardDriveUpload/>Arquivo Local (CSV)</TabsTrigger>
           </TabsList>
@@ -753,6 +782,41 @@ export default function MappingPage() {
                           </p>
                       </div>
                       <Button onClick={handleSaveGeminiApiKey} disabled={isTestingConnection || !geminiApiKey}>
+                          {isTestingConnection ? <Loader2 className="animate-spin" /> : <Save />}
+                          Salvar Chave
+                      </Button>
+                  </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="openai-gpt" className="space-y-8 pt-6">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Conectar com OpenAI (GPT)</CardTitle>
+                  <CardDescription>
+                      Forneça sua chave de API da OpenAI para habilitar funcionalidades com modelos GPT.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <div className="space-y-4 max-w-lg">
+                      <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                              <Label htmlFor="openai-api-key">Chave de API da OpenAI</Label>
+                              <ApiStatusBadge status={openaiApiStatus} />
+                          </div>
+                          <Input
+                              id="openai-api-key"
+                              value={openaiApiKey}
+                              onChange={(e) => handleOpenaiApiKeyChange(e.target.value)}
+                              placeholder="Cole aqui sua chave de API da OpenAI (sk-...)"
+                              type="password"
+                          />
+                           <p className="text-xs text-muted-foreground">
+                              Você pode obter sua chave no <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">painel da OpenAI</a>.
+                          </p>
+                      </div>
+                      <Button onClick={handleSaveOpenaiApiKey} disabled={isTestingConnection || !openaiApiKey}>
                           {isTestingConnection ? <Loader2 className="animate-spin" /> : <Save />}
                           Salvar Chave
                       </Button>

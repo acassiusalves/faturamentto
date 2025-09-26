@@ -350,6 +350,7 @@ export interface AppSettings {
     iderisPrivateKey?: string;
     googleSheetsApiKey?: string;
     geminiApiKey?: string;
+    openaiApiKey?: string; // New field for OpenAI
     mercadoLivre?: MercadoLivreCredentials;
     mercadoLivre2?: MercadoLivreCredentials;
     allMappings?: AllMappingsState;
@@ -359,6 +360,7 @@ export interface AppSettings {
     iderisApiStatus?: ApiKeyStatus;
     googleSheetsApiStatus?: ApiKeyStatus;
     geminiApiStatus?: ApiKeyStatus;
+    openaiApiStatus?: ApiKeyStatus; // New field for OpenAI status
     permissions?: Record<string, string[]>;
     inactivePages?: string[];
     customCalculations?: any[];
