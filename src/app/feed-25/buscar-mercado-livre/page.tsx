@@ -408,13 +408,15 @@ export default function BuscarMercadoLivrePage() {
                                                                   >
                                                                     {product.seller_nickname}
                                                                   </Link>
-                                                                  {(product.seller_state || product.seller_state_id) ? (
-                                                                    <span className="ml-1">
-                                                                      ({product.seller_state || product.seller_state_id})
+                                                                  {(product.seller_state) ? (
+                                                                    <span className="ml-1 text-muted-foreground">
+                                                                      • {product.seller_state}
                                                                     </span>
                                                                   ) : null}
                                                                 </>
-                                                              ) : null}
+                                                              ) : (
+                                                                <span className="ml-1">N/A</span>
+                                                              )}
                                                             </div>
                                                             
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -510,7 +512,7 @@ export default function BuscarMercadoLivrePage() {
                                                                     </AccordionTrigger>
                                                                     <AccordionContent>
                                                                         <pre className="mt-1 p-2 bg-muted rounded-md text-xs overflow-auto max-h-32">
-                                                                            <code>{JSON.stringify(product.raw_winner, null, 2)}</code>
+                                                                            <code>{JSON.stringify({ winner: product.raw_winner, fees: product.fees }, null, 2)}</code>
                                                                         </pre>
                                                                     </AccordionContent>
                                                                 </AccordionItem>

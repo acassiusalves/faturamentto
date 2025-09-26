@@ -647,7 +647,3 @@ export interface ProductResult {
       };
     };
 }
-
-    
-
-    
