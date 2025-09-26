@@ -45,10 +45,12 @@ async function fetchItemsSellerAddresses(
     if (!r.ok) continue;
     const rows = await r.json();
     for (const row of Array.isArray(rows) ? rows : []) {
-      const body = row?.body;
-      if (!body?.id) continue;
+      const body = row?.body || {};
       const s = body?.seller_address || {};
-      out[body.id] = {
+      const sid = String(body?.id || "").trim();
+      if (!sid) continue;
+
+      out[sid] = {
         state_id: s?.state?.id ?? null,
         state_name: s?.state?.name ?? null,
         city_id: s?.city?.id ?? null,
@@ -275,22 +277,39 @@ export async function searchMercadoLivreAction(
         catalogProducts.map(async (p: any) => {
             const winner = winnerByCat.get(p.id);
 
+            // official store
             let officialStoreId: number | null =
               (typeof winner?.official_store_id === "number") ? winner.official_store_id : null;
             if (!officialStoreId && winner?.id) {
               officialStoreId = await fetchItemOfficialStoreId(winner.id, accessToken);
             }
-
+            
+            // metas do item e do usuário
             const itemMeta = (winner?.id && sellerAddrByItemId[winner.id]) || null;
             const userMeta = (winner?.seller_id && userAddrBySellerId[winner.seller_id]) || null;
-
+            
+            // endereço: prefira o do item; caia para user; senão, nulos
             const sellerAddress = itemMeta || userMeta || {
               state_id: null, state_name: null, city_id: null, city_name: null, last_updated: null
             };
-
-            const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
+            
+            // last_updated: prefira do batch; depois do winner; tente outros campos comuns
+            const lastUpdated =
+              itemMeta?.last_updated ??
+              winner?.last_updated ??
+              winner?.date_updated ??
+              winner?.stop_time ?? // às vezes vem como última alteração
+              null;
+            
+            // preço ativo?
+            const price = Number(winner?.price ?? 0);
+            
+            // contagem de ofertas
             const counted = await getCatalogOfferCount(p.id, accessToken);
             const offerCount = counted > 0 ? counted : (winner ? 1 : 0);
+            
+            // reputação
+            const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
 
             return {
                 id: p.id,
@@ -300,7 +319,7 @@ export async function searchMercadoLivreAction(
                 thumbnail: p.pictures?.[0]?.secure_url || p.pictures?.[0]?.url || "",
                 brand: p.attributes?.find((a: any) => a.id === "BRAND")?.value_name || "",
                 model: p.attributes?.find((a: any) => a.id === "MODEL")?.value_name || "",
-                price: winner?.price ?? 0,
+                price: price,
                 shipping_type: winner?.shipping?.logistic_type || "",
                 shipping_logistic_type: winner?.shipping?.logistic_type || "",
                 free_shipping: !!winner?.shipping?.free_shipping,
@@ -311,11 +330,12 @@ export async function searchMercadoLivreAction(
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
 
-                seller_state: sellerAddress.state_name,
-                seller_state_id: sellerAddress.state_id,
-                seller_city: sellerAddress.city_name,
-                seller_city_id: sellerAddress.city_id,
-                last_updated: itemMeta?.last_updated ?? winner?.last_updated ?? null,
+                seller_state: sellerAddress.state_name ?? userMeta?.state_name ?? null,
+                seller_state_id: sellerAddress.state_id ?? userMeta?.state_id ?? null,
+                seller_city: sellerAddress.city_name ?? userMeta?.city_name ?? null,
+                seller_city_id: sellerAddress.city_id ?? userMeta?.city_id ?? null,
+
+                last_updated: lastUpdated,
 
                 offerCount,
 
@@ -772,3 +792,4 @@ export async function updateSalesDeliveryTypeAction(
     
 
     
+

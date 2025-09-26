@@ -21,7 +21,6 @@ import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -488,7 +487,7 @@ export default function BuscarMercadoLivrePage() {
                                                                               {percentRaw !== null && percentRaw !== undefined && (
                                                                                 <span className="text-xs">({formatRawPercent(percentRaw)})</span>
                                                                               )}
-                                                                              {commissionRaw !== null && commissionRaw !== undefined && (
+                                                                              {commissionRaw !== null && commissionRaw !== undefined && Number(commissionRaw) > 0 && (
                                                                                 <span className="text-xs">
                                                                                   Comissão: <b className="font-semibold text-foreground">{formatRawBRL(commissionRaw)}</b>
                                                                                 </span>
@@ -578,6 +577,7 @@ export default function BuscarMercadoLivrePage() {
 
 
     
+
 
 
 
