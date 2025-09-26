@@ -497,22 +497,6 @@ export default function BuscarMercadoLivrePage() {
                                                                   )}
                                                                 </div>
                                                             </div>
-
-                                                            <Accordion type="single" collapsible className="w-full mt-2">
-                                                                <AccordionItem value="raw-data" className="border-b-0">
-                                                                    <AccordionTrigger className="text-xs p-1 hover:no-underline [&>svg]:h-3 [&>svg]:w-3">
-                                                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                                                            <Database className="h-3 w-3" />
-                                                                            Dados brutos da API
-                                                                        </div>
-                                                                    </AccordionTrigger>
-                                                                    <AccordionContent>
-                                                                        <pre className="mt-1 p-2 bg-muted rounded-md text-xs overflow-auto max-h-32">
-                                                                            <code>{JSON.stringify(product.raw_data, null, 2)}</code>
-                                                                        </pre>
-                                                                    </AccordionContent>
-                                                                </AccordionItem>
-                                                            </Accordion>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-lg text-right align-top">
