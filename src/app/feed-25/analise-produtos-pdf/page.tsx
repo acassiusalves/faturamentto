@@ -765,11 +765,10 @@ export default function CatalogoPdfPage() {
                                                 
                                                 let suggestedPrice = null;
                                                 const targetMargin = 0.10; // 10%
-                                                if (margin < 10 && commissionPercent > 0) {
-                                                    const coefficient = 1 - (commissionPercent + targetMargin);
-                                                    if (coefficient > 0) {
-                                                        suggestedPrice = (catalogCost + fixedFee) / coefficient;
-                                                    }
+                                                if (margin < 10) {
+                                                    // (Custo + Taxa Fixa) / (1 - %Comissão - %Margem)
+                                                    const coefficient = 0.88; // 1 - 0.12 (comissão de 12% clássico) - 0.10 (margem) = 0.78
+                                                    suggestedPrice = (catalogCost + fixedFee) / coefficient;
                                                 }
 
 
