@@ -7,18 +7,34 @@ import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, DollarSign, Percent, Database } from 'lucide-react';
+import { Loader2, Search, DollarSign, Percent, Database, Package, ExternalLink } from 'lucide-react';
 import type { SaleCost, SaleCosts } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+
+interface MyItem {
+    id: string;
+    title: string;
+    price: number;
+    status: string;
+    permalink: string;
+    thumbnail: string;
+}
 
 export default function TestesMercadoLivrePage() {
     const [listingId, setListingId] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingCosts, setIsLoadingCosts] = useState(false);
     const [costs, setCosts] = useState<SaleCosts | null>(null);
-    const [rawResponse, setRawResponse] = useState<any | null>(null); // State for the raw API response
+    const [rawResponse, setRawResponse] = useState<any | null>(null);
+    
+    const [myItems, setMyItems] = useState<MyItem[]>([]);
+    const [isLoadingItems, setIsLoadingItems] = useState(false);
+
     const { toast } = useToast();
 
     const handleFetchCosts = async () => {
@@ -27,9 +43,9 @@ export default function TestesMercadoLivrePage() {
             return;
         }
 
-        setIsLoading(true);
+        setIsLoadingCosts(true);
         setCosts(null);
-        setRawResponse(null); // Reset raw response on new search
+        setRawResponse(null);
 
         try {
             const response = await fetch('/api/ml/costs', {
@@ -39,7 +55,7 @@ export default function TestesMercadoLivrePage() {
             });
 
             const data = await response.json();
-            setRawResponse(data); // Store the full raw response
+            setRawResponse(data);
 
             if (!response.ok) {
                 throw new Error(data.error || 'Falha ao buscar custos');
@@ -58,7 +74,35 @@ export default function TestesMercadoLivrePage() {
                 description: error.message,
             });
         } finally {
-            setIsLoading(false);
+            setIsLoadingCosts(false);
+        }
+    };
+
+    const handleFetchMyItems = async () => {
+        setIsLoadingItems(true);
+        setMyItems([]);
+        try {
+            const response = await fetch('/api/ml/my-items');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar seus anúncios.');
+            }
+
+            setMyItems(data.items || []);
+            toast({
+                title: 'Sucesso!',
+                description: `${data.items?.length || 0} anúncios ativos foram encontrados.`
+            });
+
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Buscar Anúncios',
+                description: error.message,
+            });
+        } finally {
+            setIsLoadingItems(false);
         }
     };
     
@@ -92,13 +136,13 @@ export default function TestesMercadoLivrePage() {
                                 onChange={(e) => setListingId(e.target.value)}
                             />
                         </div>
-                        <Button onClick={handleFetchCosts} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
+                        <Button onClick={handleFetchCosts} disabled={isLoadingCosts}>
+                            {isLoadingCosts ? <Loader2 className="animate-spin" /> : <Search />}
                             Calcular
                         </Button>
                     </div>
                 </CardContent>
-                {costs && !isLoading && (
+                {costs && !isLoadingCosts && (
                     <CardFooter className="flex-col items-start gap-4">
                          <h3 className="font-semibold text-lg">Resultado para: {costs.id} ({costs.title})</h3>
                          <div className="w-full rounded-md border">
@@ -131,7 +175,7 @@ export default function TestesMercadoLivrePage() {
                          </div>
                     </CardFooter>
                 )}
-                 {rawResponse && !isLoading && (
+                 {rawResponse && !isLoadingCosts && (
                     <CardFooter>
                         <Accordion type="single" collapsible className="w-full">
                             <AccordionItem value="raw-response">
@@ -148,6 +192,65 @@ export default function TestesMercadoLivrePage() {
                                 </AccordionContent>
                             </AccordionItem>
                         </Accordion>
+                    </CardFooter>
+                )}
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Package className="h-5 w-5" />
+                        Listar Meus Anúncios Ativos
+                    </CardTitle>
+                    <CardDescription>
+                        Busca todos os anúncios com status "ativo" da sua conta no Mercado Livre.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={handleFetchMyItems} disabled={isLoadingItems}>
+                        {isLoadingItems ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
+                        {isLoadingItems ? 'Buscando anúncios...' : 'Buscar Meus Anúncios'}
+                    </Button>
+                </CardContent>
+                {myItems.length > 0 && !isLoadingItems && (
+                     <CardFooter className="flex-col items-start gap-4">
+                        <div className="w-full rounded-md border max-h-[600px] overflow-y-auto">
+                           <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Anúncio</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Preço</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {myItems.map(item => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                                         <Image src={item.thumbnail} alt={item.title} fill className="object-contain"/>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                         <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
+                                                            {item.title}
+                                                            <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                         </Link>
+                                                         <span className="text-xs text-muted-foreground font-mono">{item.id}</span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={item.status === 'active' ? 'bg-green-600' : ''}>
+                                                    {item.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                           </Table>
+                        </div>
                     </CardFooter>
                 )}
             </Card>
