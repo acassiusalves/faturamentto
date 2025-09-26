@@ -380,31 +380,30 @@ export default function BuscarMercadoLivrePage() {
                                                             </Link>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                ID Anúncio: {product.catalog_product_id ?? "-"}
+                                                              ID Anúncio: {product.catalog_product_id ?? "-"}
                                                             </div>
-
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                              Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
                                                             <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                Vendedor:
-                                                                {product.seller_nickname ? (
-                                                                    <>
-                                                                    <Link
-                                                                        href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
-                                                                        target="_blank"
-                                                                        className="text-blue-600 hover:underline ml-1"
-                                                                    >
-                                                                        {product.seller_nickname}
-                                                                    </Link>
-                                                                    </>
-                                                                ) : (
-                                                                    <span className="ml-1">N/A</span>
-                                                                )}
+                                                              Vendedor:
+                                                              {product.seller_nickname ? (
+                                                                <>
+                                                                  <Link
+                                                                    href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
+                                                                    target="_blank"
+                                                                    className="text-blue-600 hover:underline ml-1"
+                                                                  >
+                                                                    {product.seller_nickname}
+                                                                  </Link>
+                                                                </>
+                                                              ) : (
+                                                                <span className="ml-1">N/A</span>
+                                                              )}
                                                             </div>
                                                             
                                                             {(product.seller_city || product.seller_state) && (
@@ -575,6 +574,7 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+
 
 
 
