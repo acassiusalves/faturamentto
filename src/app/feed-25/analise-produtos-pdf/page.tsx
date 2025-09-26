@@ -396,7 +396,7 @@ export default function CatalogoPdfPage() {
         });
     };
 
-    const isProcessingAny = isParsing || isAnalyzingPending;
+    const isProcessingAny = isParsing || isAnalyzingPending || isAnalyzingAll;
     const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
     
     const filteredProducts = useMemo(() => {
@@ -434,9 +434,9 @@ export default function CatalogoPdfPage() {
             formData.append('productName', product.refinedQuery || product.name);
             formData.append('quantity', '50');
             
-            const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
-            if (result?.result) {
-                const matchingOffers = result.result.filter((offer: any) => 
+            const searchResult = await searchMercadoLivreAction({ result: null, error: null }, formData);
+            if (searchResult?.result) {
+                const matchingOffers = searchResult.result.filter((offer: any) => 
                     offer.model?.toLowerCase() === product.model?.toLowerCase()
                 );
 
@@ -529,7 +529,7 @@ export default function CatalogoPdfPage() {
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
                             {isAnalyzingAll ? (
-                                <Button onClick={() => setIsAnalyzingAll(false)} disabled={!isProcessingAny} variant="destructive">
+                                <Button onClick={() => setIsAnalyzingAll(false)} disabled={isAnalyzingPending} variant="destructive">
                                     <XCircle className="mr-2" /> Cancelar
                                 </Button>
                             ) : (
@@ -756,12 +756,10 @@ export default function CatalogoPdfPage() {
                                                 
                                                 const shippingCost = getShippingCostFor1To2Kg(salePrice) || 0;
                                                 
-                                                // Líquido = PV - Comissão - Custo Catálogo - Frete
                                                 const netValue = salePrice - commissionValue - catalogCost - shippingCost;
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
-                                                // Preço mínimo sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
                                                 if (margin < 12 && (commissionValue + catalogCost + shippingCost) > 0) {
                                                    suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
                                                  }
