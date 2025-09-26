@@ -58,23 +58,16 @@ interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
-    raw_winner?: any;
+    raw_data?: {
+      catalog_product?: any;
+      winner_item?: any;
+      fees_data?: any;
+    };
     fees?: {
-      listing_fee_amount: MoneyLike;
-      sale_fee_amount:   MoneyLike;
-      sale_fee_percent:  MoneyLike;
-      fee_total?:        MoneyLike;
-      details?: {
-        sale?: {
-          gross_amount?:   MoneyLike;
-          fixed_fee?:      MoneyLike;
-          percentage_fee?: MoneyLike;
-        };
-        listing?: {
-          fixed_fee?:      MoneyLike;
-          gross_amount?:   MoneyLike;
-        };
-      };
+      listing_fee_amount: number;
+      sale_fee_amount: number;
+      sale_fee_percent: number;
+      fee_total?: number;
     };
 }
 
@@ -124,7 +117,7 @@ const formatRawBRL = (v: string | number | null | undefined) => {
 
 const formatRawPercent = (v: string | number | null | undefined) => {
   if (v === null || v === undefined) return null;
-  return `${String(v).replace('.', ',')}%`;
+  return `${(Number(v) * 100).toFixed(2).replace('.', ',')}%`;
 };
 
 
@@ -387,11 +380,11 @@ export default function BuscarMercadoLivrePage() {
                                                             </Link>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              ID Anúncio: {product.item_id ?? "-"}
+                                                                ID Anúncio: {product.item_id ?? "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                                Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
@@ -408,11 +401,11 @@ export default function BuscarMercadoLivrePage() {
                                                                   >
                                                                     {product.seller_nickname}
                                                                   </Link>
-                                                                  {(product.seller_state) ? (
+                                                                  {product.seller_state && (
                                                                     <span className="ml-1 text-muted-foreground">
                                                                       • {product.seller_state}
                                                                     </span>
-                                                                  ) : null}
+                                                                  )}
                                                                 </>
                                                               ) : (
                                                                 <span className="ml-1">N/A</span>
@@ -473,30 +466,15 @@ export default function BuscarMercadoLivrePage() {
                                                                     
                                                                     {product.fees && (
                                                                       <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                        {(() => {
-                                                                          const sale = product.fees.details?.sale;
-                                                                          const commissionRaw = sale?.gross_amount;
-                                                                          const fixedFeeRaw   = sale?.fixed_fee;
-                                                                          const percentRaw    = sale?.percentage_fee;
-
-                                                                          return (
-                                                                            <>
-                                                                              {percentRaw !== null && percentRaw !== undefined && (
-                                                                                <span className="text-xs">({formatRawPercent(percentRaw)})</span>
-                                                                              )}
-                                                                              {commissionRaw !== null && commissionRaw !== undefined && Number(commissionRaw) > 0 && (
-                                                                                <span className="text-xs">
-                                                                                  Comissão: <b className="font-semibold text-foreground">{formatRawBRL(commissionRaw)}</b>
-                                                                                </span>
-                                                                              )}
-                                                                              {fixedFeeRaw !== null && fixedFeeRaw !== undefined && Number(fixedFeeRaw) > 0 && (
-                                                                                <span className="text-xs">
-                                                                                  Tarifa: <b className="font-semibold text-foreground">{formatRawBRL(fixedFeeRaw)}</b>
-                                                                                </span>
-                                                                              )}
-                                                                            </>
-                                                                          );
-                                                                        })()}
+                                                                        <span className="text-xs">
+                                                                            ({formatRawPercent(product.fees.sale_fee_percent)})
+                                                                        </span>
+                                                                        <span className="text-xs">
+                                                                          Comissão: <b className="font-semibold text-foreground">{formatCurrency(product.fees.sale_fee_amount)}</b>
+                                                                        </span>
+                                                                        <span className="text-xs">
+                                                                          Taxa fixa: <b className="font-semibold text-foreground">{formatCurrency(product.fees.listing_fee_amount)}</b>
+                                                                        </span>
                                                                       </div>
                                                                     )}
                                                                 </div>
@@ -512,7 +490,7 @@ export default function BuscarMercadoLivrePage() {
                                                                     </AccordionTrigger>
                                                                     <AccordionContent>
                                                                         <pre className="mt-1 p-2 bg-muted rounded-md text-xs overflow-auto max-h-32">
-                                                                            <code>{JSON.stringify({ winner: product.raw_winner, fees: product.fees }, null, 2)}</code>
+                                                                            <code>{JSON.stringify(product.raw_data, null, 2)}</code>
                                                                         </pre>
                                                                     </AccordionContent>
                                                                 </AccordionItem>
@@ -594,3 +572,4 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+

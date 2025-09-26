@@ -628,22 +628,15 @@ export interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
-    raw_winner?: any;
+    raw_data?: {
+      catalog_product?: any;
+      winner_item?: any;
+      fees_data?: any;
+    };
     fees?: {
-      listing_fee_amount: MoneyLike;
-      sale_fee_amount:   MoneyLike;
-      sale_fee_percent:  MoneyLike;
-      fee_total?:        MoneyLike;
-      details?: {
-        sale?: {
-          gross_amount?:   MoneyLike;
-          fixed_fee?:      MoneyLike;
-          percentage_fee?: MoneyLike;
-        };
-        listing?: {
-          fixed_fee?:      MoneyLike;
-          gross_amount?:   MoneyLike;
-        };
-      };
+      listing_fee_amount: number;
+      sale_fee_amount: number;
+      sale_fee_percent: number;
+      fee_total?: number;
     };
 }

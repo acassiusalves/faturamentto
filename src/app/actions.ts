@@ -130,21 +130,13 @@ async function fetchListingFees(opts: {
   categoryId?: string;
   listingTypeId?: string;
 }): Promise<{
-  listing_fee_amount: MoneyLike;
-  sale_fee_amount:   MoneyLike;
-  sale_fee_percent:  MoneyLike;
-  fee_total?:        MoneyLike;
-  details?: {
-    sale?: {
-      gross_amount?:   MoneyLike;
-      fixed_fee?:      MoneyLike;
-      percentage_fee?: MoneyLike;
-    };
-    listing?: {
-      fixed_fee?:      MoneyLike;
-      gross_amount?:   MoneyLike;
-    };
+  calculated: {
+    listing_fee_amount: number;
+    sale_fee_amount: number;
+    sale_fee_percent: number;
+    fee_total?: number;
   };
+  raw: any;
 } | null> {
   const site = opts.site ?? "MLB";
   const url = new URL(`https://api.mercadolibre.com/sites/${site}/listing_prices`);
@@ -166,26 +158,18 @@ async function fetchListingFees(opts: {
     : data;
   if (!row) return null;
 
-  const sale  = row?.sale_fee_amount ?? 0;
-  const list  = row?.listing_fee_amount ?? 0;
+  const sale = Number(row?.sale_fee_amount ?? 0);
+  const list = Number(row?.listing_fee_amount ?? 0);
+  const price = Number(opts.price || 0);
 
   return {
-    listing_fee_amount: list,
-    sale_fee_amount: sale,
-    sale_fee_percent: row?.sale_fee_percent ?? null,
-    fee_total: (row?.total_fee_amount ?? null),
-
-    details: {
-      sale: {
-        gross_amount:   row?.sale_fee_details?.gross_amount ?? row?.sale_fee_amount ?? null,
-        fixed_fee:      row?.sale_fee_details?.fixed_fee ?? null,
-        percentage_fee: row?.sale_fee_details?.percentage_fee ?? null,
-      },
-      listing: {
-        fixed_fee:    row?.listing_fee_details?.fixed_fee ?? row?.listing_fee_amount ?? null,
-        gross_amount: row?.listing_fee_details?.gross_amount ?? row?.listing_fee_amount ?? null,
-      },
+    calculated: {
+      listing_fee_amount: isFinite(list) ? list : 0,
+      sale_fee_amount: isFinite(sale) ? sale : 0,
+      sale_fee_percent: price > 0 && row.percentage_fee ? row.percentage_fee / 100 : (price > 0 ? sale / price : 0),
+      fee_total: (isFinite(list) ? list : 0) + (isFinite(sale) ? sale : 0),
     },
+    raw: data,
   };
 }
 
@@ -336,7 +320,8 @@ export async function searchMercadoLivreAction(
                 seller_city_id: sellerAddress.city_id ?? userMeta?.city_id ?? null,
 
                 last_updated: lastUpdated,
-                raw_winner: winner || null, // Add the raw winner object
+                
+                raw_data: { catalog_product: p, winner_item: winner },
 
                 offerCount,
 
@@ -365,7 +350,11 @@ export async function searchMercadoLivreAction(
 
           return { 
             ...p, 
-            fees: feesResult ?? undefined,
+            fees: feesResult?.calculated,
+            raw_data: {
+              ...p.raw_data,
+              fees_data: feesResult?.raw,
+            }
           };
         } catch {
           return p;
