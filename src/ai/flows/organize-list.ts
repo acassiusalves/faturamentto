@@ -10,7 +10,7 @@
  */
 
 import {getAi} from '@/ai/genkit';
-import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
+import { gemini15Flash } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import type { OrganizeResult } from '@/lib/types';
 
@@ -71,7 +71,7 @@ const OrganizeResultSchema = z.object({
 
 export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = gemini15Pro;
+    const selectedModel = gemini15Flash;
 
     const prompt = ai.definePrompt({
         name: 'organizeListPrompt',

@@ -11,7 +11,7 @@
  */
 
 import {getAi} from '@/ai/genkit';
-import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
+import { gemini15Flash } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 
 const DEFAULT_STANDARDIZE_PROMPT = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado, focando apenas em marcas específicas.
@@ -87,7 +87,7 @@ export type StandardizeListOutput = z.infer<typeof StandardizeListOutputSchema>;
 
 export async function standardizeList(input: StandardizeListInput): Promise<StandardizeListOutput> {
     const ai = getAi(input.apiKey);
-    const selectedModel = gemini15Pro;
+    const selectedModel = gemini15Flash;
 
     const prompt = ai.definePrompt({
     name: 'standardizeListPrompt',

@@ -8,7 +8,7 @@
  */
 
 import {getAi} from '@/ai/genkit';
-import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
+import { gemini15Flash } from '@genkit-ai/googleai';
 import { LookupProductsInputSchema, type LookupProductsInput, LookupResultSchema, type LookupResult } from '@/lib/types';
 
 
@@ -143,7 +143,7 @@ Antes de retornar, verifique:
 `;
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = gemini15Pro;
+    const selectedModel = gemini15Flash;
 
     const prompt = ai.definePrompt({
         name: 'lookupProductsPrompt',
