@@ -283,7 +283,7 @@ export default function CatalogoPdfPage() {
     useEffect(() => {
         if (analyzeState.error) {
             toast({ variant: 'destructive', title: 'Erro na Análise', description: analyzeState.error });
-            setIsAnalyzingAll(false);
+            setIsAnalyzingAll(false); // Stop all analysis on error
             return;
         }
 
@@ -304,24 +304,21 @@ export default function CatalogoPdfPage() {
                 return [...prevProducts, ...uniqueNewProducts];
             });
         }
-
-        if (isAnalyzingAll) {
-            const nextPage = currentPage + 1;
-            if (nextPage <= (pdfDoc?.numPages || 0)) {
-                setTimeout(() => setCurrentPage(nextPage), 2000);
-            } else {
-                setIsAnalyzingAll(false);
-            }
-        }
-    }, [analyzeState, brand, toast, isAnalyzingAll, currentPage, pdfDoc?.numPages]);
+    }, [analyzeState, brand, toast]);
 
 
     // Effect para analisar próxima página automaticamente
     useEffect(() => {
-        if (isAnalyzingAll && !isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
-            analyzePage(currentPage);
+        if (isAnalyzingAll && !isAnalyzingPending && pdfDoc) {
+            const nextPage = currentPage;
+            if (nextPage <= pdfDoc.numPages) {
+                analyzePage(nextPage);
+                setCurrentPage(p => p + 1); // Increment AFTER calling analyze for the current one
+            } else {
+                setIsAnalyzingAll(false); // Finished
+            }
         }
-    }, [currentPage, isAnalyzingAll, isAnalyzingPending, analyzePage, pdfDoc?.numPages]);
+    }, [analyzeState, isAnalyzingAll, isAnalyzingPending, analyzePage, pdfDoc, currentPage]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
@@ -523,7 +520,7 @@ export default function CatalogoPdfPage() {
                             {isProcessingAny ? (
                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Loader2 className="animate-spin" />
-                                    <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
+                                    <span>Analisando página {currentPage - 1} de {pdfDoc.numPages}...</span>
                                 </div>
                             ) : (
                                 <p className="text-sm text-muted-foreground">Pronto para analisar. {pdfDoc.numPages} páginas encontradas.</p>
