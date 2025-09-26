@@ -756,15 +756,16 @@ export default function CatalogoPdfPage() {
                                             {offers.map((offer: any) => {
                                                 const salePrice = offer.price;
                                                 const commissionValue = toNumberSafe(offer.fees?.sale_fee_amount);
-                                                
-                                                const netValue = salePrice - commissionValue - catalogCost;
-                                                const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
-                                                
                                                 const shippingCost = getShippingCostFor1To2Kg(salePrice);
                                                 
+                                                const netValue = salePrice - commissionValue - catalogCost - (shippingCost || 0);
+                                                const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
+                                                
+                                                
                                                 let suggestedPrice = null;
-                                                if (margin < 10) {
-                                                    suggestedPrice = salePrice / 0.88;
+                                                if (margin < 10 && catalogCost > 0) {
+                                                    const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
+                                                    suggestedPrice = (catalogCost + fixedFee) / 0.88;
                                                 }
 
 
@@ -812,7 +813,6 @@ export default function CatalogoPdfPage() {
                                                                 <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 rounded-md text-amber-800 dark:text-amber-300">
                                                                     <p className="text-xs font-semibold flex items-center gap-1"><AlertTriangle className="h-4 w-4"/>Preço Mínimo Sugerido:</p>
                                                                     <p className="font-bold text-base">{formatBRL(suggestedPrice)}</p>
-                                                                    <p className="text-xs">para margem de 10%</p>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -891,6 +891,8 @@ export default function CatalogoPdfPage() {
 
 
 
+
+    
 
     
 
