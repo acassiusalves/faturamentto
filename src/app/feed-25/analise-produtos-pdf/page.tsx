@@ -756,15 +756,19 @@ export default function CatalogoPdfPage() {
                                             {offers.map((offer: any) => {
                                                 const salePrice = offer.price;
                                                 const commissionValue = toNumberSafe(offer.fees?.sale_fee_amount);
+                                                
+                                                // Taxa fixa já está inclusa na comissão (`sale_fee_amount`)
                                                 const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
                                                 const shippingCost = getShippingCostFor1To2Kg(salePrice) || 0;
                                                 
-                                                const netValue = salePrice - commissionValue - fixedFee - catalogCost - shippingCost;
+                                                // Líquido = PV - Comissão - Custo Catálogo - Frete
+                                                const netValue = salePrice - commissionValue - catalogCost - shippingCost;
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
                                                 if (margin < 12 && catalogCost > 0) {
-                                                   suggestedPrice = (catalogCost + fixedFee + shippingCost) / 0.88;
+                                                   // Preço Mínimo Sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
+                                                   suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
                                                 }
 
 
