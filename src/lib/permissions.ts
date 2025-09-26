@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste } from 'lucide-react';
 import { MercadoLivreLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -69,6 +69,7 @@ export const navLinks = [
       subItems: [
         { href: "/laboratorio", label: "Painel do Laboratório", icon: Beaker },
         { href: "/laboratorio/testes-mercado-livre", label: "Testes Mercado Livre", icon: MercadoLivreLogo },
+        { href: "/laboratorio/analise-zpl", label: "Análise de ZPL", icon: ClipboardPaste },
       ]
     },
 ];
@@ -92,10 +93,13 @@ export const pagePermissions: Record<string, string[]> = {
     '/analise-por-conta': ['admin', 'socio', 'financeiro'],
     '/produtos': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
+    '/estoque/conferencia': ['admin', 'socio', 'financeiro'],
+    '/estoque/devolucoes': ['admin', 'socio', 'expedicao'],
     '/picking': ['admin', 'socio', 'expedicao'],
     '/conciliacao': ['admin', 'socio', 'financeiro'],
     '/compras': ['admin', 'socio', 'financeiro'],
     '/arquivo': ['admin', 'socio', 'expedicao', 'sac', 'financeiro'],
+    '/arquivo/conferencia': ['admin', 'socio', 'financeiro'],
     '/arquivo/status-ideris': ['admin', 'socio', 'financeiro', 'sac'],
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],
     '/arquivo/dados-frete-mercado-livre': ['admin', 'socio', 'financeiro'],
@@ -115,8 +119,9 @@ export const pagePermissions: Record<string, string[]> = {
     '/feed-25/buscar-categoria-mercado-livre': ['admin', 'socio'],
     '/avisos': ['admin'],
     '/anuncios': ['admin', 'socio'],
-    '/etiquetas': ['admin', 'socio'],
+    '/etiquetas': ['admin', 'socio', 'expedicao'],
     '/login': [], // Public page, no roles required
     '/laboratorio': ['admin', 'socio'],
     '/laboratorio/testes-mercado-livre': ['admin', 'socio'],
+    '/laboratorio/analise-zpl': ['admin', 'socio'],
 };
