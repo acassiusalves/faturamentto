@@ -27,9 +27,8 @@ interface SearchResultsDialogProps {
     product: SearchableProduct | null;
 }
 
-// Revertendo para não ter os campos de custo
-type Offer = SearchableProduct & { isAlreadyPosted?: boolean };
-
+// Offer type is now based on the more detailed ProductResult from actions
+type Offer = import('@/lib/types').ProductResult;
 
 const listingTypeMap: Record<string, string> = {
     "gold_special": "Clássico",
@@ -58,7 +57,7 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                         throw new Error(searchResult.error);
                     }
                     if (searchResult.result) {
-                        setResults(searchResult.result as any);
+                        setResults(searchResult.result);
                     }
                 } catch (err: any) {
                     setError(err.message || 'Falha ao buscar ofertas.');
@@ -126,10 +125,10 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                                     <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
                                                         {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                     </Link>
-                                                    {offer.isAlreadyPosted && (
+                                                     {offer.postedOnAccount && (
                                                         <Badge className="bg-green-600 hover:bg-green-700">
                                                             <CheckCircle className="mr-1 h-3 w-3"/>
-                                                            Ja postado
+                                                            Postado em: {offer.postedOnAccount}
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -165,3 +164,5 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         </Dialog>
     );
 }
+
+    

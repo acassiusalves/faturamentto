@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -722,6 +722,13 @@ export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppUser));
 }
 
+export const loadMlAccounts = async (): Promise<(MercadoLivreCredentials & { id: string })[]> => {
+    const accountsCol = collection(db, 'mercadoLivreAccounts');
+    const snapshot = await getDocs(accountsCol);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as (MercadoLivreCredentials & { id: string })));
+}
+
+
 export const updateUserRole = async (uid: string, role: string): Promise<void> => {
     const userDocRef = doc(db, 'users', uid);
     await updateDoc(userDocRef, { role });
@@ -984,3 +991,5 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
 
     
 
+
+    

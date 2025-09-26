@@ -60,7 +60,7 @@ interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
-    isAlreadyPosted?: boolean;
+    postedOnAccount?: string | null; // Alterado de isAlreadyPosted
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -393,10 +393,10 @@ export default function BuscarMercadoLivrePage() {
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {product.isAlreadyPosted && (
+                                                                {product.postedOnAccount && (
                                                                     <Badge className="bg-green-600 hover:bg-green-700">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        Ja postado
+                                                                        Postado em: {product.postedOnAccount}
                                                                     </Badge>
                                                                 )}
                                                             </div>
@@ -577,3 +577,6 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
+
+
+    

@@ -342,6 +342,7 @@ export interface MercadoLivreCredentials {
   redirectUri: string;
   refreshToken: string;
   apiStatus?: ApiKeyStatus;
+  nickname?: string; // Adding nickname to the credentials
 }
 
 // -- App Settings --
@@ -631,7 +632,7 @@ export interface ProductResult {
     seller_city_id?: string | null;
     date_created?: string | null;
     reviews_count?: number;
-    isAlreadyPosted?: boolean;
+    postedOnAccount?: string | null;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -645,3 +646,5 @@ export interface ProductResult {
       fee_total?: number;
     };
 }
+
+    
