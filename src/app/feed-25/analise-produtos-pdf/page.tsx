@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,7 +189,6 @@ export default function CatalogoPdfPage() {
     const [geminiApiKey, setGeminiApiKey] = useState('');
     
     // Estados para análise
-    const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
     const [analyzeState, setAnalyzeState] = useState<{
         result: AnalyzeCatalogOutput | null;
@@ -216,6 +215,9 @@ export default function CatalogoPdfPage() {
     const [groupedResultPageIndex, setGroupedResultPageIndex] = useState(0);
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
     
+    const abortRef = useRef<AbortController | null>(null);
+    const [progressPct, setProgressPct] = useState(0);
+    
 
     // Inicializa PDF.js e carrega a chave Gemini
     useEffect(() => {
@@ -237,88 +239,66 @@ export default function CatalogoPdfPage() {
         return () => { mounted = false; };
     }, []);
 
-    const analyzePage = useCallback(async (pageNumber: number) => {
-      if (!pdfDoc || pageNumber > pdfDoc.numPages) {
-        setIsAnalyzingAll(false);
-        return;
-      }
-    
-      try {
-        const page = await pdfDoc.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => ('str' in item ? item.str : ''))
-          .join(' ');
-    
-        const formData = new FormData();
-        formData.append('pdfContent', pageText || ' '); 
-        formData.append('pageNumber', String(pageNumber));
-        formData.append('totalPages', String(pdfDoc.numPages));
-        formData.append('brand', brand);
-        if (geminiApiKey) formData.append('apiKey', geminiApiKey);
-    
-        startAnalyzeTransition(async () => {
+    const analyzePage = useCallback(
+        async (pageNumber: number, signal?: AbortSignal) => {
+          if (!pdfDoc || pageNumber > pdfDoc.numPages) return false;
+          if (signal?.aborted) return false;
+      
           try {
+            const page = await pdfDoc.getPage(pageNumber);
+            if (signal?.aborted) return false;
+      
+            const textContent = await page.getTextContent();
+            if (signal?.aborted) return false;
+      
+            const pageText = textContent.items
+              .map((item: any) => ('str' in item ? item.str : ''))
+              .join(' ');
+      
+            const formData = new FormData();
+            formData.append('pdfContent', pageText || ' ');
+            formData.append('pageNumber', String(pageNumber));
+            formData.append('totalPages', String(pdfDoc.numPages));
+            formData.append('brand', brand);
+            if (geminiApiKey) formData.append('apiKey', geminiApiKey);
+      
             const result = await analyzeCatalogAction(analyzeState, formData);
+            if (signal?.aborted) return false;
+      
             setAnalyzeState(result);
-          } catch (error) {
-            setAnalyzeState({ 
-              result: null, 
-              error: 'Erro ao analisar página' 
-            });
-          }
-        });
-      } catch (err) {
-        console.error('Erro ao analisar página', err);
-        setIsAnalyzingAll(false);
-        toast({
-          variant: 'destructive',
-          title: 'Erro na Análise',
-          description: 'Falha ao ler o texto do PDF nesta página.',
-        });
-      }
-    }, [pdfDoc, brand, toast, analyzeState, geminiApiKey]);
-
-    // Effect para processar resultados da análise e tendências
-    useEffect(() => {
-        if (analyzeState.error) {
-            toast({ variant: 'destructive', title: 'Erro na Análise', description: analyzeState.error });
-            setIsAnalyzingAll(false); // Stop all analysis on error
-            return;
-        }
-
-        if (analyzeState.result && analyzeState.result.products.length > 0) {
-            const newProducts = analyzeState.result.products.map(p => ({
+      
+            // push produtos (se houver)
+            if (result?.result?.products?.length) {
+              const newProducts = result.result.products.map((p: any) => ({
                 ...p,
                 refinedQuery: buildSearchQuery({
-                    name: p.name,
-                    description: p.description,
-                    model: p.model,
-                    brand: p.brand || brand,
+                  name: p.name,
+                  description: p.description,
+                  model: p.model,
+                  brand: p.brand || brand,
                 }),
-            }));
-
-            setAllProducts(prevProducts => {
-                const existingProductNames = new Set(prevProducts.map(prod => prod.name));
-                const uniqueNewProducts = newProducts.filter(prod => !existingProductNames.has(prod.name));
-                return [...prevProducts, ...uniqueNewProducts];
-            });
-        }
-    }, [analyzeState, brand, toast]);
-
-
-    // Effect para analisar próxima página automaticamente
-    useEffect(() => {
-        if (isAnalyzingAll && !isAnalyzingPending && pdfDoc) {
-            const nextPage = currentPage;
-            if (nextPage <= pdfDoc.numPages) {
-                analyzePage(nextPage);
-                setCurrentPage(p => p + 1); // Increment AFTER calling analyze for the current one
-            } else {
-                setIsAnalyzingAll(false); // Finished
+              }));
+      
+              setAllProducts(prev => {
+                const existing = new Set(prev.map(prod => prod.name));
+                const uniques = newProducts.filter(prod => !existing.has(prod.name));
+                return [...prev, ...uniques];
+              });
             }
-        }
-    }, [analyzeState, isAnalyzingAll, isAnalyzingPending, analyzePage, pdfDoc, currentPage]);
+      
+            return true;
+          } catch (err) {
+            console.error('Erro ao analisar página', err);
+            toast({
+              variant: 'destructive',
+              title: 'Erro na Análise',
+              description: 'Falha ao ler o texto do PDF nesta página.',
+            });
+            return false;
+          }
+        },
+        [pdfDoc, brand, toast, analyzeState, geminiApiKey]
+      );
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
@@ -332,6 +312,10 @@ export default function CatalogoPdfPage() {
                 return;
             }
 
+            // RESET total
+            abortRef.current?.abort();
+            abortRef.current = null;
+            setProgressPct(0);
             setFile(selectedFile);
             setIsParsing(true);
             setAllProducts([]);
@@ -359,20 +343,59 @@ export default function CatalogoPdfPage() {
         }
     };
 
-    const handleAnalyzeAllClick = () => {
-        if (!isAnalyzingPending) {
-            setCurrentPage(1);
-            setAllProducts([]);
-            setIsAnalyzingAll(true);
+    const handleAnalyzeAllClick = async () => {
+        if (!pdfDoc || isParsing) return;
+      
+        // se já estiver rodando, ignora
+        if (isAnalyzingAll) return;
+      
+        setAllProducts([]);
+        setProgressPct(0);
+        setCurrentPage(1);
+        setIsAnalyzingAll(true);
+      
+        // cria controller p/ cancelar
+        const controller = new AbortController();
+        abortRef.current = controller;
+      
+        const total = pdfDoc.numPages;
+      
+        for (let p = 1; p <= total; p++) {
+          if (controller.signal.aborted) break;
+      
+          setCurrentPage(p);
+          const ok = await analyzePage(p, controller.signal);
+      
+          // atualiza barra mesmo se a página falhou (para não “travar”)
+          setProgressPct(Math.round((p / total) * 100));
+      
+          // opcional: inserir pequeno atraso para UI respirar
+          // await new Promise(r => setTimeout(r, 50));
+      
+          if (!ok && controller.signal.aborted) break;
         }
+      
+        setIsAnalyzingAll(false);
+        abortRef.current = null;
+      };
+
+    const handleCancelAnalyzeAll = () => {
+        abortRef.current?.abort();
+        setIsAnalyzingAll(false);
+        // não zera os resultados já obtidos; só para o processo
     };
     
-    const handleAnalyzeNextClick = () => {
-        if (!isAnalyzingPending && currentPage <= (pdfDoc?.numPages || 0)) {
-           analyzePage(currentPage);
-           setCurrentPage(p => p + 1);
-        }
-    };
+    const handleAnalyzeNextClick = async () => {
+        if (!pdfDoc) return;
+        if (isParsing || isAnalyzingAll) return;
+      
+        const p = currentPage;
+        if (p > pdfDoc.numPages) return;
+      
+        await analyzePage(p);
+        setCurrentPage(prev => prev + 1);
+        setProgressPct(Math.round((p / pdfDoc.numPages) * 100));
+      };
     
     const handleSearchOffers = useCallback((product: SearchableProduct) => {
         setSelectedProductForSearch(product);
@@ -396,9 +419,6 @@ export default function CatalogoPdfPage() {
         });
     };
 
-    const isProcessingAny = isParsing || isAnalyzingPending || isAnalyzingAll;
-    const progress = pdfDoc ? ((currentPage - 1) / pdfDoc.numPages) * 100 : 0;
-    
     const filteredProducts = useMemo(() => {
         if (!productSearchTerm.trim()) {
             return allProducts;
@@ -515,36 +535,46 @@ export default function CatalogoPdfPage() {
                     </form>
                 </CardContent>
                 {pdfDoc && (
-                    <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="flex-grow w-full">
-                            {isProcessingAny ? (
-                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Loader2 className="animate-spin" />
-                                    <span>Analisando página {currentPage - 1} de {pdfDoc.numPages}...</span>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground">Pronto para analisar. {pdfDoc.numPages} páginas encontradas.</p>
-                            )}
-                             <Progress value={progress} className="w-full mt-2" />
+                  <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex-grow w-full">
+                      {isParsing ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Preparando PDF...</span>
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            {isAnalyzingAll ? (
-                                <Button onClick={() => setIsAnalyzingAll(false)} disabled={isAnalyzingPending} variant="destructive">
-                                    <XCircle className="mr-2" /> Cancelar
-                                </Button>
-                            ) : (
-                                <>
-                                 <Button onClick={handleAnalyzeNextClick} disabled={isProcessingAny || currentPage > pdfDoc.numPages}>
-                                    <Play className="mr-2" /> Analisar Próxima
-                                 </Button>
-                                <Button onClick={handleAnalyzeAllClick} disabled={isProcessingAny} variant="secondary">
-                                    <FastForward className="mr-2" />
-                                    Analisar Todas
-                                </Button>
-                                </>
-                            )}
+                      ) : isAnalyzingAll ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Analisando página {currentPage} de {pdfDoc.numPages}...</span>
                         </div>
-                    </CardFooter>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Pronto para analisar. {pdfDoc.numPages} páginas encontradas.
+                        </p>
+                      )}
+                      <Progress value={progressPct} className="w-full mt-2" />
+                    </div>
+                
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      {isAnalyzingAll ? (
+                        <Button onClick={handleCancelAnalyzeAll} variant="destructive">
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Cancelar
+                        </Button>
+                      ) : (
+                        <>
+                          <Button onClick={handleAnalyzeNextClick} disabled={isParsing || !pdfDoc || currentPage > pdfDoc.numPages}>
+                            <Play className="mr-2 h-4 w-4" />
+                            Analisar Próxima
+                          </Button>
+                          <Button onClick={handleAnalyzeAllClick} disabled={isParsing || !pdfDoc} variant="secondary">
+                            <FastForward className="mr-2 h-4 w-4" />
+                            Analisar Todas
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardFooter>
                 )}
             </Card>
             
