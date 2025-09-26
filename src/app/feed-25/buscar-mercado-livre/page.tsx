@@ -7,14 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { FullIcon, FreteGratisIcon, CorreiosLogo, MercadoEnviosIcon } from '@/components/icons';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FiltersSidebar } from "@/components/filters-sidebar";
@@ -24,11 +24,14 @@ import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
+type MoneyLike = string | number | null | undefined;
+
 interface ProductResult {
     thumbnail: string;
     name: string;
     catalog_product_id: string;
     id: string;
+    item_id?: string | null;
     brand: string;
     model: string;
     price: number;
@@ -54,20 +57,21 @@ interface ProductResult {
     seller_state_id?: string | null;
     seller_city?: string | null;
     seller_city_id?: string | null;
+    last_updated?: string | null;
     fees?: {
-      listing_fee_amount: number;
-      sale_fee_amount: number;
-      sale_fee_percent: number;
-      fee_total?: number;
+      listing_fee_amount: MoneyLike;
+      sale_fee_amount:   MoneyLike;
+      sale_fee_percent:  MoneyLike;
+      fee_total?:        MoneyLike;
       details?: {
         sale?: {
-          gross_amount?: number;
-          fixed_fee?: number;
-          percentage_fee?: number;
+          gross_amount?:   MoneyLike;
+          fixed_fee?:      MoneyLike;
+          percentage_fee?: MoneyLike;
         };
         listing?: {
-          fixed_fee?: number;
-          gross_amount?: number;
+          fixed_fee?:      MoneyLike;
+          gross_amount?:   MoneyLike;
         };
       };
     };
@@ -102,6 +106,14 @@ const freightMap: Record<string, string> = {
     "self_service": "Sem Mercado Envios",
     "custom": "A combinar"
 };
+
+const formatCurrency = (v: string | number | null | undefined): string => {
+  if (v === null || v === undefined) return 'R$ 0,00';
+  const n = Number(String(v).replace(',', '.'));
+  if (isNaN(n)) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+};
+
 
 const formatRawBRL = (v: string | number | null | undefined) => {
   if (v === null || v === undefined) return null;
@@ -368,114 +380,130 @@ export default function BuscarMercadoLivrePage() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
-                                                            {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                        </Link>
-                                                        <div className="text-xs text-muted-foreground mt-1">ID Catálogo: {product.catalog_product_id}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">Categoria: {product.category_id}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
-                                                        <div className="text-xs text-muted-foreground mt-1">
-                                                            Vendedor:
-                                                            {product.seller_nickname ? (
-                                                                <Link
-                                                                href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
-                                                                target="_blank"
-                                                                className="text-blue-600 hover:underline ml-1"
-                                                                >
-                                                                {product.seller_nickname}
-                                                                </Link>
-                                                            ) : null}
-                                                        </div>
-
-                                                        {(product.seller_city || product.seller_state) && (
-                                                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                            {product.seller_city
-                                                              ? `${product.seller_city}${product.seller_state ? " • " : ""}`
-                                                              : ""}
-                                                            {product.seller_state || ""}
-                                                          </div>
-                                                        )}
-                                                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                                            <Users className="h-3 w-3" />
-                                                            <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
-                                                        </div>
-                                                        {product.is_official_store && (
-                                                            <Badge variant="secondary" className="mt-1.5">Loja Oficial</Badge>
-                                                        )}
-
-                                                        {product.reputation && (
-                                                            <TooltipProvider>
-                                                            <div className="mt-2 flex items-center gap-4 text-xs">
-                                                                {repLevel && (
-                                                                    <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
-                                                                        <repLevel.icon className="mr-1 h-3 w-3"/>
-                                                                        {repLevel.label}
-                                                                    </Badge>
-                                                                )}
-                                                                <div className="flex items-center gap-3">
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                        <TooltipContent>Reclamações</TooltipContent>
-                                                                    </Tooltip>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                        <TooltipContent>Cancelamentos</TooltipContent>
-                                                                    </Tooltip>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                        <TooltipContent>Atrasos no Envio</TooltipContent>
-                                                                    </Tooltip>
-                                                                </div>
-                                                            </div>
-                                                            </TooltipProvider>
-                                                        )}
-                                                        
-                                                        <div className="flex flex-col items-start gap-2 mt-2">
-                                                            <div className="flex items-center gap-1.5 text-sm font-semibold">
-                                                                {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
-                                                                {product.shipping_type === 'Correios' && <CorreiosLogo />}
-                                                                {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
-                                                                {product.free_shipping && (
-                                                                    <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
-                                                                        <FreteGratisIcon />
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                        <div className="flex flex-col gap-y-1">
+                                                            <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
+                                                              {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                            </Link>
                                                             
-                                                             <div className="flex items-center gap-2 text-sm">
-                                                                {product.listing_type_id && (
-                                                                    <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
-                                                                )}
-                                                                
-                                                                {product.fees && (
-                                                                  <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                    {(() => {
-                                                                      const sale = product.fees.details?.sale;
-                                                                      const commissionRaw = sale?.gross_amount;
-                                                                      const fixedFeeRaw   = sale?.fixed_fee;
-                                                                      const percentRaw    = sale?.percentage_fee;
+                                                            <div className="text-xs text-muted-foreground">
+                                                              ID Anúncio: {product.item_id ?? "-"}
+                                                            </div>
 
-                                                                      return (
-                                                                        <>
-                                                                          {percentRaw !== null && percentRaw !== undefined && (
-                                                                            <span className="text-xs">({formatRawPercent(percentRaw)})</span>
-                                                                          )}
-                                                                          {commissionRaw !== null && commissionRaw !== undefined && (
-                                                                            <span className="text-xs">
-                                                                              Comissão: <b className="font-semibold text-foreground">{formatRawBRL(commissionRaw)}</b>
-                                                                            </span>
-                                                                          )}
-                                                                          {fixedFeeRaw !== null && fixedFeeRaw !== undefined && (
-                                                                            <span className="text-xs">
-                                                                              Tarifa: <b className="font-semibold text-foreground">{formatRawBRL(fixedFeeRaw)}</b>
-                                                                            </span>
-                                                                          )}
-                                                                        </>
-                                                                      );
-                                                                    })()}
-                                                                  </div>
-                                                                )}
+                                                            <div className="text-xs text-muted-foreground">
+                                                              Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                            </div>
+
+                                                            <div className="text-xs text-muted-foreground">Marca: {product.brand || ''}</div>
+                                                            <div className="text-xs text-muted-foreground">Modelo: {product.model || ''}</div>
+
+                                                            <div className="text-xs text-muted-foreground">
+                                                              Vendedor:
+                                                              {product.seller_nickname ? (
+                                                                <>
+                                                                  <Link
+                                                                    href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
+                                                                    target="_blank"
+                                                                    className="text-blue-600 hover:underline ml-1"
+                                                                  >
+                                                                    {product.seller_nickname}
+                                                                  </Link>
+                                                                  {(product.seller_state || product.seller_state_id) ? (
+                                                                    <span className="ml-1">
+                                                                      ({product.seller_state || product.seller_state_id})
+                                                                    </span>
+                                                                  ) : null}
+                                                                </>
+                                                              ) : null}
+                                                            </div>
+
+                                                            {(product.seller_city || product.seller_state || product.seller_state_id) && (
+                                                              <div className="text-[11px] text-muted-foreground">
+                                                                {product.seller_city ? `${product.seller_city}` : ""}
+                                                                {(product.seller_city && (product.seller_state || product.seller_state_id)) ? " • " : ""}
+                                                                {product.seller_state || product.seller_state_id || ""}
+                                                              </div>
+                                                            )}
+                                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                                <Users className="h-3 w-3" />
+                                                                <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
+                                                            </div>
+                                                            {product.is_official_store && (
+                                                                <Badge variant="secondary" className="mt-1.5 w-fit">Loja Oficial</Badge>
+                                                            )}
+
+                                                            {product.reputation && (
+                                                                <TooltipProvider>
+                                                                <div className="mt-2 flex items-center gap-4 text-xs">
+                                                                    {repLevel && (
+                                                                        <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
+                                                                            <repLevel.icon className="mr-1 h-3 w-3"/>
+                                                                            {repLevel.label}
+                                                                        </Badge>
+                                                                    )}
+                                                                    <div className="flex items-center gap-3">
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Reclamações</TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Cancelamentos</TooltipContent>
+                                                                        </Tooltip>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
+                                                                            <TooltipContent>Atrasos no Envio</TooltipContent>
+                                                                        </Tooltip>
+                                                                    </div>
+                                                                </div>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            
+                                                            <div className="flex flex-col items-start gap-2 mt-2">
+                                                                <div className="flex items-center gap-1.5 text-sm font-semibold">
+                                                                    {product.shipping_logistic_type === "fulfillment" && <FullIcon />}
+                                                                    {product.shipping_type === 'Correios' && <CorreiosLogo />}
+                                                                    {product.shipping_logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                                    {product.free_shipping && (
+                                                                        <div className={cn(product.shipping_logistic_type === 'fulfillment' && 'ml-2')}>
+                                                                            <FreteGratisIcon />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                 <div className="flex items-center gap-2 text-sm">
+                                                                    {product.listing_type_id && (
+                                                                        <Badge variant="outline">{listingTypeMap[product.listing_type_id] || product.listing_type_id}</Badge>
+                                                                    )}
+                                                                    
+                                                                    {product.fees && (
+                                                                      <div className="text-muted-foreground flex items-center gap-x-2">
+                                                                        {(() => {
+                                                                          const sale = product.fees.details?.sale;
+                                                                          const commissionRaw = sale?.gross_amount;
+                                                                          const fixedFeeRaw   = sale?.fixed_fee;
+                                                                          const percentRaw    = sale?.percentage_fee;
+
+                                                                          return (
+                                                                            <>
+                                                                              {percentRaw !== null && percentRaw !== undefined && (
+                                                                                <span className="text-xs">({formatRawPercent(percentRaw)})</span>
+                                                                              )}
+                                                                              {commissionRaw !== null && commissionRaw !== undefined && (
+                                                                                <span className="text-xs">
+                                                                                  Comissão: <b className="font-semibold text-foreground">{formatRawBRL(commissionRaw)}</b>
+                                                                                </span>
+                                                                              )}
+                                                                              {fixedFeeRaw !== null && fixedFeeRaw !== undefined && Number(fixedFeeRaw) > 0 && (
+                                                                                <span className="text-xs">
+                                                                                  Tarifa: <b className="font-semibold text-foreground">{formatRawBRL(fixedFeeRaw)}</b>
+                                                                                </span>
+                                                                              )}
+                                                                            </>
+                                                                          );
+                                                                        })()}
+                                                                      </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </TableCell>
@@ -550,4 +578,5 @@ export default function BuscarMercadoLivrePage() {
 
 
     
+
 
