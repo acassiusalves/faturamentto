@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
@@ -764,7 +764,7 @@ export default function CatalogoPdfPage() {
                                                 
                                                 let suggestedPrice = null;
                                                 if (margin < 10) {
-                                                    suggestedPrice = catalogCost / 0.88;
+                                                    suggestedPrice = salePrice / 0.88;
                                                 }
 
 
@@ -791,6 +791,11 @@ export default function CatalogoPdfPage() {
                                                                 {shippingCost !== null && (
                                                                     <span className="flex items-center gap-1">
                                                                         <Truck className="h-3 w-3"/> Frete: <b className="font-semibold text-foreground">{formatBRL(shippingCost)}</b>
+                                                                    </span>
+                                                                )}
+                                                                 {offer.last_updated && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Clock className="h-3 w-3"/> Atualizado em: <b className="font-semibold text-foreground">{new Date(offer.last_updated).toLocaleDateString('pt-BR')}</b>
                                                                     </span>
                                                                 )}
                                                             </div>

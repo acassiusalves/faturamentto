@@ -396,8 +396,9 @@ export default function BuscarMercadoLivrePage() {
                                                               ID Anúncio: {product.catalog_product_id ?? "-"}
                                                             </div>
 
-                                                            <div className="text-xs text-muted-foreground mt-1">
-                                                              Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                                                <Clock className="h-3 w-3" />
+                                                                <span>Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}</span>
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
