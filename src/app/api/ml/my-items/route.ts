@@ -19,10 +19,23 @@ async function fetchWithToken(url: string, token: string) {
     return response.json();
 }
 
-async function getUserId(token: string): Promise<number | null> {
+async function getUserId(token: string, accountId: string): Promise<number | null> {
     try {
+        // Tenta buscar o 'me' que já resolve para o ID do usuário do token
         const data = await fetchWithToken(`${ML_API}/users/me`, token);
-        return data.id;
+        if (data.id) return data.id;
+
+        // Fallback: Se 'me' não funcionar, busca o documento da conta no Firestore pelo ID
+        // e tenta usar o campo `sellerId` ou `userId` se existirem.
+        const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
+        const docSnap = await getDoc(accountDocRef);
+        if (docSnap.exists()) {
+            const accountData = docSnap.data();
+            // Prefira sellerId, que é geralmente o ID numérico do usuário
+            return accountData.sellerId || accountData.userId || null;
+        }
+
+        return null;
     } catch(e) {
         console.error("Erro ao buscar ID do usuário do ML", e);
         return null;
@@ -39,14 +52,14 @@ export async function GET(req: Request) {
         }
 
         const token = await getMlToken(accountId);
-        const userId = await getUserId(token);
+        const userId = await getUserId(token, accountId);
         
         if (!userId) {
             // Se não conseguir o ID do usuário (ex: token inválido), busca o nickname do doc do Firestore para o erro.
             const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
             const docSnap = await getDoc(accountDocRef);
             const nickname = docSnap.exists() ? docSnap.data().nickname : accountId;
-            throw new Error(`Não foi possível obter o ID de usuário do Mercado Livre para a conta "${nickname}". Verifique as credenciais.`);
+            throw new Error(`Não foi possível obter o ID de usuário do Mercado Livre para a conta "${nickname}". Verifique as credenciais ou o campo 'sellerId'/'userId' no documento.`);
         }
 
 

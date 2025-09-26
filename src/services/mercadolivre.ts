@@ -16,43 +16,41 @@ type MlTokenResponse = {
 const _tokenCache: Record<string, { token: string; expiresAt: number }> = {};
 const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 horas em ms
 
-export async function getMlToken(account: 'primary' | 'secondary' | string = 'primary'): Promise<string> {
-  const cacheKey = account;
+export async function getMlToken(account?: string): Promise<string> {
+  const cacheKey = account || 'primary';
   const cached = _tokenCache[cacheKey];
 
   if (cached && Date.now() < cached.expiresAt - 60_000) { // 1 min de margem
     return cached.token;
   }
   
-  let creds: Omit<MercadoLivreCredentials, 'apiStatus'> | undefined;
+  let creds: Partial<MercadoLivreCredentials> & { clientId?: string } | undefined;
 
-  // Se o 'account' não for 'primary' ou 'secondary', assume que é um ID de documento
+  // Se o 'account' for fornecido, assume que é um ID de documento
   // da coleção `mercadoLivreAccounts`
-  if (account !== 'primary' && account !== 'secondary') {
+  if (account) {
       const accountDocRef = doc(db, 'mercadoLivreAccounts', account);
       const docSnap = await getDoc(accountDocRef);
       if (docSnap.exists()) {
-          creds = docSnap.data() as Omit<MercadoLivreCredentials, 'apiStatus'>;
+          creds = docSnap.data() as Partial<MercadoLivreCredentials> & { clientId?: string };
       } else {
-          throw new Error(`A conta do Mercado Livre com ID '${account}' não foi encontrada na coleção 'mercadoLivreAccounts'.`);
+          throw new Error(`A conta do Mercado Livre com ID '${account}' não foi encontrada.`);
       }
   } else {
-     // Lógica original para 'primary' e 'secondary'
+     // Lógica original para conta primária (fallback)
      const settings = await loadAppSettings().catch(() => null);
-     if (account === 'primary') {
-        creds = settings?.mercadoLivre;
-     } else {
-        creds = settings?.mercadoLivre2;
-     }
+     creds = settings?.mercadoLivre;
   }
 
-  if (!creds?.appId || !creds?.clientSecret || !creds?.refreshToken) {
-    throw new Error(`Credenciais para a conta '${account}' do Mercado Livre não estão configuradas.`);
+  const appId = creds?.appId || creds?.clientId;
+
+  if (!appId || !creds?.clientSecret || !creds?.refreshToken) {
+    throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
-    client_id: creds.appId,
+    client_id: appId,
     client_secret: creds.clientSecret,
     refresh_token: creds.refreshToken,
   });
@@ -66,8 +64,8 @@ export async function getMlToken(account: 'primary' | 'secondary' | string = 'pr
 
   if (!r.ok) {
     const msg = await r.text();
-    console.error(`Falha ao renovar token do ML para conta '${account}':`, msg);
-    throw new Error(`Falha ao renovar token do Mercado Livre (${account}): ${msg}`);
+    console.error(`Falha ao renovar token do ML para conta '${cacheKey}':`, msg);
+    throw new Error(`Falha ao renovar token do Mercado Livre (${cacheKey}): ${msg}`);
   }
 
   const j = (await r.json()) as MlTokenResponse;

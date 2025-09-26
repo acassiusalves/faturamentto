@@ -28,16 +28,12 @@ interface MyItem {
 }
 
 interface MlAccount {
-    id: string;
-    appId: string;
-    clientSecret: string;
-    refreshToken: string;
-    redirectUri: string;
-    apiStatus?: string;
+    id: string; // Document ID from Firestore
     nickname?: string;
+    // ... other fields if needed
 }
 
-const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', title: string }) => {
+const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -46,7 +42,7 @@ const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', tit
         setIsLoading(true);
         setItems([]);
         try {
-            const response = await fetch(`/api/ml/my-items?account=${account}`);
+            const response = await fetch(`/api/ml/my-items?account=${accountId}`);
             const data = await response.json();
 
             if (!response.ok) {
@@ -56,7 +52,7 @@ const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', tit
             setItems(data.items || []);
             toast({
                 title: 'Sucesso!',
-                description: `${data.items?.length || 0} anúncios ativos foram encontrados.`
+                description: `${data.items?.length || 0} anúncios ativos foram encontrados para ${accountName}.`
             });
 
         } catch (error: any) {
@@ -75,10 +71,10 @@ const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', tit
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    {title}
+                    Anúncios de {accountName}
                 </CardTitle>
                 <CardDescription>
-                    Busca todos os anúncios com status "ativo" da sua conta no Mercado Livre.
+                    Busca todos os anúncios com status "ativo" da conta no Mercado Livre.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -196,7 +192,7 @@ const AccountsList = () => {
                                     <span className="font-semibold text-lg">{account.nickname || account.id}</span>
                                 </AccordionTrigger>
                                 <AccordionContent>
-                                    <MyItemsList account={account.id as any} title={`Anúncios de ${account.nickname || account.id}`} />
+                                    <MyItemsList accountId={account.id} accountName={account.nickname || account.id} />
                                 </AccordionContent>
                             </AccordionItem>
                         ))}
