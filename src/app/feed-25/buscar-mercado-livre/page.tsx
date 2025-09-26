@@ -385,43 +385,36 @@ export default function BuscarMercadoLivrePage() {
                                                             </Link>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              ID Anúncio: {product.item_id ?? "-"}
+                                                                ID Anúncio: {product.item_id ?? "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                                Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
                                                             <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              Vendedor:
-                                                              {product.seller_nickname ? (
-                                                                <>
-                                                                  <Link
-                                                                    href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
-                                                                    target="_blank"
-                                                                    className="text-blue-600 hover:underline ml-1"
-                                                                  >
-                                                                    {product.seller_nickname}
-                                                                  </Link>
-                                                                  {(product.seller_state || product.seller_state_id) ? (
-                                                                    <span className="ml-1">
-                                                                      ({product.seller_state || product.seller_state_id})
-                                                                    </span>
-                                                                  ) : null}
-                                                                </>
-                                                              ) : null}
+                                                                Vendedor:
+                                                                {product.seller_nickname ? (
+                                                                    <>
+                                                                    <Link
+                                                                        href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
+                                                                        target="_blank"
+                                                                        className="text-blue-600 hover:underline ml-1"
+                                                                    >
+                                                                        {product.seller_nickname}
+                                                                    </Link>
+                                                                    {(product.seller_state || product.seller_state_id) ? (
+                                                                        <span className="ml-1">
+                                                                        ({product.seller_state || product.seller_state_id})
+                                                                        </span>
+                                                                    ) : null}
+                                                                    </>
+                                                                ) : null}
                                                             </div>
-
-                                                            {(product.seller_city || product.seller_state || product.seller_state_id) && (
-                                                              <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                                {product.seller_city ? `${product.seller_city}` : ""}
-                                                                {(product.seller_city && (product.seller_state || product.seller_state_id)) ? " • " : ""}
-                                                                {product.seller_state || product.seller_state_id || ""}
-                                                              </div>
-                                                            )}
+                                                            
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                                 <Users className="h-3 w-3" />
                                                                 <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
