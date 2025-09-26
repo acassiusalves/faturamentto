@@ -190,6 +190,7 @@ export default function CatalogoPdfPage() {
     
     // Estados para análise
     const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+    const [isAnalyzingNext, setIsAnalyzingNext] = useState(false);
     const [analyzeState, setAnalyzeState] = useState<{
         result: AnalyzeCatalogOutput | null;
         error: string | null;
@@ -387,14 +388,19 @@ export default function CatalogoPdfPage() {
     
     const handleAnalyzeNextClick = async () => {
         if (!pdfDoc) return;
-        if (isParsing || isAnalyzingAll) return;
+        if (isParsing || isAnalyzingAll || isAnalyzingNext) return;
       
         const p = currentPage;
         if (p > pdfDoc.numPages) return;
-      
-        await analyzePage(p);
-        setCurrentPage(prev => prev + 1);
-        setProgressPct(Math.round((p / pdfDoc.numPages) * 100));
+        
+        setIsAnalyzingNext(true);
+        try {
+            await analyzePage(p);
+            setCurrentPage(prev => prev + 1);
+            setProgressPct(Math.round((p / pdfDoc.numPages) * 100));
+        } finally {
+            setIsAnalyzingNext(false);
+        }
       };
     
     const handleSearchOffers = useCallback((product: SearchableProduct) => {
@@ -563,11 +569,11 @@ export default function CatalogoPdfPage() {
                         </Button>
                       ) : (
                         <>
-                          <Button onClick={handleAnalyzeNextClick} disabled={isParsing || !pdfDoc || currentPage > pdfDoc.numPages}>
-                            <Play className="mr-2 h-4 w-4" />
+                          <Button onClick={handleAnalyzeNextClick} disabled={isParsing || !pdfDoc || isAnalyzingNext || currentPage > pdfDoc.numPages}>
+                            {isAnalyzingNext ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                             Analisar Próxima
                           </Button>
-                          <Button onClick={handleAnalyzeAllClick} disabled={isParsing || !pdfDoc} variant="secondary">
+                          <Button onClick={handleAnalyzeAllClick} disabled={isParsing || !pdfDoc || isAnalyzingNext} variant="secondary">
                             <FastForward className="mr-2 h-4 w-4" />
                             Analisar Todas
                           </Button>
