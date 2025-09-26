@@ -31,7 +31,7 @@ export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<Analyz
     async (flowInput) => {
         const prompt = ai.definePrompt({
           name: 'analyzeCatalogPagePrompt',
-          model: gemini15Flash,
+          model: 'googleai/gemini-2.0-flash', // Alterado para o modelo padrão e mais estável
           input: { schema: AnalyzeCatalogInputSchema },
           output: { schema: AnalyzeCatalogOutputSchema },
           prompt: `
