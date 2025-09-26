@@ -311,13 +311,8 @@ export async function searchMercadoLivreAction(
               state_id: null, state_name: null, city_id: null, city_name: null, last_updated: null
             };
             
-            // last_updated: prefira do batch; depois do winner; tente outros campos comuns
-            const lastUpdated =
-              sellerAddress?.last_updated ??
-              winner?.last_updated ??
-              p.date_created ??
-              winner?.stop_time ??
-              null;
+            // created_at: prefira do catalogo; depois do winner
+            const dateCreated = p.date_created || winner?.date_created || null;
             
             // preço ativo?
             const price = Number(winner?.price ?? 0);
@@ -356,7 +351,7 @@ export async function searchMercadoLivreAction(
                 seller_city: sellerAddress.city_name ?? null,
                 seller_city_id: sellerAddress.city_id ?? null,
 
-                last_updated: lastUpdated,
+                date_created: dateCreated,
                 
                 offerCount,
 

@@ -628,8 +628,7 @@ export interface ProductResult {
     seller_state_id?: string | null;
     seller_city?: string | null;
     seller_city_id?: string | null;
-    last_updated?: string | null;
-    rating_average?: number;
+    date_created?: string | null;
     reviews_count?: number;
     raw_data?: {
       catalog_product?: any;

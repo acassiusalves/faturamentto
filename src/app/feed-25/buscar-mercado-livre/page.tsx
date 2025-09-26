@@ -57,7 +57,7 @@ interface ProductResult {
     seller_state_id?: string | null;
     seller_city?: string | null;
     seller_city_id?: string | null;
-    last_updated?: string | null;
+    date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
     raw_data?: {
@@ -398,7 +398,7 @@ export default function BuscarMercadoLivrePage() {
 
                                                             <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                                                 <Clock className="h-3 w-3" />
-                                                                <span>Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}</span>
+                                                                <span>Criado em: {product.date_created ? new Date(product.date_created).toLocaleString('pt-BR') : "-"}</span>
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>

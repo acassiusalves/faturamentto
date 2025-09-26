@@ -757,8 +757,6 @@ export default function CatalogoPdfPage() {
                                                 const salePrice = offer.price;
                                                 const commissionValue = toNumberSafe(offer.fees?.sale_fee_amount);
                                                 
-                                                // Taxa fixa já está inclusa na comissão (`sale_fee_amount`)
-                                                const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
                                                 const shippingCost = getShippingCostFor1To2Kg(salePrice) || 0;
                                                 
                                                 // Líquido = PV - Comissão - Custo Catálogo - Frete
@@ -766,8 +764,8 @@ export default function CatalogoPdfPage() {
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
-                                                if (margin < 12 && catalogCost > 0) {
-                                                   // Preço Mínimo Sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
+                                                if (margin < 12) {
+                                                   // Preço mínimo sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
                                                    suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
                                                 }
 
@@ -789,7 +787,6 @@ export default function CatalogoPdfPage() {
                                                                 {offer.fees && (
                                                                     <>
                                                                         <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commissionValue)}</b></span>
-                                                                        <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(fixedFee)}</b></span>
                                                                     </>
                                                                 )}
                                                                 {shippingCost > 0 && (
@@ -797,9 +794,9 @@ export default function CatalogoPdfPage() {
                                                                         <Truck className="h-3 w-3"/> Frete: <b className="font-semibold text-foreground">{formatBRL(shippingCost)}</b>
                                                                     </span>
                                                                 )}
-                                                                 {offer.last_updated && (
+                                                                 {offer.date_created && (
                                                                     <span className="flex items-center gap-1">
-                                                                        <Clock className="h-3 w-3"/> Atualizado em: <b className="font-semibold text-foreground">{new Date(offer.last_updated).toLocaleDateString('pt-BR')}</b>
+                                                                        <Clock className="h-3 w-3"/> Criado em: <b className="font-semibold text-foreground">{new Date(offer.date_created).toLocaleDateString('pt-BR')}</b>
                                                                     </span>
                                                                 )}
                                                             </div>
