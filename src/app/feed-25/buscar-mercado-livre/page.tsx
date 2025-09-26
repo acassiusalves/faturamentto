@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck, HelpCircle, Database } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -58,6 +58,8 @@ interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
+    rating_average?: number;
+    reviews_count?: number;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -390,64 +392,45 @@ export default function BuscarMercadoLivrePage() {
                                                             <div className="text-xs text-muted-foreground mt-1">Modelo: {product.model || ''}</div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                              Vendedor:
-                                                              {product.seller_nickname ? (
-                                                                <>
-                                                                  <Link
+                                                                Vendedor:
+                                                                <Link
                                                                     href={`https://www.mercadolivre.com.br/perfil/${product.seller_nickname}`}
                                                                     target="_blank"
                                                                     className="text-blue-600 hover:underline ml-1"
-                                                                  >
+                                                                >
                                                                     {product.seller_nickname}
-                                                                  </Link>
-                                                                </>
-                                                              ) : (
-                                                                <span className="ml-1">N/A</span>
-                                                              )}
+                                                                </Link>
+                                                                {(product.seller_city || product.seller_state) && (
+                                                                    <span className="text-muted-foreground text-xs ml-1">
+                                                                        ({product.seller_city} • {product.seller_state})
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             
-                                                            {(product.seller_city || product.seller_state) && (
-                                                              <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                                {product.seller_city}
-                                                                {product.seller_city && product.seller_state && " • "}
-                                                                {product.seller_state}
-                                                              </div>
-                                                            )}
-
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                                 <Users className="h-3 w-3" />
                                                                 <span><b>{Number.isFinite(product.offerCount) ? product.offerCount : 0}</b> ofertas</span>
                                                             </div>
+
                                                             {product.is_official_store && (
                                                                 <Badge variant="secondary" className="mt-1.5 w-fit">Loja Oficial</Badge>
                                                             )}
 
-                                                            {product.reputation && (
-                                                                <TooltipProvider>
-                                                                <div className="mt-2 flex items-center gap-4 text-xs">
-                                                                    {repLevel && (
-                                                                        <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
-                                                                            <repLevel.icon className="mr-1 h-3 w-3"/>
-                                                                            {repLevel.label}
-                                                                        </Badge>
-                                                                    )}
-                                                                    <div className="flex items-center gap-3">
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger className="flex items-center gap-1"><ThumbsDown className="text-red-500" size={14}/> {(product.reputation.metrics.claims_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                            <TooltipContent>Reclamações</TooltipContent>
-                                                                        </Tooltip>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger className="flex items-center gap-1"><TrendingDown className="text-orange-500" size={14}/> {(product.reputation.metrics.cancellations_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                            <TooltipContent>Cancelamentos</TooltipContent>
-                                                                        </Tooltip>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger className="flex items-center gap-1"><Clock className="text-yellow-500" size={14}/> {(product.reputation.metrics.delayed_rate * 100).toFixed(2)}%</TooltipTrigger>
-                                                                            <TooltipContent>Atrasos no Envio</TooltipContent>
-                                                                        </Tooltip>
+                                                            <div className="mt-2 flex items-center gap-4 text-xs">
+                                                                {repLevel && (
+                                                                    <Badge style={{ backgroundColor: repLevel.color }} className="text-white text-xs">
+                                                                        <repLevel.icon className="mr-1 h-3 w-3"/>
+                                                                        {repLevel.label}
+                                                                    </Badge>
+                                                                )}
+                                                                {product.rating_average > 0 && (
+                                                                    <div className="flex items-center gap-1.5 text-amber-600 font-semibold">
+                                                                        <Star className="h-4 w-4 fill-current"/>
+                                                                        <span>{product.rating_average.toFixed(1)}</span>
+                                                                        <span className="text-muted-foreground font-normal">({product.reviews_count} op.)</span>
                                                                     </div>
-                                                                </div>
-                                                                </TooltipProvider>
-                                                            )}
+                                                                )}
+                                                            </div>
                                                             
                                                             <div className="flex flex-col items-start gap-2 mt-2">
                                                                 <div className="flex items-center gap-1.5 text-sm font-semibold">
@@ -585,6 +568,7 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+
 
 
 

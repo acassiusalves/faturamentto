@@ -173,6 +173,30 @@ async function fetchListingFees(opts: {
   };
 }
 
+async function fetchProductReviews(
+  itemId: string,
+  catalogProductId: string,
+  token: string
+): Promise<{ rating_average: number; reviews_count: number } | null> {
+  if (!itemId || !catalogProductId) return null;
+  const url = `https://api.mercadolibre.com/reviews/item/${itemId}?catalog_product_id=${catalogProductId}`;
+  try {
+    const r = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const count = Object.values(j?.rating_levels || {}).reduce((acc: number, val: any) => acc + (Number(val) || 0), 0);
+    return {
+      rating_average: j?.rating_average ?? 0,
+      reviews_count: count,
+    };
+  } catch (e) {
+    console.warn(`Could not fetch reviews for ${itemId}:`, e);
+    return null;
+  }
+}
 
 async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: number) => Promise<R>) {
   const out: R[] = new Array(arr.length) as any;
@@ -305,6 +329,9 @@ export async function searchMercadoLivreAction(
             // reputação
             const reputationData = winner?.seller_id ? reputations[winner.seller_id] : null;
 
+            // reviews
+            const reviewsData = await fetchProductReviews(winner?.id, p.id, accessToken);
+
             return {
                 id: p.id,
                 catalog_product_id: p.id,
@@ -342,6 +369,8 @@ export async function searchMercadoLivreAction(
                     delayed_rate: reputationData.metrics?.delayed_rate ?? 0,
                   }
                 },
+                rating_average: reviewsData?.rating_average ?? 0,
+                reviews_count: reviewsData?.reviews_count ?? 0,
                 raw_data: { catalog_product: p, winner_item: winner },
             };
         })

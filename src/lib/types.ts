@@ -628,6 +628,8 @@ export interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
+    rating_average?: number;
+    reviews_count?: number;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
