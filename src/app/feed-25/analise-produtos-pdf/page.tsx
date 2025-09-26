@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -802,8 +801,8 @@ export default function CatalogoPdfPage() {
                                                             {suggestedPrice !== null && (
                                                                 <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 rounded-md text-amber-800 dark:text-amber-300">
                                                                     <p className="text-xs font-semibold flex items-center gap-1"><AlertTriangle className="h-4 w-4"/>Preço Mínimo Sugerido:</p>
-                                                                    <p className="font-bold text-base">{formatBRL(suggestedPrice)}</p>
-                                                                    <p className="text-xs">para margem de {targetMargin * 100}%</p>
+                                                                    <p className="font-bold text-base">{formatBRL(catalogCost / 0.88)}</p>
+                                                                    <p className="text-xs">para margem de 10%</p>
                                                                 </div>
                                                             )}
                                                         </div>
