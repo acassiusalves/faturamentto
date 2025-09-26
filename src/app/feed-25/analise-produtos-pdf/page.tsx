@@ -759,7 +759,8 @@ export default function CatalogoPdfPage() {
                                                 const commission = toNumberSafe(offer.fees?.sale_fee_amount);
                                                 const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
                                                 
-                                                const netValue = salePrice - commission - fixedFee - catalogCost;
+                                                // Corrigido: Não subtrair a taxa fixa, pois já está embutida na comissão.
+                                                const netValue = salePrice - commission - catalogCost;
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
 
                                                 return (
@@ -866,5 +867,7 @@ export default function CatalogoPdfPage() {
 
 
 
+
+    
 
     
