@@ -172,6 +172,12 @@ const getShippingCostFor1To2Kg = (price: number): number | null => {
     return null;
 };
 
+const toNumberSafe = (v: string | number | null | undefined) => {
+  if (v === null || v === undefined) return 0;
+  const n = Number(String(v).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+};
+
 export default function CatalogoPdfPage() {
     const { toast } = useToast();
     const [file, setFile] = useState<File | null>(null);
@@ -749,9 +755,15 @@ export default function CatalogoPdfPage() {
                                     <AccordionContent className="p-4 pt-0">
                                         <div className="space-y-2">
                                             {offers.map((offer: any) => {
-                                                const shippingCost = getShippingCostFor1To2Kg(offer.price);
+                                                const salePrice = offer.price;
+                                                const commission = toNumberSafe(offer.fees?.sale_fee_amount);
+                                                const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
+                                                
+                                                const netValue = salePrice - commission - fixedFee - catalogCost;
+                                                const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
+
                                                 return (
-                                                    <div key={offer.id} className="flex items-center gap-4 p-2 border-b last:border-b-0">
+                                                    <div key={offer.id} className="grid grid-cols-[80px_1fr_auto] items-center gap-4 p-2 border-b last:border-b-0">
                                                         <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
                                                             {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
                                                         </div>
@@ -765,19 +777,19 @@ export default function CatalogoPdfPage() {
                                                             </div>
                                                             {offer.fees && (
                                                                 <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
-                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(offer.fees.sale_fee_amount)}</b></span>
-                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees.listing_fee_amount)}</b></span>
-                                                                    {shippingCost !== null && (
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Truck className="h-3 w-3" /> Frete:
-                                                                            <b className="font-semibold text-foreground">{formatBRL(shippingCost)}</b>
-                                                                        </span>
-                                                                    )}
+                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commission)}</b></span>
+                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(fixedFee)}</b></span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className="text-right font-semibold text-lg text-primary">
-                                                            {formatBRL(offer.price)}
+                                                        <div className="text-right">
+                                                            <div className="font-semibold text-lg text-primary">{formatBRL(salePrice)}</div>
+                                                             {Number.isFinite(catalogCost) && (
+                                                                <div className="mt-2 space-y-1">
+                                                                    <div className="text-sm">Líquido por venda: <b className="font-semibold">{formatBRL(netValue)}</b></div>
+                                                                    <div className="text-sm">M.C: <b className="font-semibold">{margin.toFixed(2)}%</b></div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
