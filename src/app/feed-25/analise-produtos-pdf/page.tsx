@@ -756,8 +756,6 @@ export default function CatalogoPdfPage() {
                                         <div className="space-y-2">
                                             {offers.map((offer: any) => {
                                                 const salePrice = offer.price;
-                                                const commissionPercent = toNumberSafe(offer.fees?.sale_fee_percent);
-                                                const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
                                                 const commissionValue = toNumberSafe(offer.fees?.sale_fee_amount);
                                                 
                                                 const netValue = salePrice - commissionValue - catalogCost;
@@ -765,9 +763,10 @@ export default function CatalogoPdfPage() {
                                                 
                                                 let suggestedPrice = null;
                                                 const targetMargin = 0.10; // 10%
+                                                const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
+
                                                 if (margin < 10) {
-                                                    // (Custo + Taxa Fixa) / (1 - %Comissão - %Margem)
-                                                    const coefficient = 0.88; // 1 - 0.12 (comissão de 12% clássico) - 0.10 (margem) = 0.78
+                                                    const coefficient = 0.88; 
                                                     suggestedPrice = (catalogCost + fixedFee) / coefficient;
                                                 }
 
