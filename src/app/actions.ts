@@ -283,6 +283,7 @@ export async function searchMercadoLivreAction(
               winner?.last_updated ??
               winner?.date_updated ??
               winner?.stop_time ??
+              p?.date_created ??
               null;
             
             // preço ativo?
@@ -321,8 +322,6 @@ export async function searchMercadoLivreAction(
 
                 last_updated: lastUpdated,
                 
-                raw_data: { catalog_product: p, winner_item: winner },
-
                 offerCount,
 
                 reputation: reputationData && {
@@ -334,6 +333,7 @@ export async function searchMercadoLivreAction(
                     delayed_rate: reputationData.metrics?.delayed_rate ?? 0,
                   }
                 },
+                raw_data: { catalog_product: p, winner_item: winner },
             };
         })
     );
@@ -776,3 +776,4 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+

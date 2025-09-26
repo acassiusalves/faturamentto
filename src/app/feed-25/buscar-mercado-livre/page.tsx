@@ -1,6 +1,6 @@
 
 
-"use client";
+'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -380,11 +380,11 @@ export default function BuscarMercadoLivrePage() {
                                                             </Link>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                ID Anúncio: {product.item_id ?? "-"}
+                                                              ID Anúncio: {product.catalog_product_id ?? "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">
-                                                                Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
+                                                              Atualizado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
 
                                                             <div className="text-xs text-muted-foreground mt-1">Marca: {product.brand || ''}</div>
@@ -572,4 +572,5 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+
 
