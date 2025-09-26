@@ -8,21 +8,20 @@
  */
 
 import {getAi} from '@/ai/genkit';
-import { gemini15Flash } from '@genkit-ai/googleai';
 import { LookupProductsInputSchema, type LookupProductsInput, LookupResultSchema, type LookupResult } from '@/lib/types';
 
 
 const DEFAULT_LOOKUP_PROMPT = `Você é um sistema de correspondência exata para e-commerce de celulares. Sua única tarefa é encontrar o SKU correto para cada produto da lista de entrada, seguindo um algoritmo estruturado e preciso.
 
 **LISTA PADRONIZADA (Entrada para processar):**
-\'\'\'
+'''
 {{{productList}}}
-\'\'\'
+'''
 
 **BANCO DE DADOS (Fonte de consulta para SKUs):**
-\'\'\'
+'''
 {{{databaseList}}}
-\'\'\'
+'''
 
 ## REGRAS FUNDAMENTAIS
 
@@ -82,7 +81,7 @@ Ignore estas diferenças menores:
 
 ## FORMATO DE SAÍDA OBRIGATÓRIO
 
-\'\'\'json
+'''json
 {
   "details": [
     {
@@ -92,7 +91,7 @@ Ignore estas diferenças menores:
     }
   ]
 }
-\'\'\'
+'''
 
 ## ORGANIZAÇÃO FINAL
 1. **Ordem por marca:** Xiaomi → Realme → Motorola → Samsung
@@ -102,19 +101,19 @@ Ignore estas diferenças menores:
 ## EXEMPLOS PRÁTICOS
 
 **Entrada:**
-\'\'\'
+'''
 Xiaomi Redmi Note 14 256GB 8GB Preto 4G 915
 Realme C75 256GB 8GB Gold 4G 930
-\'\'\'
+'''
 
 **Banco de Dados:**
-\'\'\'
+'''
 Xiaomi Redmi Note 14 256GB 8GB Preto 4G	#11P
 Realme C75 256GB 8GB Dourado 4G	#04D
-\'\'\'
+'''
 
 **Saída Esperada:**
-\'\'\'json
+'''json
 {
   "details": [
     {
@@ -129,7 +128,7 @@ Realme C75 256GB 8GB Dourado 4G	#04D
     }
   ]
 }
-\'\'\'
+'''
 
 ## VALIDAÇÃO FINAL
 Antes de retornar, verifique:
@@ -143,11 +142,10 @@ Antes de retornar, verifique:
 `;
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = gemini15Flash;
 
     const prompt = ai.definePrompt({
         name: 'lookupProductsPrompt',
-        model: selectedModel,
+        model: 'googleai/gemini-2.0-flash',
         input: {schema: LookupProductsInputSchema},
         output: {schema: LookupResultSchema},
         prompt: input.prompt_override || DEFAULT_LOOKUP_PROMPT,

@@ -10,7 +10,6 @@
  */
 
 import {getAi} from '@/ai/genkit';
-import { gemini15Flash } from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import type { OrganizeResult } from '@/lib/types';
 
@@ -18,9 +17,9 @@ import type { OrganizeResult } from '@/lib/types';
 const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
 
 **LISTA BRUTA DO FORNECEDOR:**
-\'\'\'
+'''
 {{{productList}}}
-\'\'\'
+'''
 
 **REGRAS DE ORGANIZAÇÃO:**
 1.  **Um Produto Por Linha:** A regra principal é identificar cada produto e suas variações. Se um item como "iPhone 13" tem duas cores (Azul e Preto) listadas, ele deve ser transformado em duas linhas separadas na saída.
@@ -30,15 +29,15 @@ const DEFAULT_ORGANIZE_PROMPT = `Você é um assistente de organização de dado
 5.  **Formato de Quantidade:** Padronize a quantidade para o formato "1x " no início de cada linha. Se nenhuma quantidade for mencionada, assuma 1.
 
 **EXEMPLO DE ENTRADA:**
-\'\'\'
+'''
 Bom dia! Segue a lista:
 - 2x IPHONE 15 PRO MAX 256GB - AZUL/PRETO - 5.100,00
 - SAMSUNG GALAXY S24 ULTRA 512GB, 12GB RAM, cor Creme - 5.100,00
 - 1x POCO X6 5G 128GB/6GB RAM
-\'\'\'
+'''
 
 **EXEMPLO DE SAÍDA ESPERADA:**
-\'\'\'json
+'''json
 {
     "organizedList": [
         "2x IPHONE 15 PRO MAX 256GB - AZUL - 5.100,00",
@@ -47,7 +46,7 @@ Bom dia! Segue a lista:
         "1x POCO X6 5G 128GB/6GB RAM"
     ]
 }
-\'\'\'
+'''
 
 Apenas retorne o JSON com a chave 'organizedList' contendo um array de strings, onde cada string é uma variação de produto em sua própria linha.
 `;
@@ -71,11 +70,10 @@ const OrganizeResultSchema = z.object({
 
 export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
     const ai = getAi(input.apiKey);
-    const selectedModel = gemini15Flash;
 
     const prompt = ai.definePrompt({
         name: 'organizeListPrompt',
-        model: selectedModel,
+        model: 'googleai/gemini-2.0-flash',
         input: {schema: OrganizeListInputSchema},
         output: {schema: OrganizeResultSchema},
         prompt: input.prompt_override || DEFAULT_ORGANIZE_PROMPT,
