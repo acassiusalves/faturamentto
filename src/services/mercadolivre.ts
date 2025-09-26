@@ -3,6 +3,9 @@
 
 import { loadAppSettings } from '@/services/firestore';
 import type { MercadoLivreCredentials } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
 
 type MlTokenResponse = {
   access_token: string;
@@ -13,21 +16,34 @@ type MlTokenResponse = {
 const _tokenCache: Record<string, { token: string; expiresAt: number }> = {};
 const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 horas em ms
 
-export async function getMlToken(account: 'primary' | 'secondary' = 'primary'): Promise<string> {
+export async function getMlToken(account: 'primary' | 'secondary' | string = 'primary'): Promise<string> {
   const cacheKey = account;
   const cached = _tokenCache[cacheKey];
 
   if (cached && Date.now() < cached.expiresAt - 60_000) { // 1 min de margem
     return cached.token;
   }
-
-  const settings = await loadAppSettings().catch(() => null);
   
-  let creds: MercadoLivreCredentials | undefined;
-  if (account === 'primary') {
-    creds = settings?.mercadoLivre;
+  let creds: Omit<MercadoLivreCredentials, 'apiStatus'> | undefined;
+
+  // Se o 'account' não for 'primary' ou 'secondary', assume que é um ID de documento
+  // da coleção `mercadoLivreAccounts`
+  if (account !== 'primary' && account !== 'secondary') {
+      const accountDocRef = doc(db, 'mercadoLivreAccounts', account);
+      const docSnap = await getDoc(accountDocRef);
+      if (docSnap.exists()) {
+          creds = docSnap.data() as Omit<MercadoLivreCredentials, 'apiStatus'>;
+      } else {
+          throw new Error(`A conta do Mercado Livre com ID '${account}' não foi encontrada na coleção 'mercadoLivreAccounts'.`);
+      }
   } else {
-    creds = settings?.mercadoLivre2;
+     // Lógica original para 'primary' e 'secondary'
+     const settings = await loadAppSettings().catch(() => null);
+     if (account === 'primary') {
+        creds = settings?.mercadoLivre;
+     } else {
+        creds = settings?.mercadoLivre2;
+     }
   }
 
   if (!creds?.appId || !creds?.clientSecret || !creds?.refreshToken) {

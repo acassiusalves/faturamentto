@@ -1,6 +1,8 @@
 
 import { NextResponse } from "next/server";
 import { getMlToken } from "@/services/mercadolivre";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const ML_API = "https://api.mercadolibre.com";
 
@@ -17,22 +19,36 @@ async function fetchWithToken(url: string, token: string) {
     return response.json();
 }
 
-async function getUserId(token: string): Promise<number> {
-    const data = await fetchWithToken(`${ML_API}/users/me`, token);
-    return data.id;
+async function getUserId(token: string): Promise<number | null> {
+    try {
+        const data = await fetchWithToken(`${ML_API}/users/me`, token);
+        return data.id;
+    } catch(e) {
+        console.error("Erro ao buscar ID do usuário do ML", e);
+        return null;
+    }
 }
 
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
-        const account = searchParams.get('account') as 'primary' | 'secondary' | null;
+        const accountId = searchParams.get('account'); // Agora usamos o ID do documento como 'account'
 
-        if (!account) {
-            return NextResponse.json({ error: "O parâmetro 'account' é obrigatório (primary ou secondary)." }, { status: 400 });
+        if (!accountId) {
+            return NextResponse.json({ error: "O parâmetro 'account' (ID da conta) é obrigatório." }, { status: 400 });
         }
 
-        const token = await getMlToken(account);
+        const token = await getMlToken(accountId);
         const userId = await getUserId(token);
+        
+        if (!userId) {
+            // Se não conseguir o ID do usuário (ex: token inválido), busca o nickname do doc do Firestore para o erro.
+            const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
+            const docSnap = await getDoc(accountDocRef);
+            const nickname = docSnap.exists() ? docSnap.data().nickname : accountId;
+            throw new Error(`Não foi possível obter o ID de usuário do Mercado Livre para a conta "${nickname}". Verifique as credenciais.`);
+        }
+
 
         let allItemIds: string[] = [];
         let offset = 0;

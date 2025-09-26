@@ -7,7 +7,7 @@ import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Users } from 'lucide-react';
 import type { SaleCost, SaleCosts } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
@@ -25,6 +25,16 @@ interface MyItem {
     permalink: string;
     thumbnail: string;
     catalog_product_id?: string | null;
+}
+
+interface MlAccount {
+    id: string;
+    appId: string;
+    clientSecret: string;
+    refreshToken: string;
+    redirectUri: string;
+    apiStatus?: string;
+    nickname?: string;
 }
 
 const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', title: string }) => {
@@ -94,7 +104,7 @@ const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', tit
                                         <TableCell>
                                             <div className="flex items-center gap-4">
                                                 <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain"/>
+                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
                                                 </div>
                                                 <div className="flex flex-col">
                                                      <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
@@ -122,6 +132,81 @@ const MyItemsList = ({ account, title }: { account: 'primary' | 'secondary', tit
         </Card>
     )
 }
+
+const AccountsList = () => {
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleFetchAccounts = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/ml/accounts');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar as contas.');
+            }
+            setAccounts(data.accounts || []);
+            if (data.accounts?.length > 0) {
+                 toast({
+                    title: 'Contas Carregadas!',
+                    description: `Encontradas ${data.accounts.length} contas do Mercado Livre.`
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Nenhuma Conta Encontrada',
+                    description: `Nenhuma conta encontrada na coleção 'mercadoLivreAccounts'.`
+                });
+            }
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Buscar Contas',
+                description: error.message,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+         <Card className="col-span-1 lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Contas do Mercado Livre
+                </CardTitle>
+                <CardDescription>
+                    Busque as contas cadastradas na coleção `mercadoLivreAccounts` e liste seus respectivos anúncios.
+                </CardDescription>
+            </CardHeader>
+             <CardContent>
+                <Button onClick={handleFetchAccounts} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
+                    {isLoading ? 'Buscando...' : 'Buscar Contas Cadastradas'}
+                </Button>
+            </CardContent>
+             {accounts.length > 0 && !isLoading && (
+                <CardContent className="space-y-4">
+                    <Accordion type="multiple" className="w-full">
+                        {accounts.map(account => (
+                            <AccordionItem value={account.id} key={account.id}>
+                                <AccordionTrigger>
+                                    <span className="font-semibold text-lg">{account.nickname || account.id}</span>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <MyItemsList account={account.id as any} title={`Anúncios de ${account.nickname || account.id}`} />
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </CardContent>
+            )}
+        </Card>
+    )
+}
+
 
 export default function TestesMercadoLivrePage() {
     const [listingId, setListingId] = useState('');
@@ -182,8 +267,7 @@ export default function TestesMercadoLivrePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                 <MyItemsList account="primary" title="Listar Anúncios Ativos (Conta 1)" />
-                 <MyItemsList account="secondary" title="Listar Anúncios Ativos (Conta 2)" />
+                 <AccountsList />
             </div>
 
             <Card>
