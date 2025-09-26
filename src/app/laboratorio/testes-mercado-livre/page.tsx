@@ -24,6 +24,7 @@ interface MyItem {
     status: string;
     permalink: string;
     thumbnail: string;
+    catalog_product_id?: string | null;
 }
 
 export default function TestesMercadoLivrePage() {
@@ -236,7 +237,8 @@ export default function TestesMercadoLivrePage() {
                                                             {item.title}
                                                             <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                          </Link>
-                                                         <span className="text-xs text-muted-foreground font-mono">{item.id}</span>
+                                                         <span className="text-xs text-muted-foreground font-mono">Item ID: {item.id}</span>
+                                                         {item.catalog_product_id && <span className="text-xs text-muted-foreground font-mono">Catálogo ID: {item.catalog_product_id}</span>}
                                                     </div>
                                                 </div>
                                             </TableCell>

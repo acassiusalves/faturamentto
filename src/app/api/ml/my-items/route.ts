@@ -54,7 +54,7 @@ export async function GET(req: Request) {
         const batchSize = 20; // ML API limit for /items?ids=
         for (let i = 0; i < allItemIds.length; i += batchSize) {
             const batchIds = allItemIds.slice(i, i + batchSize).join(',');
-            const itemDetailsUrl = `${ML_API}/items?ids=${batchIds}&attributes=id,title,price,status,permalink,thumbnail`;
+            const itemDetailsUrl = `${ML_API}/items?ids=${batchIds}&attributes=id,title,price,status,permalink,thumbnail,catalog_product_id`;
             const itemsData = await fetchWithToken(itemDetailsUrl, token);
             if (itemsData && Array.isArray(itemsData)) {
                  const batchItems = itemsData.map((item: any) => item.body);
