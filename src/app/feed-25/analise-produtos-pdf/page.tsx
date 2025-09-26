@@ -760,8 +760,9 @@ export default function CatalogoPdfPage() {
                                                 const netValue = salePrice - commissionValue - catalogCost;
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
+                                                const shippingCost = getShippingCostFor1To2Kg(salePrice);
+                                                
                                                 let suggestedPrice = null;
-
                                                 if (margin < 10) {
                                                     suggestedPrice = catalogCost / 0.88;
                                                 }
@@ -780,12 +781,19 @@ export default function CatalogoPdfPage() {
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                                 Marca: <Badge variant="outline">{offer.brand}</Badge> | Vendedor: <Badge variant="outline">{offer.seller_nickname}</Badge>
                                                             </div>
-                                                            {offer.fees && (
-                                                                <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
-                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commissionValue)}</b></span>
-                                                                    <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount))}</b></span>
-                                                                </div>
-                                                            )}
+                                                            <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
+                                                                {offer.fees && (
+                                                                    <>
+                                                                        <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commissionValue)}</b></span>
+                                                                        <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount))}</b></span>
+                                                                    </>
+                                                                )}
+                                                                {shippingCost !== null && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Truck className="h-3 w-3"/> Frete: <b className="font-semibold text-foreground">{formatBRL(shippingCost)}</b>
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         <div className="text-right">
                                                             <div className="font-semibold text-lg text-primary">{formatBRL(salePrice)}</div>
