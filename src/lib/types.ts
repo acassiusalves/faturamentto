@@ -350,6 +350,7 @@ export interface AppSettings {
     googleSheetsApiKey?: string;
     geminiApiKey?: string;
     mercadoLivre?: MercadoLivreCredentials;
+    mercadoLivre2?: MercadoLivreCredentials;
     allMappings?: AllMappingsState;
     friendlyFieldNames?: Record<string, string>;
     fileNames?: { [key: string]: string };

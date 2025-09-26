@@ -88,6 +88,14 @@ export default function MappingPage() {
   const [mlRedirectUri, setMlRedirectUri] = useState("");
   const [mlApiStatus, setMlApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [isTestingMlConnection, setIsTestingMlConnection] = useState(false);
+  
+  // --- Mercado Livre 2 State ---
+  const [ml2AppId, setMl2AppId] = useState("");
+  const [ml2ClientSecret, setMl2ClientSecret] = useState("");
+  const [ml2RefreshToken, setMl2RefreshToken] = useState("");
+  const [ml2RedirectUri, setMl2RedirectUri] = useState("");
+  const [ml2ApiStatus, setMl2ApiStatus] = useState<ApiKeyStatus>('unchecked');
+  const [isTestingMl2Connection, setIsTestingMl2Connection] = useState(false);
 
 
   const { toast } = useToast();
@@ -117,7 +125,16 @@ export default function MappingPage() {
                 setMlClientSecret(settings.mercadoLivre.clientSecret || "");
                 setMlRefreshToken(settings.mercadoLivre.refreshToken || "");
                 setMlRedirectUri(settings.mercadoLivre.redirectUri || "");
-                setMlApiStatus((settings.mercadoLivre as any).apiStatus || 'unchecked');
+                setMlApiStatus(settings.mercadoLivre.apiStatus || 'unchecked');
+            }
+
+            // Load Mercado Livre 2 credentials
+            if (settings.mercadoLivre2) {
+                setMl2AppId(settings.mercadoLivre2.appId || "");
+                setMl2ClientSecret(settings.mercadoLivre2.clientSecret || "");
+                setMl2RefreshToken(settings.mercadoLivre2.refreshToken || "");
+                setMl2RedirectUri(settings.mercadoLivre2.redirectUri || "");
+                setMl2ApiStatus(settings.mercadoLivre2.apiStatus || 'unchecked');
             }
              
             const initialHeaders: { [key: string]: string[] } = {};
@@ -483,6 +500,33 @@ export default function MappingPage() {
     }
   };
 
+  const handleSaveMercadoLivre2Credentials = async () => {
+    setIsTestingMl2Connection(true);
+    const creds = {
+      appId: ml2AppId,
+      clientSecret: ml2ClientSecret,
+      refreshToken: ml2RefreshToken,
+      redirectUri: ml2RedirectUri,
+    };
+
+    // Salva as credenciais primeiro
+    await saveAppSettings({ mercadoLivre2: { ...creds, apiStatus: 'unchecked' } });
+
+    try {
+      await testMercadoLivreConnection(creds as any);
+      setMl2ApiStatus('valid');
+      await saveAppSettings({ mercadoLivre2: { ...creds, apiStatus: 'valid' } });
+      toast({ title: 'Sucesso!', description: 'A conexão com a API da Conta 2 do Mercado Livre foi bem-sucedida.' });
+    } catch (e: any) {
+      setMl2ApiStatus('invalid');
+      await saveAppSettings({ mercadoLivre2: { ...creds, apiStatus: 'invalid' } });
+      toast({ variant: 'destructive', title: 'Falha na Conexão', description: e.message });
+    } finally {
+      setIsTestingMl2Connection(false);
+    }
+  };
+
+
 
   if (isDataLoading) {
     return (
@@ -607,7 +651,7 @@ export default function MappingPage() {
           <TabsContent value="mercado-livre" className="space-y-8 pt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Conectar com Mercado Livre</CardTitle>
+                  <CardTitle>Conectar com Mercado Livre (Conta 1 - Principal)</CardTitle>
                   <CardDescription>
                       Forneça suas credenciais da API do Mercado Livre para habilitar integrações.
                   </CardDescription>
@@ -637,6 +681,44 @@ export default function MappingPage() {
                         </div>
                         <Button onClick={handleSaveMercadoLivreCredentials} disabled={isTestingMlConnection}>
                           {isTestingMlConnection ? <Loader2 className="animate-spin mr-2"/> : <Plug className="mr-2" />}
+                          Salvar e Testar Conexão
+                        </Button>
+                    </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conectar com Mercado Livre (Conta 2 - Secundária)</CardTitle>
+                  <CardDescription>
+                      Forneça suas credenciais da API para a segunda conta do Mercado Livre.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4 max-w-lg">
+                       <div className="flex justify-end">
+                            <ApiStatusBadge status={ml2ApiStatus} />
+                       </div>
+                       <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="ml2-app-id">App ID (Client ID)</Label>
+                                <Input id="ml2-app-id" placeholder="App ID" value={ml2AppId} onChange={e => setMl2AppId(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ml2-secret-key">Secret Key</Label>
+                                <Input id="ml2-secret-key" type="password" placeholder="Client Secret" value={ml2ClientSecret} onChange={e => setMl2ClientSecret(e.target.value)} />
+                            </div>
+                       </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ml2-redirect-uri">Redirect URI</Label>
+                          <Input id="ml2-redirect-uri" placeholder="URL de Redirecionamento" value={ml2RedirectUri} onChange={e => setMl2RedirectUri(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ml2-refresh-token">Refresh Token</Label>
+                          <Input id="ml2-refresh-token" type="password" placeholder="Refresh Token" value={ml2RefreshToken} onChange={e => setMl2RefreshToken(e.target.value)} />
+                        </div>
+                        <Button onClick={handleSaveMercadoLivre2Credentials} disabled={isTestingMl2Connection}>
+                          {isTestingMl2Connection ? <Loader2 className="animate-spin mr-2"/> : <Plug className="mr-2" />}
                           Salvar e Testar Conexão
                         </Button>
                     </div>
