@@ -283,8 +283,8 @@ async function fetchMyActiveCatalogIds(token: string, accountName: string): Prom
   return myCatalogIds;
 }
 
-async function fetchAllActiveCatalogProducts(): Promise<Map<string, string>> {
-    const allActiveCatalogs = new Map<string, string>(); // catalog_id -> accountName
+async function fetchAllActiveCatalogProducts(): Promise<Map<string, string[]>> {
+    const allActiveCatalogs = new Map<string, string[]>(); // catalog_id -> accountName[]
     
     const mlAccounts = await loadMlAccounts();
 
@@ -292,8 +292,12 @@ async function fetchAllActiveCatalogProducts(): Promise<Map<string, string>> {
         try {
             const token = await getMlToken(account.id);
             const accountCatalogIds = await fetchMyActiveCatalogIds(token, account.nickname || account.id);
+            
             accountCatalogIds.forEach(catalogId => {
-                allActiveCatalogs.set(catalogId, account.nickname || account.id);
+                if (!allActiveCatalogs.has(catalogId)) {
+                    allActiveCatalogs.set(catalogId, []);
+                }
+                allActiveCatalogs.get(catalogId)!.push(account.nickname || account.id);
             });
         } catch (error) {
             console.warn(`Não foi possível buscar anúncios para a conta ${account.nickname || account.id}:`, error);
@@ -420,8 +424,8 @@ export async function searchMercadoLivreAction(
             // reviews
             const reviewsResult = await fetchProductReviews(winner?.id, p.id, accessToken);
 
-            // Check which account this catalog product is posted on
-            const postedOnAccount = allMyActiveCatalogs.get(p.id) || null;
+            // Check which account(s) this catalog product is posted on
+            const postedOnAccounts = allMyActiveCatalogs.get(p.id) || [];
 
             return {
                 id: p.id,
@@ -462,7 +466,7 @@ export async function searchMercadoLivreAction(
                 },
                 rating_average: reviewsResult.rating_average ?? 0,
                 reviews_count: reviewsResult.reviews_count ?? 0,
-                postedOnAccount: postedOnAccount, // Add the new field
+                postedOnAccounts: postedOnAccounts, // Add the new field (now an array)
                 raw_data: { 
                   catalog_product: p, 
                   winner_item: winner,

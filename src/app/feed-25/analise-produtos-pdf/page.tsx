@@ -474,6 +474,8 @@ export default function CatalogoPdfPage() {
                     }));
                     setBatchSearchResults(prev => [...prev, ...offersWithProductInfo]);
                 }
+            } else {
+                 console.warn(`A busca por "${product.name}" não retornou um resultado válido.`);
             }
             await new Promise(res => setTimeout(res, 200));
         }
@@ -807,16 +809,16 @@ export default function CatalogoPdfPage() {
                                                             {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image" />}
                                                         </div>
                                                         <div className="flex-grow">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
                                                                     {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {offer.postedOnAccount && (
-                                                                    <Badge className="bg-green-600 hover:bg-green-700">
+                                                                {offer.postedOnAccounts && offer.postedOnAccounts.map((accountName: string) => (
+                                                                    <Badge key={accountName} className="bg-green-600 hover:bg-green-700">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        Postado em: {offer.postedOnAccount}
+                                                                        Postado em: {accountName}
                                                                     </Badge>
-                                                                )}
+                                                                ))}
                                                             </div>
 
                                                             <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>

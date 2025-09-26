@@ -632,7 +632,7 @@ export interface ProductResult {
     seller_city_id?: string | null;
     date_created?: string | null;
     reviews_count?: number;
-    postedOnAccount?: string | null;
+    postedOnAccounts?: string[];
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
