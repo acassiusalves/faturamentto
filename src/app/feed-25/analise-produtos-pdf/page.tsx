@@ -438,7 +438,7 @@ export default function CatalogoPdfPage() {
             formData.append('quantity', '50');
             
             const result = await searchMercadoLivreAction({ result: null, error: null }, formData);
-            if (result.result) {
+            if (result?.result) {
                 const matchingOffers = result.result.filter((offer: any) => 
                     offer.model?.toLowerCase() === product.model?.toLowerCase()
                 );
@@ -764,8 +764,8 @@ export default function CatalogoPdfPage() {
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
                                                 
                                                 let suggestedPrice = null;
+                                                // Preço mínimo sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
                                                 if (margin < 12 && (commissionValue + catalogCost + shippingCost) > 0) {
-                                                   // Preço mínimo sugerido = (Comissão + Custo Catálogo + Frete) / 0.88
                                                    suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
                                                  }
 
