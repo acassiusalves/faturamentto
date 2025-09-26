@@ -272,18 +272,27 @@ export async function searchMercadoLivreAction(
             const itemMeta = (winner?.id && sellerAddrByItemId[winner.id]) || null;
             const userMeta = (winner?.seller_id && userAddrBySellerId[winner.seller_id]) || null;
             
-            // endereço: prefira o do item; caia para user; senão, nulos
-            const sellerAddress = itemMeta || userMeta || {
+            // fallback inline do próprio winner (ex.: "São Paulo")
+            const inlineAddr = winner?.seller_address ? {
+              state_id:   winner.seller_address?.state?.id ?? null,
+              state_name: winner.seller_address?.state?.name ?? null,
+              city_id:    winner.seller_address?.city?.id ?? null,
+              city_name:  winner.seller_address?.city?.name ?? null,
+              last_updated: winner?.last_updated ?? null,
+            } : null;
+
+            // ordem: batch /items -> inline winner -> /users -> nulos
+            const sellerAddress = itemMeta || inlineAddr || userMeta || {
               state_id: null, state_name: null, city_id: null, city_name: null, last_updated: null
             };
             
             // last_updated: prefira do batch; depois do winner; tente outros campos comuns
             const lastUpdated =
-              itemMeta?.last_updated ??
+              sellerAddress?.last_updated ??
               winner?.last_updated ??
               winner?.date_updated ??
+              p.date_created ??
               winner?.stop_time ??
-              p?.date_created ??
               null;
             
             // preço ativo?
@@ -315,10 +324,10 @@ export async function searchMercadoLivreAction(
                 official_store_id: officialStoreId,
                 is_official_store: Boolean(officialStoreId),
 
-                seller_state: sellerAddress.state_name ?? userMeta?.state_name ?? null,
-                seller_state_id: sellerAddress.state_id ?? userMeta?.state_id ?? null,
-                seller_city: sellerAddress.city_name ?? userMeta?.city_name ?? null,
-                seller_city_id: sellerAddress.city_id ?? userMeta?.city_id ?? null,
+                seller_state: sellerAddress.state_name ?? null,
+                seller_state_id: sellerAddress.state_id ?? null,
+                seller_city: sellerAddress.city_name ?? null,
+                seller_city_id: sellerAddress.city_id ?? null,
 
                 last_updated: lastUpdated,
                 

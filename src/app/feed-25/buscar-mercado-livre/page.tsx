@@ -108,16 +108,15 @@ const formatCurrency = (v: string | number | null | undefined): string => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 };
 
-
-const formatRawBRL = (v: string | number | null | undefined) => {
+const formatPercentNoRound = (v: string | number | null | undefined) => {
   if (v === null || v === undefined) return null;
-  const s = String(v);
-  return `R$ ${s.replace('.', ',')}`;
+  return `${String(v).replace('.', ',')}%`; // sem toFixed
 };
 
-const formatRawPercent = (v: string | number | null | undefined) => {
-  if (v === null || v === undefined) return null;
-  return `${(Number(v) * 100).toFixed(2).replace('.', ',')}%`;
+const toNumberSafe = (v: string | number | null | undefined) => {
+  if (v === null || v === undefined) return 0;
+  const n = Number(String(v).replace(',', '.'));
+  return isNaN(n) ? 0 : n;
 };
 
 
@@ -382,6 +381,7 @@ export default function BuscarMercadoLivrePage() {
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                               ID Anúncio: {product.catalog_product_id ?? "-"}
                                                             </div>
+
                                                             <div className="text-xs text-muted-foreground mt-1">
                                                               Criado em: {product.last_updated ? new Date(product.last_updated).toLocaleString('pt-BR') : "-"}
                                                             </div>
@@ -408,9 +408,9 @@ export default function BuscarMercadoLivrePage() {
                                                             
                                                             {(product.seller_city || product.seller_state) && (
                                                               <div className="text-[11px] text-muted-foreground mt-0.5">
-                                                                {product.seller_city ? `${product.seller_city}` : ""}
-                                                                {(product.seller_city && product.seller_state) ? " • " : ""}
-                                                                {product.seller_state || ""}
+                                                                {product.seller_city}
+                                                                {product.seller_city && product.seller_state && " • "}
+                                                                {product.seller_state}
                                                               </div>
                                                             )}
 
@@ -468,14 +468,25 @@ export default function BuscarMercadoLivrePage() {
                                                                     
                                                                     {product.fees && (
                                                                       <div className="text-muted-foreground flex items-center gap-x-2">
-                                                                        <span className="text-xs">
-                                                                            ({formatRawPercent(product.fees.sale_fee_percent)})
-                                                                        </span>
+                                                                        {product.raw_data?.fees_data?.sale_fee_details?.percentage_fee != null && (
+                                                                          <span className="text-xs">
+                                                                              ({formatPercentNoRound(product.raw_data.fees_data.sale_fee_details.percentage_fee)})
+                                                                          </span>
+                                                                        )}
+
                                                                         <span className="text-xs">
                                                                           Comissão: <b className="font-semibold text-foreground">{formatCurrency(product.fees.sale_fee_amount)}</b>
                                                                         </span>
+
                                                                         <span className="text-xs">
-                                                                          Taxa fixa: <b className="font-semibold text-foreground">{formatCurrency(product.fees.listing_fee_amount)}</b>
+                                                                          Taxa fixa:{' '}
+                                                                          <b className="font-semibold text-foreground">
+                                                                            {formatCurrency(
+                                                                              product.raw_data?.fees_data?.sale_fee_details?.fixed_fee != null
+                                                                                ? toNumberSafe(product.raw_data.fees_data.sale_fee_details.fixed_fee)
+                                                                                : toNumberSafe(product.raw_data?.fees_data?.listing_fee_amount)
+                                                                            )}
+                                                                          </b>
                                                                         </span>
                                                                       </div>
                                                                     )}
@@ -574,6 +585,7 @@ export default function BuscarMercadoLivrePage() {
     
 
     
+
 
 
 
