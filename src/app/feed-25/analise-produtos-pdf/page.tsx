@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
@@ -756,12 +756,22 @@ export default function CatalogoPdfPage() {
                                         <div className="space-y-2">
                                             {offers.map((offer: any) => {
                                                 const salePrice = offer.price;
-                                                const commission = toNumberSafe(offer.fees?.sale_fee_amount);
+                                                const commissionPercent = toNumberSafe(offer.fees?.sale_fee_percent);
                                                 const fixedFee = toNumberSafe(offer.raw_data?.fees_data?.sale_fee_details?.fixed_fee ?? offer.fees?.listing_fee_amount);
+                                                const commissionValue = toNumberSafe(offer.fees?.sale_fee_amount);
                                                 
-                                                // Corrigido: Não subtrair a taxa fixa, pois já está embutida na comissão.
-                                                const netValue = salePrice - commission - catalogCost;
+                                                const netValue = salePrice - commissionValue - catalogCost;
                                                 const margin = salePrice > 0 ? (netValue / salePrice) * 100 : 0;
+                                                
+                                                let suggestedPrice = null;
+                                                const targetMargin = 0.10; // 10%
+                                                if (margin < 10 && commissionPercent > 0) {
+                                                    const coefficient = 1 - (commissionPercent + targetMargin);
+                                                    if (coefficient > 0) {
+                                                        suggestedPrice = (catalogCost + fixedFee) / coefficient;
+                                                    }
+                                                }
+
 
                                                 return (
                                                     <div key={offer.id} className="grid grid-cols-[80px_1fr_auto] items-center gap-4 p-2 border-b last:border-b-0">
@@ -778,7 +788,7 @@ export default function CatalogoPdfPage() {
                                                             </div>
                                                             {offer.fees && (
                                                                 <div className="text-xs text-muted-foreground mt-2 flex items-center flex-wrap gap-x-3 gap-y-1">
-                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commission)}</b></span>
+                                                                    <span>Comissão: <b className="font-semibold text-foreground">{formatBRL(commissionValue)}</b></span>
                                                                     <span>Taxa Fixa: <b className="font-semibold text-foreground">{formatBRL(fixedFee)}</b></span>
                                                                 </div>
                                                             )}
@@ -789,6 +799,13 @@ export default function CatalogoPdfPage() {
                                                                 <div className="mt-2 space-y-1">
                                                                     <div className="text-sm">Líquido por venda: <b className="font-semibold">{formatBRL(netValue)}</b></div>
                                                                     <div className="text-sm">M.C: <b className="font-semibold">{margin.toFixed(2)}%</b></div>
+                                                                </div>
+                                                            )}
+                                                            {suggestedPrice !== null && (
+                                                                <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 rounded-md text-amber-800 dark:text-amber-300">
+                                                                    <p className="text-xs font-semibold flex items-center gap-1"><AlertTriangle className="h-4 w-4"/>Preço Mínimo Sugerido:</p>
+                                                                    <p className="font-bold text-base">{formatBRL(suggestedPrice)}</p>
+                                                                    <p className="text-xs">para margem de {targetMargin * 100}%</p>
                                                                 </div>
                                                             )}
                                                         </div>
