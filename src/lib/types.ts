@@ -628,6 +628,7 @@ export interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
+    raw_winner?: any;
     fees?: {
       listing_fee_amount: MoneyLike;
       sale_fee_amount:   MoneyLike;
@@ -646,5 +647,7 @@ export interface ProductResult {
       };
     };
 }
+
+    
 
     

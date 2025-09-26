@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, ThumbsDown, Clock, ShieldCheck, HelpCircle, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +21,7 @@ import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -57,6 +58,7 @@ interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     last_updated?: string | null;
+    raw_winner?: any;
     fees?: {
       listing_fee_amount: MoneyLike;
       sale_fee_amount:   MoneyLike;
@@ -497,6 +499,22 @@ export default function BuscarMercadoLivrePage() {
                                                                     )}
                                                                 </div>
                                                             </div>
+
+                                                            <Accordion type="single" collapsible className="w-full mt-2">
+                                                                <AccordionItem value="raw-data" className="border-b-0">
+                                                                    <AccordionTrigger className="text-xs p-1 hover:no-underline [&>svg]:h-3 [&>svg]:w-3">
+                                                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                                                            <Database className="h-3 w-3" />
+                                                                            Dados brutos da API
+                                                                        </div>
+                                                                    </AccordionTrigger>
+                                                                    <AccordionContent>
+                                                                        <pre className="mt-1 p-2 bg-muted rounded-md text-xs overflow-auto max-h-32">
+                                                                            <code>{JSON.stringify(product.raw_winner, null, 2)}</code>
+                                                                        </pre>
+                                                                    </AccordionContent>
+                                                                </AccordionItem>
+                                                            </Accordion>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="font-semibold text-lg text-right align-top">
@@ -568,6 +586,8 @@ export default function BuscarMercadoLivrePage() {
     );
 }
 
+
+    
 
     
 

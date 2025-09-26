@@ -336,6 +336,7 @@ export async function searchMercadoLivreAction(
                 seller_city_id: sellerAddress.city_id ?? userMeta?.city_id ?? null,
 
                 last_updated: lastUpdated,
+                raw_winner: winner || null, // Add the raw winner object
 
                 offerCount,
 
@@ -786,6 +787,8 @@ export async function updateSalesDeliveryTypeAction(
     return { updatedCount: 0, error: e instanceof Error ? e.message : 'Erro desconhecido' };
   }
 }
+
+    
 
     
 
