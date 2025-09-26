@@ -592,12 +592,13 @@ export async function analyzeCatalogAction(_prevState: any, formData: FormData):
     const pageNumber = Number(formData.get('pageNumber'));
     const totalPages = Number(formData.get('totalPages'));
     const brand = formData.get('brand') as string | undefined;
+    const apiKey = formData.get('apiKey') as string | undefined;
 
     if (!pdfContent) throw new Error("O conteúdo do PDF não pode estar vazio.");
     if (isNaN(pageNumber) || isNaN(totalPages)) throw new Error("Número de página inválido.");
     
     const { analyzeCatalog } = await import('@/ai/flows/analyze-catalog-flow');
-    const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand });
+    const result = await analyzeCatalog({ pdfContent, pageNumber, totalPages, brand, apiKey });
     
     if (result && result.products.length > 0) {
         const { findTrendingProducts } = await import('@/ai/flows/find-trending-products-flow');

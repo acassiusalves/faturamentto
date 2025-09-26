@@ -16,8 +16,7 @@ import { parsePriceToNumber } from '@/lib/utils';
 
 
 export async function analyzeCatalog(input: AnalyzeCatalogInput): Promise<AnalyzeCatalogOutput> {
-  const settings = await import('@/services/firestore').then(m => m.loadAppSettings());
-  const apiKey = settings?.geminiApiKey;
+  const apiKey = input.apiKey;
   if (!apiKey) {
     throw new Error('A chave de API do Gemini não está configurada no sistema.');
   }

@@ -496,6 +496,7 @@ export const AnalyzeCatalogInputSchema = z.object({
   pageNumber: z.number().describe('The current page number being analyzed.'),
   totalPages: z.number().describe('The total number of pages in the PDF.'),
   brand: z.string().optional().describe('The brand of the products in the catalog.'),
+  apiKey: z.string().optional().describe('The Gemini API key.'),
 });
 export type AnalyzeCatalogInput = z.infer<typeof AnalyzeCatalogInputSchema>;
 
@@ -634,6 +635,7 @@ export interface ProductResult {
       catalog_product?: any;
       winner_item?: any;
       fees_data?: any;
+      reviews_data?: any;
     };
     fees?: {
       listing_fee_amount: number;

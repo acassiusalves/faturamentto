@@ -24,6 +24,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { parsePriceToNumber, formatBRL } from '@/lib/utils';
+import { loadAppSettings } from '@/services/firestore';
 
 
 // PDF.js dinâmico
@@ -171,6 +172,7 @@ export default function CatalogoPdfPage() {
     const [allProducts, setAllProducts] = useState<SearchableProduct[]>([]);
     const [brand, setBrand] = useState('');
     const [pdfJsReady, setPdfJsReady] = useState(false);
+    const [geminiApiKey, setGeminiApiKey] = useState('');
     
     // Estados para análise
     const [isAnalyzingPending, startAnalyzeTransition] = useTransition();
@@ -201,16 +203,23 @@ export default function CatalogoPdfPage() {
     const [groupedResultPageSize, setGroupedResultPageSize] = useState(5);
     
 
-    // Inicializa PDF.js
+    // Inicializa PDF.js e carrega a chave Gemini
     useEffect(() => {
         let mounted = true;
         
-        initPDFjs().then((pdfjsLib) => {
-            if (mounted && pdfjsLib) {
-                setPdfJsReady(true);
-            }
-        });
-        
+        async function loadInitialData() {
+          const [pdfjsLib, settings] = await Promise.all([
+            initPDFjs(),
+            loadAppSettings(),
+          ]);
+
+          if (mounted) {
+            if (pdfjsLib) setPdfJsReady(true);
+            if (settings?.geminiApiKey) setGeminiApiKey(settings.geminiApiKey);
+          }
+        }
+
+        loadInitialData();
         return () => { mounted = false; };
     }, []);
 
@@ -232,6 +241,7 @@ export default function CatalogoPdfPage() {
         formData.append('pageNumber', String(pageNumber));
         formData.append('totalPages', String(pdfDoc.numPages));
         formData.append('brand', brand);
+        if (geminiApiKey) formData.append('apiKey', geminiApiKey);
     
         startAnalyzeTransition(async () => {
           try {
@@ -253,7 +263,7 @@ export default function CatalogoPdfPage() {
           description: 'Falha ao ler o texto do PDF nesta página.',
         });
       }
-    }, [pdfDoc, brand, toast, analyzeState]);
+    }, [pdfDoc, brand, toast, analyzeState, geminiApiKey]);
 
     // Effect para processar resultados da análise e tendências
     useEffect(() => {
@@ -289,7 +299,7 @@ export default function CatalogoPdfPage() {
                 setIsAnalyzingAll(false);
             }
         }
-    }, [analyzeState, brand, toast]);
+    }, [analyzeState, brand, toast, isAnalyzingAll, currentPage, pdfDoc?.numPages]);
 
 
     // Effect para analisar próxima página automaticamente
