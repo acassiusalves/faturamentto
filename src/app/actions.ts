@@ -989,8 +989,10 @@ export async function createCatalogListingAction(
     const quantity = Number(formData.get('quantity'));
     const listingTypeId = formData.get('listingTypeId') as string;
     const accountId = formData.get('accountId') as string;
+    const buying_mode = formData.get('buying_mode') as 'buy_it_now' | 'classified';
+    const condition = formData.get('condition') as 'new' | 'used' | 'not_specified';
 
-    if (!catalogProductId || !price || !quantity || !listingTypeId || !accountId) {
+    if (!catalogProductId || !price || !quantity || !listingTypeId || !accountId || !buying_mode || !condition) {
         throw new Error('Todos os campos são obrigatórios.');
     }
 
@@ -1002,12 +1004,15 @@ export async function createCatalogListingAction(
         available_quantity: quantity,
         listing_type_id: listingTypeId,
         accountId: accountId,
+        buying_mode,
+        condition,
     });
     
     if (result.error) {
         throw new Error(result.error);
     }
     
+    revalidatePath('/laboratorio/testes-mercado-livre');
     return { success: true, error: null, result: result.data };
 
   } catch(e: any) {

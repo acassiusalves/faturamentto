@@ -3,14 +3,14 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { MercadoLivreLogo } from '@/components/icons';
+import { HandCoins } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
 import type { SaleCost, SaleCosts, MyItem, MlAccount } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
@@ -31,10 +31,18 @@ const listingSchema = z.object({
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
     accountId: z.string().min(1, 'Selecione a conta para publicar.'),
+    buying_mode: z.enum(['buy_it_now', 'classified'], { required_error: 'Selecione o modo de compra.' }),
+    condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }),
 });
 
 type ListingFormValues = z.infer<typeof listingSchema>;
 
+// Mock, pois o componente real não está no contexto
+function MercadoLivreLogo({ className }: { className?: string }) {
+    const [failed, setFailed] = React.useState(false);
+    if (failed) return <HandCoins aria-label="Mercado Livre" className={cn("h-6 w-6", className)} />;
+    return <Image src="/icons/mp_logo_mercadolivre.jpg" alt="Mercado Livre Logo" width={24} height={24} className={cn("h-6 w-auto", className)} onError={() => setFailed(true)} />;
+}
 
 function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
     const { toast } = useToast();
@@ -47,6 +55,8 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
             catalogProductId: '',
             price: undefined,
             quantity: 1,
+            buying_mode: 'buy_it_now',
+            condition: 'new',
         }
     });
 
@@ -130,6 +140,39 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
                                             {accounts.map(acc => (
                                                 <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
                                             ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="buying_mode" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Modo de Compra</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="buy_it_now">Compre agora</SelectItem>
+                                            <SelectItem value="classified">Catálogo</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                             <FormField control={form.control} name="condition" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Condição</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="new">Novo</SelectItem>
+                                            <SelectItem value="used">Usado</SelectItem>
+                                            <SelectItem value="not_specified">Não especificado</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -293,7 +336,7 @@ export default function TestesMercadoLivrePage() {
     const [costs, setCosts] = useState<SaleCosts | null>(null);
     const [rawResponse, setRawResponse] = useState<any | null>(null);
     const [accounts, setAccounts] = useState<MlAccount[]>([]);
-    const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+    const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
 
     
     const { toast } = useToast();
@@ -455,5 +498,3 @@ export default function TestesMercadoLivrePage() {
         </div>
     );
 }
-
-    

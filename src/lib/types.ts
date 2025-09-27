@@ -705,5 +705,14 @@ export type FullFlowResult = {
 };
 
 
+export interface CreateListingPayload {
+    catalog_product_id: string;
+    price: number;
+    available_quantity: number;
+    listing_type_id: string;
+    accountId: string;
+    buying_mode: 'buy_it_now' | 'classified';
+    condition: 'new' | 'used' | 'not_specified';
+}
 
     

@@ -11,6 +11,8 @@ interface CreateListingPayload {
     available_quantity: number;
     listing_type_id: string;
     accountId: string; // ID da conta do Firestore
+    buying_mode: 'buy_it_now' | 'classified';
+    condition: 'new' | 'used' | 'not_specified';
 }
 
 async function fetchProductDetails(productId: string, token: string) {
@@ -26,7 +28,15 @@ async function fetchProductDetails(productId: string, token: string) {
 
 export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
-        const { catalog_product_id, price, available_quantity, listing_type_id, accountId } = payload;
+        const { 
+            catalog_product_id, 
+            price, 
+            available_quantity, 
+            listing_type_id, 
+            accountId,
+            buying_mode,
+            condition,
+        } = payload;
         
         const token = await getMlToken(accountId);
         
@@ -47,8 +57,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             price: price,
             currency_id: 'BRL',
             available_quantity: available_quantity,
-            buying_mode: 'buy_it_now',
-            condition: 'new',
+            buying_mode: buying_mode,
+            condition: condition,
             listing_type_id: listing_type_id,
             pictures: [], // O catálogo fornecerá as fotos
             attributes: [], // O catálogo fornecerá os atributos
