@@ -85,7 +85,14 @@ export default function TestesGptPage() {
           </CardHeader>
           <CardContent>
             <pre className="p-4 bg-muted rounded-md overflow-x-auto text-sm min-h-[200px]">
-              {state.result ? JSON.stringify(JSON.parse(state.result), null, 2) : 'Aguardando requisição...'}
+              {(() => {
+                if (!state.result) return 'Aguardando requisição...';
+                try {
+                  return JSON.stringify(JSON.parse(state.result), null, 2);
+                } catch {
+                  return state.result; // mostra bruto se não for JSON
+                }
+              })()}
             </pre>
           </CardContent>
         </Card>

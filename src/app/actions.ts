@@ -974,20 +974,27 @@ export async function processListFullFlowAction(
 }
     
 export async function runOpenAiAction(
-    _prevState: any,
-    formData: FormData
+  _prevState: any,
+  formData: FormData
 ): Promise<{ result: string | null; error: string | null }> {
-    const prompt = formData.get('prompt') as string;
-    if (!prompt) {
-        return { result: null, error: 'O prompt não pode estar vazio.' };
-    }
+  const prompt = formData.get('prompt') as string;
+  if (!prompt) {
+    return { result: null, error: 'O prompt não pode estar vazio.' };
+  }
 
-    try {
-        const result = await runStep('teste_gpt', prompt);
-        return { result, error: null };
-    } catch (e: any) {
-        return { result: null, error: e.message || 'Falha ao executar o teste com GPT.' };
-    }
+  try {
+    const wrapped = [
+      "Responda em **json** válido, no formato de um objeto.",
+      'Não inclua texto fora do JSON. Exemplo de formato: {"data": ...}.',
+      "PROMPT DO USUÁRIO:",
+      prompt
+    ].join("\n\n");
+
+    const result = await runStep('teste_gpt', wrapped);
+    return { result, error: null };
+  } catch (e: any) {
+    return { result: null, error: e.message || 'Falha ao executar o teste com GPT.' };
+  }
 }
     
 
@@ -998,3 +1005,4 @@ export async function runOpenAiAction(
     
 
     
+
