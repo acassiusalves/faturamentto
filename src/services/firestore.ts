@@ -377,92 +377,6 @@ export const clearTodaysPickingLog = async (): Promise<void> => {
 };
 
 
-// --- RETURNS ---
-export const saveReturnLogs = async (
-  data: Omit<ReturnLog, 'id' | 'returnedAt'>[],
-  productId: string,
-  costPrice: number,
-  origin: string
-): Promise<void> => {
-    const batch = writeBatch(db);
-    const returnsLogCol = collection(db, 'users', DEFAULT_USER_ID, 'returns-log');
-    const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
-    const entryLogsCol = collection(db, 'users', DEFAULT_USER_ID, 'entry-logs');
-
-    const now = new Date();
-
-    for (const returnData of data) {
-        // Create Return Log
-        const returnDocRef = doc(returnsLogCol);
-        const newReturnLog: ReturnLog = {
-            ...returnData,
-            id: returnDocRef.id,
-            returnedAt: now.toISOString(),
-        };
-        batch.set(returnDocRef, toFirestore({ ...newReturnLog, returnedAt: now }));
-
-        // Create Inventory Item
-        const inventoryItemDocRef = doc(inventoryCol);
-        const itemToReenter: InventoryItem = {
-            id: inventoryItemDocRef.id,
-            productId: productId,
-            name: returnData.productName,
-            sku: returnData.sku,
-            serialNumber: returnData.serialNumber,
-            costPrice: costPrice,
-            origin: origin,
-            quantity: 1,
-            condition: returnData.condition as any,
-            createdAt: now.toISOString(),
-            orderNumber: returnData.orderNumber, // <-- Adicionando o campo aqui
-        };
-        batch.set(inventoryItemDocRef, toFirestore(itemToReenter));
-        
-        // Create Entry Log
-        const entryLogDocRef = doc(entryLogsCol);
-        const entryLog: EntryLog = {
-            ...itemToReenter,
-            id: entryLogDocRef.id,
-            originalInventoryId: itemToReenter.id,
-            entryDate: now, // salva como Timestamp
-            logType: 'RETURN_ENTRY'
-        };
-        batch.set(entryLogDocRef, toFirestore(entryLog));
-    }
-
-    await batch.commit();
-};
-
-export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
-    const todayStart = startOfDay(new Date());
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log');
-    const q = query(logCol, where('returnedAt', '>=', todayStart), orderBy('returnedAt', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
-};
-
-export const revertReturnAction = async (returnLog: ReturnLog): Promise<void> => {
-    const batch = writeBatch(db);
-    
-    // Remove a devolução do log
-    const logDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'returns-log', returnLog.id);
-    batch.delete(logDocRef);
-
-    // Encontra e remove o item que foi re-adicionado ao estoque
-    const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
-    const q = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), limit(1));
-    const snapshot = await getDocs(q);
-    
-    if (!snapshot.empty) {
-        const inventoryItemDocRef = snapshot.docs[0].ref;
-        batch.delete(inventoryItemDocRef);
-    }
-    
-    await batch.commit();
-};
-
-
-
 // --- SALES ---
 export async function saveSales(sales: Sale[]): Promise<void> {
     const batch = writeBatch(db);
@@ -477,11 +391,8 @@ export async function saveSales(sales: Sale[]): Promise<void> {
 }
 
 export async function loadSales(): Promise<Sale[]> {
-    const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+    const salesCol = collection(db, 'users', DEFAULT_USER_ID, 'sales');
     const snapshot = await getDocs(salesCol);
-    if (snapshot.empty) {
-      return [];
-    }
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as Sale);
 }
 
@@ -1029,5 +940,7 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     return { count: updatedCount };
 };
 
+
+    
 
     

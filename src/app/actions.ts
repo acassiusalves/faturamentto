@@ -2,7 +2,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, saveMyItems } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, saveMyItems, loadMyItems } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -215,97 +215,30 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
   return out;
 }
 
-// Fetches active catalog IDs for a given ML account
-async function fetchMyActiveCatalogIds(token: string, accountName: string): Promise<Set<string>> {
-  const myCatalogIds = new Set<string>();
-
-  try {
-    const userMeResponse = await fetch(`https://api.mercadolibre.com/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store'
-    });
-    if (!userMeResponse.ok) {
-        console.error(`Falha ao buscar /users/me para ${accountName}`);
-        return myCatalogIds;
-    }
-
-    const userData = await userMeResponse.json();
-    const userId = userData.id;
-    if (!userId) {
-        console.error(`Nenhum ID de usuário retornado para ${accountName}`);
-        return myCatalogIds;
-    }
-
-    let offset = 0;
-    const limit = 100;
-    let hasMore = true;
-    const allItemIds: string[] = [];
-
-    while (hasMore) {
-        const searchUrl = `https://api.mercadolibre.com/users/${userId}/items/search?status=active&limit=${limit}&offset=${offset}`;
-        const searchResponse = await fetch(searchUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store'
-        });
-        if (!searchResponse.ok) break;
-
-        const result = await searchResponse.json();
-        const itemIds = result?.results || [];
-
-        if (itemIds.length > 0) {
-            allItemIds.push(...itemIds);
-            offset += itemIds.length;
-        } else {
-            hasMore = false;
-        }
-    }
-    
-    // Fetch catalog_product_id for all items in batches
-    for (let i = 0; i < allItemIds.length; i += 20) {
-      const batchIds = allItemIds.slice(i, i + 20).join(',');
-      const itemDetailsUrl = `https://api.mercadolibre.com/items?ids=${batchIds}&attributes=id,catalog_product_id`;
-      const itemsDataRes = await fetch(itemDetailsUrl, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store'
-      });
-      if (itemsDataRes.ok) {
-        const itemsData = await itemsDataRes.json();
-        itemsData.forEach((item: any) => {
-          if (item.body?.catalog_product_id) {
-            myCatalogIds.add(item.body.catalog_product_id);
-          }
-        });
-      }
-    }
-
-  } catch (e) {
-    console.error(`Falha ao buscar IDs de catálogo ativos para ${accountName}:`, e);
-  }
-  
-  return myCatalogIds;
-}
-
-async function fetchAllActiveCatalogProducts(): Promise<Map<string, string[]>> {
+// Fetches active catalog IDs for a given ML account from the local DB
+async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string[]>> {
     const allActiveCatalogs = new Map<string, string[]>(); // catalog_id -> accountName[]
     
-    const mlAccounts = await loadMlAccounts();
+    // Load all saved items from our Firestore database
+    const myItems = await loadMyItems();
 
-    for (const account of mlAccounts) {
-        try {
-            const token = await getMlToken(account.id);
-            const accountCatalogIds = await fetchMyActiveCatalogIds(token, account.nickname || account.id);
+    for (const item of myItems) {
+        // We only care about active items with a catalog ID
+        if (item.status === 'active' && item.catalog_product_id) {
+            const catalogId = item.catalog_product_id;
+            const accountName = item.accountId; // The accountId is saved with the item
+
+            if (!allActiveCatalogs.has(catalogId)) {
+                allActiveCatalogs.set(catalogId, []);
+            }
             
-            accountCatalogIds.forEach(catalogId => {
-                if (!allActiveCatalogs.has(catalogId)) {
-                    allActiveCatalogs.set(catalogId, []);
-                }
-                allActiveCatalogs.get(catalogId)!.push(account.nickname || account.id);
-            });
-        } catch (error) {
-            console.warn(`Não foi possível buscar anúncios para a conta ${account.nickname || account.id}:`, error);
+            const accounts = allActiveCatalogs.get(catalogId)!;
+            if (!accounts.includes(accountName)) {
+                accounts.push(accountName);
+            }
         }
     }
-
+    
     return allActiveCatalogs;
 }
 
@@ -319,8 +252,8 @@ export async function searchMercadoLivreAction(
     const productName = String(formData.get("productName") || "").trim();
     const quantity = Number(formData.get("quantity") || 50);
     
-    // Fetch all active catalogs from all accounts first
-    const allMyActiveCatalogs = await fetchAllActiveCatalogProducts();
+    // Fetch all active catalogs from our local database
+    const allMyActiveCatalogs = await fetchAllActiveCatalogProductsFromDB();
     const accessToken = await getMlToken(); // Use a primary token for general searches
     
     // 1. Search for catalog products
@@ -426,7 +359,7 @@ export async function searchMercadoLivreAction(
             // reviews
             const reviewsResult = await fetchProductReviews(winner?.id, p.id, accessToken);
 
-            // Check which account(s) this catalog product is posted on
+            // Check which account(s) this catalog product is posted on from our local data
             const postedOnAccounts = allMyActiveCatalogs.get(p.id) || [];
 
             return {
@@ -1038,5 +971,7 @@ export async function saveMyItemsAction(_prevState: any, formData: FormData): Pr
         return { success: false, error: e.message || "Falha ao salvar os anúncios.", count: 0 };
     }
 }
+
+    
 
     
