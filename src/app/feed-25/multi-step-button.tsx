@@ -6,22 +6,23 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { processListFullFlowAction } from "@/app/actions";
 import { Loader2, Wand2 } from "lucide-react";
+import type { FullFlowResult } from "@/lib/types";
 
 export function BotaoFluxoCompletoIA({
-  getTextareaValue,
-  getDatabaseValue,
+  textareaRef,
+  databaseRef,
   onFinish,
 }: {
-  getTextareaValue: () => string;
-  getDatabaseValue: () => string;
-  onFinish?: (r: Awaited<ReturnType<typeof processListFullFlowAction>>["result"]) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  databaseRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
+  onFinish?: (r: FullFlowResult | null) => void;
 }) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const handleRun = () => {
-    const rawList = getTextareaValue();
-    const databaseList = getDatabaseValue();
+    const rawList = textareaRef.current?.value || "";
+    const databaseList = databaseRef.current?.value || "";
 
     if (!rawList.trim()) {
         toast({ title: "Lista vazia", description: "Por favor, insira uma lista de produtos.", variant: "destructive" });
