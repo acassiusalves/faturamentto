@@ -29,7 +29,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             listing_type_id,
         };
 
-        const createItemUrl = `${ML_API}/items`;
+        const createItemUrl = `${ML_API}/items/catalog_listings`;
 
         const response = await fetch(createItemUrl, {
             method: 'POST',
