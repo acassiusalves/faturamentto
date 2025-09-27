@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { getMlToken } from "@/services/mercadolivre";
-import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const ML_API = "https://api.mercadolibre.com";
@@ -21,17 +21,13 @@ async function fetchWithToken(url: string, token: string) {
 
 async function getUserId(token: string, accountId: string): Promise<number | null> {
     try {
-        // Tenta buscar o 'me' que já resolve para o ID do usuário do token
         const data = await fetchWithToken(`${ML_API}/users/me`, token);
         if (data.id) return data.id;
 
-        // Fallback: Se 'me' não funcionar, busca o documento da conta no Firestore pelo ID
-        // e tenta usar o campo `sellerId` ou `userId` se existirem.
         const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
         const docSnap = await getDoc(accountDocRef);
         if (docSnap.exists()) {
             const accountData = docSnap.data();
-            // Prefira sellerId, que é geralmente o ID numérico do usuário
             return accountData.sellerId || accountData.userId || null;
         }
 
@@ -45,7 +41,7 @@ async function getUserId(token: string, accountId: string): Promise<number | nul
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
-        const accountId = searchParams.get('account'); // Agora usamos o ID do documento como 'account'
+        const accountId = searchParams.get('account'); 
 
         if (!accountId) {
             return NextResponse.json({ error: "O parâmetro 'account' (ID da conta) é obrigatório." }, { status: 400 });
@@ -55,7 +51,6 @@ export async function GET(req: Request) {
         const userId = await getUserId(token, accountId);
         
         if (!userId) {
-            // Se não conseguir o ID do usuário (ex: token inválido), busca o nickname do doc do Firestore para o erro.
             const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
             const docSnap = await getDoc(accountDocRef);
             const nickname = docSnap.exists() ? docSnap.data().nickname : accountId;
@@ -68,7 +63,6 @@ export async function GET(req: Request) {
         const limit = 100;
         let hasMore = true;
 
-        // 1. Fetch all item IDs first
         while (hasMore) {
             const searchUrl = `${ML_API}/users/${userId}/items/search?status=active&limit=${limit}&offset=${offset}`;
             const result = await fetchWithToken(searchUrl, token);
@@ -85,12 +79,12 @@ export async function GET(req: Request) {
             return NextResponse.json({ items: [] });
         }
 
-        // 2. Fetch item details in batches
         let allItems: any[] = [];
-        const batchSize = 20; // ML API limit for /items?ids=
+        const batchSize = 20;
+        const attributes = "id,title,price,status,permalink,thumbnail,catalog_product_id,currency_id,sale_terms,warranty,accepts_mercadopago,available_quantity,sold_quantity,shipping,category_id,pictures";
         for (let i = 0; i < allItemIds.length; i += batchSize) {
             const batchIds = allItemIds.slice(i, i + batchSize).join(',');
-            const itemDetailsUrl = `${ML_API}/items?ids=${batchIds}&attributes=id,title,price,status,permalink,thumbnail,catalog_product_id`;
+            const itemDetailsUrl = `${ML_API}/items?ids=${batchIds}&attributes=${attributes}`;
             const itemsData = await fetchWithToken(itemDetailsUrl, token);
             if (itemsData && Array.isArray(itemsData)) {
                  const batchItems = itemsData.map((item: any) => item.body);

@@ -7,9 +7,10 @@ const ML_API = "https://api.mercadolibre.com";
 const SITE_ID = "MLB"; // Brazil
 
 // Helper to fetch data with token
-async function fetchWithToken(url: string, token: string) {
+async function fetchWithToken(url: string, token: string, accountId?: string) {
+    const effectiveToken = await getMlToken(accountId);
     const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${effectiveToken}` },
         cache: 'no-store'
     });
     if (!response.ok) {
@@ -29,28 +30,48 @@ async function getListingTypes(token: string) {
 async function calculateCostForItem(
     listingId: string,
     token: string,
-    listingTypes: { id: string; name: string }[]
+    listingTypes: { id: string; name: string }[],
+    accountId?: string,
 ): Promise<SaleCosts | null> {
     
     // 1. Get item details
     const itemDetailsUrl = `${ML_API}/items/${listingId}?attributes=id,title,price,category_id,shipping`;
-    const item = await fetchWithToken(itemDetailsUrl, token);
+    const item = await fetchWithToken(itemDetailsUrl, token, accountId);
 
     if (!item.price || !item.category_id) {
         console.error(`Item ${listingId} não tem preço ou categoria.`);
         return null;
     }
+    
+    const shippingCost = item.shipping?.cost || 0;
 
     // 2. Calculate costs for each listing type
     const costPromises = listingTypes.map(async (lt) => {
         const price = item.price;
-        const shippingCost = item.shipping?.cost || 0; // Assume free shipping if cost is not present
-
+        
         const listingPriceUrl = `${ML_API}/sites/${SITE_ID}/listing_prices?price=${price}&listing_type_id=${lt.id}&category_id=${item.category_id}`;
-        const feeData = await fetchWithToken(listingPriceUrl, token);
+        
+        let feeData;
+        try {
+            feeData = await fetchWithToken(listingPriceUrl, token, accountId);
+        } catch (e) {
+            console.warn(`Could not fetch fee for listing type ${lt.id} for item ${listingId}. Skipping.`, e);
+            return null; // Skip if fee calculation fails for one type
+        }
+        
+        // ML API returns an array, we need to find the correct one if so.
+        if(Array.isArray(feeData)) {
+            feeData = feeData.find(f => f.listing_type_id === lt.id);
+        }
+
+        if(!feeData) return null;
         
         const sale_fee_amount = feeData.sale_fee_amount ?? 0;
-        const fixed_fee = (feeData.listing_type_id === 'free' || sale_fee_amount === 0) ? 0 : 6;
+        
+        // A taxa fixa agora é R$ 7,90 para Clássico e Premium. Gratuito não tem.
+        const isFreeListing = lt.id === 'free' || sale_fee_amount === 0;
+        const fixed_fee = isFreeListing ? 0 : 7.90;
+
         const net_amount = price - sale_fee_amount - fixed_fee - shippingCost;
 
         return {
@@ -65,29 +86,29 @@ async function calculateCostForItem(
         } as SaleCost;
     });
 
-    const costs = await Promise.all(costPromises);
+    const costs = (await Promise.all(costPromises)).filter((c): c is SaleCost => c !== null);
 
     return {
         id: item.id,
         title: item.title,
         category_id: item.category_id,
-        costs: costs.filter(Boolean),
+        costs: costs,
     };
 }
 
 
 export async function POST(req: Request) {
   try {
-    const { listingIds } = await req.json();
+    const { listingIds, accountId } = await req.json(); // accountId is now expected
     if (!listingIds || !Array.isArray(listingIds) || listingIds.length === 0) {
       return NextResponse.json({ error: "O campo 'listingIds' é obrigatório e deve ser um array." }, { status: 400 });
     }
 
-    const token = await getMlToken();
+    const token = await getMlToken(accountId);
     const listingTypes = await getListingTypes(token);
 
     const results = await Promise.all(
-        listingIds.map(id => calculateCostForItem(id, token, listingTypes).catch(e => {
+        listingIds.map(id => calculateCostForItem(id, token, listingTypes, accountId).catch(e => {
             console.error(`Falha ao processar anúncio ${id}:`, e);
             return { id, error: e.message }; // Return error object for failed items
         }))

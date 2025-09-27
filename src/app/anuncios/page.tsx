@@ -4,18 +4,19 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Pencil, Save, XCircle } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Pencil, Save, XCircle, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { MercadoLivreLogo } from '@/components/icons';
+import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { useFormState } from 'react-dom';
 import { updateMlAccountNicknameAction } from '@/app/actions';
+import type { SaleCost, SaleCosts } from '@/lib/types';
 
 
 interface MyItem {
@@ -26,6 +27,16 @@ interface MyItem {
     permalink: string;
     thumbnail: string;
     catalog_product_id?: string | null;
+    currency_id: string;
+    sale_terms: any[];
+    warranty: string;
+    accepts_mercadopago: boolean;
+    available_quantity: number;
+    sold_quantity: number;
+    shipping: any;
+    category_id: string;
+    pictures: { url: string; secure_url: string }[];
+    costs?: SaleCosts | { id: string; error: string }; // Adiciona o campo de custos
 }
 
 interface MlAccount {
@@ -37,10 +48,12 @@ interface MlAccount {
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingCosts, setIsLoadingCosts] = useState(false);
     const { toast } = useToast();
 
     const handleFetchItems = async () => {
         setIsLoading(true);
+        setIsLoadingCosts(true);
         setItems([]);
         try {
             const response = await fetch(`/api/ml/my-items?account=${accountId}`);
@@ -50,11 +63,43 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                 throw new Error(data.error || 'Falha ao buscar seus anúncios.');
             }
 
-            setItems(data.items || []);
-            toast({
-                title: 'Sucesso!',
-                description: `${data.items?.length || 0} anúncios ativos foram encontrados para ${accountName}.`
-            });
+            const fetchedItems: MyItem[] = data.items || [];
+            setItems(fetchedItems);
+
+            if (fetchedItems.length > 0) {
+                 toast({
+                    title: 'Sucesso!',
+                    description: `${fetchedItems.length} anúncios ativos foram encontrados para ${accountName}.`
+                });
+
+                // Agora, busque os custos para os itens encontrados
+                const listingIds = fetchedItems.map(item => item.id);
+                const costsResponse = await fetch('/api/ml/costs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ listingIds }),
+                });
+
+                const costsData = await costsResponse.json();
+                if (costsResponse.ok && costsData.items) {
+                    const costsMap = new Map(costsData.items.map((c: SaleCosts) => [c.id, c]));
+                    setItems(currentItems => currentItems.map(item => ({
+                        ...item,
+                        costs: costsMap.get(item.id)
+                    })));
+                } else {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Aviso',
+                        description: 'Não foi possível buscar os custos dos anúncios.',
+                    });
+                }
+            } else {
+                 toast({
+                    title: 'Nenhum Anúncio',
+                    description: `Nenhum anúncio ativo foi encontrado para ${accountName}.`
+                });
+            }
 
         } catch (error: any) {
             toast({
@@ -64,6 +109,7 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
             });
         } finally {
             setIsLoading(false);
+            setIsLoadingCosts(false);
         }
     };
     
@@ -84,53 +130,97 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                     {isLoading ? 'Buscando...' : 'Buscar Anúncios'}
                 </Button>
             </CardHeader>
-            {isLoading && (
+            {(isLoading || isLoadingCosts) && (
                 <CardContent>
-                    <div className="flex items-center justify-center p-8">
+                    <div className="flex items-center justify-center p-8 gap-2">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p>{isLoading ? "Buscando anúncios..." : "Calculando custos..."}</p>
                     </div>
                 </CardContent>
             )}
             {items.length > 0 && !isLoading && (
                  <CardContent>
-                    <div className="w-full rounded-md border max-h-[600px] overflow-y-auto">
-                       <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Anúncio</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Preço</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {items.map(item => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-4">
-                                                <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                     <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
-                                                        {item.title}
-                                                        <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                     </Link>
-                                                     <span className="text-xs text-muted-foreground font-mono">Item ID: {item.id}</span>
-                                                     {item.catalog_product_id && <span className="text-xs text-muted-foreground font-mono">Catálogo ID: {item.catalog_product_id}</span>}
-                                                </div>
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                        {items.map(item => (
+                            <AccordionItem value={item.id} key={item.id}>
+                               <Card>
+                                 <AccordionTrigger className="w-full p-3 hover:no-underline">
+                                    <div className="flex items-center gap-4 text-left w-full">
+                                         <div className="relative h-20 w-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                             <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-primary line-clamp-2" title={item.title}>
+                                                {item.title}
+                                            </p>
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                                <span>Item ID: <span className="font-mono">{item.id}</span></span>
+                                                {item.catalog_product_id && <span>| Catálogo ID: <span className="font-mono">{item.catalog_product_id}</span></span>}
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={item.status === 'active' ? 'bg-green-600' : ''}>
+                                        </div>
+                                         <div className="text-right">
+                                            <p className="font-bold text-lg">{formatCurrency(item.price)}</p>
+                                            <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={cn('mt-1', item.status === 'active' ? 'bg-green-600' : '')}>
                                                 {item.status}
                                             </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                       </Table>
-                    </div>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4">
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-semibold flex items-center gap-1.5"><Info /> Informações Gerais</h4>
+                                            <p className="text-sm">Garantia: <span className="font-medium">{item.warranty || 'Não especificada'}</span></p>
+                                            <p className="text-sm">Disponível: <span className="font-medium">{item.available_quantity} un.</span></p>
+                                            <p className="text-sm">Vendidos: <span className="font-medium">{item.sold_quantity} un.</span></p>
+                                             {item.accepts_mercadopago && <Badge variant="secondary">Aceita Mercado Pago</Badge>}
+                                        </div>
+                                        <div className="space-y-2">
+                                             <h4 className="font-semibold flex items-center gap-1.5"><Truck /> Frete</h4>
+                                            <div className="flex items-center gap-2">
+                                                {item.shipping.logistic_type === 'fulfillment' && <FullIcon />}
+                                                {item.shipping.logistic_type === 'drop_off' && <CorreiosLogo />}
+                                                {item.shipping.logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                {item.shipping.free_shipping && <FreteGratisIcon />}
+                                            </div>
+                                            <p className="text-sm">Modo: <span className="font-medium">{item.shipping.mode}</span></p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {item.shipping.tags.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                                            </div>
+                                        </div>
+                                         <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                                             <h4 className="font-semibold flex items-center gap-1.5"><DollarSign /> Custos</h4>
+                                            {item.costs && !('error' in item.costs) ? (
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Anúncio</TableHead>
+                                                            <TableHead className="text-right">Comissão</TableHead>
+                                                            <TableHead className="text-right">Taxa Fixa</TableHead>
+                                                            <TableHead className="text-right font-bold">Líquido</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {item.costs.costs.map(cost => (
+                                                            <TableRow key={cost.listing_type_id}>
+                                                                <TableCell className="font-medium">{cost.listing_type_name}</TableCell>
+                                                                <TableCell className="text-right">{formatCurrency(cost.sale_fee)}</TableCell>
+                                                                <TableCell className="text-right">{formatCurrency(cost.fixed_fee)}</TableCell>
+                                                                <TableCell className="text-right font-bold text-primary">{formatCurrency(cost.net_amount)}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            ) : (
+                                                <p className="text-sm text-destructive">{isLoadingCosts ? <Loader2 className="animate-spin inline mr-2"/> : ''} {item.costs?.error || 'Custos não calculados.'}</p>
+                                            )}
+                                        </div>
+                                   </div>
+                                </AccordionContent>
+                               </Card>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
                 </CardContent>
             )}
         </Card>
@@ -290,5 +380,3 @@ export default function AnunciosPage() {
         </div>
     );
 }
-
-    

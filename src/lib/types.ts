@@ -600,7 +600,7 @@ export interface SaleCosts {
     costs: SaleCost[];
 }
 
-type MoneyLike = string | number | null | undefined;
+export type MoneyLike = string | number | null | undefined;
 export interface ProductResult {
     thumbnail: string;
     name: string;
@@ -649,4 +649,8 @@ export interface ProductResult {
     };
 }
 
-    
+export type FullFlowResult = {
+    organizar: string;
+    padronizar: string;
+    lookup: string;
+};

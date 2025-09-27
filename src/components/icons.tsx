@@ -61,7 +61,8 @@ export function FullIcon({ className }: { className?: string }) {
       alt="Mercado Livre Full"
       width={88}
       height={26}
-      className={cn("h-10 w-auto", className)}
+      className={cn("h-5 w-auto", className)}
+      data-ai-hint="logo"
     />
   );
 }
@@ -73,7 +74,8 @@ export function FreteGratisIcon({ className }: { className?: string }) {
             alt="Frete Grátis"
             width={150}
             height={30}
-            className={cn("h-5 w-auto", className)}
+            className={cn("h-4 w-auto", className)}
+            data-ai-hint="shipping icon"
         />
     )
 }
@@ -85,7 +87,8 @@ export function CorreiosLogo({ className }: { className?: string }) {
       alt="Correios"
       width={254}
       height={69}
-      className={cn("h-5 w-auto", className)}
+      className={cn("h-4 w-auto", className)}
+      data-ai-hint="company logo"
     />
   );
 }
@@ -97,7 +100,8 @@ export function MercadoEnviosIcon({ className }: { className?: string }) {
       alt="Mercado Envios"
       width={720}
       height={130}
-      className={cn("h-6 w-auto", className)}
+      className={cn("h-5 w-auto", className)}
+      data-ai-hint="company logo"
     />
   );
 }

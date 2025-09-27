@@ -30,37 +30,22 @@ export function parsePriceToNumber(input?: string | number): number {
   if (s.includes(',') && s.includes('.')) {
     const lastComma = s.lastIndexOf(',');
     const lastDot = s.lastIndexOf('.');
-    const lastSep = Math.max(lastComma, lastDot);
-    const intPart = s.slice(0, lastSep).replace(/[^\d]/g, '');
-    const decPart = s.slice(lastSep + 1).replace(/[^\d]/g, '');
-    return Number(`${intPart}.${decPart}`);
-  }
-
-  // Only comma
-  if (s.includes(',')) {
-    const parts = s.split(',');
-    // Comma as thousands separator (e.g., "2,235" -> 2235)
-    if (parts.length > 2 || (parts[1]?.length === 3 && parts[0].length > 0 && !s.includes('.'))) {
-       return Number(s.replace(/,/g, ''));
+    
+    // Assume comma is the decimal separator if it comes after the last dot
+    if (lastComma > lastDot) {
+        s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+        s = s.replace(/,/g, '');
     }
-    // Comma as decimal separator
-    return Number(parts.join('.').replace(/\.(?=\d{3}(\.|$))/g, ''));
-  }
-
-  // Only dot
-  if (s.includes('.')) {
-    const parts = s.split('.');
-    // If the last part has 3 digits and there are more than 1 dots, it's likely thousands separator
-    if (parts.length > 2) {
-        const dec = parts.pop()!;
-        const int = parts.join('');
-        return Number(`${int}.${dec}`);
-    }
-    // A single dot is treated as a decimal point
     return Number(s);
   }
 
-  // Only digits
+  // Only comma: treat as decimal separator
+  if (s.includes(',')) {
+    s = s.replace(/\./g, '').replace(',', '.');
+    return Number(s);
+  }
+
   return Number(s);
 }
 
