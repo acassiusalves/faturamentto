@@ -20,6 +20,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         const token = await getMlToken(accountId);
 
         const itemPayload = {
+            title: "Anúncio de Catálogo", // Título provisório, o ML irá sobrepor
+            category_id: "MLB1055", // Categoria provisória, o ML irá sobrepor
             catalog_product_id,
             price,
             currency_id: 'BRL',
@@ -29,7 +31,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             listing_type_id,
         };
 
-        const createItemUrl = `${ML_API}/items/catalog_listings`;
+        const createItemUrl = `${ML_API}/items`;
 
         const response = await fetch(createItemUrl, {
             method: 'POST',
