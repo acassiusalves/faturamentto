@@ -1,15 +1,16 @@
 
+
 "use client";
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { HandCoins } from "lucide-react";
+import { Database, HandCoins } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
-import type { SaleCost, SaleCosts, MyItem, MlAccount } from '@/lib/types';
+import type { SaleCost, SaleCosts, MyItem, MlAccount, CreateListingPayload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,7 +18,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -99,128 +100,144 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
     }, [formState, toast, form]);
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PlusCircle /> Criar Anúncio de Catálogo</CardTitle>
-                <CardDescription>Crie um novo anúncio em uma de suas contas a partir de um ID de produto de catálogo do ML.</CardDescription>
-            </CardHeader>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <CardContent className="space-y-4">
-                         <FormField control={form.control} name="title" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Título do Anúncio</FormLabel>
-                                <FormControl><Input placeholder="Ex: Celular Xiaomi Poco X6 Pro 5g 256gb Global" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="categoryId" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>ID da Categoria</FormLabel>
-                                <FormControl><Input placeholder="MLB1234" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="catalogProductId" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>ID do Produto de Catálogo</FormLabel>
-                                <FormControl><Input placeholder="MLB123456789" {...field} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="price" render={({ field }) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><PlusCircle /> Criar Anúncio de Catálogo</CardTitle>
+                    <CardDescription>Crie um novo anúncio em uma de suas contas a partir de um ID de produto de catálogo do ML.</CardDescription>
+                </CardHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)}>
+                        <CardContent className="space-y-4">
+                            <FormField control={form.control} name="title" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Preço</FormLabel>
-                                    <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                    <FormLabel>Título do Anúncio</FormLabel>
+                                    <FormControl><Input placeholder="Ex: Celular Xiaomi Poco X6 Pro 5g 256gb Global" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                             <FormField control={form.control} name="quantity" render={({ field }) => (
+                            <FormField control={form.control} name="categoryId" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Estoque</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                    <FormLabel>ID da Categoria</FormLabel>
+                                    <FormControl><Input placeholder="MLB1234" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                             <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                            <FormField control={form.control} name="catalogProductId" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tipo de Anúncio</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="gold_special">Clássico</SelectItem>
-                                            <SelectItem value="gold_pro">Premium</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <FormLabel>ID do Produto de Catálogo</FormLabel>
+                                    <FormControl><Input placeholder="MLB123456789" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                             <FormField control={form.control} name="accountId" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Publicar na Conta</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {accounts.map(acc => (
-                                                <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="buying_mode" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Modo de Compra</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="buy_it_now">Compre agora</SelectItem>
-                                            <SelectItem value="classified">Catálogo</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                             <FormField control={form.control} name="condition" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Condição</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="new">Novo</SelectItem>
-                                            <SelectItem value="used">Usado</SelectItem>
-                                            <SelectItem value="not_specified">Não especificado</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="price" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Preço</FormLabel>
+                                        <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="quantity" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Estoque</FormLabel>
+                                        <FormControl><Input type="number" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tipo de Anúncio</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="gold_special">Clássico</SelectItem>
+                                                <SelectItem value="gold_pro">Premium</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="accountId" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Publicar na Conta</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {accounts.map(acc => (
+                                                    <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="buying_mode" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Modo de Compra</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="buy_it_now">Compre agora</SelectItem>
+                                                <SelectItem value="classified">Catálogo</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control} name="condition" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Condição</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="new">Novo</SelectItem>
+                                                <SelectItem value="used">Usado</SelectItem>
+                                                <SelectItem value="not_specified">Não especificado</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
 
-                    </CardContent>
-                    <CardFooter>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                            Criar Anúncio
-                        </Button>
-                    </CardFooter>
-                </form>
-            </Form>
-        </Card>
+                        </CardContent>
+                        <CardFooter>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                Criar Anúncio
+                            </Button>
+                        </CardFooter>
+                    </form>
+                </Form>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Database/> Resposta da API</CardTitle>
+                    <CardDescription>A resposta da API do Mercado Livre aparecerá aqui após a tentativa de criação.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
+                        {formState.result ? JSON.stringify(formState.result, null, 2) 
+                        : formState.error ? JSON.stringify({ error: formState.error, details: formState.result }, null, 2)
+                        : 'Aguardando envio...'}
+                    </pre>
+                </CardContent>
+            </Card>
+        </div>
     )
 }
 
@@ -324,7 +341,7 @@ const AccountsList = ({ accounts, isLoading, onFetch }: { accounts: MlAccount[],
     const { toast } = useToast();
     
     return (
-         <Card className="col-span-1 lg:col-span-2">
+         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -460,9 +477,10 @@ export default function TestesMercadoLivrePage() {
                 </p>
             </div>
 
+            <CreateListingForm accounts={accounts} />
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                  <AccountsList accounts={accounts} isLoading={isLoadingAccounts} onFetch={handleFetchAccounts} />
-                 <CreateListingForm accounts={accounts} />
             </div>
 
             <Card>
@@ -529,3 +547,4 @@ export default function TestesMercadoLivrePage() {
         </div>
     );
 }
+

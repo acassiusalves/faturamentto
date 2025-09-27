@@ -982,7 +982,7 @@ export async function saveMyItemsAction(_prevState: any, formData: FormData): Pr
 export async function createCatalogListingAction(
   _prevState: any,
   formData: FormData
-): Promise<{ success: boolean; error: string | null, result: any | null }> {
+): Promise<{ success: boolean; error: string | null; result: any | null }> {
   try {
     const payload: CreateListingPayload = {
         title: formData.get('title') as string,
@@ -1007,7 +1007,7 @@ export async function createCatalogListingAction(
     const result = await createListingFromCatalog(payload);
     
     if (result.error) {
-        throw new Error(result.error);
+        return { success: false, error: result.error, result: result.data };
     }
     
     revalidatePath('/laboratorio/testes-mercado-livre');
@@ -1017,3 +1017,4 @@ export async function createCatalogListingAction(
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
   }
 }
+
