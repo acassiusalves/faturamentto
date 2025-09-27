@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
@@ -985,8 +986,6 @@ export async function createCatalogListingAction(
 ): Promise<{ success: boolean; error: string | null; result: any | null }> {
   try {
     const payload: CreateListingPayload = {
-        title: formData.get('title') as string,
-        category_id: formData.get('categoryId') as string,
         catalog_product_id: formData.get('catalogProductId') as string,
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('quantity')),

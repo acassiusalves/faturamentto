@@ -706,7 +706,6 @@ export type FullFlowResult = {
 
 
 export interface CreateListingPayload {
-  title: string; // Este campo não será enviado para a API, mas usado para buscar category_id
   catalog_product_id: string;
   price: number;
   available_quantity: number;
@@ -714,7 +713,6 @@ export interface CreateListingPayload {
   accountId: string;
   buying_mode: 'buy_it_now' | 'classified';
   condition: 'new' | 'used' | 'not_specified';
-  category_id: string; // Adicionado para ser enviado na criação
 }
 
     

@@ -8,8 +8,6 @@ const ML_API = "https://api.mercadolibre.com";
 export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
         const { 
-            title,
-            category_id,
             catalog_product_id, 
             price, 
             available_quantity, 
@@ -23,17 +21,14 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
 
         // Montar o corpo da requisição para criar o anúncio
         const itemPayload = {
-            title: title, // Título é obrigatório, mesmo para catálogo
-            category_id: category_id, // Categoria é obrigatória
-            catalog_product_id: catalog_product_id,
-            price: price,
+            catalog_product_id,
+            price,
             currency_id: 'BRL',
-            available_quantity: available_quantity,
-            buying_mode: buying_mode,
-            condition: condition,
-            listing_type_id: listing_type_id,
-            pictures: [], // O catálogo fornecerá as fotos, mas o campo deve existir
-            attributes: [], // O catálogo fornecerá os atributos, mas o campo deve existir
+            available_quantity,
+            buying_mode,
+            condition,
+            listing_type_id,
+            // Title, pictures, and attributes are inherited from the catalog product
         };
 
         // Fazer a requisição para criar o anúncio
@@ -79,5 +74,3 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: e.message || "Erro interno do servidor." }, { status: 500 });
     }
 }
-
-    
