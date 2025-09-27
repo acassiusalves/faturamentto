@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
@@ -12,7 +11,7 @@ import {
     lookupProductsAction,
     savePromptAction,
 } from '@/app/actions';
-import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, Product } from '@/lib/types'
+import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, Product, FullFlowResult } from '@/lib/types'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -597,12 +596,12 @@ export default function FeedPage() {
           handleSavePrompt(formData);
       };
 
-    const handleFullFlowIAFinish = (result: any) => {
-        if (result?.result) {
+    const handleFullFlowIAFinish = (result: FullFlowResult | null) => {
+        if (result) {
             try {
-                const organized = JSON.parse(result.result.organizar);
-                const standardized = JSON.parse(result.result.padronizar);
-                const lookup = JSON.parse(result.result.lookup);
+                const organized = JSON.parse(result.organizar);
+                const standardized = JSON.parse(result.padronizar);
+                const lookup = JSON.parse(result.lookup);
                 setStep1Result(organized);
                 setStep2Result(standardized);
                 setStep3Result(lookup);

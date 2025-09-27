@@ -14,7 +14,7 @@ export function BotaoFluxoCompletoIA({
 }: {
   getTextareaValue: () => string;
   getDatabaseValue: () => string;
-  onFinish?: (r: Awaited<ReturnType<typeof processListFullFlowAction>>) => void;
+  onFinish?: (r: Awaited<ReturnType<typeof processListFullFlowAction>>["result"]) => void;
 }) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -33,22 +33,19 @@ export function BotaoFluxoCompletoIA({
     }
 
     startTransition(async () => {
-      try {
-        const formData = new FormData();
-        formData.append('rawList', rawList);
-        formData.append('databaseList', databaseList);
-        
-        const result = await processListFullFlowAction({ result: null, error: null }, formData);
-        
-        if (result.error) {
-            throw new Error(result.error);
-        }
-
-        toast({ title: "Fluxo concluído ✅", description: "Processamento finalizado com sucesso." });
-        onFinish?.(result);
-      } catch (e: any) {
-        toast({ title: "Erro no fluxo", description: e?.message || "Falha ao processar", variant: "destructive" });
+      const formData = new FormData();
+      formData.append('rawList', rawList);
+      formData.append('databaseList', databaseList);
+      
+      const { result, error } = await processListFullFlowAction({ result: null, error: null }, formData);
+      
+      if (error) {
+          toast({ title: "Erro no fluxo", description: String(error), variant: "destructive" });
+          return;
       }
+      
+      toast({ title: "Fluxo concluído ✅", description: "Resultados disponíveis." });
+      onFinish?.(result!);
     });
   };
 

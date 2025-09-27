@@ -10,6 +10,7 @@ import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
 import { parseZplFields, updateFieldAt } from '@/lib/zpl';
 import { runStep, type StepId } from "@/server/ai";
+import { extractJson } from '@/lib/json';
 
 
 async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<number | null> {
@@ -917,7 +918,6 @@ const PROMPTS: Record<StepId, (input: string) => string> = {
   organizar: (txt) => `${organizePromptText}\n\nLISTA BRUTA DO FORNECEDOR:\n'''\n${txt}\n'''`,
   padronizar: (txt) => `${standardizePromptText}\n\nLISTA ORGANIZADA PARA ANÁLISE:\n'''\n${txt}\n'''`,
   lookup: (txt) => `${lookupPromptText}\n\nLISTA PADRONIZADA (Entrada para processar):\n'''\n${txt}\n'''`,
-  // As outras etapas não são usadas neste fluxo, mas mantemos a estrutura
   mapear: (txt) => txt, 
   precificar: (txt) => txt,
 };
@@ -939,13 +939,16 @@ export async function processListFullFlowAction(
     if (!rawList?.trim()) {
         return { result: null, error: "Informe a lista para processar." };
     }
+    if (!databaseList?.trim()) {
+        return { result: null, error: "O banco de dados de produtos está vazio." };
+    }
 
     try {
         const outOrganizar = await runStep("organizar", PROMPTS.organizar(rawList));
         
         let organizedData: OrganizeResult;
         try {
-            organizedData = JSON.parse(outOrganizar);
+            organizedData = extractJson<OrganizeResult>(outOrganizar);
         } catch {
             throw new Error("A etapa de organização retornou um JSON inválido.");
         }
@@ -954,7 +957,7 @@ export async function processListFullFlowAction(
         
         let standardizedData: StandardizeListOutput;
         try {
-            standardizedData = JSON.parse(outPadronizar);
+            standardizedData = extractJson<StandardizeListOutput>(outPadronizar);
         } catch {
             throw new Error("A etapa de padronização retornou um JSON inválido.");
         }
@@ -977,5 +980,6 @@ export async function processListFullFlowAction(
     
 
     
+
 
 

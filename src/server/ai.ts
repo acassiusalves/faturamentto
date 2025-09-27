@@ -3,9 +3,7 @@
 import "server-only";
 import { loadAppSettings } from "@/services/firestore";
 import { getAi } from '@/ai/genkit';
-import { z } from 'genkit';
 import { OpenAI } from 'openai';
-
 
 /** Defina aqui os modelos/IA por etapa */
 export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precificar";
@@ -14,7 +12,7 @@ export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precifi
 export const STEP_EXECUTION: Record<StepId, { provider: "openai" | "gemini"; model: string }> = {
   organizar:  { provider: "openai", model: "gpt-4o-mini" },
   padronizar: { provider: "openai", model: "gpt-4o-mini" },
-  lookup:     { provider: "gemini", model: "gemini-1.5-flash" }, // lookup agora é determinístico, mas deixamos a config
+  lookup:     { provider: "gemini", model: "gemini-1.5-flash" },
   mapear:     { provider: "gemini", model: "gemini-1.5-pro" },
   precificar: { provider: "gemini", model: "gemini-1.5-pro" },
 };
@@ -79,7 +77,7 @@ export async function runStep(step: StepId, prompt: string): Promise<string> {
 
   if (provider === "openai") {
     const key = settings?.openaiApiKey;
-    if (!key) throw new Error("OPENAI: chave não encontrada nas App Settings (página de Mapeamento).");
+    if (!key) throw new Error("OPENAI_API_KEY não encontrada nas App Settings (página de Mapeamento).");
     return await callOpenAI(prompt, model, key);
   } else {
     // A chave do Gemini já é tratada dentro do getAi/callGemini
