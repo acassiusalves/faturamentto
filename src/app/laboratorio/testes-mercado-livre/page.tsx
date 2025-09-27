@@ -116,10 +116,10 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
                                     <FormMessage />
                                 </FormItem>
                             )} />
-                            <FormField control={form.control} name="categoryId" render={({ field }) => (
+                             <FormField control={form.control} name="categoryId" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>ID da Categoria</FormLabel>
-                                    <FormControl><Input placeholder="MLB1234" {...field} /></FormControl>
+                                    <FormControl><Input placeholder="Ex: MLB1055" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )} />
@@ -389,7 +389,7 @@ export default function TestesMercadoLivrePage() {
     
     const { toast } = useToast();
 
-    const handleFetchAccounts = async () => {
+    const handleFetchAccounts = React.useCallback(async () => {
         setIsLoadingAccounts(true);
         try {
             const response = await fetch('/api/ml/accounts');
@@ -398,12 +398,7 @@ export default function TestesMercadoLivrePage() {
                 throw new Error(data.error || 'Falha ao buscar as contas.');
             }
             setAccounts(data.accounts || []);
-            if (data.accounts?.length > 0) {
-                 toast({
-                    title: 'Contas Carregadas!',
-                    description: `Encontradas ${data.accounts.length} contas do Mercado Livre.`
-                });
-            } else {
+            if (!data.accounts || data.accounts.length === 0) {
                  toast({
                     variant: 'destructive',
                     title: 'Nenhuma Conta Encontrada',
@@ -419,7 +414,7 @@ export default function TestesMercadoLivrePage() {
         } finally {
             setIsLoadingAccounts(false);
         }
-    };
+    }, [toast]);
     
     // Automatically fetch accounts on component mount
     useEffect(() => {
@@ -548,3 +543,4 @@ export default function TestesMercadoLivrePage() {
     );
 }
 
+    
