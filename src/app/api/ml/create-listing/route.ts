@@ -6,6 +6,8 @@ import { getMlToken } from '@/services/mercadolivre';
 const ML_API = "https://api.mercadolibre.com";
 
 interface CreateListingPayload {
+    title: string;
+    category_id: string;
     catalog_product_id: string;
     price: number;
     available_quantity: number;
@@ -15,20 +17,11 @@ interface CreateListingPayload {
     condition: 'new' | 'used' | 'not_specified';
 }
 
-async function fetchProductDetails(productId: string, token: string) {
-    const url = `${ML_API}/products/${productId}?attributes=name,category_id`;
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) {
-        const error = await response.json();
-        console.error("Error fetching product details:", error);
-        throw new Error(`Falha ao buscar detalhes do produto de catálogo: ${error.message || response.statusText}`);
-    }
-    return response.json();
-}
-
 export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
         const { 
+            title,
+            category_id,
             catalog_product_id, 
             price, 
             available_quantity, 
@@ -39,17 +32,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         } = payload;
         
         const token = await getMlToken(accountId);
-        
-        // 1. Obter detalhes do produto de catálogo (para pegar category_id e title)
-        const productDetails = await fetchProductDetails(catalog_product_id, token);
-        const category_id = productDetails.category_id;
-        const title = productDetails.name;
 
-        if (!category_id || !title) {
-            throw new Error('Não foi possível obter a categoria ou o título do produto de catálogo.');
-        }
-
-        // 2. Montar o corpo da requisição para criar o anúncio
+        // Montar o corpo da requisição para criar o anúncio
         const itemPayload = {
             title: title,
             catalog_product_id: catalog_product_id,
@@ -64,7 +48,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             attributes: [], // O catálogo fornecerá os atributos
         };
 
-        // 3. Fazer a requisição para criar o anúncio
+        // Fazer a requisição para criar o anúncio
         const createItemUrl = `${ML_API}/items`;
         const response = await fetch(createItemUrl, {
             method: 'POST',

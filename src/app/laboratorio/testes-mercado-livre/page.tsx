@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
-import type { SaleCost, SaleCosts, MyItem, MlAccount, CreateListingPayload } from '@/lib/types';
+import type { SaleCost, SaleCosts, MyItem, MlAccount } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -27,6 +27,8 @@ import { createCatalogListingAction } from '@/app/actions';
 
 
 const listingSchema = z.object({
+    title: z.string().min(1, 'O título é obrigatório.'),
+    categoryId: z.string().min(1, 'A categoria é obrigatória (ex: MLB1234).'),
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
@@ -38,11 +40,23 @@ const listingSchema = z.object({
 
 type ListingFormValues = z.infer<typeof listingSchema>;
 
-// Mock, pois o componente real não está no contexto
 function MercadoLivreLogo({ className }: { className?: string }) {
-    const [failed, setFailed] = React.useState(false);
-    if (failed) return <HandCoins aria-label="Mercado Livre" className={cn("h-6 w-6", className)} />;
-    return <Image src="/icons/mp_logo_mercadolivre.jpg" alt="Mercado Livre Logo" width={24} height={24} className={cn("h-6 w-auto", className)} onError={() => setFailed(true)} />;
+  const [failed, setFailed] = React.useState(false);
+
+  if (failed) {
+    return <HandCoins aria-label="Mercado Livre" className={cn("h-6 w-6", className)} />;
+  }
+
+  return (
+    <Image
+      src="/icons/mp_logo_mercadolivre.jpg"
+      alt="Mercado Livre Logo"
+      width={24}
+      height={24}
+      className={cn("h-6 w-auto", className)}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
@@ -53,6 +67,8 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
     const form = useForm<ListingFormValues>({
         resolver: zodResolver(listingSchema),
         defaultValues: {
+            title: '',
+            categoryId: '',
             catalogProductId: '',
             price: undefined,
             quantity: 1,
@@ -91,6 +107,20 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <CardContent className="space-y-4">
+                         <FormField control={form.control} name="title" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Título do Anúncio</FormLabel>
+                                <FormControl><Input placeholder="Ex: Celular Xiaomi Poco X6 Pro 5g 256gb Global" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="categoryId" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>ID da Categoria</FormLabel>
+                                <FormControl><Input placeholder="MLB1234" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                         <FormField control={form.control} name="catalogProductId" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>ID do Produto de Catálogo</FormLabel>
@@ -499,5 +529,3 @@ export default function TestesMercadoLivrePage() {
         </div>
     );
 }
-
-    

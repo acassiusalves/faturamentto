@@ -706,6 +706,8 @@ export type FullFlowResult = {
 
 
 export interface CreateListingPayload {
+    title: string;
+    category_id: string;
     catalog_product_id: string;
     price: number;
     available_quantity: number;
@@ -714,5 +716,3 @@ export interface CreateListingPayload {
     buying_mode: 'buy_it_now' | 'classified';
     condition: 'new' | 'used' | 'not_specified';
 }
-
-    

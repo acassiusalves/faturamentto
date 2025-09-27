@@ -4,7 +4,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, saveMyItems, loadMyItems } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -984,29 +984,27 @@ export async function createCatalogListingAction(
   formData: FormData
 ): Promise<{ success: boolean; error: string | null, result: any | null }> {
   try {
-    const catalogProductId = formData.get('catalogProductId') as string;
-    const price = Number(formData.get('price'));
-    const quantity = Number(formData.get('quantity'));
-    const listingTypeId = formData.get('listingTypeId') as string;
-    const accountId = formData.get('accountId') as string;
-    const buying_mode = formData.get('buying_mode') as 'buy_it_now' | 'classified';
-    const condition = formData.get('condition') as 'new' | 'used' | 'not_specified';
-
-    if (!catalogProductId || !price || !quantity || !listingTypeId || !accountId || !buying_mode || !condition) {
-        throw new Error('Todos os campos são obrigatórios.');
-    }
-
-    const { createListingFromCatalog } = await import('@/app/api/ml/create-listing/route');
+    const payload: CreateListingPayload = {
+        title: formData.get('title') as string,
+        category_id: formData.get('categoryId') as string,
+        catalog_product_id: formData.get('catalogProductId') as string,
+        price: Number(formData.get('price')),
+        available_quantity: Number(formData.get('quantity')),
+        listing_type_id: formData.get('listingTypeId') as string,
+        accountId: formData.get('accountId') as string,
+        buying_mode: formData.get('buying_mode') as 'buy_it_now' | 'classified',
+        condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
+    };
     
-    const result = await createListingFromCatalog({
-        catalog_product_id: catalogProductId,
-        price,
-        available_quantity: quantity,
-        listing_type_id: listingTypeId,
-        accountId: accountId,
-        buying_mode,
-        condition,
-    });
+    // Simple validation
+    for (const [key, value] of Object.entries(payload)) {
+        if (!value) {
+            throw new Error(`O campo '${key}' é obrigatório.`);
+        }
+    }
+    
+    const { createListingFromCatalog } = await import('@/app/api/ml/create-listing/route');
+    const result = await createListingFromCatalog(payload);
     
     if (result.error) {
         throw new Error(result.error);
@@ -1019,6 +1017,3 @@ export async function createCatalogListingAction(
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
   }
 }
-    
-
-    
