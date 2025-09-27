@@ -4,7 +4,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -920,12 +920,7 @@ const PROMPTS: Record<StepId, (input: string) => string> = {
   lookup: (txt) => `${lookupPromptText}\n\nLISTA PADRONIZADA (Entrada para processar):\n'''\n${txt}\n'''`,
   mapear: (txt) => txt, 
   precificar: (txt) => txt,
-};
-
-export type FullFlowResult = {
-  organizar: string;
-  padronizar: string;
-  lookup: string;
+  teste_gpt: (txt) => txt,
 };
 
 export async function processListFullFlowAction(
@@ -935,14 +930,14 @@ export async function processListFullFlowAction(
     const rawList = formData.get('rawList') as string;
     const databaseList = formData.get('databaseList') as string;
 
-    if (!rawList?.trim()) {
-        return { result: null, error: "Informe a lista para processar." };
-    }
-    if (!databaseList?.trim()) {
-        return { result: null, error: "O banco de dados de produtos está vazio." };
-    }
-
     try {
+        if (!rawList?.trim()) {
+            return { result: null, error: "Informe a lista para processar." };
+        }
+        if (!databaseList?.trim()) {
+            return { result: null, error: "O banco de dados de produtos está vazio." };
+        }
+    
         const outOrganizar = await runStep("organizar", PROMPTS.organizar(rawList));
         
         let organizedData: OrganizeResult;
@@ -978,7 +973,22 @@ export async function processListFullFlowAction(
     }
 }
     
+export async function runOpenAiAction(
+    _prevState: any,
+    formData: FormData
+): Promise<{ result: string | null; error: string | null }> {
+    const prompt = formData.get('prompt') as string;
+    if (!prompt) {
+        return { result: null, error: 'O prompt não pode estar vazio.' };
+    }
 
+    try {
+        const result = await runStep('teste_gpt', prompt);
+        return { result, error: null };
+    } catch (e: any) {
+        return { result: null, error: e.message || 'Falha ao executar o teste com GPT.' };
+    }
+}
     
 
 

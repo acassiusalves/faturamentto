@@ -6,7 +6,7 @@ import { getAi } from '@/ai/genkit';
 import { OpenAI } from 'openai';
 
 /** Defina aqui os modelos/IA por etapa */
-export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precificar";
+export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precificar" | "teste_gpt";
 
 
 export const STEP_EXECUTION: Record<StepId, { provider: "openai" | "gemini"; model: string }> = {
@@ -15,6 +15,7 @@ export const STEP_EXECUTION: Record<StepId, { provider: "openai" | "gemini"; mod
   lookup:     { provider: "gemini", model: "gemini-1.5-flash" },
   mapear:     { provider: "gemini", model: "gemini-1.5-pro" },
   precificar: { provider: "gemini", model: "gemini-1.5-pro" },
+  teste_gpt:  { provider: "openai", model: "gpt-4o-mini" },
 };
 
 /** Chamada OpenAI via SDK, server-only */

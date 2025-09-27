@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste } from 'lucide-react';
@@ -70,6 +71,7 @@ export const navLinks = [
         { href: "/laboratorio", label: "Painel do Laboratório", icon: Beaker },
         { href: "/laboratorio/testes-mercado-livre", label: "Testes Mercado Livre", icon: MercadoLivreLogo },
         { href: "/laboratorio/analise-zpl", label: "Análise de ZPL", icon: ClipboardPaste },
+        { href: "/laboratorio/testes-gpt", label: "Testes GPT", icon: BrainCircuit },
       ]
     },
 ];
@@ -124,4 +126,5 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio': ['admin', 'socio'],
     '/laboratorio/testes-mercado-livre': ['admin', 'socio'],
     '/laboratorio/analise-zpl': ['admin', 'socio'],
+    '/laboratorio/testes-gpt': ['admin', 'socio'],
 };
