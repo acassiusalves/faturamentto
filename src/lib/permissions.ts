@@ -2,7 +2,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive } from 'lucide-react';
 import { MercadoLivreLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -44,7 +44,8 @@ export const navLinks = [
       subItems: [
         { href: "/arquivo", label: "Históricos de Atividades", icon: FileText },
         { href: "/arquivo/status-ideris", label: "Status Ideris", icon: ListChecks },
-        { href: "/arquivo/dados-mercado-livre", label: "Dados Mercado Livre", icon: Database },
+        { href: "/arquivo/dados-mercado-livre", label: "Dados de Categoria (ML)", icon: Database },
+        { href: "/arquivo/meus-anuncios-salvos", label: "Meus Anúncios Salvos", icon: HardDrive },
         { href: "/arquivo/dados-frete-mercado-livre", label: "Dados Frete Mercado Livre", icon: Truck },
       ]
     },
@@ -105,6 +106,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/arquivo/status-ideris': ['admin', 'socio', 'financeiro', 'sac'],
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],
     '/arquivo/dados-frete-mercado-livre': ['admin', 'socio', 'financeiro'],
+    '/arquivo/meus-anuncios-salvos': ['admin', 'socio', 'financeiro'],
     '/relatorios': ['admin', 'socio', 'financeiro'],
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
@@ -128,3 +130,5 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 };
+
+    

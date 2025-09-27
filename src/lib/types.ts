@@ -581,6 +581,41 @@ export interface SavedMlAnalysis {
   results: MlAnalysisResult[];
 }
 
+// Mercado Livre My Items Type
+export interface MyItem {
+    id: string;
+    title: string;
+    price: number;
+    status: string;
+    permalink: string;
+    thumbnail: string;
+    catalog_product_id?: string | null;
+    currency_id: string;
+    sale_terms: any[];
+    warranty: string;
+    accepts_mercadopago: boolean;
+    available_quantity: number;
+    sold_quantity: number;
+    shipping: any;
+    category_id: string;
+    pictures: { url: string; secure_url: string }[];
+    seller_custom_field: string | null;
+    attributes: { id: string; value_name: string | null; name: string }[];
+    variations: {
+        id: number;
+        price: number;
+        available_quantity: number;
+        sold_quantity: number;
+        seller_custom_field: string | null;
+        attribute_combinations: { id: string; name: string; value_id: string | null; value_name: string }[];
+        attributes: { id: string; value_name: string | null; name: string }[];
+        picture_ids: string[];
+    }[];
+    accountId: string; // To know which account it belongs to
+    savedAt: string; // ISO Date
+}
+
+
 // Mercado Livre Cost Calculation Types
 export interface SaleCost {
     listing_type_id: string;
@@ -656,3 +691,6 @@ export type FullFlowResult = {
     lookup: string;
 };
 
+
+
+    

@@ -15,8 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { useFormState } from 'react-dom';
-import { updateMlAccountNicknameAction } from '@/app/actions';
+import { updateMlAccountNicknameAction, saveMyItemsAction } from '@/app/actions';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 interface MyItem {
@@ -60,6 +61,46 @@ const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attr
     const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
     return skuAttribute?.value_name || sellerCustomField || 'N/A';
 };
+
+function SaveItemsButton({ items, accountId }: { items: MyItem[], accountId: string }) {
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const handleSave = async () => {
+        if (!items || items.length === 0) return;
+        setIsSaving(true);
+        const formData = new FormData();
+        formData.append('items', JSON.stringify(items));
+        formData.append('accountId', accountId);
+
+        try {
+            const result = await saveMyItemsAction({}, formData);
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            toast({
+                title: "Sucesso!",
+                description: `${result.count} anúncios foram salvos/atualizados no banco de dados.`
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao Salvar',
+                description: error.message
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Button onClick={handleSave} disabled={isSaving || items.length === 0}>
+            {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+            {isSaving ? 'Salvando...' : `Salvar ${items.length} Anúncios no Sistema`}
+        </Button>
+    )
+}
+
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
@@ -129,6 +170,7 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                 </CardContent>
             )}
             {items.length > 0 && !isLoading && (
+                <>
                  <CardContent>
                     <Accordion type="single" collapsible className="w-full space-y-2">
                         {items.map(item => {
@@ -210,6 +252,10 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                         )})}
                     </Accordion>
                 </CardContent>
+                <CardFooter>
+                    <SaveItemsButton items={items} accountId={accountId} />
+                </CardFooter>
+                </>
             )}
         </Card>
     )
@@ -359,7 +405,7 @@ export default function AnunciosPage() {
             <div>
                 <h1 className="text-3xl font-bold font-headline">Gerenciador de Anúncios</h1>
                 <p className="text-muted-foreground">
-                    Busque e visualize os anúncios ativos das suas contas no Mercado Livre.
+                    Busque, visualize e salve os anúncios ativos das suas contas no Mercado Livre.
                 </p>
             </div>
             
@@ -368,3 +414,5 @@ export default function AnunciosPage() {
         </div>
     );
 }
+
+    

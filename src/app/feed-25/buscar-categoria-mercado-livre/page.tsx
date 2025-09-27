@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChevronRight, Home, ShoppingCart, Bot, Sparkles, Save, Star } from 'lucide-react';
-import type { MLCategory, SavedMlAnalysis, Trend } from '@/lib/types';
+import type { MLCategory, SavedMlAnalysis, Trend, BestSellerItem, MyItem } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,16 +20,6 @@ import { TrendingUp, FileText } from 'lucide-react';
 import { generateEmbedding } from '@/ai/flows/generate-embedding-flow';
 
 
-// Interface para os itens mais vendidos
-interface BestSellerItem {
-  id: string;
-  position: number | null;
-  title: string;
-  price: number;
-  thumbnail: string | null;
-  permalink: string | null;
-  model?: string;
-}
 
 interface AutomatedResult {
     category: MLCategory;
@@ -632,3 +622,5 @@ export default function BuscarCategoriaMercadoLivrePage() {
   );
 }
 
+
+    

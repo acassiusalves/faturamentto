@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -877,6 +877,33 @@ export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
   await deleteDoc(docRef);
 };
 
+// --- MY ITEMS (ML) ---
+export async function saveMyItems(items: MyItem[], accountId: string): Promise<number> {
+    const batch = writeBatch(db);
+    const itemsCol = collection(db, 'ml_items');
+    
+    items.forEach(item => {
+        const docRef = doc(itemsCol, item.id);
+        const dataToSave = { 
+            ...item, 
+            accountId: accountId, // Add accountId to the data
+            savedAt: new Date().toISOString() 
+        };
+        batch.set(docRef, toFirestore(dataToSave), { merge: true });
+    });
+
+    await batch.commit();
+    return items.length;
+}
+
+export async function loadMyItems(): Promise<MyItem[]> {
+    const itemsCol = collection(db, 'ml_items');
+    const q = query(itemsCol, orderBy('savedAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => fromFirestore({ ...d.data(), id: d.id }) as MyItem);
+}
+
+
 export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
   try {
     const analyses = await loadMlAnalyses();
@@ -1001,3 +1028,5 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     return { count: updatedCount };
 };
 
+
+    

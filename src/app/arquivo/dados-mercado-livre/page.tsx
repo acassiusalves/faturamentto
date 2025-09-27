@@ -41,7 +41,9 @@ export default function DadosMercadoLivrePage() {
     }
     const lowercasedTerm = searchTerm.toLowerCase();
     return analyses.filter(analysis => 
+        analysis.mainCategoryName.toLowerCase().includes(lowercasedTerm) ||
         analysis.results.some(result => 
+            result.category.name.toLowerCase().includes(lowercasedTerm) ||
             result.trends.some(trend => 
                 trend.keyword.toLowerCase().includes(lowercasedTerm)
             )
@@ -101,7 +103,7 @@ export default function DadosMercadoLivrePage() {
         <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                placeholder="Buscar por tendência..."
+                placeholder="Buscar por tendência ou categoria..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -195,7 +197,7 @@ export default function DadosMercadoLivrePage() {
                     <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground border-2 border-dashed rounded-lg">
                         <Database className="h-16 w-16 mb-4" />
                         <p className="font-semibold">Nenhum dado encontrado.</p>
-                        <p>Tente um termo de busca diferente ou realize uma nova análise na página de busca.</p>
+                        <p>Tente um termo de busca diferente ou realize uma nova análise na página de <Link href="/feed-25/buscar-categoria-mercado-livre" className="underline font-semibold">Busca de Categorias</Link>.</p>
                     </div>
                 </CardContent>
             </Card>
@@ -204,3 +206,4 @@ export default function DadosMercadoLivrePage() {
   );
 }
 
+    
