@@ -3,7 +3,9 @@
 import "server-only";
 import { loadAppSettings } from "@/services/firestore";
 import { getAi } from '@/ai/genkit';
+import { z } from 'genkit';
 import { OpenAI } from 'openai';
+
 
 /** Defina aqui os modelos/IA por etapa */
 export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precificar" | "teste_gpt";

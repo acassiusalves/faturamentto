@@ -264,6 +264,7 @@ export default function FeedPage() {
     const [progress, setProgress] = useState(0);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const initialListRef = useRef<HTMLTextAreaElement>(null);
+    const databaseListRef = useRef<HTMLTextAreaElement>(null);
 
     // Form inputs
     const [initialProductList, setInitialProductList] = useState('');
@@ -614,6 +615,7 @@ export default function FeedPage() {
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
+             <Textarea ref={databaseListRef} value={databaseList} readOnly className="hidden" />
             <div className="flex justify-end items-center gap-4">
                 <Button variant="ghost" asChild>
                     <Link href="/feed-25/lista">
@@ -656,8 +658,8 @@ export default function FeedPage() {
                                 Fluxo Completo (Gemini)
                             </Button>
                             <BotaoFluxoCompletoIA
-                                getTextareaValue={() => initialListRef.current?.value || ""}
-                                getDatabaseValue={() => databaseList}
+                                textareaRef={initialListRef}
+                                databaseRef={databaseListRef}
                                 onFinish={handleFullFlowIAFinish}
                             />
                         </div>
