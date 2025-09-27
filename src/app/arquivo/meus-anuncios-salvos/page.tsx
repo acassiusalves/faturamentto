@@ -169,7 +169,7 @@ export default function MeusAnunciosSalvosPage() {
                                      <TableRow key={item.id}>
                                          <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <MercadoLivreLogo className="h-4 w-auto" />
+                                                <MercadoLivreLogo className="h-6 w-auto" />
                                                 <span>{item.marketplace}</span>
                                             </div>
                                         </TableCell>
@@ -254,5 +254,3 @@ export default function MeusAnunciosSalvosPage() {
         </div>
     )
 }
-
-    
