@@ -613,6 +613,7 @@ export interface MyItem {
     }[];
     accountId: string; // To know which account it belongs to
     savedAt: string; // ISO Date
+    marketplace?: string; // Add marketplace field
 }
 
 

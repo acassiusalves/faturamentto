@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { loadMyItems } from '@/services/firestore';
 import type { MyItem } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MercadoLivreLogo } from '@/components/icons';
 
 export default function MeusAnunciosSalvosPage() {
     const [items, setItems] = useState<MyItem[]>([]);
@@ -103,7 +105,7 @@ export default function MeusAnunciosSalvosPage() {
         <div className="flex flex-col gap-8 p-4 md:p-8">
             <div>
                 <h1 className="text-3xl font-bold font-headline">Meus Anúncios Salvos</h1>
-                <p className="text-muted-foreground">Consulte os anúncios do Mercado Livre que foram salvos no banco de dados.</p>
+                <p className="text-muted-foreground">Consulte os anúncios que foram salvos no banco de dados.</p>
             </div>
             
             <Card>
@@ -153,6 +155,8 @@ export default function MeusAnunciosSalvosPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead>Marketplace</TableHead>
+                                    <TableHead>Conta</TableHead>
                                     <TableHead>Anúncio</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Disponível</TableHead>
@@ -163,6 +167,15 @@ export default function MeusAnunciosSalvosPage() {
                             <TableBody>
                                 {paginatedItems.length > 0 ? paginatedItems.map(item => (
                                      <TableRow key={item.id}>
+                                         <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <MercadoLivreLogo className="h-4 w-auto" />
+                                                <span>{item.marketplace}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{item.accountId}</Badge>
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-4">
                                                 <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
@@ -191,7 +204,7 @@ export default function MeusAnunciosSalvosPage() {
                                     </TableRow>
                                 )) : (
                                      <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                             Nenhum anúncio encontrado com os filtros aplicados.
                                         </TableCell>
                                     </TableRow>

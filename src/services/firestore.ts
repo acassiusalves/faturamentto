@@ -887,7 +887,8 @@ export async function saveMyItems(items: MyItem[], accountId: string): Promise<n
         const dataToSave = { 
             ...item, 
             accountId: accountId, // Add accountId to the data
-            savedAt: new Date().toISOString() 
+            savedAt: new Date().toISOString(),
+            marketplace: "Mercado Livre" // Add marketplace field
         };
         batch.set(docRef, toFirestore(dataToSave), { merge: true });
     });
