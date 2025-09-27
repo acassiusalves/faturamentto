@@ -45,6 +45,12 @@ export function MercadoLivreLogo({ className, ...props }: React.SVGProps<SVGSVGE
   );
 }
 
+export function MercadoLivreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <HandCoins {...props} />
+  )
+}
+
 
 export function AmazonLogo(props: SVGProps<SVGSVGElement>) {
   return (
