@@ -5,6 +5,19 @@ import type { CreateListingPayload } from '@/lib/types';
 
 const ML_API = "https://api.mercadolibre.com";
 
+async function getFirstVariationId(catalogProductId: string, token: string): Promise<string | null> {
+    // Busca o produto de catálogo para descobrir variações
+    const url = `${ML_API}/products/${catalogProductId}`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    const p = await r.json();
+    // Alguns catálogos expõem variações em p.variations
+    const v = Array.isArray(p?.variations) && p.variations.length ? p.variations[0] : null;
+    // A chave costuma ser 'id' (o ID da variação do catálogo)
+    return v?.id ? String(v.id) : null;
+}
+
+
 export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
         const { 
@@ -19,9 +32,10 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         
         const token = await getMlToken(accountId);
 
-        const itemPayload = {
-            title: "Anúncio de Catálogo", // Título provisório, o ML irá sobrepor
-            category_id: "MLB1055", // Categoria provisória, o ML irá sobrepor
+        // Tente descobrir a variação do catálogo (se existir)
+        const variationId = await getFirstVariationId(catalog_product_id, token);
+
+        const itemPayload: Record<string, any> = {
             catalog_product_id,
             price,
             currency_id: 'BRL',
@@ -30,6 +44,11 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             condition,
             listing_type_id,
         };
+
+        // Se o produto de catálogo tem variações, informe a variação escolhida
+        if (variationId) {
+            itemPayload.catalog_product_variation_id = variationId;
+        }
 
         const createItemUrl = `${ML_API}/items`;
 

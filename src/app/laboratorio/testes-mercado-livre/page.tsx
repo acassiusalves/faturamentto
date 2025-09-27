@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -33,8 +34,8 @@ const listingSchema = z.object({
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
     accountId: z.string().min(1, 'Selecione a conta para publicar.'),
-    buying_mode: z.enum(['buy_it_now'], { required_error: 'O modo de compra é obrigatório.' }),
-    condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }),
+    buying_mode: z.enum(['buy_it_now'], { required_error: 'O modo de compra é obrigatório.' }).default('buy_it_now'),
+    condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }).default('new'),
 });
 
 type ListingFormValues = z.infer<typeof listingSchema>;
@@ -147,39 +148,22 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
                                     </FormItem>
                                 )} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="buying_mode" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Modo de Compra</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="buy_it_now">Compre agora</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control} name="condition" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Condição</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="new">Novo</SelectItem>
-                                                <SelectItem value="used">Usado</SelectItem>
-                                                <SelectItem value="not_specified">Não especificado</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-
+                             <FormField control={form.control} name="condition" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Condição</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="new">Novo</SelectItem>
+                                            <SelectItem value="used">Usado</SelectItem>
+                                            <SelectItem value="not_specified">Não especificado</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
                         </CardContent>
                         <CardFooter>
                             <Button type="submit" disabled={isSubmitting}>
