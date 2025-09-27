@@ -36,7 +36,6 @@ interface MyItem {
     shipping: any;
     category_id: string;
     pictures: { url: string; secure_url: string }[];
-    costs?: SaleCosts | { id: string; error: string }; // Adiciona o campo de custos
 }
 
 interface MlAccount {
@@ -48,12 +47,10 @@ interface MlAccount {
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingCosts, setIsLoadingCosts] = useState(false);
     const { toast } = useToast();
 
     const handleFetchItems = async () => {
         setIsLoading(true);
-        setIsLoadingCosts(true);
         setItems([]);
         try {
             const response = await fetch(`/api/ml/my-items?account=${accountId}`);
@@ -71,29 +68,6 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                     title: 'Sucesso!',
                     description: `${fetchedItems.length} anúncios ativos foram encontrados para ${accountName}.`
                 });
-
-                // Agora, busque os custos para os itens encontrados
-                const listingIds = fetchedItems.map(item => item.id);
-                const costsResponse = await fetch('/api/ml/costs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ listingIds }),
-                });
-
-                const costsData = await costsResponse.json();
-                if (costsResponse.ok && costsData.items) {
-                    const costsMap = new Map(costsData.items.map((c: SaleCosts) => [c.id, c]));
-                    setItems(currentItems => currentItems.map(item => ({
-                        ...item,
-                        costs: costsMap.get(item.id)
-                    })));
-                } else {
-                     toast({
-                        variant: 'destructive',
-                        title: 'Aviso',
-                        description: 'Não foi possível buscar os custos dos anúncios.',
-                    });
-                }
             } else {
                  toast({
                     title: 'Nenhum Anúncio',
@@ -109,7 +83,6 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
             });
         } finally {
             setIsLoading(false);
-            setIsLoadingCosts(false);
         }
     };
     
@@ -130,11 +103,11 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                     {isLoading ? 'Buscando...' : 'Buscar Anúncios'}
                 </Button>
             </CardHeader>
-            {(isLoading || isLoadingCosts) && (
+            {isLoading && (
                 <CardContent>
                     <div className="flex items-center justify-center p-8 gap-2">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p>{isLoading ? "Buscando anúncios..." : "Calculando custos..."}</p>
+                        <p>Buscando anúncios...</p>
                     </div>
                 </CardContent>
             )}
@@ -167,7 +140,7 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4">
-                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <h4 className="font-semibold flex items-center gap-1.5"><Info /> Informações Gerais</h4>
                                             <p className="text-sm">Garantia: <span className="font-medium">{item.warranty || 'Não especificada'}</span></p>
@@ -187,33 +160,6 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                                             <div className="flex flex-wrap gap-1">
                                                 {item.shipping.tags.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
                                             </div>
-                                        </div>
-                                         <div className="space-y-2 md:col-span-2 lg:col-span-1">
-                                             <h4 className="font-semibold flex items-center gap-1.5"><DollarSign /> Custos</h4>
-                                            {item.costs && !('error' in item.costs) ? (
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Anúncio</TableHead>
-                                                            <TableHead className="text-right">Comissão</TableHead>
-                                                            <TableHead className="text-right">Taxa Fixa</TableHead>
-                                                            <TableHead className="text-right font-bold">Líquido</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {item.costs.costs.map(cost => (
-                                                            <TableRow key={cost.listing_type_id}>
-                                                                <TableCell className="font-medium">{cost.listing_type_name}</TableCell>
-                                                                <TableCell className="text-right">{formatCurrency(cost.sale_fee)}</TableCell>
-                                                                <TableCell className="text-right">{formatCurrency(cost.fixed_fee)}</TableCell>
-                                                                <TableCell className="text-right font-bold text-primary">{formatCurrency(cost.net_amount)}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            ) : (
-                                                <p className="text-sm text-destructive">{isLoadingCosts ? <Loader2 className="animate-spin inline mr-2"/> : ''} {item.costs?.error || 'Custos não calculados.'}</p>
-                                            )}
                                         </div>
                                    </div>
                                 </AccordionContent>
