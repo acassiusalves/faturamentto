@@ -221,12 +221,15 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
+    const mlAccounts = await loadMlAccounts();
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.nickname || acc.id]));
+
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
         if (item.status === 'active' && item.catalog_product_id) {
             const catalogId = item.catalog_product_id;
-            const accountName = item.accountId; // The accountId is saved with the item
+            const accountName = accountIdToNameMap.get(item.accountId) || item.accountId;
 
             if (!allActiveCatalogs.has(catalogId)) {
                 allActiveCatalogs.set(catalogId, []);
@@ -949,16 +952,20 @@ export async function saveMyItemsAction(_prevState: any, formData: FormData): Pr
     try {
         const itemsJson = formData.get('items') as string;
         const accountId = formData.get('accountId') as string;
+        const postedOnAccounts = JSON.parse(formData.get('postedOnAccounts') as string || '[]');
 
         if (!itemsJson || !accountId) {
             throw new Error("Dados de itens ou ID da conta não fornecidos.");
         }
         
-        const items = JSON.parse(itemsJson);
+        let items = JSON.parse(itemsJson);
 
         if (!Array.isArray(items)) {
             throw new Error("Formato de itens inválido.");
         }
+        
+        // Add postedOnAccounts to each item before saving
+        items = items.map(item => ({ ...item, postedOnAccounts }));
         
         const count = await saveMyItems(items, accountId);
         
@@ -972,6 +979,41 @@ export async function saveMyItemsAction(_prevState: any, formData: FormData): Pr
     }
 }
 
+export async function createCatalogListingAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ success: boolean; error: string | null, result: any | null }> {
+  try {
+    const catalogProductId = formData.get('catalogProductId') as string;
+    const price = Number(formData.get('price'));
+    const quantity = Number(formData.get('quantity'));
+    const listingTypeId = formData.get('listingTypeId') as string;
+    const accountId = formData.get('accountId') as string;
+
+    if (!catalogProductId || !price || !quantity || !listingTypeId || !accountId) {
+        throw new Error('Todos os campos são obrigatórios.');
+    }
+
+    const { createListingFromCatalog } = await import('@/app/api/ml/create-listing/route');
+    
+    const result = await createListingFromCatalog({
+        catalog_product_id: catalogProductId,
+        price,
+        available_quantity: quantity,
+        listing_type_id: listingTypeId,
+        accountId: accountId,
+    });
+    
+    if (result.error) {
+        throw new Error(result.error);
+    }
+    
+    return { success: true, error: null, result: result.data };
+
+  } catch(e: any) {
+    return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
+  }
+}
     
 
     

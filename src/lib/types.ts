@@ -345,6 +345,17 @@ export interface MercadoLivreCredentials {
   nickname?: string; // Adding nickname to the credentials
 }
 
+export interface MlAccount {
+    id: string; // Document ID from Firestore
+    nickname?: string;
+    appId: string;
+    clientSecret: string;
+    refreshToken: string;
+    redirectUri: string;
+    apiStatus?: ApiKeyStatus;
+}
+
+
 // -- App Settings --
 export interface AppSettings {
     iderisPrivateKey?: string;
@@ -614,6 +625,7 @@ export interface MyItem {
     accountId: string; // To know which account it belongs to
     savedAt: string; // ISO Date
     marketplace?: string; // Add marketplace field
+    postedOnAccounts?: string[];
 }
 
 

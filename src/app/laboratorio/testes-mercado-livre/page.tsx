@@ -7,8 +7,8 @@ import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, Users } from 'lucide-react';
-import type { SaleCost, SaleCosts } from '@/lib/types';
+import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
+import type { SaleCost, SaleCosts, MyItem, MlAccount } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,21 +16,138 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFormState, useFormStatus } from 'react-dom';
+import { createCatalogListingAction } from '@/app/actions';
 
-interface MyItem {
-    id: string;
-    title: string;
-    price: number;
-    status: string;
-    permalink: string;
-    thumbnail: string;
-    catalog_product_id?: string | null;
-}
 
-interface MlAccount {
-    id: string; // Document ID from Firestore
-    nickname?: string;
-    // ... other fields if needed
+const listingSchema = z.object({
+    catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
+    price: z.coerce.number().positive('O preço deve ser maior que zero.'),
+    quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
+    listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
+    accountId: z.string().min(1, 'Selecione a conta para publicar.'),
+});
+
+type ListingFormValues = z.infer<typeof listingSchema>;
+
+
+function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
+    const { toast } = useToast();
+    const [formState, formAction] = useFormState(createCatalogListingAction, { success: false, error: null, result: null });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const form = useForm<ListingFormValues>({
+        resolver: zodResolver(listingSchema),
+        defaultValues: {
+            catalogProductId: '',
+            price: undefined,
+            quantity: 1,
+        }
+    });
+
+    const onSubmit = async (data: ListingFormValues) => {
+        setIsSubmitting(true);
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+            formData.append(key, String(value));
+        });
+        
+        await formAction(formData);
+        setIsSubmitting(false);
+    }
+    
+    useState(() => {
+        if (formState?.error) {
+            toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
+        }
+        if (formState?.success && formState.result) {
+            toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
+            form.reset();
+        }
+    }, [formState, toast, form]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><PlusCircle /> Criar Anúncio de Catálogo</CardTitle>
+                <CardDescription>Crie um novo anúncio em uma de suas contas a partir de um ID de produto de catálogo do ML.</CardDescription>
+            </CardHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <CardContent className="space-y-4">
+                        <FormField control={form.control} name="catalogProductId" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>ID do Produto de Catálogo</FormLabel>
+                                <FormControl><Input placeholder="MLB123456789" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="price" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Preço</FormLabel>
+                                    <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                             <FormField control={form.control} name="quantity" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Estoque</FormLabel>
+                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Anúncio</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="gold_special">Clássico</SelectItem>
+                                            <SelectItem value="gold_pro">Premium</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                             <FormField control={form.control} name="accountId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Publicar na Conta</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {accounts.map(acc => (
+                                                <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                            Criar Anúncio
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Form>
+        </Card>
+    )
 }
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
@@ -129,43 +246,9 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
     )
 }
 
-const AccountsList = () => {
-    const [accounts, setAccounts] = useState<MlAccount[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+const AccountsList = ({ accounts, isLoading, onFetch }: { accounts: MlAccount[], isLoading: boolean, onFetch: () => void }) => {
     const { toast } = useToast();
-
-    const handleFetchAccounts = async () => {
-        setIsLoading(true);
-        try {
-            const response = await fetch('/api/ml/accounts');
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Falha ao buscar as contas.');
-            }
-            setAccounts(data.accounts || []);
-            if (data.accounts?.length > 0) {
-                 toast({
-                    title: 'Contas Carregadas!',
-                    description: `Encontradas ${data.accounts.length} contas do Mercado Livre.`
-                });
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Nenhuma Conta Encontrada',
-                    description: `Nenhuma conta encontrada na coleção 'mercadoLivreAccounts'.`
-                });
-            }
-        } catch (error: any) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro ao Buscar Contas',
-                description: error.message,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    
     return (
          <Card className="col-span-1 lg:col-span-2">
             <CardHeader>
@@ -178,7 +261,7 @@ const AccountsList = () => {
                 </CardDescription>
             </CardHeader>
              <CardContent>
-                <Button onClick={handleFetchAccounts} disabled={isLoading}>
+                <Button onClick={onFetch} disabled={isLoading}>
                     {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
                     {isLoading ? 'Buscando...' : 'Buscar Contas Cadastradas'}
                 </Button>
@@ -209,8 +292,43 @@ export default function TestesMercadoLivrePage() {
     const [isLoadingCosts, setIsLoadingCosts] = useState(false);
     const [costs, setCosts] = useState<SaleCosts | null>(null);
     const [rawResponse, setRawResponse] = useState<any | null>(null);
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
+    const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+
     
     const { toast } = useToast();
+
+    const handleFetchAccounts = async () => {
+        setIsLoadingAccounts(true);
+        try {
+            const response = await fetch('/api/ml/accounts');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar as contas.');
+            }
+            setAccounts(data.accounts || []);
+            if (data.accounts?.length > 0) {
+                 toast({
+                    title: 'Contas Carregadas!',
+                    description: `Encontradas ${data.accounts.length} contas do Mercado Livre.`
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Nenhuma Conta Encontrada',
+                    description: `Nenhuma conta encontrada. Adicione na página de Mapeamento.`
+                });
+            }
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Buscar Contas',
+                description: error.message,
+            });
+        } finally {
+            setIsLoadingAccounts(false);
+        }
+    };
 
     const handleFetchCosts = async () => {
         if (!listingId.trim()) {
@@ -263,7 +381,8 @@ export default function TestesMercadoLivrePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                 <AccountsList />
+                 <AccountsList accounts={accounts} isLoading={isLoadingAccounts} onFetch={handleFetchAccounts} />
+                 <CreateListingForm accounts={accounts} />
             </div>
 
             <Card>
