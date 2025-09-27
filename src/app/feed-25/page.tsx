@@ -3,7 +3,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition, useRef, useCallback } from 'react';
-import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
+import { BotIcon, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, Store, RotateCcw, Check, Pencil, Save, ExternalLink, Sparkles, ArrowDown, PackageX, PlusCircle, Search, Trash2, Download, Info, Tablets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -821,7 +821,7 @@ export default function FeedPage() {
                                         />
                                         <div className="flex items-center gap-4">
                                             <Button onClick={handleLookup} disabled={!databaseList || isProcessing}>
-                                                {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+                                                {isProcessing && !step3Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BotIcon className="mr-2 h-4 w-4" />}
                                                 Buscar Produtos
                                             </Button>
                                         </div>
