@@ -538,6 +538,18 @@ export const findSaleByOrderNumber = async (orderIdentifier: string): Promise<Sa
     return foundSale || null;
 };
 
+export const updateSalesStatuses = async (updates: { saleId: string; newStatus: string }[]): Promise<void> => {
+  const batch = writeBatch(db);
+  const salesCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'sales');
+
+  updates.forEach(update => {
+    const docRef = doc(salesCol, update.saleId);
+    batch.update(docRef, { status: update.newStatus });
+  });
+
+  await batch.commit();
+};
+
 
 // --- COSTS ---
 export const loadCompanyCosts = async (): Promise<{ fixed: CompanyCost[]; variable: CompanyCost[] } | null> => {
@@ -853,7 +865,6 @@ export const saveMlAnalysis = async (analysis: Omit<SavedMlAnalysis, 'id'>): Pro
   await setDoc(analysisRef, toFirestore(dataToSave), { merge: true });
 };
 
-
 export const loadMlAnalyses = async (): Promise<SavedMlAnalysis[]> => {
   const analysisCol = collection(db, 'ml-analysis');
   const q = query(analysisCol, orderBy('createdAt', 'desc'));
@@ -888,6 +899,7 @@ export async function loadAllTrendEmbeddings(): Promise<Trend[]> {
     return [];
   }
 }
+
 
 // --- Permanent Entry Log ---
 export const loadEntryLogsFromPermanentLog = async (dateRange?: DateRange): Promise<EntryLog[]> => {
@@ -989,14 +1001,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     return { count: updatedCount };
 };
 
-
-    
-
-    
-
-    
-
-
-    
-
-    

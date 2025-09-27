@@ -633,8 +633,9 @@ export interface ProductResult {
     seller_city?: string | null;
     seller_city_id?: string | null;
     date_created?: string | null;
+    rating_average?: number;
     reviews_count?: number;
-    postedOnAccounts?: string[];
+    postedOnAccount?: string | null;
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -654,3 +655,4 @@ export type FullFlowResult = {
     padronizar: string;
     lookup: string;
 };
+
