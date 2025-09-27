@@ -70,7 +70,24 @@ function SaveItemsButton({ items, accountId }: { items: MyItem[], accountId: str
         if (!items || items.length === 0) return;
         setIsSaving(true);
         const formData = new FormData();
-        formData.append('items', JSON.stringify(items));
+
+        // **CORREÇÃO**: Selecionar apenas os campos necessários para evitar problemas de serialização.
+        const itemsToSave = items.map(item => ({
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            status: item.status,
+            permalink: item.permalink,
+            thumbnail: item.thumbnail,
+            catalog_product_id: item.catalog_product_id,
+            available_quantity: item.available_quantity,
+            sold_quantity: item.sold_quantity,
+            seller_custom_field: item.seller_custom_field,
+            // Adicionar outros campos essenciais que você queira salvar.
+            // Ex: category_id, currency_id etc.
+        }));
+
+        formData.append('items', JSON.stringify(itemsToSave));
         formData.append('accountId', accountId);
 
         try {
