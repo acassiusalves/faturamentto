@@ -9,6 +9,7 @@ import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
 import { parseZplFields, updateFieldAt } from '@/lib/zpl';
+import { runStep, type StepId } from "@/server/ai";
 
 
 async function fetchItemOfficialStoreId(itemId: string, token: string): Promise<number | null> {
@@ -895,6 +896,85 @@ export async function updateSalesDeliveryTypeAction(
   }
 }
 
+const organizePromptText = `Você é um assistente de organização de dados especialista em listas de produtos de fornecedores. Sua tarefa é pegar uma lista de produtos em texto bruto, não estruturado e com múltiplas variações, e organizá-la de forma limpa e individualizada.
+Sua única saída deve ser um objeto JSON com a chave "organizedList", contendo um array de strings.
+Para cada produto na lista de entrada, identifique todas as suas variações (ex: cores diferentes) e crie uma linha separada para cada uma.
+Limpe informações desnecessárias como saudações ou emojis.
+Padronize a quantidade para o formato "1x " no início de cada linha se nenhuma for especificada.`;
+
+const standardizePromptText = `Você é um especialista em padronização de dados de produtos. Sua tarefa é analisar a lista de produtos já organizada e reescrevê-la em um formato padronizado e estruturado, focando apenas em marcas específicas (Xiaomi, Realme, Motorola ou Samsung).
+Sua saída deve ser um objeto JSON com as chaves "standardizedList" (um array de strings padronizadas) e "unprocessedItems" (um array de objetos com "line" e "reason").
+Para cada linha de uma marca prioritária, reorganize os componentes para seguir a ordem: Marca Modelo Armazenamento RAM Cor Rede Preço.
+Itens de outras marcas ou com formato inválido devem ir para "unprocessedItems".`;
+
+const lookupPromptText = `Você é um sistema de correspondência de SKU. Sua tarefa é encontrar o SKU correto para cada produto da lista de entrada, usando o banco de dados fornecido.
+Sua saída deve ser um objeto JSON com a chave "details", contendo um array de objetos com "sku", "name", e "costPrice".
+Para cada produto da entrada, encontre o produto correspondente no banco de dados, fazendo uma correspondência flexível de nome, e extraia o SKU.
+Se nenhuma correspondência confiável for encontrada, o SKU deve ser "SEM CÓDIGO".`;
+
+
+const PROMPTS: Record<StepId, (input: string) => string> = {
+  organizar: (txt) => `${organizePromptText}\n\nLISTA BRUTA DO FORNECEDOR:\n'''\n${txt}\n'''`,
+  padronizar: (txt) => `${standardizePromptText}\n\nLISTA ORGANIZADA PARA ANÁLISE:\n'''\n${txt}\n'''`,
+  lookup: (txt) => `${lookupPromptText}\n\nLISTA PADRONIZADA (Entrada para processar):\n'''\n${txt}\n'''`,
+  // As outras etapas não são usadas neste fluxo, mas mantemos a estrutura
+  mapear: (txt) => txt, 
+  precificar: (txt) => txt,
+};
+
+export type FullFlowResult = {
+  organizar: string;
+  padronizar: string;
+  lookup: string;
+};
+
+export async function processListFullFlowAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ result: FullFlowResult | null; error: string | null }> {
+    
+    const rawList = formData.get('rawList') as string;
+    const databaseList = formData.get('databaseList') as string;
+
+    if (!rawList?.trim()) {
+        return { result: null, error: "Informe a lista para processar." };
+    }
+
+    try {
+        const outOrganizar = await runStep("organizar", PROMPTS.organizar(rawList));
+        
+        let organizedData: OrganizeResult;
+        try {
+            organizedData = JSON.parse(outOrganizar);
+        } catch {
+            throw new Error("A etapa de organização retornou um JSON inválido.");
+        }
+
+        const outPadronizar = await runStep("padronizar", PROMPTS.padronizar(organizedData.organizedList.join('\n')));
+        
+        let standardizedData: StandardizeListOutput;
+        try {
+            standardizedData = JSON.parse(outPadronizar);
+        } catch {
+            throw new Error("A etapa de padronização retornou um JSON inválido.");
+        }
+
+        const outLookup = deterministicLookup(standardizedData.standardizedList, databaseList);
+
+        revalidatePath("/feed-25");
+        return {
+            result: {
+                organizar: JSON.stringify(organizedData, null, 2),
+                padronizar: JSON.stringify(standardizedData, null, 2),
+                lookup: JSON.stringify(outLookup, null, 2),
+            },
+            error: null
+        };
+    } catch (e) {
+        return { result: null, error: e instanceof Error ? e.message : "Ocorreu um erro desconhecido no fluxo." };
+    }
+}
     
 
     
+

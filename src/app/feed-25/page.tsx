@@ -7,10 +7,10 @@ import { Bot, Database, Loader2, Wand2, CheckCircle, CircleDashed, ArrowRight, S
 import Link from 'next/link';
 
 import {
-  organizeListAction,
-  standardizeListAction,
-  lookupProductsAction,
-  savePromptAction,
+    organizeListAction,
+    standardizeListAction,
+    lookupProductsAction,
+    savePromptAction,
 } from '@/app/actions';
 import type { OrganizeResult, StandardizeListOutput, LookupResult, FeedEntry, UnprocessedItem, ProductDetail, Product } from '@/lib/types'
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
 import { deterministicLookup } from '@/lib/matching';
+import { BotaoFluxoCompletoIA } from './multi-step-button';
 
 
 const DB_STORAGE_KEY = 'productsDatabase';
@@ -263,6 +264,7 @@ export default function FeedPage() {
     const [isProcessing, startProcessingTransition] = useTransition();
     const [progress, setProgress] = useState(0);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const initialListRef = useRef<HTMLTextAreaElement>(null);
 
     // Form inputs
     const [initialProductList, setInitialProductList] = useState('');
@@ -270,6 +272,8 @@ export default function FeedPage() {
     const [allAvailableStores, setAllAvailableStores] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>();
     const [geminiApiKey, setGeminiApiKey] = useState('');
+    const [openaiApiKey, setOpenaiApiKey] = useState('');
+
 
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
@@ -308,6 +312,7 @@ export default function FeedPage() {
               if (appSettings) {
                 setAllAvailableStores(appSettings.stores || []);
                 setGeminiApiKey(appSettings.geminiApiKey || '');
+                setOpenaiApiKey(appSettings.openaiApiKey || '');
                 if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
                 if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
                 if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
@@ -592,6 +597,21 @@ export default function FeedPage() {
           handleSavePrompt(formData);
       };
 
+    const handleFullFlowIAFinish = (result: any) => {
+        if (result?.result) {
+            try {
+                const organized = JSON.parse(result.result.organizar);
+                const standardized = JSON.parse(result.result.padronizar);
+                const lookup = JSON.parse(result.result.lookup);
+                setStep1Result(organized);
+                setStep2Result(standardized);
+                setStep3Result(lookup);
+            } catch (e) {
+                toast({ variant: 'destructive', title: "Erro de Formato", description: "A resposta da IA não estava no formato JSON esperado." });
+            }
+        }
+    };
+
 
     return (
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
@@ -621,6 +641,7 @@ export default function FeedPage() {
                 <CardContent>
                     <div className="space-y-4">
                         <Textarea
+                            ref={initialListRef}
                             value={initialProductList}
                             onChange={(e) => setInitialProductList(e.target.value)}
                             placeholder="Cole a lista de produtos aqui..."
@@ -635,6 +656,11 @@ export default function FeedPage() {
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
                                 Fluxo Completo (Gemini)
                             </Button>
+                            <BotaoFluxoCompletoIA
+                                getTextareaValue={() => initialListRef.current?.value || ""}
+                                getDatabaseValue={() => databaseList}
+                                onFinish={handleFullFlowIAFinish}
+                            />
                         </div>
                         {user?.role === 'admin' && (
                             <Accordion type="single" collapsible>
