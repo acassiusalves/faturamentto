@@ -991,7 +991,7 @@ export async function createCatalogListingAction(
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
         accountId: formData.get('accountId') as string,
-        buying_mode: formData.get('buying_mode') as 'buy_it_now' | 'classified',
+        buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
     

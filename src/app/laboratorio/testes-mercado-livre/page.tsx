@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -34,7 +33,7 @@ const listingSchema = z.object({
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
     accountId: z.string().min(1, 'Selecione a conta para publicar.'),
-    buying_mode: z.enum(['buy_it_now', 'classified'], { required_error: 'Selecione o modo de compra.' }),
+    buying_mode: z.enum(['buy_it_now'], { required_error: 'O modo de compra é obrigatório.' }),
     condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }),
 });
 
