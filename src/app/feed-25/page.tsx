@@ -270,6 +270,7 @@ export default function FeedPage() {
     const [allAvailableStores, setAllAvailableStores] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>();
     const [geminiApiKey, setGeminiApiKey] = useState('');
+    const [openaiApiKey, setOpenaiApiKey] = useState('');
 
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
@@ -308,6 +309,7 @@ export default function FeedPage() {
               if (appSettings) {
                 setAllAvailableStores(appSettings.stores || []);
                 setGeminiApiKey(appSettings.geminiApiKey || '');
+                setOpenaiApiKey(appSettings.openaiApiKey || '');
                 if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
                 if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
                 if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
@@ -393,7 +395,7 @@ export default function FeedPage() {
         }, 16); // ~60fps
     };
 
-    const handleFullProcess = () => {
+    const handleFullProcess = (apiKey: string) => {
         startProcessingTransition(async () => {
             setStep1Result(null);
             setStep2Result(null);
@@ -407,7 +409,7 @@ export default function FeedPage() {
                 const organizeFormData = new FormData();
                 organizeFormData.append('productList', initialProductList);
                 organizeFormData.append('prompt_override', organizePrompt);
-                organizeFormData.append('apiKey', geminiApiKey);
+                organizeFormData.append('apiKey', apiKey);
                 
                 await runStep(organizeListAction, organizeFormData, (res) => {
                     setStep1Result(res);
@@ -424,7 +426,7 @@ export default function FeedPage() {
                 const standardizeFormData = new FormData();
                 standardizeFormData.append('organizedList', currentStep1Result.organizedList.join('\n'));
                 standardizeFormData.append('prompt_override', standardizePrompt);
-                standardizeFormData.append('apiKey', geminiApiKey);
+                standardizeFormData.append('apiKey', apiKey);
                 
                 await runStep(standardizeListAction, standardizeFormData, (res) => {
                     setStep2Result(res);
@@ -443,7 +445,7 @@ export default function FeedPage() {
                     lookupFormData.append('productList', currentStep2Result.standardizedList.join('\n'));
                     lookupFormData.append('databaseList', databaseList);
                     lookupFormData.append('prompt_override', lookupPrompt);
-                    lookupFormData.append('apiKey', geminiApiKey);
+                    lookupFormData.append('apiKey', apiKey);
                     
                     await runStep(lookupProductsAction, lookupFormData, (res) => {
                         setStep3Result(res);
@@ -631,9 +633,13 @@ export default function FeedPage() {
                                 {isProcessing && !step1Result ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                                 Organizar
                             </Button>
-                             <Button onClick={handleFullProcess} disabled={!initialProductList || isProcessing} variant="outline">
+                             <Button onClick={() => handleFullProcess(geminiApiKey)} disabled={!initialProductList || isProcessing || !geminiApiKey} variant="outline">
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
-                                Fluxo Completo
+                                Fluxo Completo (Gemini)
+                            </Button>
+                            <Button onClick={() => handleFullProcess(openaiApiKey)} disabled={!initialProductList || isProcessing || !openaiApiKey} variant="outline">
+                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-blue-500" />}
+                                Fluxo Completo (GPT)
                             </Button>
                         </div>
                         {user?.role === 'admin' && (

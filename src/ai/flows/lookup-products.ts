@@ -142,10 +142,11 @@ Antes de retornar, verifique:
 `;
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
+    const model = input.apiKey?.startsWith('sk-') ? 'openai/gpt-4o' : 'googleai/gemini-1.5-flash';
 
     const prompt = ai.definePrompt({
         name: 'lookupProductsPrompt',
-        model: 'googleai/gemini-2.0-flash',
+        model: model,
         input: {schema: LookupProductsInputSchema},
         output: {schema: LookupResultSchema},
         prompt: input.prompt_override || DEFAULT_LOOKUP_PROMPT,
