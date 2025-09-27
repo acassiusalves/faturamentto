@@ -81,7 +81,7 @@ export async function GET(req: Request) {
 
         let allItems: any[] = [];
         const batchSize = 20;
-        const attributes = "id,title,price,status,permalink,thumbnail,catalog_product_id,currency_id,sale_terms,warranty,accepts_mercadopago,available_quantity,sold_quantity,shipping,category_id,pictures";
+        const attributes = "id,title,price,status,permalink,thumbnail,catalog_product_id,currency_id,sale_terms,warranty,accepts_mercadopago,available_quantity,sold_quantity,shipping,category_id,pictures,seller_custom_field,attributes,variations";
         for (let i = 0; i < allItemIds.length; i += batchSize) {
             const batchIds = allItemIds.slice(i, i + batchSize).join(',');
             const itemDetailsUrl = `${ML_API}/items?ids=${batchIds}&attributes=${attributes}`;

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Pencil, Save, XCircle, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Pencil, Save, XCircle, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +16,7 @@ import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGrati
 import { Input } from '@/components/ui/input';
 import { useFormState } from 'react-dom';
 import { updateMlAccountNicknameAction } from '@/app/actions';
-import type { SaleCost, SaleCosts } from '@/lib/types';
+import { Separator } from '@/components/ui/separator';
 
 
 interface MyItem {
@@ -36,6 +36,18 @@ interface MyItem {
     shipping: any;
     category_id: string;
     pictures: { url: string; secure_url: string }[];
+    attributes: { id: string; value_name: string | null; name: string }[];
+    seller_custom_field: string | null;
+    variations: {
+        id: number;
+        price: number;
+        available_quantity: number;
+        sold_quantity: number;
+        seller_custom_field: string | null;
+        attribute_combinations: { id: string; name: string; value_id: string | null; value_name: string }[];
+        attributes: { id: string; value_name: string | null; name: string }[];
+        picture_ids: string[];
+    }[];
 }
 
 interface MlAccount {
@@ -43,6 +55,11 @@ interface MlAccount {
     nickname?: string;
     // ... other fields if needed
 }
+
+const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attributes'], sellerCustomField: string | null) => {
+    const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
+    return skuAttribute?.value_name || sellerCustomField || 'N/A';
+};
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
@@ -114,7 +131,9 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
             {items.length > 0 && !isLoading && (
                  <CardContent>
                     <Accordion type="single" collapsible className="w-full space-y-2">
-                        {items.map(item => (
+                        {items.map(item => {
+                            const mainSku = getSku(item.attributes, item.seller_custom_field);
+                            return (
                             <AccordionItem value={item.id} key={item.id}>
                                <Card>
                                  <AccordionTrigger className="w-full p-3 hover:no-underline">
@@ -127,8 +146,9 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                                                 {item.title}
                                             </p>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                                <span>Item ID: <span className="font-mono">{item.id}</span></span>
-                                                {item.catalog_product_id && <span>| Catálogo ID: <span className="font-mono">{item.catalog_product_id}</span></span>}
+                                                <span>ID: <span className="font-mono">{item.id}</span></span>
+                                                {mainSku !== 'N/A' && <span>| SKU: <span className="font-mono">{mainSku}</span></span>}
+                                                {item.catalog_product_id && <span>| Catálogo: <span className="font-mono">{item.catalog_product_id}</span></span>}
                                             </div>
                                         </div>
                                          <div className="text-right">
@@ -139,8 +159,8 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                                         </div>
                                     </div>
                                 </AccordionTrigger>
-                                <AccordionContent className="p-4">
-                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <AccordionContent className="p-4 pt-2">
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <div className="space-y-2">
                                             <h4 className="font-semibold flex items-center gap-1.5"><Info /> Informações Gerais</h4>
                                             <p className="text-sm">Garantia: <span className="font-medium">{item.warranty || 'Não especificada'}</span></p>
@@ -161,11 +181,33 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                                                 {item.shipping.tags.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
                                             </div>
                                         </div>
+                                        {item.variations?.length > 0 && (
+                                            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                                                <h4 className="font-semibold flex items-center gap-1.5"><PackageCheck /> Variações ({item.variations.length})</h4>
+                                                <ScrollArea className="h-48 rounded-md border p-2 bg-muted/50">
+                                                    <div className="space-y-3">
+                                                    {item.variations.map(variation => {
+                                                        const variationSku = getSku(variation.attributes, variation.seller_custom_field);
+                                                        const variationName = variation.attribute_combinations.map(v => v.value_name).join(' / ');
+                                                        return (
+                                                            <div key={variation.id} className="text-xs p-2 border-b last:border-0">
+                                                                <div className="font-semibold">{variationName}</div>
+                                                                <div className="flex justify-between items-center text-muted-foreground">
+                                                                    <span>SKU: <span className="font-mono text-foreground">{variationSku}</span></span>
+                                                                    <span>Qtd: <span className="font-semibold text-foreground">{variation.available_quantity}</span></span>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        )}
                                    </div>
                                 </AccordionContent>
                                </Card>
                             </AccordionItem>
-                        ))}
+                        )})}
                     </Accordion>
                 </CardContent>
             )}
