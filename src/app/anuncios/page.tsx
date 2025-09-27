@@ -62,7 +62,7 @@ const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attr
     return skuAttribute?.value_name || sellerCustomField || 'N/A';
 };
 
-function SaveItemsButton({ items, accountId }: { items: MyItem[], accountId: string }) {
+function SaveItemsButton({ items, accountId, postedOnAccounts }: { items: MyItem[], accountId: string, postedOnAccounts: string[] }) {
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     
@@ -89,6 +89,7 @@ function SaveItemsButton({ items, accountId }: { items: MyItem[], accountId: str
 
         formData.append('items', JSON.stringify(itemsToSave));
         formData.append('accountId', accountId);
+        formData.append('postedOnAccounts', JSON.stringify(postedOnAccounts));
 
         try {
             const result = await saveMyItemsAction({}, formData);
@@ -270,7 +271,7 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                     </Accordion>
                 </CardContent>
                 <CardFooter>
-                    <SaveItemsButton items={items} accountId={accountId} />
+                    <SaveItemsButton items={items} accountId={accountId} postedOnAccounts={[accountName]} />
                 </CardFooter>
                 </>
             )}
