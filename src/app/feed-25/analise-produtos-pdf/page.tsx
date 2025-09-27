@@ -814,7 +814,7 @@ export default function CatalogoPdfPage() {
                                                                     {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
                                                                 {offer.postedOnAccounts && offer.postedOnAccounts.map((accountName: string) => (
-                                                                    <Badge key={accountName} className="bg-green-600 hover:bg-green-700">
+                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
                                                                         Postado em: {accountName}
                                                                     </Badge>
@@ -940,5 +940,7 @@ export default function CatalogoPdfPage() {
 
     
 
+
+    
 
     

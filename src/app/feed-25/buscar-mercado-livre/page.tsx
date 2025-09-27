@@ -394,7 +394,7 @@ export default function BuscarMercadoLivrePage() {
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
                                                                 {product.postedOnAccount && (
-                                                                    <Badge className="bg-green-600 hover:bg-green-700">
+                                                                    <Badge className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
                                                                         Postado em: {product.postedOnAccount}
                                                                     </Badge>
@@ -578,5 +578,7 @@ export default function BuscarMercadoLivrePage() {
     );
 }
 
+
+    
 
     
