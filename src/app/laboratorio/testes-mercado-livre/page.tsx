@@ -4,11 +4,11 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Database, HandCoins } from "lucide-react";
+import { Database, HandCoins, PlusCircle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Users, ChevronsUpDown } from 'lucide-react';
 import type { MyItem, MlAccount, CreateListingPayload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -59,7 +59,6 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
         const formData = new FormData();
-        // Convert camelCase to snake_case for the backend
         formData.append('catalog_product_id', data.catalogProductId);
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
@@ -384,7 +383,6 @@ export default function TestesMercadoLivrePage() {
         }
     }, [toast]);
     
-    // Automatically fetch accounts on component mount
     useEffect(() => {
         handleFetchAccounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps

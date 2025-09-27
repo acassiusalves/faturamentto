@@ -710,7 +710,7 @@ export interface CreateListingPayload {
   available_quantity: number;
   listing_type_id: string;
   accountId: string;
-  buying_mode: 'buy_it_now' | 'classified';
+  buying_mode: 'buy_it_now';
   condition: 'new' | 'used' | 'not_specified';
 }
 

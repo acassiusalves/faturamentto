@@ -19,19 +19,16 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         
         const token = await getMlToken(accountId);
 
-        // O payload para o endpoint de criação de anúncio de catálogo.
-        // Não inclui título, categoria ou atributos, pois são herdados do catálogo.
         const itemPayload = {
             catalog_product_id,
             price,
-            currency_id: 'BRL', // Campo obrigatório
+            currency_id: 'BRL',
             available_quantity,
             buying_mode,
             condition,
             listing_type_id,
         };
 
-        // **CORREÇÃO: Usar o endpoint correto para criação de anúncios de catálogo.**
         const createItemUrl = `${ML_API}/items`;
 
         const response = await fetch(createItemUrl, {
@@ -46,11 +43,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         const responseData = await response.json();
 
         if (!response.ok) {
-            // Log detalhado do erro para depuração
             console.error('ML API Error Response:', JSON.stringify(responseData, null, 2));
-            
             const errorMessage = responseData.message || 'Erro desconhecido da API do ML.';
-            // Extrai as causas do erro para uma mensagem mais detalhada
             const errorCause = responseData.cause?.map((c: any) => c.message).join(' ') || '';
             throw new Error(`[${response.status}] ${errorMessage} ${errorCause}`);
         }
