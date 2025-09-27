@@ -69,7 +69,7 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();
         }
-    }, [formState, toast, form]);
+    });
 
     return (
         <Card>
@@ -449,3 +449,5 @@ export default function TestesMercadoLivrePage() {
         </div>
     );
 }
+
+    
