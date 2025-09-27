@@ -270,7 +270,6 @@ export default function FeedPage() {
     const [allAvailableStores, setAllAvailableStores] = useState<string[]>([]);
     const [date, setDate] = useState<Date | undefined>();
     const [geminiApiKey, setGeminiApiKey] = useState('');
-    const [openaiApiKey, setOpenaiApiKey] = useState('');
 
     // States for each step's result
     const [step1Result, setStep1Result] = useState<OrganizeResult | null>(null);
@@ -309,7 +308,6 @@ export default function FeedPage() {
               if (appSettings) {
                 setAllAvailableStores(appSettings.stores || []);
                 setGeminiApiKey(appSettings.geminiApiKey || '');
-                setOpenaiApiKey(appSettings.openaiApiKey || '');
                 if(appSettings.organizePrompt) setOrganizePrompt(appSettings.organizePrompt);
                 if(appSettings.standardizePrompt) setStandardizePrompt(appSettings.standardizePrompt);
                 if(appSettings.lookupPrompt) setLookupPrompt(appSettings.lookupPrompt);
@@ -636,10 +634,6 @@ export default function FeedPage() {
                              <Button onClick={() => handleFullProcess(geminiApiKey)} disabled={!initialProductList || isProcessing || !geminiApiKey} variant="outline">
                                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-amber-500" />}
                                 Fluxo Completo (Gemini)
-                            </Button>
-                            <Button onClick={() => handleFullProcess(openaiApiKey)} disabled={!initialProductList || isProcessing || !openaiApiKey} variant="outline">
-                                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4 text-blue-500" />}
-                                Fluxo Completo (GPT)
                             </Button>
                         </div>
                         {user?.role === 'admin' && (

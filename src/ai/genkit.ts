@@ -1,30 +1,17 @@
+
 import {genkit, type GenkitErrorCode} from 'genkit';
 import {googleAI, type GoogleAIGeminiError} from '@genkit-ai/googleai';
-import { openAI } from 'genkitx-openai';
-
 
 export const ai = genkit({
   plugins: [
       googleAI(),
-      // Adiciona o plugin da OpenAI. Ele será usado se uma chave OPENAI_API_KEY
-      // estiver disponível nas variáveis de ambiente ou passada na configuração.
-      openAI(), 
   ],
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-1.5-flash',
 });
 
 // Helper function to get the AI instance, optionally with a user-provided API key.
 export function getAi(apiKey?: string | null) {
-  // Se a chave da API fornecida se parece com uma chave da OpenAI, configure o plugin da OpenAI.
-  if (apiKey && apiKey.startsWith('sk-')) {
-    return genkit({
-      plugins: [
-        openAI({ apiKey }),
-      ],
-    });
-  }
-
-  // Se a chave for fornecida, mas não for da OpenAI, assumimos que é do Gemini.
+  // Se a chave for fornecida, assumimos que é do Gemini.
   if (apiKey) {
     return genkit({
       plugins: [

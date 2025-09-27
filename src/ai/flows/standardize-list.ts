@@ -86,7 +86,7 @@ export type StandardizeListOutput = z.infer<typeof StandardizeListOutputSchema>;
 
 export async function standardizeList(input: StandardizeListInput): Promise<StandardizeListOutput> {
     const ai = getAi(input.apiKey);
-    const model = input.apiKey?.startsWith('sk-') ? 'openai/gpt-4o' : 'googleai/gemini-1.5-flash';
+    const model = 'googleai/gemini-1.5-flash';
 
 
     const prompt = ai.definePrompt({

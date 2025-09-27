@@ -17,5 +17,3 @@ import '@/ai/flows/search-mercado-livre-flow.ts';
 import '@/ai/flows/refine-search-term-flow.ts';
 import '@/ai/flows/find-trending-products-flow.ts';
 import '@/ai/flows/generate-embedding-flow.ts';
-
-    
