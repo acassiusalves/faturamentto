@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Search, Package, ExternalLink, Users, PlusCircle, ChevronsUpDown } from 'lucide-react';
-import type { SaleCost, SaleCosts, MyItem, MlAccount, CreateListingPayload } from '@/lib/types';
+import type { MyItem, MlAccount, CreateListingPayload } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +25,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFormState, useFormStatus } from 'react-dom';
 import { createCatalogListingAction } from '@/app/actions';
+import { MercadoLivreLogo } from '@/components/icons';
 
 
 const listingSchema = z.object({
@@ -38,12 +39,6 @@ const listingSchema = z.object({
 });
 
 type ListingFormValues = z.infer<typeof listingSchema>;
-
-function MercadoLivreLogo({ className }: { className?: string }) {
-    const [failed, setFailed] = React.useState(false);
-    if (failed) return <HandCoins aria-label="Mercado Livre" className={cn("h-6 w-6", className)} />;
-    return <Image src="/icons/mp_logo_mercadolivre.jpg" alt="Mercado Livre Logo" width={24} height={24} className={cn("h-6 w-auto", className)} onError={() => setFailed(true)} />;
-}
 
 
 function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
@@ -66,10 +61,10 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
         setIsSubmitting(true);
         const formData = new FormData();
         // Convert camelCase to snake_case for the backend
-        formData.append('catalogProductId', data.catalogProductId);
+        formData.append('catalog_product_id', data.catalogProductId);
         formData.append('price', String(data.price));
-        formData.append('quantity', String(data.quantity));
-        formData.append('listingTypeId', data.listingTypeId);
+        formData.append('available_quantity', String(data.quantity));
+        formData.append('listing_type_id', data.listingTypeId);
         formData.append('accountId', data.accountId);
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
@@ -164,7 +159,6 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="buy_it_now">Compre agora</SelectItem>
-                                                <SelectItem value="classified">Catálogo</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -356,7 +350,7 @@ const AccountsList = ({ accounts, isLoading, onFetch }: { accounts: MlAccount[],
 export default function TestesMercadoLivrePage() {
     const [listingId, setListingId] = useState('');
     const [isLoadingCosts, setIsLoadingCosts] = useState(false);
-    const [costs, setCosts] = useState<SaleCosts | null>(null);
+    const [costs, setCosts] = useState<any | null>(null);
     const [rawResponse, setRawResponse] = useState<any | null>(null);
     const [accounts, setAccounts] = useState<MlAccount[]>([]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
@@ -496,7 +490,7 @@ export default function TestesMercadoLivrePage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {costs.costs.map((cost) => (
+                                    {costs.costs.map((cost: any) => (
                                         <TableRow key={cost.listing_type_id}>
                                             <TableCell className="font-medium">{cost.listing_type_name}</TableCell>
                                             <TableCell>{formatCurrency(cost.price)}</TableCell>

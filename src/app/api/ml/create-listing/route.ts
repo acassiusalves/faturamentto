@@ -19,7 +19,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         
         const token = await getMlToken(accountId);
 
-        // Montar o corpo da requisição para criar o anúncio
+        // Montar o corpo da requisição para criar o anúncio, sem título, categoria ou atributos
+        // A API infere isso a partir do catalog_product_id
         const itemPayload = {
             catalog_product_id,
             price,
@@ -28,10 +29,10 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             buying_mode,
             condition,
             listing_type_id,
-            // Title, pictures, and attributes are inherited from the catalog product
+            // Title, pictures, and other attributes are inherited from the catalog product
         };
 
-        // Fazer a requisição para criar o anúncio
+        // Fazer a requisição para criar o anúncio no endpoint /items
         const createItemUrl = `${ML_API}/items`;
         const response = await fetch(createItemUrl, {
             method: 'POST',
@@ -46,6 +47,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
 
         if (!response.ok) {
             const errorMessage = responseData.message || 'Erro desconhecido da API do ML.';
+            // Extrai as causas do erro para uma mensagem mais detalhada
             const errorCause = responseData.cause?.map((c: any) => c.message).join(' ') || '';
             throw new Error(`${errorMessage} ${errorCause}`);
         }

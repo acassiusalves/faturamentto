@@ -986,10 +986,10 @@ export async function createCatalogListingAction(
 ): Promise<{ success: boolean; error: string | null; result: any | null }> {
   try {
     const payload: CreateListingPayload = {
-        catalog_product_id: formData.get('catalogProductId') as string,
+        catalog_product_id: formData.get('catalog_product_id') as string,
         price: Number(formData.get('price')),
-        available_quantity: Number(formData.get('quantity')),
-        listing_type_id: formData.get('listingTypeId') as string,
+        available_quantity: Number(formData.get('available_quantity')),
+        listing_type_id: formData.get('listing_type_id') as string,
         accountId: formData.get('accountId') as string,
         buying_mode: formData.get('buying_mode') as 'buy_it_now' | 'classified',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
