@@ -929,7 +929,6 @@ export type FullFlowResult = {
 };
 
 export async function processListFullFlowAction(
-  _prevState: any,
   formData: FormData
 ): Promise<{ result: FullFlowResult | null; error: string | null }> {
     
@@ -962,14 +961,15 @@ export async function processListFullFlowAction(
             throw new Error("A etapa de padronização retornou um JSON inválido.");
         }
 
-        const outLookup = deterministicLookup(standardizedData.standardizedList, databaseList);
+        const lookupInput = `${standardizedData.standardizedList.join('\n')}\n\nBANCO DE DADOS:\n${databaseList}`;
+        const outLookup = await runStep("lookup", PROMPTS.lookup(lookupInput));
 
         revalidatePath("/feed-25");
         return {
             result: {
                 organizar: JSON.stringify(organizedData, null, 2),
                 padronizar: JSON.stringify(standardizedData, null, 2),
-                lookup: JSON.stringify(outLookup, null, 2),
+                lookup: outLookup,
             },
             error: null
         };
@@ -983,3 +983,8 @@ export async function processListFullFlowAction(
 
 
 
+
+
+    
+
+    

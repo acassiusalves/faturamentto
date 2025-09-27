@@ -37,8 +37,22 @@ export function BotaoFluxoCompletoIA({
       formData.append('rawList', rawList);
       formData.append('databaseList', databaseList);
       
-      const { result, error } = await processListFullFlowAction({ result: null, error: null }, formData);
+      let resp: Awaited<ReturnType<typeof processListFullFlowAction>> | undefined;
+
+      try {
+        resp = await processListFullFlowAction(formData);
+      } catch (e: any) {
+        toast({ title: "Erro no fluxo", description: String(e?.message || e), variant: "destructive" });
+        return;
+      }
       
+      if (!resp) {
+          toast({ title: "Erro no fluxo", description: "A ação não retornou uma resposta.", variant: "destructive" });
+          return;
+      }
+
+      const { result, error } = resp;
+
       if (error) {
           toast({ title: "Erro no fluxo", description: String(error), variant: "destructive" });
           return;
@@ -55,3 +69,5 @@ export function BotaoFluxoCompletoIA({
     </Button>
   );
 }
+
+    
