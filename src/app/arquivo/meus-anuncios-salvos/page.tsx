@@ -204,14 +204,14 @@ export default function MeusAnunciosSalvosPage() {
                                         <div className="space-y-2">
                                              <h4 className="font-semibold flex items-center gap-1.5"><Truck /> Frete</h4>
                                             <div className="flex items-center gap-2">
-                                                {item.shipping.logistic_type === 'fulfillment' && <FullIcon />}
-                                                {item.shipping.logistic_type === 'drop_off' && <CorreiosLogo />}
-                                                {item.shipping.logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
-                                                {item.shipping.free_shipping && <FreteGratisIcon />}
+                                                {item.shipping?.logistic_type === 'fulfillment' && <FullIcon />}
+                                                {item.shipping?.logistic_type === 'drop_off' && <CorreiosLogo />}
+                                                {item.shipping?.logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                {item.shipping?.free_shipping && <FreteGratisIcon />}
                                             </div>
-                                            <p className="text-sm">Modo: <span className="font-medium">{item.shipping.mode}</span></p>
+                                            <p className="text-sm">Modo: <span className="font-medium">{item.shipping?.mode || 'N/A'}</span></p>
                                             <div className="flex flex-wrap gap-1">
-                                                {item.shipping.tags.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                                                {item.shipping?.tags?.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
                                             </div>
                                         </div>
                                         {item.variations?.length > 0 && (
@@ -284,3 +284,5 @@ export default function MeusAnunciosSalvosPage() {
         </div>
     )
 }
+
+    
