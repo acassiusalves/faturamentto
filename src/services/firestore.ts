@@ -728,6 +728,11 @@ export const loadMlAccounts = async (): Promise<(MercadoLivreCredentials & { id:
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as (MercadoLivreCredentials & { id: string })));
 }
 
+export const updateMlAccount = async (accountId: string, nickname: string): Promise<void> => {
+    const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
+    await updateDoc(accountDocRef, { nickname });
+}
+
 
 export const updateUserRole = async (uid: string, role: string): Promise<void> => {
     const userDocRef = doc(db, 'users', uid);
@@ -991,5 +996,7 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
 
     
 
+
+    
 
     

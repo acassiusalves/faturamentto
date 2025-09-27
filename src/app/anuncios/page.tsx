@@ -4,8 +4,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Package, ExternalLink, Users, PackageCheck } from 'lucide-react';
-import type { SaleCost, SaleCosts } from '@/lib/types';
+import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Pencil, Save, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,6 +13,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { MercadoLivreLogo } from '@/components/icons';
+import { Input } from '@/components/ui/input';
+import { useFormState } from 'react-dom';
+import { updateMlAccountNicknameAction } from '@/app/actions';
 
 
 interface MyItem {
@@ -135,16 +137,78 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
     )
 }
 
-const AccountsList = () => {
-    const [accounts, setAccounts] = useState<MlAccount[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+function AccountItem({ account, onUpdate }: { account: MlAccount, onUpdate: () => void }) {
     const { toast } = useToast();
+    const [isEditing, setIsEditing] = useState(false);
+    const [nickname, setNickname] = useState(account.nickname || '');
+
+    const [formState, formAction] = useFormState(updateMlAccountNicknameAction, { success: false, error: null });
+
+    const handleSave = () => {
+        const formData = new FormData();
+        formData.append('accountId', account.id);
+        formData.append('nickname', nickname);
+        formAction(formData);
+    };
 
     useEffect(() => {
-        // Fetch accounts on component mount
-        handleFetchAccounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (formState.success) {
+            toast({ title: 'Sucesso!', description: 'O nome da conta foi atualizado.' });
+            setIsEditing(false);
+            onUpdate();
+        }
+        if (formState.error) {
+            toast({ variant: 'destructive', title: 'Erro', description: formState.error });
+        }
+    }, [formState, toast, onUpdate]);
+
+    return (
+        <AccordionItem value={account.id} key={account.id}>
+            <div className="flex w-full items-center p-1 pr-4">
+                <AccordionTrigger className="flex-1">
+                    <div className="flex items-center gap-3">
+                        <Users className="h-5 w-5 text-muted-foreground"/>
+                        {isEditing ? (
+                             <Input 
+                                value={nickname} 
+                                onChange={(e) => setNickname(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-8"
+                            />
+                        ) : (
+                            <span className="font-semibold text-lg">{account.nickname || account.id}</span>
+                        )}
+                    </div>
+                </AccordionTrigger>
+                 <div className="flex items-center gap-1 pl-2">
+                    {isEditing ? (
+                        <>
+                            <Button variant="ghost" size="icon" onClick={handleSave}>
+                                <Save className="h-5 w-5 text-primary" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setIsEditing(false)}>
+                                <XCircle className="h-5 w-5 text-destructive" />
+                            </Button>
+                        </>
+                    ) : (
+                        <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+            <AccordionContent className="p-0">
+                <MyItemsList accountId={account.id} accountName={nickname || account.id} />
+            </AccordionContent>
+        </AccordionItem>
+    );
+}
+
+
+const AccountsList = () => {
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
 
     const handleFetchAccounts = async () => {
         setIsLoading(true);
@@ -172,6 +236,11 @@ const AccountsList = () => {
             setIsLoading(false);
         }
     };
+    
+    useEffect(() => {
+        handleFetchAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
          <Card>
@@ -192,17 +261,7 @@ const AccountsList = () => {
                 ) : accounts.length > 0 ? (
                     <Accordion type="multiple" className="w-full">
                         {accounts.map(account => (
-                            <AccordionItem value={account.id} key={account.id}>
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-3">
-                                        <Users className="h-5 w-5 text-muted-foreground"/>
-                                        <span className="font-semibold text-lg">{account.nickname || account.id}</span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="p-0">
-                                    <MyItemsList accountId={account.id} accountName={account.nickname || account.id} />
-                                </AccordionContent>
-                            </AccordionItem>
+                           <AccountItem key={account.id} account={account} onUpdate={handleFetchAccounts} />
                         ))}
                     </Accordion>
                 ) : (
@@ -231,3 +290,5 @@ export default function AnunciosPage() {
         </div>
     );
 }
+
+    

@@ -2,7 +2,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -997,6 +997,20 @@ export async function runOpenAiAction(
   }
 }
     
+export async function updateMlAccountNicknameAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null }> {
+    const accountId = formData.get('accountId') as string;
+    const nickname = formData.get('nickname') as string;
+    if (!accountId || !nickname) {
+        return { success: false, error: 'ID da conta e nickname são obrigatórios.' };
+    }
+    try {
+        await updateMlAccount(accountId, nickname);
+        revalidatePath('/anuncios');
+        return { success: true, error: null };
+    } catch (e: any) {
+        return { success: false, error: e.message || 'Falha ao atualizar o nome da conta.' };
+    }
+}
 
 
 
@@ -1007,3 +1021,6 @@ export async function runOpenAiAction(
     
 
 
+
+
+    
