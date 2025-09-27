@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { MercadoLivreLogo } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -61,7 +61,7 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
         setIsSubmitting(false);
     }
     
-    useState(() => {
+    useEffect(() => {
         if (formState?.error) {
             toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
         }
@@ -69,7 +69,7 @@ function CreateListingForm({ accounts }: { accounts: MlAccount[] }) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();
         }
-    });
+    }, [formState, toast, form]);
 
     return (
         <Card>
@@ -329,6 +329,12 @@ export default function TestesMercadoLivrePage() {
             setIsLoadingAccounts(false);
         }
     };
+    
+    // Automatically fetch accounts on component mount
+    useEffect(() => {
+        handleFetchAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleFetchCosts = async () => {
         if (!listingId.trim()) {
