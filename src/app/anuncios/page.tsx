@@ -1,223 +1,233 @@
 
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Upload, Loader2, FileText, BadgeCheck } from 'lucide-react';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import { Loader2, Search, Package, ExternalLink, Users, PackageCheck } from 'lucide-react';
+import type { SaleCost, SaleCosts } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { MercadoLivreLogo } from '@/components/icons';
 
-export default function AnunciosPage() {
-  const [data, setData] = useState<any[]>([]);
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const { toast } = useToast();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+interface MyItem {
+    id: string;
+    title: string;
+    price: number;
+    status: string;
+    permalink: string;
+    thumbnail: string;
+    catalog_product_id?: string | null;
+}
 
-    setIsLoading(true);
-    setFileName(file.name);
-    
-    const reader = new FileReader();
+interface MlAccount {
+    id: string; // Document ID from Firestore
+    nickname?: string;
+    // ... other fields if needed
+}
 
-    reader.onload = (e) => {
-        const fileContent = e.target?.result;
-        if (!fileContent) {
-             toast({
-                variant: 'destructive',
-                title: 'Erro ao ler o arquivo',
-                description: 'Não foi possível ler o conteúdo do arquivo.',
-            });
-            setIsLoading(false);
-            return;
-        }
+const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
+    const [items, setItems] = useState<MyItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
+    const handleFetchItems = async () => {
+        setIsLoading(true);
+        setItems([]);
         try {
-            let parsedData: any[] = [];
-            let parsedHeaders: string[] = [];
+            const response = await fetch(`/api/ml/my-items?account=${accountId}`);
+            const data = await response.json();
 
-            if (file.name.endsWith('.csv')) {
-                const result = Papa.parse(fileContent as string, {
-                    header: true,
-                    skipEmptyLines: true,
-                });
-                 if (result.errors.length > 0) {
-                    throw new Error('Erro ao processar o arquivo CSV.');
-                }
-                parsedData = result.data;
-                parsedHeaders = result.meta.fields || [];
-
-            } else if (file.name.endsWith('.xlsx')) {
-                const workbook = XLSX.read(fileContent, { type: 'binary' });
-                const productSheet = workbook.Sheets['PRODUTO'];
-                const stockSheet = workbook.Sheets['ESTOQUE'];
-                const priceSheet = workbook.Sheets['PREÇO'];
-                const policySheet = workbook.Sheets['Políticas e Relevância'];
-
-
-                if (!productSheet || !stockSheet || !priceSheet || !policySheet) {
-                    throw new Error("O arquivo XLSX deve conter as abas 'PRODUTO', 'ESTOQUE', 'PREÇO' e 'Políticas e Relevância'.");
-                }
-                
-                const productData = XLSX.utils.sheet_to_json(productSheet);
-                const stockData = XLSX.utils.sheet_to_json(stockSheet);
-                const priceData = XLSX.utils.sheet_to_json(priceSheet);
-                const policyData = XLSX.utils.sheet_to_json(policySheet);
-
-
-                const stockMap = new Map(stockData.map((item: any) => [item.SKU, item]));
-                const priceMap = new Map(priceData.map((item: any) => [item.SKU, item]));
-                const policyMap = new Map(policyData.map((item: any) => [item.SKU, item]));
-
-
-                const mergedData = productData.map((product: any) => {
-                    const stockInfo = stockMap.get(product.SKU) || {};
-                    const priceInfo = priceMap.get(product.SKU) || {};
-                    const policyInfo = policyMap.get(product.SKU) || {};
-
-                    return { ...product, ...stockInfo, ...priceInfo, ...policyInfo };
-                });
-                
-                parsedData = mergedData;
-                
-                // Get all unique headers from the merged data
-                const allHeaders = new Set<string>();
-                mergedData.forEach(row => {
-                    Object.keys(row).forEach(key => allHeaders.add(key));
-                });
-                parsedHeaders = Array.from(allHeaders);
-                
-            } else {
-                 throw new Error('Formato de arquivo não suportado. Por favor, use .csv ou .xlsx');
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar seus anúncios.');
             }
-            
-            setHeaders(parsedHeaders);
-            setData(parsedData);
+
+            setItems(data.items || []);
             toast({
-                title: 'Arquivo Processado!',
-                description: `${parsedData.length} anúncios foram carregados de ${file.name}.`
+                title: 'Sucesso!',
+                description: `${data.items?.length || 0} anúncios ativos foram encontrados para ${accountName}.`
             });
 
-        } catch (error) {
-             toast({
+        } catch (error: any) {
+            toast({
                 variant: 'destructive',
-                title: 'Falha no Upload',
-                description: error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.'
+                title: 'Erro ao Buscar Anúncios',
+                description: error.message,
             });
         } finally {
             setIsLoading(false);
         }
     };
     
-    if (file.name.endsWith('.csv')) {
-        reader.readAsText(file);
-    } else if (file.name.endsWith('.xlsx')) {
-        reader.readAsBinaryString(file);
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Formato Inválido',
-            description: 'Por favor, selecione um arquivo .csv ou .xlsx.',
-        });
-        setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-8 p-4 md:p-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Gerenciador de Anúncios</h1>
-        <p className="text-muted-foreground">
-          Importe e visualize os anúncios dos seus canais de venda.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-             <Card>
-                <CardHeader>
-                <CardTitle>Importar Planilha</CardTitle>
-                <CardDescription>
-                    Selecione o arquivo CSV ou XLSX de anúncios exportado do seu marketplace.
-                </CardDescription>
-                </CardHeader>
+    return (
+        <Card className="shadow-none border-none">
+            <CardHeader className="flex flex-row justify-between items-center">
+                <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                        <Package className="h-5 w-5" />
+                        Anúncios de {accountName}
+                    </CardTitle>
+                    <CardDescription>
+                        Busca todos os anúncios com status "ativo" da conta no Mercado Livre.
+                    </CardDescription>
+                </div>
+                 <Button onClick={handleFetchItems} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" />}
+                    {isLoading ? 'Buscando...' : 'Buscar Anúncios'}
+                </Button>
+            </CardHeader>
+            {isLoading && (
                 <CardContent>
-                    <div className="space-y-4">
-                        <Label htmlFor="csv-upload" className={!fileName ? "cursor-pointer" : ""}>
-                            <Button asChild className="w-full" variant={fileName ? "secondary" : "default"}>
-                                <div>
-                                    {isLoading ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Upload className="mr-2 h-4 w-4" />
-                                    )}
-                                    {isLoading ? 'Processando...' : (fileName ? 'Trocar Arquivo' : 'Escolher Arquivo')}
-                                </div>
-                            </Button>
-                        </Label>
-                        <Input
-                            id="csv-upload"
-                            type="file"
-                            className="hidden"
-                            accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                            onChange={handleFileUpload}
-                            disabled={isLoading}
-                        />
-                        {fileName && !isLoading && (
-                            <div className="text-sm text-center text-green-600 flex items-center justify-center gap-2 font-medium">
-                                <BadgeCheck className="h-5 w-5"/>
-                                <span>{fileName}</span>
-                            </div>
-                        )}
+                    <div className="flex items-center justify-center p-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
                 </CardContent>
-            </Card>
-        </div>
-
-        <div className="lg:col-span-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Visualização dos Anúncios</CardTitle>
-                    <CardDescription>
-                        Pré-visualização dos dados carregados da sua planilha.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {data.length > 0 ? (
-                        <div className="rounded-md border max-h-[60vh] overflow-auto">
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-card">
-                                    <TableRow>
-                                        {headers.map(header => <TableHead key={header}>{header}</TableHead>)}
+            )}
+            {items.length > 0 && !isLoading && (
+                 <CardContent>
+                    <div className="w-full rounded-md border max-h-[600px] overflow-y-auto">
+                       <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Anúncio</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Preço</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {items.map(item => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
+                                                        {item.title}
+                                                        <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                     </Link>
+                                                     <span className="text-xs text-muted-foreground font-mono">Item ID: {item.id}</span>
+                                                     {item.catalog_product_id && <span className="text-xs text-muted-foreground font-mono">Catálogo ID: {item.catalog_product_id}</span>}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={item.status === 'active' ? 'bg-green-600' : ''}>
+                                                {item.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
                                     </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {data.map((row, rowIndex) => (
-                                        <TableRow key={rowIndex}>
-                                            {headers.map(header => <TableCell key={`${rowIndex}-${header}`}>{row[header]}</TableCell>)}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground border-2 border-dashed rounded-lg">
-                            <FileText className="h-16 w-16 mb-4" />
-                            <p>Os dados aparecerão aqui após o upload.</p>
-                        </div>
-                    )}
+                                ))}
+                            </TableBody>
+                       </Table>
+                    </div>
                 </CardContent>
-            </Card>
+            )}
+        </Card>
+    )
+}
+
+const AccountsList = () => {
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        // Fetch accounts on component mount
+        handleFetchAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleFetchAccounts = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/ml/accounts');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Falha ao buscar as contas.');
+            }
+            setAccounts(data.accounts || []);
+            if (!data.accounts || data.accounts.length === 0) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Nenhuma Conta Encontrada',
+                    description: `Nenhuma conta foi encontrada. Adicione suas contas em Mapeamento > Mercado Livre.`
+                });
+            }
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Erro ao Buscar Contas',
+                description: error.message,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <MercadoLivreLogo className="h-6 w-6" />
+                    Contas do Mercado Livre
+                </CardTitle>
+                <CardDescription>
+                    Selecione uma conta para buscar e visualizar os seus anúncios ativos.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                     <div className="flex items-center justify-center p-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                ) : accounts.length > 0 ? (
+                    <Accordion type="multiple" className="w-full">
+                        {accounts.map(account => (
+                            <AccordionItem value={account.id} key={account.id}>
+                                <AccordionTrigger>
+                                    <div className="flex items-center gap-3">
+                                        <Users className="h-5 w-5 text-muted-foreground"/>
+                                        <span className="font-semibold text-lg">{account.nickname || account.id}</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-0">
+                                    <MyItemsList accountId={account.id} accountName={account.nickname || account.id} />
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <div className="text-center text-muted-foreground p-8">
+                        <p>Nenhuma conta do Mercado Livre encontrada.</p>
+                        <p className="text-sm">Vá para <Link href="/mapeamento" className="underline font-semibold">Mapeamento</Link> para adicionar suas contas.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
+export default function AnunciosPage() {
+    return (
+        <div className="flex flex-col gap-8 p-4 md:p-8">
+            <div>
+                <h1 className="text-3xl font-bold font-headline">Gerenciador de Anúncios</h1>
+                <p className="text-muted-foreground">
+                    Busque e visualize os anúncios ativos das suas contas no Mercado Livre.
+                </p>
+            </div>
+            
+            <AccountsList />
+
         </div>
-      </div>
-    </div>
-  );
+    );
 }
