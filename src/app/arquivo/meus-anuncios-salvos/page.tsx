@@ -18,10 +18,13 @@ import { Input } from '@/components/ui/input';
 import { loadMyItems } from '@/services/firestore';
 import type { MyItem } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
+import { MercadoLivreIcon, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
 
 
 const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attributes'], sellerCustomField: string | null) => {
+    if (!Array.isArray(attributes)) {
+        return sellerCustomField || 'N/A';
+    }
     const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
     return skuAttribute?.value_name || sellerCustomField || 'N/A';
 };
@@ -175,7 +178,7 @@ export default function MeusAnunciosSalvosPage() {
                                                 {item.title} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                             </Link>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
-                                                <div className='flex items-center gap-2'><MercadoLivreLogo className="h-4 w-auto"/> <Badge variant="outline">{item.accountId}</Badge></div>
+                                                <div className='flex items-center gap-2'><MercadoLivreIcon className="h-5 w-auto"/> <Badge variant="outline">{item.accountId}</Badge></div>
                                                 <span>ID: <span className="font-mono">{item.id}</span></span>
                                                 {mainSku !== 'N/A' && <span>| SKU: <span className="font-mono">{mainSku}</span></span>}
                                                 {item.catalog_product_id && <span>| Catálogo: <span className="font-mono">{item.catalog_product_id}</span></span>}
