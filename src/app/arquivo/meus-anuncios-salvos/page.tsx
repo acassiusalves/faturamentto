@@ -9,6 +9,8 @@ import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Info, Doll
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +18,13 @@ import { Input } from '@/components/ui/input';
 import { loadMyItems } from '@/services/firestore';
 import type { MyItem } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MercadoLivreLogo } from '@/components/icons';
+import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
+
+
+const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attributes'], sellerCustomField: string | null) => {
+    const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
+    return skuAttribute?.value_name || sellerCustomField || 'N/A';
+};
 
 export default function MeusAnunciosSalvosPage() {
     const [items, setItems] = useState<MyItem[]>([]);
@@ -151,67 +159,86 @@ export default function MeusAnunciosSalvosPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Marketplace</TableHead>
-                                    <TableHead>Conta</TableHead>
-                                    <TableHead>Anúncio</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Disponível</TableHead>
-                                    <TableHead>Vendido</TableHead>
-                                    <TableHead className="text-right">Preço</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {paginatedItems.length > 0 ? paginatedItems.map(item => (
-                                     <TableRow key={item.id}>
-                                         <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <MercadoLivreLogo className="h-6 w-auto" />
-                                                <span>{item.marketplace}</span>
+                    <Accordion type="multiple" className="w-full space-y-2">
+                        {paginatedItems.map(item => {
+                            const mainSku = getSku(item.attributes, item.seller_custom_field);
+                            return (
+                            <AccordionItem value={item.id} key={item.id}>
+                               <Card>
+                                 <AccordionTrigger className="w-full p-3 hover:no-underline">
+                                    <div className="flex items-center gap-4 text-left w-full">
+                                         <div className="relative h-20 w-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                                             <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline line-clamp-2" title={item.title}>
+                                                {item.title} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                            </Link>
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
+                                                <div className='flex items-center gap-2'><MercadoLivreLogo className="h-4 w-auto"/> <Badge variant="outline">{item.accountId}</Badge></div>
+                                                <span>ID: <span className="font-mono">{item.id}</span></span>
+                                                {mainSku !== 'N/A' && <span>| SKU: <span className="font-mono">{mainSku}</span></span>}
+                                                {item.catalog_product_id && <span>| Catálogo: <span className="font-mono">{item.catalog_product_id}</span></span>}
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{item.accountId}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-4">
-                                                <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                                                     <Image src={item.thumbnail} alt={item.title} fill className="object-contain" data-ai-hint="product image" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                     <Link href={item.permalink} target="_blank" className="font-semibold text-primary hover:underline">
-                                                        {item.title}
-                                                        <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                     </Link>
-                                                     <div className="text-xs text-muted-foreground space-x-2">
-                                                         <span className="font-mono">ID: {item.id}</span>
-                                                         {item.seller_custom_field && <span className="font-mono">SKU: {item.seller_custom_field}</span>}
-                                                     </div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
+                                        </div>
+                                         <div className="text-right">
+                                            <p className="font-bold text-lg">{formatCurrency(item.price)}</p>
                                             <Badge variant={item.status === 'active' ? 'default' : 'secondary'} className={cn('mt-1', item.status === 'active' ? 'bg-green-600' : '')}>
                                                 {item.status}
                                             </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center font-semibold">{item.available_quantity}</TableCell>
-                                        <TableCell className="text-center font-semibold">{item.sold_quantity}</TableCell>
-                                        <TableCell className="text-right font-bold text-lg">{formatCurrency(item.price)}</TableCell>
-                                    </TableRow>
-                                )) : (
-                                     <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                            Nenhum anúncio encontrado com os filtros aplicados.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-2">
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                            <h4 className="font-semibold flex items-center gap-1.5"><Info /> Informações Gerais</h4>
+                                            <p className="text-sm">Garantia: <span className="font-medium">{item.warranty || 'Não especificada'}</span></p>
+                                            <p className="text-sm">Disponível: <span className="font-medium">{item.available_quantity} un.</span></p>
+                                            <p className="text-sm">Vendidos: <span className="font-medium">{item.sold_quantity} un.</span></p>
+                                             {item.accepts_mercadopago && <Badge variant="secondary">Aceita Mercado Pago</Badge>}
+                                        </div>
+                                        <div className="space-y-2">
+                                             <h4 className="font-semibold flex items-center gap-1.5"><Truck /> Frete</h4>
+                                            <div className="flex items-center gap-2">
+                                                {item.shipping.logistic_type === 'fulfillment' && <FullIcon />}
+                                                {item.shipping.logistic_type === 'drop_off' && <CorreiosLogo />}
+                                                {item.shipping.logistic_type === 'cross_docking' && <MercadoEnviosIcon />}
+                                                {item.shipping.free_shipping && <FreteGratisIcon />}
+                                            </div>
+                                            <p className="text-sm">Modo: <span className="font-medium">{item.shipping.mode}</span></p>
+                                            <div className="flex flex-wrap gap-1">
+                                                {item.shipping.tags.map((tag: string) => <Badge key={tag} variant="outline">{tag}</Badge>)}
+                                            </div>
+                                        </div>
+                                        {item.variations?.length > 0 && (
+                                            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                                                <h4 className="font-semibold flex items-center gap-1.5"><PackageCheck /> Variações ({item.variations.length})</h4>
+                                                <ScrollArea className="h-48 rounded-md border p-2 bg-muted/50">
+                                                    <div className="space-y-3">
+                                                    {item.variations.map(variation => {
+                                                        const variationSku = getSku(variation.attributes, variation.seller_custom_field);
+                                                        const variationName = variation.attribute_combinations.map(v => v.value_name).join(' / ');
+                                                        return (
+                                                            <div key={variation.id} className="text-xs p-2 border-b last:border-0">
+                                                                <div className="font-semibold">{variationName}</div>
+                                                                <div className="flex justify-between items-center text-muted-foreground">
+                                                                    <span>SKU: <span className="font-mono text-foreground">{variationSku}</span></span>
+                                                                    <span>Qtd: <span className="font-semibold text-foreground">{variation.available_quantity}</span></span>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        )}
+                                   </div>
+                                </AccordionContent>
+                               </Card>
+                            </AccordionItem>
+                        )})}
+                    </Accordion>
                 </CardContent>
                 <CardFooter className="flex items-center justify-between flex-wrap gap-4">
                     <div className="text-sm text-muted-foreground">
