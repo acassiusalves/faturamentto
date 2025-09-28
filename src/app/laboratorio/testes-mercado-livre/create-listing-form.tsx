@@ -11,12 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle } from 'lucide-react';
 import { useFormState } from 'react-dom';
 import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
@@ -68,25 +70,6 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
     }
     
     useEffect(() => {
-        if (formState.error) {
-            let description = formState.error;
-            // Se houver um 'result', ele contém o corpo do erro da API
-            if (formState.result) {
-                // Formata o JSON para ser legível no toast
-                description = JSON.stringify(formState.result, null, 2);
-            }
-             toast({ 
-                variant: 'destructive', 
-                title: 'Erro ao Criar Anúncio', 
-                description: (
-                    <pre className="mt-2 w-[400px] rounded-md bg-slate-950 p-4 overflow-x-auto">
-                        <code className="text-white" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                            {description}
-                        </code>
-                    </pre>
-                )
-            });
-        }
         if (formState.success && formState.result) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();
@@ -258,35 +241,20 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     };
     
     useEffect(() => {
-        if (!isSubmitting) return;
+        if (!formState.success && !formState.error) return; // Ignore initial state
 
-        if (formState.error) {
-             let description = formState.error;
-            // Se houver um 'result', ele contém o corpo do erro da API
-            if (formState.result) {
-                // Formata o JSON para ser legível no toast
-                description = JSON.stringify(formState.result, null, 2);
-            }
-            toast({ 
-                variant: 'destructive', 
-                title: 'Erro ao Criar Anúncio', 
-                description: (
-                    <pre className="mt-2 w-[400px] rounded-md bg-slate-950 p-4 overflow-x-auto">
-                        <code className="text-white" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                            {description}
-                        </code>
-                    </pre>
-                )
-            });
-            setIsSubmitting(false);
-        } else if (formState.success && formState.result) {
+        if (formState.success && formState.result) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();
             onClose();
-            setIsSubmitting(false);
         }
+        
+        // Error is now handled by the Alert component, no toast needed.
+        
+        // Always stop submitting spinner after action is done
+        setIsSubmitting(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formState, isSubmitting]);
+    }, [formState]);
 
 
     if (!product) return null;
@@ -367,12 +335,27 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 </FormItem>
                             )} />
                         </div>
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                Criar Anúncio
-                            </Button>
+                        <DialogFooter className="flex-col-reverse sm:flex-col-reverse sm:space-x-0 items-stretch gap-2">
+                             <div className="flex justify-end gap-2">
+                                <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                    Criar Anúncio
+                                </Button>
+                             </div>
+                             {formState.error && (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
+                                    <AlertDescription className="max-h-48 overflow-y-auto">
+                                        <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto">
+                                            <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                            {formState.result ? JSON.stringify(formState.result, null, 2) : formState.error}
+                                            </code>
+                                        </pre>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                         </DialogFooter>
                     </form>
                 </Form>
