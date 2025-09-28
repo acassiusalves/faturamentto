@@ -19,14 +19,8 @@ import { useFormState } from 'react-dom';
 import { updateMlAccountNicknameAction } from '@/app/actions';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { MyItem } from '@/lib/types';
+import type { MyItem, MlAccount } from '@/lib/types';
 
-
-interface MlAccount {
-    id: string; // Document ID from Firestore
-    nickname?: string;
-    // ... other fields if needed
-}
 
 const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attributes'], sellerCustomField: string | null) => {
     const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
@@ -342,5 +336,3 @@ export default function AnunciosPage() {
         </div>
     );
 }
-
-    

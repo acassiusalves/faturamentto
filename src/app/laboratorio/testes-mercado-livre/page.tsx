@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search, Package, ExternalLink, Users } from 'lucide-react';
-import type { MyItem, MlAccount, CreateListingResult } from '@/lib/types';
+import type { MyItem, MlAccount } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,8 +16,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { CreateListingForm } from './create-listing-form';
-import { useFormState } from 'react-dom';
-import { createCatalogListingAction } from '@/app/actions';
 
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
