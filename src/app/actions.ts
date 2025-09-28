@@ -5,7 +5,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -954,7 +954,7 @@ export async function updateMlAccountNicknameAction(_prevState: any, formData: F
 export async function createCatalogListingAction(
   _prevState: any,
   formData: FormData
-): Promise<{ success: boolean; error: string | null; result: any | null }> {
+): Promise<CreateListingResult> {
   try {
     const payload: CreateListingPayload = {
         catalog_product_id: formData.get('catalog_product_id') as string,
@@ -973,8 +973,13 @@ export async function createCatalogListingAction(
         }
     }
     
+    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:9022';
+    if (!NEXT_PUBLIC_URL) {
+      throw new Error("A variável de ambiente NEXT_PUBLIC_URL não está definida.");
+    }
+    
     // This now calls the improved API route
-    const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/ml/create-listing`, {
+    const apiResponse = await fetch(`${NEXT_PUBLIC_URL}/api/ml/create-listing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -983,7 +988,7 @@ export async function createCatalogListingAction(
     const result = await apiResponse.json();
 
     if (!apiResponse.ok) {
-        // Agora, o `result` já contém o corpo do erro (data), então podemos passá-lo adiante
+        // A rota de API agora retorna o erro e os dados, então podemos passá-los adiante.
         return { success: false, error: result.error, result: result.data || null };
     }
     

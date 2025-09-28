@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, PlusCircle, Database } from 'lucide-react';
 import { useFormState } from 'react-dom';
 import { createCatalogListingAction } from '@/app/actions';
-import type { MlAccount, ProductResult } from '@/lib/types';
+import type { MlAccount, ProductResult, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
@@ -34,9 +34,11 @@ interface CreateListingFormProps {
   accounts: MlAccount[];
 }
 
+const initialFormState: CreateListingResult = { success: false, error: null, result: null };
+
 export function CreateListingForm({ accounts }: CreateListingFormProps) {
     const { toast } = useToast();
-    const [formState, formAction] = useFormState(createCatalogListingAction, { success: false, error: null, result: null });
+    const [formState, formAction] = useFormState(createCatalogListingAction, initialFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const form = useForm<ListingFormValues>({
@@ -66,14 +68,23 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
     }
     
     useEffect(() => {
-        if (formState?.error) {
-            toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
+        if (formState.error) {
+            let description = formState.error;
+            if (formState.result) {
+                description += `\n\nDetalhes: ${JSON.stringify(formState.result, null, 2)}`;
+            }
+             toast({ 
+                variant: 'destructive', 
+                title: 'Erro ao Criar Anúncio', 
+                description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{description}</code></pre>
+            });
         }
-        if (formState?.success && formState.result) {
+        if (formState.success && formState.result) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();
         }
-    }, [formState, toast, form]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formState]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
@@ -194,7 +205,7 @@ interface CreateListingDialogProps {
 
 export function CreateListingDialog({ isOpen, onClose, product, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
-    const [formState, formAction] = useFormState(createCatalogListingAction, { success: false, error: null, result: null });
+    const [formState, formAction] = useFormState(createCatalogListingAction, initialFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const form = useForm<ListingFormValues>({
@@ -242,8 +253,17 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (!isSubmitting) return;
 
         if (formState.error) {
-            toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
-            setIsSubmitting(false); 
+            let description = formState.error;
+            // Exibir o JSON de erro no toast, se disponível
+            if (formState.result) {
+                description += `\n\nDetalhes: ${JSON.stringify(formState.result, null, 2)}`;
+            }
+            toast({ 
+                variant: 'destructive', 
+                title: 'Erro ao Criar Anúncio', 
+                description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{description}</code></pre>
+            });
+            setIsSubmitting(false);
         } else if (formState.success && formState.result) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
             form.reset();

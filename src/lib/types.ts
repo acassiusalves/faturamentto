@@ -738,3 +738,9 @@ export interface CreateListingPayload {
   buying_mode: 'buy_it_now';
   condition: 'new' | 'used' | 'not_specified';
 }
+
+export interface CreateListingResult {
+    success: boolean;
+    error: string | null;
+    result: any | null; // A resposta da API, seja de sucesso ou erro.
+}

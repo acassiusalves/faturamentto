@@ -89,8 +89,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         if (!response.ok) {
             console.error('ML API Error Response:', JSON.stringify(responseData, null, 2));
             const errorMessage = responseData.message || 'Erro desconhecido da API do ML.';
-            const errorCause = Array.isArray(responseData.cause) ? responseData.cause.map((c: any) => c.message).join(' ') : (responseData.cause?.message || '');
-            throw new Error(`[${response.status}] ${errorMessage} ${errorCause}`);
+            // Retorna o corpo do erro para depuração
+            return { data: responseData, error: errorMessage };
         }
 
         return { data: responseData, error: null };
@@ -107,6 +107,7 @@ export async function POST(req: Request) {
         const result = await createListingFromCatalog(body);
 
         if(result.error) {
+            // Repassa o corpo do erro junto com a mensagem
             return NextResponse.json({ error: result.error, data: result.data }, { status: 400 });
         }
         
