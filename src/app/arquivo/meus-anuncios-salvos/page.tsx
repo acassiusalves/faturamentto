@@ -35,6 +35,7 @@ export default function MeusAnunciosSalvosPage() {
     
     // Filters and pagination
     const [searchTerm, setSearchTerm] = useState('');
+    const [accountFilter, setAccountFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [accounts, setAccounts] = useState<MlAccount[]>([]);
@@ -77,11 +78,13 @@ export default function MeusAnunciosSalvosPage() {
                 item.catalog_product_id?.toLowerCase().includes(term) ||
                 item.category_id?.toLowerCase().includes(term);
 
-            return searchMatch;
+            const accountMatch = accountFilter === 'all' || item.accountId === accountFilter;
+
+            return searchMatch && accountMatch;
         });
         
         return filtered;
-    }, [items, searchTerm]);
+    }, [items, searchTerm, accountFilter]);
 
     const pageCount = Math.ceil(filteredItems.length / pageSize);
     const paginatedItems = useMemo(() => {
@@ -139,6 +142,17 @@ export default function MeusAnunciosSalvosPage() {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
+                            <Select value={accountFilter} onValueChange={setAccountFilter}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Filtrar por conta" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Contas</SelectItem>
+                                    {accounts.map(acc => (
+                                        <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </CardHeader>
