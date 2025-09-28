@@ -78,7 +78,7 @@ export default function MeusAnunciosSalvosPage() {
                 item.catalog_product_id?.toLowerCase().includes(term) ||
                 item.category_id?.toLowerCase().includes(term);
 
-            const accountMatch = accountFilter === 'all' || item.accountId === accountFilter;
+            const accountMatch = accountFilter === 'all' || String(item.id_conta_autenticada) === accountFilter;
 
             return searchMatch && accountMatch;
         });
@@ -162,7 +162,7 @@ export default function MeusAnunciosSalvosPage() {
                             const mainSku = getSku(item.attributes, item.seller_custom_field);
                             const dataSyncDate = item.data_sync ? new Date(item.data_sync).toLocaleString('pt-BR') : 'N/A';
                             const lastUpdatedDate = item.last_updated ? new Date(item.last_updated).toLocaleString('pt-BR') : 'N/A';
-                            const accountName = accountMap.get(item.accountId) || item.accountId;
+                            const accountName = accountMap.get(String(item.id_conta_autenticada)) || item.id_conta_autenticada;
 
                             return (
                             <AccordionItem value={item.id} key={item.id}>
@@ -296,3 +296,5 @@ export default function MeusAnunciosSalvosPage() {
         </div>
     )
 }
+
+    
