@@ -1,8 +1,5 @@
 // src/app/api/ml/create-listing/route.ts
 import { NextResponse } from 'next/server';
-import { createListingFromCatalog } from '@/services/mercadolivre';
-import type { CreateListingPayload } from '@/lib/types';
-
 
 // This route is no longer called directly from the client-side action.
 // The logic has been moved into the server action itself to avoid CORS and fetch issues.
@@ -10,14 +7,12 @@ import type { CreateListingPayload } from '@/lib/types';
 
 export async function POST(req: Request) {
     try {
-        const body: CreateListingPayload = await req.json();
-        const result = await createListingFromCatalog(body);
-
-        if(result.error) {
-            return NextResponse.json({ error: result.error, data: result.data }, { status: 400 });
-        }
-        
-        return NextResponse.json(result.data);
+        // Since the logic is moved, this endpoint is effectively disabled.
+        // We return an error to indicate it should not be used.
+        return NextResponse.json(
+            { error: "This API route is deprecated. Use the 'createCatalogListingAction' server action instead." },
+            { status: 410 } // 410 Gone
+        );
 
     } catch (e: any) {
         console.error("[POST /api/ml/create-listing] Error:", e);

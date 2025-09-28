@@ -70,13 +70,21 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
     useEffect(() => {
         if (formState.error) {
             let description = formState.error;
+            // Se houver um 'result', ele contém o corpo do erro da API
             if (formState.result) {
-                description += `\n\nDetalhes: ${JSON.stringify(formState.result, null, 2)}`;
+                // Formata o JSON para ser legível no toast
+                description = JSON.stringify(formState.result, null, 2);
             }
              toast({ 
                 variant: 'destructive', 
                 title: 'Erro ao Criar Anúncio', 
-                description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{description}</code></pre>
+                description: (
+                    <pre className="mt-2 w-[400px] rounded-md bg-slate-950 p-4 overflow-x-auto">
+                        <code className="text-white" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                            {description}
+                        </code>
+                    </pre>
+                )
             });
         }
         if (formState.success && formState.result) {
@@ -253,15 +261,22 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (!isSubmitting) return;
 
         if (formState.error) {
-            let description = formState.error;
-            // Exibir o JSON de erro no toast, se disponível
+             let description = formState.error;
+            // Se houver um 'result', ele contém o corpo do erro da API
             if (formState.result) {
-                description += `\n\nDetalhes: ${JSON.stringify(formState.result, null, 2)}`;
+                // Formata o JSON para ser legível no toast
+                description = JSON.stringify(formState.result, null, 2);
             }
             toast({ 
                 variant: 'destructive', 
                 title: 'Erro ao Criar Anúncio', 
-                description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white">{description}</code></pre>
+                description: (
+                    <pre className="mt-2 w-[400px] rounded-md bg-slate-950 p-4 overflow-x-auto">
+                        <code className="text-white" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                            {description}
+                        </code>
+                    </pre>
+                )
             });
             setIsSubmitting(false);
         } else if (formState.success && formState.result) {
@@ -365,5 +380,3 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
-
-    
