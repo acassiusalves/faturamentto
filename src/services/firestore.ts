@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -639,6 +639,10 @@ export const saveAppSettings = async (settings: Partial<AppSettings>): Promise<v
     await setDoc(settingsDocRef, settings, { merge: true });
 }
 
+export const saveMagaluCredentials = async (credentials: MagaluCredentials): Promise<void> => {
+    await setDoc(settingsDocRef, { magalu: credentials }, { merge: true });
+};
+
 export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
     const usersCol = collection(db, 'users');
     const snapshot = await getDocs(usersCol);
@@ -929,3 +933,4 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
 
 
     
+
