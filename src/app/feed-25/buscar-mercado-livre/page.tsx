@@ -145,21 +145,27 @@ export default function BuscarMercadoLivrePage() {
     const [progress, setProgress] = useState(0);
 
     // Filter states
-    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [showOnlyActive, setShowOnlyActive] = useState(true);
+    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({}); // For dynamic attributes
+    const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
+    const [brandSearch, setBrandSearch] = useState("");
+    const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
-    const dynamicFilterOptions = useMemo(() => {
-      if (!state.result) return [];
-  
+    const { dynamicFilterOptions, brandOptions, shippingOptions } = useMemo(() => {
+      if (!state.result) return { dynamicFilterOptions: [], brandOptions: [], shippingOptions: [] };
+
       const attributesMap = new Map<string, { name: string, values: Set<string> }>();
+      const brandMap = new Map<string, number>();
+      const shippingMap = new Map<string, number>();
       const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY', 'COLOR']);
   
       state.result.forEach(product => {
+        // Dynamic Attributes
         product.attributes.forEach(attr => {
           if (attributeWhitelist.has(attr.id) && attr.value_name) {
             if (!attributesMap.has(attr.id)) {
@@ -168,38 +174,73 @@ export default function BuscarMercadoLivrePage() {
             attributesMap.get(attr.id)!.values.add(attr.value_name);
           }
         });
+
+        // Brands
+        if (product.brand) {
+            brandMap.set(product.brand, (brandMap.get(product.brand) || 0) + 1);
+        }
+        
+        // Shipping
+        const shippingLabel = freightMap[product.shipping_logistic_type] || product.shipping_logistic_type;
+        if(shippingLabel) {
+            shippingMap.set(shippingLabel, (shippingMap.get(shippingLabel) || 0) + 1);
+        }
+
       });
   
-      return Array.from(attributesMap.entries())
+      const dynFilters = Array.from(attributesMap.entries())
         .map(([id, { name, values }]) => ({
           id,
           name,
           options: Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
+
+      const brandOpts = Array.from(brandMap.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+        
+      const shippingOpts = Array.from(shippingMap.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      return { dynamicFilterOptions: dynFilters, brandOptions: brandOpts, shippingOptions: shippingOpts };
+
     }, [state.result]);
 
 
     const filteredResults = useMemo(() => {
-        return (
-            state.result?.filter((p) => {
-                 const activeMatch = !showOnlyActive || p.price > 0;
-                 if (!activeMatch) return false;
+        if (!state.result) return [];
+        return state.result.filter((p) => {
+            // Active filter
+            const activeMatch = !showOnlyActive || p.price > 0;
+            if (!activeMatch) return false;
+            
+            // Dynamic attribute filters
+            for(const filterId in activeFilters) {
+                const filterValue = activeFilters[filterId];
+                if(filterValue === 'all') continue;
+                
+                const productAttribute = p.attributes.find(attr => attr.id === filterId);
+                if (!productAttribute || productAttribute.value_name !== filterValue) {
+                    return false;
+                }
+            }
 
-                 for(const filterId in activeFilters) {
-                     const filterValue = activeFilters[filterId];
-                     if(filterValue === 'all') continue;
-                     
-                     const productAttribute = p.attributes.find(attr => attr.id === filterId);
-                     if (!productAttribute || productAttribute.value_name !== filterValue) {
-                         return false;
-                     }
-                 }
+            // Brand filter
+            if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) {
+                return false;
+            }
 
-                return true;
-            }) || []
-        );
-    }, [state.result, activeFilters, showOnlyActive]);
+            // Shipping filter
+            const shippingLabel = freightMap[p.shipping_logistic_type] || p.shipping_logistic_type;
+            if (selectedShipping.length > 0 && !selectedShipping.includes(shippingLabel)) {
+                return false;
+            }
+
+            return true;
+        });
+    }, [state.result, activeFilters, showOnlyActive, selectedBrands, selectedShipping]);
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -233,6 +274,9 @@ export default function BuscarMercadoLivrePage() {
     useEffect(() => {
       setPageIndex(0);
       setActiveFilters({}); // Reset dynamic filters on new search
+      setSelectedBrands([]);
+      setSelectedShipping([]);
+      setBrandSearch('');
     }, [state.result]);
 
     useEffect(() => {
@@ -313,11 +357,19 @@ export default function BuscarMercadoLivrePage() {
             {state?.result && !isSearching && (
                  <div className="grid grid-cols-1 md:grid-cols-[256px,1fr] gap-6">
                     <FiltersSidebar
-                        filterOptions={dynamicFilterOptions}
+                        dynamicFilterOptions={dynamicFilterOptions}
+                        brandOptions={brandOptions}
+                        shippingOptions={shippingOptions}
                         activeFilters={activeFilters}
+                        selectedBrands={selectedBrands}
+                        selectedShipping={selectedShipping}
+                        brandSearch={brandSearch}
                         onFilterChange={(filterId, value) => {
                             setActiveFilters(prev => ({...prev, [filterId]: value}));
                         }}
+                        onBrandChange={setSelectedBrands}
+                        onShippingChange={setSelectedShipping}
+                        onBrandSearchChange={setBrandSearch}
                     />
 
                     <Card>
