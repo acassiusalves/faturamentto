@@ -15,8 +15,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { loadMyItems } from '@/services/firestore';
-import type { MyItem } from '@/lib/types';
+import { loadMyItems, loadMlAccounts } from '@/services/firestore';
+import type { MyItem, MlAccount } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MercadoLivreIcon, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
 
@@ -40,14 +40,19 @@ export default function MeusAnunciosSalvosPage() {
     const [accountFilter, setAccountFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
     
 
     useEffect(() => {
         async function fetchItems() {
             setIsLoading(true);
             try {
-                const savedItems = await loadMyItems();
+                const [savedItems, mlAccounts] = await Promise.all([
+                    loadMyItems(),
+                    loadMlAccounts()
+                ]);
                 setItems(savedItems);
+                setAccounts(mlAccounts);
             } catch (error: any) {
                  toast({
                     variant: 'destructive',
@@ -61,10 +66,12 @@ export default function MeusAnunciosSalvosPage() {
         fetchItems();
     }, [toast]);
     
+    const accountMap = useMemo(() => {
+        return new Map(accounts.map(acc => [acc.id, acc.nickname || acc.id]));
+    }, [accounts]);
+    
     const { filteredItems, uniqueAccounts } = useMemo(() => {
-        const accounts = new Set<string>();
         const filtered = items.filter(item => {
-            accounts.add(item.accountId);
             const term = searchTerm.toLowerCase();
             const searchMatch = !term ||
                 item.title?.toLowerCase().includes(term) ||
@@ -79,11 +86,14 @@ export default function MeusAnunciosSalvosPage() {
 
             return searchMatch && statusMatch && accountMatch;
         });
+        
+        const accountOptions = accounts.map(acc => ({ value: acc.id, label: acc.nickname || acc.id }));
+        
         return {
             filteredItems: filtered,
-            uniqueAccounts: ['all', ...Array.from(accounts)]
+            uniqueAccounts: [{ value: 'all', label: 'Todas as Contas' }, ...accountOptions]
         };
-    }, [items, searchTerm, statusFilter, accountFilter]);
+    }, [items, searchTerm, statusFilter, accountFilter, accounts]);
 
     const pageCount = Math.ceil(filteredItems.length / pageSize);
     const paginatedItems = useMemo(() => {
@@ -157,7 +167,7 @@ export default function MeusAnunciosSalvosPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {uniqueAccounts.map(acc => (
-                                        <SelectItem key={acc} value={acc}>{acc === 'all' ? 'Todas as Contas' : acc}</SelectItem>
+                                        <SelectItem key={acc.value} value={acc.value}>{acc.label}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -170,6 +180,7 @@ export default function MeusAnunciosSalvosPage() {
                             const mainSku = getSku(item.attributes, item.seller_custom_field);
                             const dataSyncDate = item.data_sync ? new Date(item.data_sync).toLocaleString('pt-BR') : 'N/A';
                             const lastUpdatedDate = item.last_updated ? new Date(item.last_updated).toLocaleString('pt-BR') : 'N/A';
+                            const accountName = accountMap.get(item.accountId) || item.accountId;
 
                             return (
                             <AccordionItem value={item.id} key={item.id}>
@@ -184,7 +195,7 @@ export default function MeusAnunciosSalvosPage() {
                                                 {item.title} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                             </Link>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
-                                                <div className='flex items-center gap-2'><MercadoLivreIcon className="h-5 w-auto text-yellow-400"/> <Badge variant="outline">{item.accountId}</Badge></div>
+                                                <div className='flex items-center gap-2'><MercadoLivreIcon className="h-5 w-auto text-yellow-400"/> <Badge variant="outline">{accountName}</Badge></div>
                                                 <span>ID: <span className="font-mono">{item.id}</span></span>
                                                 {mainSku !== 'N/A' && <span>| SKU: <span className="font-mono">{mainSku}</span></span>}
                                                 {item.catalog_product_id && <span>| Catálogo: <span className="font-mono">{item.catalog_product_id}</span></span>}
