@@ -6,7 +6,7 @@ import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult } from '@/lib/types';
-import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
+import { getSellersReputation, getMlToken, createListingFromCatalog } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
 import { parseZplFields, updateFieldAt } from '@/lib/zpl';
@@ -969,31 +969,18 @@ export async function createCatalogListingAction(
     // Simple validation
     for (const [key, value] of Object.entries(payload)) {
         if (!value) {
-            throw new Error(`O campo '${key}' é obrigatório.`);
+            return { success: false, error: `O campo '${key}' é obrigatório.`, result: null };
         }
     }
-    
-    const NEXT_PUBLIC_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:9022';
-    if (!NEXT_PUBLIC_URL) {
-      throw new Error("A variável de ambiente NEXT_PUBLIC_URL não está definida.");
-    }
-    
-    // This now calls the improved API route
-    const apiResponse = await fetch(`${NEXT_PUBLIC_URL}/api/ml/create-listing`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
 
-    const result = await apiResponse.json();
+    const result = await createListingFromCatalog(payload);
 
-    if (!apiResponse.ok) {
-        // A rota de API agora retorna o erro e os dados, então podemos passá-los adiante.
-        return { success: false, error: result.error, result: result.data || null };
+    if (result.error) {
+        return { success: false, error: result.error, result: result.data };
     }
     
     revalidatePath('/laboratorio/testes-mercado-livre');
-    return { success: true, error: null, result: result };
+    return { success: true, error: null, result: result.data };
 
   } catch(e: any) {
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
