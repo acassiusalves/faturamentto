@@ -3,9 +3,9 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -224,6 +224,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
     const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.nickname || String(acc.id)]));
+
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
@@ -1002,4 +1003,30 @@ export async function saveProductsAction(products: Product[]) {
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+export async function saveMagaluCredentialsAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null; message: string; }> {
+    try {
+        const payload: MagaluCredentials = {
+            accountName: formData.get('accountName') as string,
+            uuid: formData.get('uuid') as string,
+            clientId: formData.get('clientId') as string,
+            clientSecret: formData.get('clientSecret') as string,
+            refreshToken: formData.get('refreshToken') as string,
+            accessToken: formData.get('accessToken') as string | undefined,
+        };
+
+        if (!payload.accountName || !payload.clientId || !payload.clientSecret) {
+            throw new Error("Nome da conta, Client ID e Client Secret são obrigatórios.");
+        }
+
+        await saveMagaluCredentials(payload);
+        
+        // Futuramente, adicionar o teste de conexão aqui
+        
+        return { success: true, error: null, message: "Credenciais da Magalu salvas com sucesso!" };
+
+    } catch (e: any) {
+        return { success: false, error: e.message, message: '' };
+    }
 }

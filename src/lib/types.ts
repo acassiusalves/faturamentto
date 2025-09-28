@@ -347,6 +347,17 @@ export interface MercadoLivreCredentials {
   userId?: number;
 }
 
+export interface MagaluCredentials {
+    accountName: string;
+    uuid: string;
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+    accessToken?: string;
+    apiStatus?: ApiKeyStatus;
+}
+
+
 export interface MlAccount {
     id: string; // Document ID from Firestore
     nickname?: string;
@@ -368,6 +379,7 @@ export interface AppSettings {
     openaiApiKey?: string; // New field for OpenAI
     mercadoLivre?: MercadoLivreCredentials;
     mercadoLivre2?: MercadoLivreCredentials;
+    magalu?: MagaluCredentials;
     allMappings?: AllMappingsState;
     friendlyFieldNames?: Record<string, string>;
     fileNames?: { [key: string]: string };
