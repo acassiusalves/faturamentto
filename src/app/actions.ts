@@ -223,7 +223,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.id_conta_autenticada), acc.nickname || String(acc.id_conta_autenticada)]));
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.nickname || String(acc.id_conta_autenticada)]));
 
 
     for (const item of myItems) {
@@ -375,6 +375,7 @@ export async function searchMercadoLivreAction(
                 thumbnail: p.pictures?.[0]?.secure_url || p.pictures?.[0]?.url || "",
                 brand: p.attributes?.find((a: any) => a.id === "BRAND")?.value_name || "",
                 model: p.attributes?.find((a: any) => a.id === "MODEL")?.value_name || "",
+                attributes: p.attributes || [],
                 price: price,
                 shipping_type: winner?.shipping?.logistic_type || "",
                 shipping_logistic_type: winner?.shipping?.logistic_type || "",

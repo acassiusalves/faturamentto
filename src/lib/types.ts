@@ -344,6 +344,7 @@ export interface MercadoLivreCredentials {
   apiStatus?: ApiKeyStatus;
   nickname?: string; // Adding nickname to the credentials
   id_conta_autenticada?: string; // Adicionando id_conta_autenticada
+  userId?: number;
 }
 
 export interface MlAccount {
@@ -355,6 +356,7 @@ export interface MlAccount {
     redirectUri: string;
     apiStatus?: ApiKeyStatus;
     id_conta_autenticada?: string; // Adicionando id_conta_autenticada
+    userId?: number;
 }
 
 
@@ -676,6 +678,7 @@ export interface ProductResult {
     official_store_id: number | null;
     is_official_store: boolean;
     offerCount: number;
+    attributes: { id: string, name: string, value_name: string | null }[];
     reputation?: {
         level_id: string | null;
         power_seller_status: string | null;

@@ -44,6 +44,7 @@ interface ProductResult {
     official_store_id: number | null;
     is_official_store: boolean;
     offerCount: number;
+    attributes: { id: string, name: string, value_name: string | null }[]; // Adicionado
     reputation?: {
         level_id: string | null;
         power_seller_status: string | null;
@@ -144,9 +145,7 @@ export default function BuscarMercadoLivrePage() {
     const [progress, setProgress] = useState(0);
 
     // Filter states
-    const [shippingFilter, setShippingFilter] = useState<string[]>([]);
-    const [brandFilter, setBrandFilter] = useState<string[]>([]);
-    const [officialStoreFilter, setOfficialStoreFilter] = useState<("yes"|"no")[]>([]);
+    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [showOnlyActive, setShowOnlyActive] = useState(true);
 
 
@@ -154,63 +153,55 @@ export default function BuscarMercadoLivrePage() {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
-    // Memoized unique filter options with counts
-    const { shippingOptionsWithCounts, brandOptionsWithCounts, storeTypeCounts } = useMemo(() => {
-        const shippingCounts: Record<string, number> = {};
-        const brandCounts: Record<string, number> = {};
-        const storeCounts = { official: 0, nonOfficial: 0 };
+    // Memoized unique filter options
+    const dynamicFilterOptions = useMemo(() => {
+        if (!state.result) return [];
 
+        const attributesMap = new Map<string, { name: string, values: Set<string> }>();
+        const ignoredAttributes = new Set(['BRAND', 'MODEL', 'EAN', 'LINE', 'GTIN', 'MPN', 'ITEM_CONDITION']);
 
-        (state.result || []).forEach(p => {
-            if (p.shipping_type) {
-                shippingCounts[p.shipping_type] = (shippingCounts[p.shipping_type] || 0) + 1;
-            }
-            if (p.brand) {
-                brandCounts[p.brand] = (brandCounts[p.brand] || 0) + 1;
-            }
-            if (p.is_official_store) {
-                storeCounts.official++;
-            } else {
-                storeCounts.nonOfficial++;
-            }
+        state.result.forEach(product => {
+            product.attributes.forEach(attr => {
+                if (!ignoredAttributes.has(attr.id) && attr.value_name) {
+                    if (!attributesMap.has(attr.id)) {
+                        attributesMap.set(attr.id, { name: attr.name, values: new Set() });
+                    }
+                    attributesMap.get(attr.id)!.values.add(attr.value_name);
+                }
+            });
         });
+        
+        return Array.from(attributesMap.entries())
+            .map(([id, { name, values }]) => ({
+                id,
+                name,
+                options: Array.from(values).sort((a,b) => a.localeCompare(b, undefined, { numeric: true })),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
 
-        const shippingOptions = Object.keys(shippingCounts).sort();
-        const brandOptions = Object.keys(brandCounts).sort();
-
-        return {
-            shippingOptionsWithCounts: shippingOptions.map(opt => ({
-                value: opt,
-                label: freightMap[opt] || opt,
-                count: shippingCounts[opt]
-            })),
-            brandOptionsWithCounts: brandOptions.map(opt => ({
-                value: opt,
-                label: opt,
-                count: brandCounts[opt]
-            })),
-            storeTypeCounts: storeCounts,
-        };
     }, [state.result]);
+
 
     const filteredResults = useMemo(() => {
         return (
             state.result?.filter((p) => {
-                const shippingMatch = shippingFilter.length === 0 || shippingFilter.includes(p.shipping_type);
-                const brandMatch = brandFilter.length === 0 || brandFilter.includes(p.brand);
-                
-                const storeOk =
-                  officialStoreFilter.length === 0 ||
-                  officialStoreFilter.length === 2 ||
-                  (officialStoreFilter.includes("yes") && p.is_official_store) ||
-                  (officialStoreFilter.includes("no") && !p.is_official_store);
+                 const activeMatch = !showOnlyActive || p.price > 0;
+                 if (!activeMatch) return false;
 
-                const activeMatch = !showOnlyActive || p.price > 0;
+                 for(const filterId in activeFilters) {
+                     const filterValue = activeFilters[filterId];
+                     if(filterValue === 'all') continue;
+                     
+                     const productAttribute = p.attributes.find(attr => attr.id === filterId);
+                     if (!productAttribute || productAttribute.value_name !== filterValue) {
+                         return false;
+                     }
+                 }
 
-                return shippingMatch && brandMatch && storeOk && activeMatch;
+                return true;
             }) || []
         );
-    }, [state.result, shippingFilter, brandFilter, officialStoreFilter, showOnlyActive]);
+    }, [state.result, activeFilters, showOnlyActive]);
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -243,7 +234,8 @@ export default function BuscarMercadoLivrePage() {
     
     useEffect(() => {
       setPageIndex(0);
-    }, [shippingFilter, brandFilter, officialStoreFilter]);
+      setActiveFilters({}); // Reset dynamic filters on new search
+    }, [state.result]);
 
     useEffect(() => {
         if (pageIndex >= pageCount && pageCount > 0) {
@@ -323,15 +315,11 @@ export default function BuscarMercadoLivrePage() {
             {state?.result && !isSearching && (
                  <div className="grid grid-cols-1 md:grid-cols-[256px,1fr] gap-6">
                     <FiltersSidebar
-                        shippingOptions={shippingOptionsWithCounts}
-                        brandOptions={brandOptionsWithCounts}
-                        storeTypeCounts={storeTypeCounts}
-                        selectedShipping={shippingFilter}
-                        setSelectedShipping={setShippingFilter}
-                        selectedBrands={brandFilter}
-                        setSelectedBrands={setBrandFilter}
-                        storeFilter={officialStoreFilter}
-                        setStoreFilter={setOfficialStoreFilter}
+                        filterOptions={dynamicFilterOptions}
+                        activeFilters={activeFilters}
+                        onFilterChange={(filterId, value) => {
+                            setActiveFilters(prev => ({...prev, [filterId]: value}));
+                        }}
                     />
 
                     <Card>
@@ -577,8 +565,3 @@ export default function BuscarMercadoLivrePage() {
         </main>
     );
 }
-
-
-    
-
-    
