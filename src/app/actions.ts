@@ -987,5 +987,3 @@ export async function createCatalogListingAction(
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
   }
 }
-
-    

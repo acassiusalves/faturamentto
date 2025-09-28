@@ -36,6 +36,9 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         const variationId = await getFirstVariationId(catalog_product_id, token);
 
         const itemPayload: Record<string, any> = {
+            title: `Anúncio de Catálogo para ${catalog_product_id}`, // O ML vai sobrescrever isso, mas é bom ter
+            category_id: 'MLB1055', // Categoria de fallback (Celulares e Smartphones), idealmente viria do produto
+            site_id: "MLB",
             catalog_product_id,
             price,
             currency_id: 'BRL',
@@ -43,12 +46,16 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             buying_mode,
             condition,
             listing_type_id,
+            pictures: [], // Vazio para catálogo
+            catalog_listing: true, // Garante que é um anúncio de catálogo
+            sale_terms: [
+                { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
+                { id: "WARRANTY_TIME", value_name: "3 meses" }
+            ],
+            attributes: [
+                 { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
+            ]
         };
-
-        // Se o produto de catálogo tem variações, informe a variação escolhida
-        if (variationId) {
-            itemPayload.catalog_product_variation_id = variationId;
-        }
 
         const createItemUrl = `${ML_API}/items`;
 

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck, CheckCircle } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck, CheckCircle, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +22,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { CreateListingDialog } from '@/app/laboratorio/testes-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
+import type { MlAccount } from '@/lib/types';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -152,11 +154,33 @@ export default function BuscarMercadoLivrePage() {
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [selectedStoreTypes, setSelectedStoreTypes] = useState<string[]>([]);
     const [modelSearch, setModelSearch] = useState('');
+    
+    // Create Listing Dialog State
+    const [isCreateListingOpen, setIsCreateListingOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
+    const [accounts, setAccounts] = useState<MlAccount[]>([]);
+    const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
 
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const response = await fetch('/api/ml/accounts');
+                if (!response.ok) throw new Error('Falha ao buscar contas');
+                const data = await response.json();
+                setAccounts(data.accounts || []);
+            } catch (e: any) {
+                toast({ variant: 'destructive', title: 'Erro', description: e.message });
+            } finally {
+                setIsLoadingAccounts(false);
+            }
+        };
+        fetchAccounts();
+    }, [toast]);
     
     const { dynamicFilterOptions, brandOptions, shippingOptions, storeTypeOptions } = useMemo(() => {
       if (!state.result) return { dynamicFilterOptions: [], brandOptions: [], shippingOptions: [], storeTypeOptions: { official: 0, nonOfficial: 0 } };
@@ -320,8 +344,13 @@ export default function BuscarMercadoLivrePage() {
         return () => clearInterval(timer);
     }, [isSearching]);
 
+    const handleCreateListing = (product: ProductResult) => {
+        setSelectedProduct(product);
+        setIsCreateListingOpen(true);
+    };
 
     return (
+        <>
         <main className="flex-1 p-4 sm:p-6 md:p-8 space-y-6">
              <div>
                 <h1 className="text-3xl font-bold font-headline">Buscar Produtos no Mercado Livre</h1>
@@ -422,6 +451,7 @@ export default function BuscarMercadoLivrePage() {
                                             <TableHead className="w-[120px]">Imagem</TableHead>
                                             <TableHead>Nome do Produto</TableHead>
                                             <TableHead>Preço</TableHead>
+                                            <TableHead className="text-center">Ações</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -574,11 +604,17 @@ export default function BuscarMercadoLivrePage() {
                                                     <TableCell className="font-semibold text-lg text-right align-top">
                                                       {formatCurrency(product.price)}
                                                     </TableCell>
+                                                    <TableCell className="text-center align-middle">
+                                                        <Button variant="secondary" size="sm" onClick={() => handleCreateListing(product)}>
+                                                            <PlusCircle className="h-4 w-4 mr-2" />
+                                                            Criar Anúncio
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
                                             )
                                         }) : (
                                             <TableRow>
-                                                <TableCell colSpan={3} className="h-24 text-center">
+                                                <TableCell colSpan={4} className="h-24 text-center">
                                                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                         <Package className="h-10 w-10 mb-2"/>
                                                         Nenhum produto encontrado para os filtros selecionados.
@@ -637,5 +673,15 @@ export default function BuscarMercadoLivrePage() {
                 </div>
             )}
         </main>
+        
+        {selectedProduct && (
+            <CreateListingDialog
+                isOpen={isCreateListingOpen}
+                onClose={() => setIsCreateListingOpen(false)}
+                product={selectedProduct}
+                accounts={accounts}
+            />
+        )}
+        </>
     );
 }

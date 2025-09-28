@@ -726,7 +726,3 @@ export interface CreateListingPayload {
   buying_mode: 'buy_it_now';
   condition: 'new' | 'used' | 'not_specified';
 }
-
-    
-
-    
