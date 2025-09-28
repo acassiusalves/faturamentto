@@ -13,7 +13,7 @@ export interface MagaluSku {
 }
 
 export async function listSellerSkus(accessToken: string, page?: number, perPage?: number)
-: Promise<{ items: MagaluSku[] }> {
+: Promise<{ results: MagaluSku[] }> {
   let url = `${API_BASE}/seller/v1/portfolios/skus`;
   const params = new URLSearchParams();
   if (page) params.set("page", String(page));
@@ -39,8 +39,7 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
   }
 
   const data = await r.json();
-  // A API pode retornar um array diretamente ou um objeto com a chave "items"
-  return Array.isArray(data) ? { items: data } : { items: data.items ?? [] };
+  return { results: data.results ?? [] };
 }
 
 export async function getSkuDetails(accessToken: string, sku: string) {

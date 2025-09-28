@@ -15,9 +15,9 @@ export async function GET(req: Request) {
     const tokens = await getMagaluTokens(accountId);
     if (!tokens?.accessToken) throw new Error(`Sem access token para a conta ${accountId}`);
 
-    const { items = [] } = await listSellerSkus(tokens.accessToken, page, limit);
+    const { results = [] } = await listSellerSkus(tokens.accessToken, page, limit);
 
-    const enriched = await Promise.all(items.map(async (it) => {
+    const enriched = await Promise.all(results.map(async (it) => {
       const [price, stock] = await Promise.allSettled([
         getSkuPrice(tokens.accessToken, it.sku),
         getSkuStock(tokens.accessToken, it.sku),
