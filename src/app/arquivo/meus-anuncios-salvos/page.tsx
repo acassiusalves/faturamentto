@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart, Hash, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, Power } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
@@ -36,8 +35,6 @@ export default function MeusAnunciosSalvosPage() {
     
     // Filters and pagination
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [accountFilter, setAccountFilter] = useState('all');
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [accounts, setAccounts] = useState<MlAccount[]>([]);
@@ -70,7 +67,7 @@ export default function MeusAnunciosSalvosPage() {
         return new Map(accounts.map(acc => [acc.id, acc.nickname || acc.id]));
     }, [accounts]);
     
-    const { filteredItems, uniqueAccounts } = useMemo(() => {
+    const filteredItems = useMemo(() => {
         const filtered = items.filter(item => {
             const term = searchTerm.toLowerCase();
             const searchMatch = !term ||
@@ -80,20 +77,11 @@ export default function MeusAnunciosSalvosPage() {
                 item.catalog_product_id?.toLowerCase().includes(term) ||
                 item.category_id?.toLowerCase().includes(term);
 
-            
-            const statusMatch = statusFilter === 'all' || item.status === statusFilter;
-            const accountMatch = accountFilter === 'all' || item.accountId === accountFilter;
-
-            return searchMatch && statusMatch && accountMatch;
+            return searchMatch;
         });
         
-        const accountOptions = accounts.map(acc => ({ value: acc.id, label: acc.nickname || acc.id }));
-        
-        return {
-            filteredItems: filtered,
-            uniqueAccounts: [{ value: 'all', label: 'Todas as Contas' }, ...accountOptions]
-        };
-    }, [items, searchTerm, statusFilter, accountFilter, accounts]);
+        return filtered;
+    }, [items, searchTerm]);
 
     const pageCount = Math.ceil(filteredItems.length / pageSize);
     const paginatedItems = useMemo(() => {
@@ -151,26 +139,6 @@ export default function MeusAnunciosSalvosPage() {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Filtrar por status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos os Status</SelectItem>
-                                    <SelectItem value="active">Ativo</SelectItem>
-                                    <SelectItem value="paused">Pausado</SelectItem>
-                                </SelectContent>
-                            </Select>
-                             <Select value={accountFilter} onValueChange={setAccountFilter}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Filtrar por conta" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {uniqueAccounts.map(acc => (
-                                        <SelectItem key={acc.value} value={acc.value}>{acc.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
                 </CardHeader>
@@ -314,5 +282,3 @@ export default function MeusAnunciosSalvosPage() {
         </div>
     )
 }
-
-    
