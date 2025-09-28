@@ -20,17 +20,25 @@ type CountOption = {
     count: number;
 }
 
+type StoreTypeOptions = {
+    official: number;
+    nonOfficial: number;
+};
+
 type FiltersSidebarProps = {
   dynamicFilterOptions: DynamicFilterOption[];
   brandOptions: CountOption[];
   shippingOptions: CountOption[];
+  storeTypeOptions: StoreTypeOptions;
   activeFilters: Record<string, string>;
   selectedBrands: string[];
   selectedShipping: string[];
+  selectedStoreTypes: string[];
   brandSearch: string;
   onFilterChange: (filterId: string, value: string) => void;
   onBrandChange: (brands: string[]) => void;
   onShippingChange: (shipping: string[]) => void;
+  onStoreTypeChange: (storeTypes: string[]) => void;
   onBrandSearchChange: (search: string) => void;
   className?: string;
 };
@@ -39,13 +47,16 @@ export function FiltersSidebar({
   dynamicFilterOptions,
   brandOptions,
   shippingOptions,
+  storeTypeOptions,
   activeFilters,
   selectedBrands,
   selectedShipping,
+  selectedStoreTypes,
   brandSearch,
   onFilterChange,
   onBrandChange,
   onShippingChange,
+  onStoreTypeChange,
   onBrandSearchChange,
   className,
 }: FiltersSidebarProps) {
@@ -64,6 +75,13 @@ export function FiltersSidebar({
     onShippingChange(newSelection);
   }
 
+  const handleStoreTypeToggle = (storeType: 'official' | 'non-official') => {
+      const newSelection = selectedStoreTypes.includes(storeType)
+        ? selectedStoreTypes.filter(st => st !== storeType)
+        : [...selectedStoreTypes, storeType];
+      onStoreTypeChange(newSelection);
+  }
+
   const clearAll = () => {
     const clearedFilters: Record<string, string> = {};
     for (const key in activeFilters) {
@@ -72,6 +90,7 @@ export function FiltersSidebar({
     Object.entries(clearedFilters).forEach(([key, value]) => onFilterChange(key, value));
     onBrandChange([]);
     onShippingChange([]);
+    onStoreTypeChange([]);
     onBrandSearchChange("");
   };
 
@@ -92,6 +111,30 @@ export function FiltersSidebar({
         
         <ScrollArea className="h-[calc(100vh-12rem)] pr-4 -mr-4">
         <div className="space-y-6">
+            
+            {/* Tipo de Loja */}
+            {(storeTypeOptions.official > 0 || storeTypeOptions.nonOfficial > 0) && (
+                 <div className="space-y-2">
+                    <h4 className="font-semibold text-sm">Tipo de loja</h4>
+                     <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="store-type-official" className="flex items-center gap-2 font-normal cursor-pointer">
+                                <Checkbox id="store-type-official" checked={selectedStoreTypes.includes('official')} onCheckedChange={() => handleStoreTypeToggle('official')} />
+                                Lojas Oficiais
+                            </Label>
+                            <span className="text-xs text-muted-foreground">{storeTypeOptions.official}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                             <Label htmlFor="store-type-non-official" className="flex items-center gap-2 font-normal cursor-pointer">
+                                <Checkbox id="store-type-non-official" checked={selectedStoreTypes.includes('non-official')} onCheckedChange={() => handleStoreTypeToggle('non-official')} />
+                                Lojas Não Oficiais
+                            </Label>
+                             <span className="text-xs text-muted-foreground">{storeTypeOptions.nonOfficial}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Tipos de Entrega */}
             {shippingOptions.length > 0 && (

@@ -150,18 +150,20 @@ export default function BuscarMercadoLivrePage() {
     const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
     const [brandSearch, setBrandSearch] = useState("");
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+    const [selectedStoreTypes, setSelectedStoreTypes] = useState<string[]>([]);
 
 
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
-    const { dynamicFilterOptions, brandOptions, shippingOptions } = useMemo(() => {
-      if (!state.result) return { dynamicFilterOptions: [], brandOptions: [], shippingOptions: [] };
+    const { dynamicFilterOptions, brandOptions, shippingOptions, storeTypeOptions } = useMemo(() => {
+      if (!state.result) return { dynamicFilterOptions: [], brandOptions: [], shippingOptions: [], storeTypeOptions: { official: 0, nonOfficial: 0 } };
 
       const attributesMap = new Map<string, { name: string, values: Set<string> }>();
       const brandMap = new Map<string, number>();
       const shippingMap = new Map<string, number>();
+      const storeTypeMap = { official: 0, nonOfficial: 0 };
       const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY', 'COLOR']);
   
       state.result.forEach(product => {
@@ -185,6 +187,13 @@ export default function BuscarMercadoLivrePage() {
         if(shippingLabel) {
             shippingMap.set(shippingLabel, (shippingMap.get(shippingLabel) || 0) + 1);
         }
+        
+        // Store Type
+        if (product.is_official_store) {
+            storeTypeMap.official++;
+        } else {
+            storeTypeMap.nonOfficial++;
+        }
 
       });
   
@@ -204,7 +213,7 @@ export default function BuscarMercadoLivrePage() {
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      return { dynamicFilterOptions: dynFilters, brandOptions: brandOpts, shippingOptions: shippingOpts };
+      return { dynamicFilterOptions: dynFilters, brandOptions: brandOpts, shippingOptions: shippingOpts, storeTypeOptions: storeTypeMap };
 
     }, [state.result]);
 
@@ -238,9 +247,15 @@ export default function BuscarMercadoLivrePage() {
                 return false;
             }
 
+            // Store type filter
+            if (selectedStoreTypes.length > 0 && !selectedStoreTypes.includes(p.is_official_store ? 'official' : 'non-official')) {
+                return false;
+            }
+
+
             return true;
         });
-    }, [state.result, activeFilters, showOnlyActive, selectedBrands, selectedShipping]);
+    }, [state.result, activeFilters, showOnlyActive, selectedBrands, selectedShipping, selectedStoreTypes]);
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -276,6 +291,7 @@ export default function BuscarMercadoLivrePage() {
       setActiveFilters({}); // Reset dynamic filters on new search
       setSelectedBrands([]);
       setSelectedShipping([]);
+      setSelectedStoreTypes([]);
       setBrandSearch('');
     }, [state.result]);
 
@@ -360,15 +376,18 @@ export default function BuscarMercadoLivrePage() {
                         dynamicFilterOptions={dynamicFilterOptions}
                         brandOptions={brandOptions}
                         shippingOptions={shippingOptions}
+                        storeTypeOptions={storeTypeOptions}
                         activeFilters={activeFilters}
                         selectedBrands={selectedBrands}
                         selectedShipping={selectedShipping}
+                        selectedStoreTypes={selectedStoreTypes}
                         brandSearch={brandSearch}
                         onFilterChange={(filterId, value) => {
                             setActiveFilters(prev => ({...prev, [filterId]: value}));
                         }}
                         onBrandChange={setSelectedBrands}
                         onShippingChange={setSelectedShipping}
+                        onStoreTypeChange={setSelectedStoreTypes}
                         onBrandSearchChange={setBrandSearch}
                     />
 
