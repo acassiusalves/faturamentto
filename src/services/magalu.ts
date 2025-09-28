@@ -12,7 +12,7 @@ export interface MagaluSku {
   stock?: any;
 }
 
-// ❌ NÃO precisa de sellerId no path
+// ✅ Endpoint para listar SKUs (já estava correto)
 export async function listSellerSkus(accessToken: string, page?: number, perPage?: number)
 : Promise<{ items: MagaluSku[] }> {
   const url = new URL(`${API_BASE}/seller/v1/portfolios/skus`);
@@ -34,28 +34,29 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
   return Array.isArray(data) ? { items: data } : { items: data.items ?? [] };
 }
 
-// ❌ remover sellerId do path
+// ⬆️ CORREÇÃO: Preço de um SKU (sub-recurso do SKU)
 export async function getSkuPrice(accessToken: string, sku: string) {
-  const r = await fetch(`${API_BASE}/seller/v1/portfolios/prices/${encodeURIComponent(sku)}`, {
+  const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}/prices`;
+  const r = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    console.warn(`Get price ${sku} failed: ${r.status} ${r.statusText} ${body}`);
+    console.warn(`Get price ${sku} failed: ${r.status} ${r.statusText} ${await r.text().catch(()=> "")}`);
     return null;
   }
   try { return await r.json(); } catch { return null; }
 }
 
+// ⬆️ CORREÇÃO: Estoque de um SKU (sub-recurso do SKU)
 export async function getSkuStock(accessToken: string, sku: string) {
-  const r = await fetch(`${API_BASE}/seller/v1/portfolios/stocks/${encodeURIComponent(sku)}`, {
+  const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}/stocks`;
+  const r = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    console.warn(`Get stock ${sku} failed: ${r.status} ${r.statusText} ${body}`);
+    console.warn(`Get stock ${sku} failed: ${r.status} ${r.statusText} ${await r.text().catch(()=> "")}`);
     return null;
   }
   try { return await r.json(); } catch { return null; }
