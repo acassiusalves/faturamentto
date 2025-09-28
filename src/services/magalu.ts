@@ -1,7 +1,7 @@
 // src/services/magalu.ts
 'use server';
 
-const API_BASE = "https://openapi.magalu.com";
+const API_BASE = "https://api.magalu.com";
 
 export interface MagaluSku {
   sku: string;
@@ -20,7 +20,7 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
   if (perPage) url.searchParams.set("per_page", String(perPage));
 
   const r = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
     cache: "no-store",
   });
 
