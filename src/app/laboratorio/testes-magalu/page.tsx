@@ -8,7 +8,7 @@ import { MagaluLogo } from '@/components/icons';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plug, Loader2, List, Package } from 'lucide-react';
+import { Plug, Loader2, List, Package, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { loadAppSettings, getMagaluTokens } from '@/services/firestore';
 import { saveMagaluCredentialsAction } from '@/app/actions';
@@ -36,9 +36,13 @@ export default function TestesMagaluPage() {
   const [isListing, setIsListing] = useState(false);
   const [listings, setListings] = useState<MagaluSku[]>([]);
 
+  // States para busca de SKU específico
+  const [singleSku, setSingleSku] = useState('');
+  const [isSearchingSku, setIsSearchingSku] = useState(false);
+  const [skuDetails, setSkuDetails] = useState<any>(null);
+
   useEffect(() => {
     async function loadData() {
-        const settings = await loadAppSettings();
         const magaluCreds = await getMagaluTokens(); // Busca as credenciais
         if (magaluCreds) {
             setAccountName(magaluCreds.accountName || '');
@@ -66,6 +70,7 @@ export default function TestesMagaluPage() {
     setIsListing(true);
     setListings([]);
     try {
+        if (!uuid) throw new Error("O UUID da conta é necessário para listar os anúncios.");
         const response = await fetch(`/api/magalu/listings?accountId=${uuid}`);
         const data = await response.json();
 
@@ -82,6 +87,30 @@ export default function TestesMagaluPage() {
         setIsListing(false);
     }
   };
+
+  const handleSearchSku = async () => {
+    setIsSearchingSku(true);
+    setSkuDetails(null);
+    try {
+        if (!uuid) throw new Error("O UUID da conta é necessário.");
+        if (!singleSku) throw new Error("O SKU do produto é necessário.");
+        
+        const response = await fetch(`/api/magalu/sku?accountId=${uuid}&sku=${encodeURIComponent(singleSku)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Falha ao buscar detalhes do SKU.');
+        }
+
+        setSkuDetails(data);
+        toast({ title: 'SKU Encontrado!', description: 'Detalhes de preço e estoque carregados.' });
+
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Erro ao Buscar SKU', description: e.message });
+    } finally {
+        setIsSearchingSku(false);
+    }
+  }
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin" /></div>
@@ -143,7 +172,7 @@ export default function TestesMagaluPage() {
               <CardFooter className="gap-4">
                 <Button type="submit">
                     <Plug className="mr-2 h-4 w-4" />
-                    Salvar e Testar Conexão
+                    Salvar Credenciais
                 </Button>
                 <Button variant="secondary" onClick={handleListSkus} disabled={isListing || !uuid}>
                     {isListing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <List className="mr-2 h-4 w-4"/>}
@@ -152,6 +181,26 @@ export default function TestesMagaluPage() {
               </CardFooter>
             </Card>
           </form>
+
+          <Card>
+              <CardHeader>
+                  <CardTitle>Consultar SKU Específico</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                     <Input placeholder="Digite o SKU do produto" value={singleSku} onChange={e => setSingleSku(e.target.value)} />
+                     <Button onClick={handleSearchSku} disabled={isSearchingSku || !uuid || !singleSku}>
+                         {isSearchingSku ? <Loader2 className="animate-spin" /> : <Search />}
+                         Buscar
+                     </Button>
+                  </div>
+                  {skuDetails && (
+                    <pre className="mt-4 p-4 bg-muted rounded-md overflow-x-auto text-sm">
+                        <code>{JSON.stringify(skuDetails, null, 2)}</code>
+                    </pre>
+                  )}
+              </CardContent>
+          </Card>
         </div>
 
         <Card>
