@@ -1,5 +1,4 @@
 
-
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -473,7 +472,7 @@ export const loadCompanyCosts = async (): Promise<{ fixed: CompanyCost[]; variab
 };
 
 export const saveCompanyCosts = async (costs: { fixed: CompanyCost[]; variable: CompanyCost[] }): Promise<void> => {
-    const docRef = doc(db, USers_COLLECTION, DEFAULT_USER_ID, 'app-data', 'companyCosts');
+    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'companyCosts');
     await setDoc(docRef, costs);
 };
 
@@ -642,6 +641,14 @@ export const saveAppSettings = async (settings: Partial<AppSettings>): Promise<v
 export const saveMagaluCredentials = async (credentials: MagaluCredentials): Promise<void> => {
     await setDoc(settingsDocRef, { magalu: credentials }, { merge: true });
 };
+
+export const getMagaluTokens = async (accountId?: string): Promise<MagaluCredentials | null> => {
+    const settings = await loadAppSettings();
+    // For now, we only have one Magalu account slot.
+    // The `accountId` parameter is there for future multi-account support.
+    return settings?.magalu || null;
+}
+
 
 export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
     const usersCol = collection(db, 'users');
@@ -924,13 +931,3 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
-
-
-    
-
-    
-
-
-
-    
-

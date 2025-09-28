@@ -55,7 +55,7 @@ export function parsePriceToNumber(input?: string | number): number {
  * @returns The formatted currency string (e.g., "R$ 1.234,56").
  */
 export function formatBRL(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -64,5 +64,10 @@ export function formatBRL(value: number | null | undefined): string {
 
 // Legacy formatCurrency, kept for compatibility, but new code should use formatBRL
 export function formatCurrency(value: number | null | undefined): string {
-  return formatBRL(value);
+  if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
 }
+
