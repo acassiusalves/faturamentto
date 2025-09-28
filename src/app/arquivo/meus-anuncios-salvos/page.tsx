@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart, Hash, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, Users, PackageCheck, Info, DollarSign, Tag, Truck, ShieldCheck, ShoppingCart, Hash, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Calendar, Power } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -67,9 +67,12 @@ export default function MeusAnunciosSalvosPage() {
             accounts.add(item.accountId);
             const term = searchTerm.toLowerCase();
             const searchMatch = !term ||
-                item.title.toLowerCase().includes(term) ||
-                item.id.toLowerCase().includes(term) ||
-                item.seller_custom_field?.toLowerCase().includes(term);
+                item.title?.toLowerCase().includes(term) ||
+                item.id?.toLowerCase().includes(term) ||
+                item.seller_custom_field?.toLowerCase().includes(term) ||
+                item.catalog_product_id?.toLowerCase().includes(term) ||
+                item.category_id?.toLowerCase().includes(term);
+
             
             const statusMatch = statusFilter === 'all' || item.status === statusFilter;
             const accountMatch = accountFilter === 'all' || item.accountId === accountFilter;
@@ -116,7 +119,7 @@ export default function MeusAnunciosSalvosPage() {
         <div className="flex flex-col gap-8 p-4 md:p-8">
             <div>
                 <h1 className="text-3xl font-bold font-headline">Meus Anúncios Salvos</h1>
-                <p className="text-muted-foreground">Consulte os anúncios que foram salvos no banco de dados.</p>
+                <p className="text-muted-foreground">Consulte os anúncios que foram salvos no banco de dados da coleção 'anuncios'.</p>
             </div>
             
             <Card>
@@ -165,6 +168,9 @@ export default function MeusAnunciosSalvosPage() {
                     <Accordion type="multiple" className="w-full space-y-2">
                         {paginatedItems.map(item => {
                             const mainSku = getSku(item.attributes, item.seller_custom_field);
+                            const dataSyncDate = item.data_sync ? new Date(item.data_sync).toLocaleString('pt-BR') : 'N/A';
+                            const lastUpdatedDate = item.last_updated ? new Date(item.last_updated).toLocaleString('pt-BR') : 'N/A';
+
                             return (
                             <AccordionItem value={item.id} key={item.id}>
                                <Card>
@@ -193,13 +199,26 @@ export default function MeusAnunciosSalvosPage() {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-2">
-                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         <div className="space-y-2">
                                             <h4 className="font-semibold flex items-center gap-1.5"><Info /> Informações Gerais</h4>
                                             <p className="text-sm">Garantia: <span className="font-medium">{item.warranty || 'Não especificada'}</span></p>
                                             <p className="text-sm">Disponível: <span className="font-medium">{item.available_quantity} un.</span></p>
                                             <p className="text-sm">Vendidos: <span className="font-medium">{item.sold_quantity} un.</span></p>
-                                             {item.accepts_mercadopago && <Badge variant="secondary">Aceita Mercado Pago</Badge>}
+                                            <p className="text-sm">Estoque Inicial: <span className="font-medium">{item.initial_quantity} un.</span></p>
+                                            {item.accepts_mercadopago && <Badge variant="secondary">Aceita Mercado Pago</Badge>}
+                                             <Badge variant={item.precificacao_automatica ? "default" : "secondary"}>
+                                                <Power className="mr-2 h-3 w-3"/>
+                                                Precificação Automática: {item.precificacao_automatica ? 'Ativada' : 'Desativada'}
+                                            </Badge>
+                                        </div>
+                                         <div className="space-y-2">
+                                            <h4 className="font-semibold flex items-center gap-1.5"><Calendar /> Datas e IDs</h4>
+                                            <p className="text-sm">ID Conta: <span className="font-mono text-xs">{item.id_conta_autenticada}</span></p>
+                                            <p className="text-sm">ID Vendedor: <span className="font-mono text-xs">{item.seller_id}</span></p>
+                                            <p className="text-sm">ID Categoria: <span className="font-mono text-xs">{item.category_id}</span></p>
+                                            <p className="text-sm">Sincronizado em: <span className="font-medium">{dataSyncDate}</span></p>
+                                            <p className="text-sm">Última Atualização: <span className="font-medium">{lastUpdatedDate}</span></p>
                                         </div>
                                         <div className="space-y-2">
                                              <h4 className="font-semibold flex items-center gap-1.5"><Truck /> Frete</h4>
@@ -215,7 +234,7 @@ export default function MeusAnunciosSalvosPage() {
                                             </div>
                                         </div>
                                         {item.variations?.length > 0 && (
-                                            <div className="space-y-2 md:col-span-2 lg:col-span-1">
+                                            <div className="space-y-2 md:col-span-2 lg:col-span-3">
                                                 <h4 className="font-semibold flex items-center gap-1.5"><PackageCheck /> Variações ({item.variations.length})</h4>
                                                 <ScrollArea className="h-48 rounded-md border p-2 bg-muted/50">
                                                     <div className="space-y-3">
@@ -284,3 +303,5 @@ export default function MeusAnunciosSalvosPage() {
         </div>
     )
 }
+
+    

@@ -626,6 +626,14 @@ export interface MyItem {
     savedAt?: string; 
     marketplace?: string;
     postedOnAccounts?: string[];
+    // Adicionando os novos campos da coleção 'anuncios'
+    data_sync?: string;
+    id_conta_autenticada?: string;
+    initial_quantity?: number;
+    last_updated?: string;
+    listing_type_id?: string;
+    precificacao_automatica?: boolean;
+    seller_id?: number;
 }
 
 
@@ -714,5 +722,7 @@ export interface CreateListingPayload {
   buying_mode: 'buy_it_now';
   condition: 'new' | 'used' | 'not_specified';
 }
+
+    
 
     
