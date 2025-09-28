@@ -239,16 +239,21 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     };
     
     useEffect(() => {
-        if (isSubmitting) { // Only show toasts after a submission attempt
-            if (formState?.error) {
+        if (!formState) return;
+
+        if (isSubmitting) {
+            if (formState.error) {
                 toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
-                setIsSubmitting(false); // Reset submitting state on error
-            }
-            if (formState?.success && formState.result) {
+                setIsSubmitting(false); 
+            } else if (formState.success && formState.result) {
                 toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
                 form.reset();
                 onClose();
-                setIsSubmitting(false); // Reset submitting state on success
+                setIsSubmitting(false);
+            } else if (!formState.success && !formState.error) {
+                // Initial state, do nothing
+            } else {
+                 setIsSubmitting(false);
             }
         }
     }, [formState, isSubmitting, toast, form, onClose]);

@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProducts } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -220,26 +220,33 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
 async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string[]>> {
     const allActiveCatalogs = new Map<string, string[]>(); // catalog_id -> accountName[]
     
-    // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.nickname || String(acc.id_conta_autenticada)]));
-
+    
+    // Create a map from numeric userId to nickname
+    const accountIdToNameMap = new Map<string, string>();
+    mlAccounts.forEach(acc => {
+        if (acc.userId) {
+            accountIdToNameMap.set(String(acc.userId), acc.nickname || String(acc.userId));
+        }
+    });
 
     for (const item of myItems) {
-        // We only care about active items with a catalog ID
-        if (item.status === 'active' && item.catalog_product_id) {
+        if (item.status === 'active' && item.catalog_product_id && item.id_conta_autenticada) {
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
-            const accountName = accountIdToNameMap.get(accountId) || accountId;
-
-            if (!allActiveCatalogs.has(catalogId)) {
-                allActiveCatalogs.set(catalogId, []);
-            }
             
-            const accounts = allActiveCatalogs.get(catalogId)!;
-            if (accountName && !accounts.includes(accountName)) {
-                accounts.push(accountName);
+            // Use the map to get the nickname from the numeric userId
+            const accountName = accountIdToNameMap.get(accountId);
+
+            if (accountName) {
+                if (!allActiveCatalogs.has(catalogId)) {
+                    allActiveCatalogs.set(catalogId, []);
+                }
+                const accounts = allActiveCatalogs.get(catalogId)!;
+                if (!accounts.includes(accountName)) {
+                    accounts.push(accountName);
+                }
             }
         }
     }
@@ -985,5 +992,16 @@ export async function createCatalogListingAction(
 
   } catch(e: any) {
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
+  }
+}
+
+
+export async function saveProductsAction(products: Product[]) {
+  try {
+    await saveProducts(products);
+    revalidatePath('/produtos');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
