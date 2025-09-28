@@ -1,6 +1,6 @@
 // src/app/api/magalu/sku/route.ts
 import { NextResponse } from "next/server";
-import { getSkuPrice, getSkuStock } from "@/services/magalu";
+import { getSkuDetails, getSkuPrice, getSkuStock } from "@/services/magalu";
 import { getMagaluTokens } from "@/services/firestore";
 
 export async function GET(req: Request) {
@@ -15,17 +15,19 @@ export async function GET(req: Request) {
     const tokens = await getMagaluTokens(accountId);
     if (!tokens?.accessToken) throw new Error(`Sem access token para a conta ${accountId}`);
 
-    const [price, stock] = await Promise.allSettled([
+    const [details, price, stock] = await Promise.allSettled([
+      getSkuDetails(tokens.accessToken, sku),
       getSkuPrice(tokens.accessToken, sku),
       getSkuStock(tokens.accessToken, sku),
     ]);
 
-    const details = {
+    const enrichedDetails = {
+      ... (details.status === "fulfilled" ? details.value : { error: (details.reason as Error).message }),
       price: price.status === "fulfilled" ? price.value : { error: (price.reason as Error).message },
       stock: stock.status === "fulfilled" ? stock.value : { error: (stock.reason as Error).message },
     };
 
-    return NextResponse.json({ sku, details });
+    return NextResponse.json({ sku, details: enrichedDetails });
 
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "erro desconhecido" }, { status: 500 });

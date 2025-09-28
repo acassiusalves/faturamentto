@@ -43,6 +43,19 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
   return Array.isArray(data) ? { items: data } : { items: data.items ?? [] };
 }
 
+export async function getSkuDetails(accessToken: string, sku: string) {
+  const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}`;
+  const r = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store'
+  });
+  if (!r.ok) {
+    console.warn(`Get details for ${sku} failed: ${r.status} ${r.statusText} ${await r.text().catch(()=> "")}`);
+    return null;
+  }
+  try { return await r.json(); } catch { return null; }
+}
+
 export async function getSkuPrice(accessToken: string, sku: string) {
   const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}/prices`;
   const r = await fetch(url, {
