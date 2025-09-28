@@ -223,11 +223,10 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
     
-    // Create a map from numeric userId to nickname
     const accountIdToNameMap = new Map<string, string>();
     mlAccounts.forEach(acc => {
         if (acc.userId) {
-            accountIdToNameMap.set(String(acc.userId), acc.nickname || String(acc.userId));
+            accountIdToNameMap.set(String(acc.userId), acc.nickname || acc.id);
         }
     });
 
@@ -236,7 +235,6 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
             
-            // Use the map to get the nickname from the numeric userId
             const accountName = accountIdToNameMap.get(accountId);
 
             if (accountName) {
@@ -1005,3 +1003,5 @@ export async function saveProductsAction(products: Product[]) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
+
+    

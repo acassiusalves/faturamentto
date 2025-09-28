@@ -648,7 +648,7 @@ export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
 export const loadMlAccounts = async (): Promise<MlAccount[]> => {
     const accountsCol = collection(db, 'mercadoLivreAccounts');
     const snapshot = await getDocs(accountsCol);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as MlAccount));
+    return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<MlAccount, 'id'>) }));
 }
 
 export const updateMlAccount = async (accountId: string, nickname: string): Promise<void> => {
@@ -926,3 +926,6 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
 
     
 
+
+
+    
