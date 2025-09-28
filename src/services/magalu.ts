@@ -12,15 +12,23 @@ export interface MagaluSku {
   stock?: any;
 }
 
-// ✅ Endpoint para listar SKUs (já estava correto)
 export async function listSellerSkus(accessToken: string, page?: number, perPage?: number)
 : Promise<{ items: MagaluSku[] }> {
-  const url = new URL(`${API_BASE}/seller/v1/portfolios/skus`);
-  if (page) url.searchParams.set("page", String(page));
-  if (perPage) url.searchParams.set("per_page", String(perPage));
+  let url = `${API_BASE}/seller/v1/portfolios/skus`;
+  const params = new URLSearchParams();
+  if (page) params.set("page", String(page));
+  if (perPage) params.set("per_page", String(perPage));
+  
+  const queryString = params.toString();
+  if (queryString) {
+    url += `?${queryString}`;
+  }
 
-  const r = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  const r = await fetch(url, {
+    headers: { 
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${accessToken}` 
+    },
     cache: "no-store",
   });
 
@@ -31,10 +39,10 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
   }
 
   const data = await r.json();
+  // A API pode retornar um array diretamente ou um objeto com a chave "items"
   return Array.isArray(data) ? { items: data } : { items: data.items ?? [] };
 }
 
-// ⬆️ CORREÇÃO: Preço de um SKU (sub-recurso do SKU)
 export async function getSkuPrice(accessToken: string, sku: string) {
   const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}/prices`;
   const r = await fetch(url, {
@@ -48,7 +56,6 @@ export async function getSkuPrice(accessToken: string, sku: string) {
   try { return await r.json(); } catch { return null; }
 }
 
-// ⬆️ CORREÇÃO: Estoque de um SKU (sub-recurso do SKU)
 export async function getSkuStock(accessToken: string, sku: string) {
   const url = `${API_BASE}/seller/v1/portfolios/skus/${encodeURIComponent(sku)}/stocks`;
   const r = await fetch(url, {
