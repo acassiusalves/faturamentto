@@ -64,6 +64,7 @@ export async function getMlToken(accountId?: string): Promise<string> {
       }
   } else {
      const settings = await loadAppSettings().catch(() => null);
+     // Fallback to primary 'mercadoLivre' key if accountId is not provided
      creds = settings?.mercadoLivre;
   }
   

@@ -73,7 +73,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         if (!response.ok) {
             console.error('ML API Error Response:', JSON.stringify(responseData, null, 2));
             const errorMessage = responseData.message || 'Erro desconhecido da API do ML.';
-            const errorCause = responseData.cause?.map((c: any) => c.message).join(' ') || '';
+            const errorCause = Array.isArray(responseData.cause) ? responseData.cause.map((c: any) => c.message).join(' ') : (responseData.cause?.message || '');
             throw new Error(`[${response.status}] ${errorMessage} ${errorCause}`);
         }
 
