@@ -60,7 +60,7 @@ interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
-    postedOnAccount?: string | null; // Alterado de isAlreadyPosted
+    postedOnAccounts?: string[];
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -389,16 +389,16 @@ export default function BuscarMercadoLivrePage() {
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex flex-col gap-y-1">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {product.postedOnAccount && (
-                                                                    <Badge className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                                {product.postedOnAccounts && product.postedOnAccounts.map(accountName => (
+                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        Postado em: {product.postedOnAccount}
+                                                                        Postado em: {accountName}
                                                                     </Badge>
-                                                                )}
+                                                                ))}
                                                             </div>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">

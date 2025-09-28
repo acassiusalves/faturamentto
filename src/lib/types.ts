@@ -343,6 +343,7 @@ export interface MercadoLivreCredentials {
   refreshToken: string;
   apiStatus?: ApiKeyStatus;
   nickname?: string; // Adding nickname to the credentials
+  id_conta_autenticada?: string; // Adicionando id_conta_autenticada
 }
 
 export interface MlAccount {
@@ -353,6 +354,7 @@ export interface MlAccount {
     refreshToken: string;
     redirectUri: string;
     apiStatus?: ApiKeyStatus;
+    id_conta_autenticada?: string; // Adicionando id_conta_autenticada
 }
 
 
@@ -625,7 +627,6 @@ export interface MyItem {
     accountId: string;
     savedAt?: string; 
     marketplace?: string;
-    postedOnAccounts?: string[];
     // Adicionando os novos campos da coleção 'anuncios'
     data_sync?: string;
     id_conta_autenticada?: string;
@@ -691,7 +692,7 @@ export interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
-    postedOnAccount?: string | null;
+    postedOnAccounts?: string[];
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;

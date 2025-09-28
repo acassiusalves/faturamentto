@@ -4,7 +4,7 @@
 import { loadAppSettings } from '@/services/firestore';
 import type { MercadoLivreCredentials } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 
 type MlTokenResponse = {
@@ -16,66 +16,96 @@ type MlTokenResponse = {
 const _tokenCache: Record<string, { token: string; expiresAt: number }> = {};
 const TOKEN_LIFETIME_MS = 6 * 60 * 60 * 1000; // 6 horas em ms
 
-export async function getMlToken(account?: string): Promise<string> {
-  const cacheKey = account || 'primary';
+export async function generateNewAccessToken(creds: {
+    appId: string;
+    clientSecret: string;
+    refreshToken: string;
+}): Promise<string> {
+    const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: creds.appId,
+        client_secret: creds.clientSecret,
+        refresh_token: creds.refreshToken,
+    });
+
+    const r = await fetch('https://api.mercadolibre.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        cache: 'no-store',
+    });
+
+    if (!r.ok) {
+        const msg = await r.text();
+        throw new Error(`Falha ao renovar token do Mercado Livre: ${msg}`);
+    }
+
+    const j = await r.json() as MlTokenResponse;
+    return j.access_token;
+}
+
+export async function getMlToken(accountId?: string): Promise<string> {
+  const cacheKey = accountId || 'primary';
   const cached = _tokenCache[cacheKey];
 
   if (cached && Date.now() < cached.expiresAt - 60_000) { // 1 min de margem
     return cached.token;
   }
   
-  let creds: Partial<MercadoLivreCredentials> & { clientId?: string } | undefined;
+  let creds: Partial<MercadoLivreCredentials> & { appId?: string } | undefined;
 
-  // Se o 'account' for fornecido, assume que é um ID de documento
-  // da coleção `mercadoLivreAccounts`
-  if (account) {
-      const accountDocRef = doc(db, 'mercadoLivreAccounts', account);
+  if (accountId) {
+      const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
       const docSnap = await getDoc(accountDocRef);
       if (docSnap.exists()) {
-          creds = docSnap.data() as Partial<MercadoLivreCredentials> & { clientId?: string };
+          creds = docSnap.data() as Partial<MercadoLivreCredentials> & { appId?: string };
       } else {
-          throw new Error(`A conta do Mercado Livre com ID '${account}' não foi encontrada.`);
+          throw new Error(`A conta do Mercado Livre com ID '${accountId}' não foi encontrada.`);
       }
   } else {
-     // Lógica original para conta primária (fallback)
      const settings = await loadAppSettings().catch(() => null);
      creds = settings?.mercadoLivre;
   }
-
-  const appId = creds?.appId || creds?.clientId;
+  
+  const appId = creds?.appId;
 
   if (!appId || !creds?.clientSecret || !creds?.refreshToken) {
     throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
-  const body = new URLSearchParams({
-    grant_type: 'refresh_token',
-    client_id: appId,
-    client_secret: creds.clientSecret,
-    refresh_token: creds.refreshToken,
+  const token = await generateNewAccessToken({
+      appId,
+      clientSecret: creds.clientSecret,
+      refreshToken: creds.refreshToken
   });
-
-  const r = await fetch('https://api.mercadolibre.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-    cache: 'no-store',
-  });
-
-  if (!r.ok) {
-    const msg = await r.text();
-    console.error(`Falha ao renovar token do ML para conta '${cacheKey}':`, msg);
-    throw new Error(`Falha ao renovar token do Mercado Livre (${cacheKey}): ${msg}`);
-  }
-
-  const j = (await r.json()) as MlTokenResponse;
   
   _tokenCache[cacheKey] = {
-    token: j.access_token,
-    expiresAt: Date.now() + (j.expires_in * 1000 || TOKEN_LIFETIME_MS),
+    token: token,
+    expiresAt: Date.now() + TOKEN_LIFETIME_MS,
   };
 
-  return j.access_token;
+  return token;
+}
+
+
+export async function searchMercadoLivreProducts(query: string, limit: number = 20): Promise<any[]> {
+    const token = await getMlToken(); // Usa a conta primária para buscas
+    const url = new URL("https://api.mercadolibre.com/sites/MLB/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("limit", String(limit));
+    
+    const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erro na API do Mercado Livre: ${errorData.message}`);
+    }
+    
+    const data = await response.json();
+    return data.results || [];
 }
 
 /** Se já existir no arquivo, mantenha. Só certifique-se de exportar. */

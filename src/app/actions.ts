@@ -223,21 +223,22 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.nickname || acc.id]));
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.id_conta_autenticada), acc.nickname || String(acc.id_conta_autenticada)]));
 
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
         if (item.status === 'active' && item.catalog_product_id) {
             const catalogId = item.catalog_product_id;
-            const accountName = accountIdToNameMap.get(item.accountId) || item.accountId;
+            const accountId = String(item.id_conta_autenticada);
+            const accountName = accountIdToNameMap.get(accountId) || accountId;
 
             if (!allActiveCatalogs.has(catalogId)) {
                 allActiveCatalogs.set(catalogId, []);
             }
             
             const accounts = allActiveCatalogs.get(catalogId)!;
-            if (!accounts.includes(accountName)) {
+            if (accountName && !accounts.includes(accountName)) {
                 accounts.push(accountName);
             }
         }
