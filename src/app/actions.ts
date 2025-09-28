@@ -983,6 +983,7 @@ export async function createCatalogListingAction(
     const result = await apiResponse.json();
 
     if (!apiResponse.ok) {
+        // Agora, o `result` já contém o corpo do erro (data), então podemos passá-lo adiante
         return { success: false, error: result.error, result: result.data || null };
     }
     
@@ -1030,3 +1031,5 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+    

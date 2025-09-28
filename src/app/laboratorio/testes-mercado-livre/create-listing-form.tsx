@@ -176,7 +176,6 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                 <CardContent>
                     <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
                         {formState.result ? JSON.stringify(formState.result, null, 2) 
-                        : formState.error ? JSON.stringify({ error: formState.error, details: formState.result }, null, 2)
                         : 'Aguardando envio...'}
                     </pre>
                 </CardContent>
@@ -346,3 +345,5 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+
+    
