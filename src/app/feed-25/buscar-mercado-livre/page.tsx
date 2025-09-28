@@ -146,7 +146,7 @@ export default function BuscarMercadoLivrePage() {
 
     // Filter states
     const [showOnlyActive, setShowOnlyActive] = useState(true);
-    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({}); // For dynamic attributes
+    const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
     const [selectedShipping, setSelectedShipping] = useState<string[]>([]);
     const [brandSearch, setBrandSearch] = useState("");
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -160,20 +160,21 @@ export default function BuscarMercadoLivrePage() {
     const { dynamicFilterOptions, brandOptions, shippingOptions, storeTypeOptions } = useMemo(() => {
       if (!state.result) return { dynamicFilterOptions: [], brandOptions: [], shippingOptions: [], storeTypeOptions: { official: 0, nonOfficial: 0 } };
 
-      const attributesMap = new Map<string, { name: string, values: Set<string> }>();
+      const attributesMap = new Map<string, { name: string, values: Map<string, number> }>();
       const brandMap = new Map<string, number>();
       const shippingMap = new Map<string, number>();
       const storeTypeMap = { official: 0, nonOfficial: 0 };
-      const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY', 'COLOR']);
+      const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY']);
   
       state.result.forEach(product => {
         // Dynamic Attributes
         product.attributes.forEach(attr => {
           if (attributeWhitelist.has(attr.id) && attr.value_name) {
             if (!attributesMap.has(attr.id)) {
-              attributesMap.set(attr.id, { name: attr.name, values: new Set() });
+              attributesMap.set(attr.id, { name: attr.name, values: new Map() });
             }
-            attributesMap.get(attr.id)!.values.add(attr.value_name);
+            const valueMap = attributesMap.get(attr.id)!.values;
+            valueMap.set(attr.value_name, (valueMap.get(attr.value_name) || 0) + 1);
           }
         });
 
@@ -201,7 +202,7 @@ export default function BuscarMercadoLivrePage() {
         .map(([id, { name, values }]) => ({
           id,
           name,
-          options: Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+          options: Array.from(values.entries()).map(([optionName, count]) => ({ name: optionName, count })),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -227,11 +228,11 @@ export default function BuscarMercadoLivrePage() {
             
             // Dynamic attribute filters
             for(const filterId in activeFilters) {
-                const filterValue = activeFilters[filterId];
-                if(filterValue === 'all') continue;
+                const filterValues = activeFilters[filterId];
+                if(filterValues.length === 0) continue;
                 
                 const productAttribute = p.attributes.find(attr => attr.id === filterId);
-                if (!productAttribute || productAttribute.value_name !== filterValue) {
+                if (!productAttribute || !filterValues.includes(productAttribute.value_name || '')) {
                     return false;
                 }
             }
@@ -382,8 +383,8 @@ export default function BuscarMercadoLivrePage() {
                         selectedShipping={selectedShipping}
                         selectedStoreTypes={selectedStoreTypes}
                         brandSearch={brandSearch}
-                        onFilterChange={(filterId, value) => {
-                            setActiveFilters(prev => ({...prev, [filterId]: value}));
+                        onFilterChange={(filterId, values) => {
+                            setActiveFilters(prev => ({...prev, [filterId]: values}));
                         }}
                         onBrandChange={setSelectedBrands}
                         onShippingChange={setSelectedShipping}

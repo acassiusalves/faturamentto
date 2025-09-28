@@ -3,16 +3,17 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 type DynamicFilterOption = {
   id: string;
   name: string;
-  options: string[];
+  options: { name: string, count: number }[];
 };
 
 type CountOption = {
@@ -30,12 +31,12 @@ type FiltersSidebarProps = {
   brandOptions: CountOption[];
   shippingOptions: CountOption[];
   storeTypeOptions: StoreTypeOptions;
-  activeFilters: Record<string, string>;
+  activeFilters: Record<string, string[]>;
   selectedBrands: string[];
   selectedShipping: string[];
   selectedStoreTypes: string[];
   brandSearch: string;
-  onFilterChange: (filterId: string, value: string) => void;
+  onFilterChange: (filterId: string, values: string[]) => void;
   onBrandChange: (brands: string[]) => void;
   onShippingChange: (shipping: string[]) => void;
   onStoreTypeChange: (storeTypes: string[]) => void;
@@ -81,13 +82,23 @@ export function FiltersSidebar({
         : [...selectedStoreTypes, storeType];
       onStoreTypeChange(newSelection);
   }
+  
+  const handleDynamicFilterToggle = (filterId: string, value: string) => {
+    const currentValues = activeFilters[filterId] || [];
+    const newSelection = currentValues.includes(value)
+      ? currentValues.filter(v => v !== value)
+      : [...currentValues, value];
+    onFilterChange(filterId, newSelection);
+  };
+
 
   const clearAll = () => {
-    const clearedFilters: Record<string, string> = {};
+    const clearedFilters: Record<string, string[]> = {};
     for (const key in activeFilters) {
-      clearedFilters[key] = 'all';
+      clearedFilters[key] = [];
     }
-    Object.entries(clearedFilters).forEach(([key, value]) => onFilterChange(key, value));
+    onFilterChange(clearedFilters as any, [] as any); // Bit of a hack for the type
+    Object.keys(clearedFilters).forEach(key => onFilterChange(key, []));
     onBrandChange([]);
     onShippingChange([]);
     onStoreTypeChange([]);
@@ -110,95 +121,105 @@ export function FiltersSidebar({
         </div>
         
         <ScrollArea className="h-[calc(100vh-12rem)] pr-4 -mr-4">
-        <div className="space-y-6">
+        <Accordion type="multiple" defaultValue={['store-type', 'shipping', 'brands', ...dynamicFilterOptions.map(f => f.id)]} className="w-full space-y-4">
             
             {/* Tipo de Loja */}
             {(storeTypeOptions.official > 0 || storeTypeOptions.nonOfficial > 0) && (
-                 <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Tipo de loja</h4>
-                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="store-type-official" className="flex items-center gap-2 font-normal cursor-pointer">
-                                <Checkbox id="store-type-official" checked={selectedStoreTypes.includes('official')} onCheckedChange={() => handleStoreTypeToggle('official')} />
-                                Lojas Oficiais
-                            </Label>
-                            <span className="text-xs text-muted-foreground">{storeTypeOptions.official}</span>
+                 <AccordionItem value="store-type">
+                    <AccordionTrigger className="text-sm font-semibold">Tipo de loja</AccordionTrigger>
+                    <AccordionContent>
+                         <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="store-type-official" className="flex items-center gap-2 font-normal cursor-pointer">
+                                    <Checkbox id="store-type-official" checked={selectedStoreTypes.includes('official')} onCheckedChange={() => handleStoreTypeToggle('official')} />
+                                    Lojas Oficiais
+                                </Label>
+                                <span className="text-xs text-muted-foreground">{storeTypeOptions.official}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                 <Label htmlFor="store-type-non-official" className="flex items-center gap-2 font-normal cursor-pointer">
+                                    <Checkbox id="store-type-non-official" checked={selectedStoreTypes.includes('non-official')} onCheckedChange={() => handleStoreTypeToggle('non-official')} />
+                                    Lojas Não Oficiais
+                                </Label>
+                                 <span className="text-xs text-muted-foreground">{storeTypeOptions.nonOfficial}</span>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                             <Label htmlFor="store-type-non-official" className="flex items-center gap-2 font-normal cursor-pointer">
-                                <Checkbox id="store-type-non-official" checked={selectedStoreTypes.includes('non-official')} onCheckedChange={() => handleStoreTypeToggle('non-official')} />
-                                Lojas Não Oficiais
-                            </Label>
-                             <span className="text-xs text-muted-foreground">{storeTypeOptions.nonOfficial}</span>
-                        </div>
-                    </div>
-                </div>
+                    </AccordionContent>
+                </AccordionItem>
             )}
 
 
             {/* Tipos de Entrega */}
             {shippingOptions.length > 0 && (
-                <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Tipos de entrega</h4>
-                    <div className="space-y-2">
-                        {shippingOptions.map(opt => (
-                            <div key={opt.name} className="flex items-center justify-between">
-                                <Label htmlFor={`ship-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
-                                    <Checkbox id={`ship-${opt.name}`} checked={selectedShipping.includes(opt.name)} onCheckedChange={() => handleShippingToggle(opt.name)} />
-                                    {opt.name}
-                                </Label>
-                                <span className="text-xs text-muted-foreground">{opt.count}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                 <AccordionItem value="shipping">
+                    <AccordionTrigger className="text-sm font-semibold">Tipos de entrega</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="space-y-2 pt-2">
+                            {shippingOptions.map(opt => (
+                                <div key={opt.name} className="flex items-center justify-between">
+                                    <Label htmlFor={`ship-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
+                                        <Checkbox id={`ship-${opt.name}`} checked={selectedShipping.includes(opt.name)} onCheckedChange={() => handleShippingToggle(opt.name)} />
+                                        {opt.name}
+                                    </Label>
+                                    <span className="text-xs text-muted-foreground">{opt.count}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </AccordionContent>
+                 </AccordionItem>
             )}
             
             {/* Marcas */}
             {brandOptions.length > 0 && (
-                 <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Marcas</h4>
-                    <Input placeholder="Filtrar marcas..." value={brandSearch} onChange={e => onBrandSearchChange(e.target.value)} />
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                         {filteredBrands.map(opt => (
-                            <div key={opt.name} className="flex items-center justify-between">
-                                <Label htmlFor={`brand-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
-                                    <Checkbox id={`brand-${opt.name}`} checked={selectedBrands.includes(opt.name)} onCheckedChange={() => handleBrandToggle(opt.name)} />
-                                    {opt.name}
-                                </Label>
-                                <span className="text-xs text-muted-foreground">{opt.count}</span>
+                 <AccordionItem value="brands">
+                    <AccordionTrigger className="text-sm font-semibold">Marcas</AccordionTrigger>
+                     <AccordionContent>
+                        <div className="space-y-2 pt-2">
+                            <Input placeholder="Filtrar marcas..." value={brandSearch} onChange={e => onBrandSearchChange(e.target.value)} />
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {filteredBrands.map(opt => (
+                                    <div key={opt.name} className="flex items-center justify-between">
+                                        <Label htmlFor={`brand-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
+                                            <Checkbox id={`brand-${opt.name}`} checked={selectedBrands.includes(opt.name)} onCheckedChange={() => handleBrandToggle(opt.name)} />
+                                            {opt.name}
+                                        </Label>
+                                        <span className="text-xs text-muted-foreground">{opt.count}</span>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </div>
+                        </div>
+                     </AccordionContent>
+                </AccordionItem>
             )}
             
             {/* Filtros Dinâmicos */}
             {dynamicFilterOptions.length > 0 && (
-                <div className="space-y-4 pt-4 border-t">
-                    <h4 className="font-semibold text-sm">Ficha Técnica</h4>
-                    {dynamicFilterOptions.map(filter => (
-                        <div key={filter.id} className="space-y-1.5">
-                            <Label htmlFor={`filter-${filter.id}`} className="text-sm font-medium">{filter.name}</Label>
-                            <Select
-                                value={activeFilters[filter.id] || 'all'}
-                                onValueChange={(value) => onFilterChange(filter.id, value)}
-                            >
-                                <SelectTrigger id={`filter-${filter.id}`}>
-                                    <SelectValue placeholder="Selecione..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {filter.options.map(opt => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    ))}
-                </div>
+                <>
+                {dynamicFilterOptions.map(filter => (
+                     <AccordionItem key={filter.id} value={filter.id}>
+                        <AccordionTrigger className="text-sm font-semibold">{filter.name}</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="space-y-2 pt-2 max-h-48 overflow-y-auto">
+                                {filter.options.map(opt => (
+                                    <div key={opt.name} className="flex items-center justify-between">
+                                        <Label htmlFor={`dyn-${filter.id}-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
+                                            <Checkbox 
+                                                id={`dyn-${filter.id}-${opt.name}`} 
+                                                checked={(activeFilters[filter.id] || []).includes(opt.name)} 
+                                                onCheckedChange={() => handleDynamicFilterToggle(filter.id, opt.name)} 
+                                            />
+                                            {opt.name}
+                                        </Label>
+                                        <span className="text-xs text-muted-foreground">{opt.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+                </>
             )}
-        </div>
+        </Accordion>
         </ScrollArea>
       </div>
     </aside>
