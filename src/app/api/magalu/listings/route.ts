@@ -6,7 +6,7 @@ import { getMagaluTokens } from "@/services/firestore";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const accountId = searchParams.get("accountId");
+    const accountId = searchParams.get("accountId"); // This is the UUID
     if (!accountId) return NextResponse.json({ error: "accountId (UUID) obrigatório" }, { status: 400 });
 
     const page  = Number(searchParams.get("page") || "1");
@@ -19,12 +19,13 @@ export async function GET(req: Request) {
     }
     const accessToken = tokens.accessToken;
 
-    const { items = [], ...meta } = await listSellerSkus(accessToken, page, limit);
+    // Pass the accountId (seller_id) to the service function
+    const { items = [], ...meta } = await listSellerSkus(accessToken, accountId, page, limit);
 
     const enriched = await Promise.all(items.map(async (sku) => {
       const [price, stock] = await Promise.allSettled([
-        getSkuPrice(accessToken, sku.sku),
-        getSkuStock(accessToken, sku.sku),
+        getSkuPrice(accessToken, accountId, sku.sku),
+        getSkuStock(accessToken, accountId, sku.sku),
       ]);
       return {
         ...sku,

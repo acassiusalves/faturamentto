@@ -12,8 +12,10 @@ export interface MagaluSku {
   stock?: any; // To hold stock info
 }
 
-export async function listSellerSkus(accessToken: string, page?: number, perPage?: number): Promise<{ items: MagaluSku[] }> {
-  const url = new URL(`${API_BASE}/seller/v1/portfolios/skus`);
+export async function listSellerSkus(accessToken: string, sellerId: string, page?: number, perPage?: number): Promise<{ items: MagaluSku[] }> {
+  if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para listar SKUs.");
+  
+  const url = new URL(`${API_BASE}/seller/v1/sellers/${sellerId}/skus`);
   if (page) url.searchParams.set("page", String(page));
   if (perPage) url.searchParams.set("per_page", String(perPage));
 
@@ -26,11 +28,14 @@ export async function listSellerSkus(accessToken: string, page?: number, perPage
     console.error("Magalu listSellerSkus error:", errorText);
     throw new Error(`Falha ao listar SKUs da Magalu: ${r.statusText}`);
   }
-  return r.json() as Promise<{ items: MagaluSku[] }>;
+  const data = await r.json();
+  // A API pode retornar um objeto com a chave "items" ou diretamente um array
+  return data.items ? data : { items: data };
 }
 
-export async function getSkuPrice(accessToken: string, sku: string): Promise<any> {
-  const r = await fetch(`${API_BASE}/seller/v1/portfolios/prices/${encodeURIComponent(sku)}`, {
+export async function getSkuPrice(accessToken: string, sellerId: string, sku: string): Promise<any> {
+   if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para consultar preços.");
+  const r = await fetch(`${API_BASE}/seller/v1/sellers/${sellerId}/skus/${encodeURIComponent(sku)}/prices`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
@@ -46,8 +51,9 @@ export async function getSkuPrice(accessToken: string, sku: string): Promise<any
   }
 }
 
-export async function getSkuStock(accessToken: string, sku: string): Promise<any> {
-  const r = await fetch(`${API_BASE}/seller/v1/portfolios/stocks/${encodeURIComponent(sku)}`, {
+export async function getSkuStock(accessToken: string, sellerId: string, sku: string): Promise<any> {
+  if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para consultar estoque.");
+  const r = await fetch(`${API_BASE}/seller/v1/sellers/${sellerId}/skus/${encodeURIComponent(sku)}/stocks`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
