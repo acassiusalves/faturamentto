@@ -153,32 +153,30 @@ export default function BuscarMercadoLivrePage() {
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
     
-    // Memoized unique filter options
     const dynamicFilterOptions = useMemo(() => {
-        if (!state.result) return [];
-
-        const attributesMap = new Map<string, { name: string, values: Set<string> }>();
-        const ignoredAttributes = new Set(['BRAND', 'MODEL', 'EAN', 'LINE', 'GTIN', 'MPN', 'ITEM_CONDITION']);
-
-        state.result.forEach(product => {
-            product.attributes.forEach(attr => {
-                if (!ignoredAttributes.has(attr.id) && attr.value_name) {
-                    if (!attributesMap.has(attr.id)) {
-                        attributesMap.set(attr.id, { name: attr.name, values: new Set() });
-                    }
-                    attributesMap.get(attr.id)!.values.add(attr.value_name);
-                }
-            });
+      if (!state.result) return [];
+  
+      const attributesMap = new Map<string, { name: string, values: Set<string> }>();
+      const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY', 'COLOR']);
+  
+      state.result.forEach(product => {
+        product.attributes.forEach(attr => {
+          if (attributeWhitelist.has(attr.id) && attr.value_name) {
+            if (!attributesMap.has(attr.id)) {
+              attributesMap.set(attr.id, { name: attr.name, values: new Set() });
+            }
+            attributesMap.get(attr.id)!.values.add(attr.value_name);
+          }
         });
-        
-        return Array.from(attributesMap.entries())
-            .map(([id, { name, values }]) => ({
-                id,
-                name,
-                options: Array.from(values).sort((a,b) => a.localeCompare(b, undefined, { numeric: true })),
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name));
-
+      });
+  
+      return Array.from(attributesMap.entries())
+        .map(([id, { name, values }]) => ({
+          id,
+          name,
+          options: Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     }, [state.result]);
 
 
