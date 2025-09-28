@@ -8,14 +8,14 @@ export interface MagaluSku {
   title?: string;
   brand?: string;
   ean?: string;
-  price?: any; // To hold price info
-  stock?: any; // To hold stock info
+  price?: any;
+  stock?: any;
 }
 
-export async function listSellerSkus(accessToken: string, sellerId: string, page?: number, perPage?: number): Promise<{ items: MagaluSku[] }> {
-  if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para listar SKUs.");
-  
-  const url = new URL(`${API_BASE}/seller/v1/sellers/${sellerId}/skus`);
+// ❌ NÃO precisa de sellerId no path
+export async function listSellerSkus(accessToken: string, page?: number, perPage?: number)
+: Promise<{ items: MagaluSku[] }> {
+  const url = new URL(`${API_BASE}/seller/v1/portfolios/skus`);
   if (page) url.searchParams.set("page", String(page));
   if (perPage) url.searchParams.set("per_page", String(perPage));
 
@@ -23,48 +23,40 @@ export async function listSellerSkus(accessToken: string, sellerId: string, page
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
+
   if (!r.ok) {
-    const errorText = await r.text();
-    console.error("Magalu listSellerSkus error:", errorText);
-    throw new Error(`Falha ao listar SKUs da Magalu: ${r.statusText}`);
+    const body = await r.text().catch(() => "");
+    console.error("Magalu listSellerSkus error:", r.status, r.statusText, body);
+    throw new Error(`Falha ao listar SKUs da Magalu: ${r.status} ${r.statusText}`);
   }
+
   const data = await r.json();
-  // A API pode retornar um objeto com a chave "items" ou diretamente um array
-  return data.items ? data : { items: data };
+  return Array.isArray(data) ? { items: data } : { items: data.items ?? [] };
 }
 
-export async function getSkuPrice(accessToken: string, sellerId: string, sku: string): Promise<any> {
-   if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para consultar preços.");
-  const r = await fetch(`${API_BASE}/seller/v1/sellers/${sellerId}/skus/${encodeURIComponent(sku)}/prices`, {
+// ❌ remover sellerId do path
+export async function getSkuPrice(accessToken: string, sku: string) {
+  const r = await fetch(`${API_BASE}/seller/v1/portfolios/prices/${encodeURIComponent(sku)}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!r.ok) {
-      console.warn(`Get price for SKU ${sku} failed with status ${r.status}`);
-      return null;
-  }
-  try {
-    return await r.json();
-  } catch (e) {
-    console.error(`Failed to parse price JSON for SKU ${sku}`, e);
+    const body = await r.text().catch(() => "");
+    console.warn(`Get price ${sku} failed: ${r.status} ${r.statusText} ${body}`);
     return null;
   }
+  try { return await r.json(); } catch { return null; }
 }
 
-export async function getSkuStock(accessToken: string, sellerId: string, sku: string): Promise<any> {
-  if (!sellerId) throw new Error("O ID do vendedor (UUID) é obrigatório para consultar estoque.");
-  const r = await fetch(`${API_BASE}/seller/v1/sellers/${sellerId}/skus/${encodeURIComponent(sku)}/stocks`, {
+export async function getSkuStock(accessToken: string, sku: string) {
+  const r = await fetch(`${API_BASE}/seller/v1/portfolios/stocks/${encodeURIComponent(sku)}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
   if (!r.ok) {
-    console.warn(`Get stock for SKU ${sku} failed with status ${r.status}`);
+    const body = await r.text().catch(() => "");
+    console.warn(`Get stock ${sku} failed: ${r.status} ${r.statusText} ${body}`);
     return null;
   }
-  try {
-    return await r.json();
-  } catch (e) {
-    console.error(`Failed to parse stock JSON for SKU ${sku}`, e);
-    return null;
-  }
+  try { return await r.json(); } catch { return null; }
 }
