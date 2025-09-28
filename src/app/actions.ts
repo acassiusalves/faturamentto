@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, saveMyItems, loadMyItems } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -946,37 +946,6 @@ export async function updateMlAccountNicknameAction(_prevState: any, formData: F
         return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message || 'Falha ao atualizar o nome da conta.' };
-    }
-}
-
-export async function saveMyItemsAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null; count: number; }> {
-    try {
-        const itemsJson = formData.get('items') as string;
-        const accountId = formData.get('accountId') as string;
-        const postedOnAccounts = JSON.parse(formData.get('postedOnAccounts') as string || '[]');
-
-        if (!itemsJson || !accountId) {
-            throw new Error("Dados de itens ou ID da conta não fornecidos.");
-        }
-        
-        let items = JSON.parse(itemsJson);
-
-        if (!Array.isArray(items)) {
-            throw new Error("Formato de itens inválido.");
-        }
-        
-        // Add postedOnAccounts to each item before saving
-        items = items.map(item => ({ ...item, postedOnAccounts }));
-        
-        const count = await saveMyItems(items, accountId);
-        
-        // Revalidate the path where saved items are shown
-        revalidatePath('/arquivo/meus-anuncios-salvos');
-
-        return { success: true, error: null, count: count };
-
-    } catch (e: any) {
-        return { success: false, error: e.message || "Falha ao salvar os anúncios.", count: 0 };
     }
 }
 

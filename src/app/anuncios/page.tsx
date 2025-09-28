@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,41 +16,11 @@ import { Badge } from '@/components/ui/badge';
 import { MercadoLivreLogo, FullIcon, CorreiosLogo, MercadoEnviosIcon, FreteGratisIcon } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { useFormState } from 'react-dom';
-import { updateMlAccountNicknameAction, saveMyItemsAction } from '@/app/actions';
+import { updateMlAccountNicknameAction } from '@/app/actions';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { MyItem } from '@/lib/types';
 
-
-interface MyItem {
-    id: string;
-    title: string;
-    price: number;
-    status: string;
-    permalink: string;
-    thumbnail: string;
-    catalog_product_id?: string | null;
-    currency_id: string;
-    sale_terms: any[];
-    warranty: string;
-    accepts_mercadopago: boolean;
-    available_quantity: number;
-    sold_quantity: number;
-    shipping: any;
-    category_id: string;
-    pictures: { url: string; secure_url: string }[];
-    attributes: { id: string; value_name: string | null; name: string }[];
-    seller_custom_field: string | null;
-    variations: {
-        id: number;
-        price: number;
-        available_quantity: number;
-        sold_quantity: number;
-        seller_custom_field: string | null;
-        attribute_combinations: { id: string; name: string; value_id: string | null; value_name: string }[];
-        attributes: { id: string; value_name: string | null; name: string }[];
-        picture_ids: string[];
-    }[];
-}
 
 interface MlAccount {
     id: string; // Document ID from Firestore
@@ -61,64 +32,6 @@ const getSku = (attributes: MyItem['attributes'] | MyItem['variations'][0]['attr
     const skuAttribute = attributes.find(attr => attr.id === 'SELLER_SKU');
     return skuAttribute?.value_name || sellerCustomField || 'N/A';
 };
-
-function SaveItemsButton({ items, accountId, postedOnAccounts }: { items: MyItem[], accountId: string, postedOnAccounts: string[] }) {
-    const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const handleSave = async () => {
-        if (!items || items.length === 0) return;
-        setIsSaving(true);
-        const formData = new FormData();
-
-        // **CORREÇÃO**: Selecionar apenas os campos necessários para evitar problemas de serialização.
-        const itemsToSave = items.map(item => ({
-            id: item.id,
-            title: item.title,
-            price: item.price,
-            status: item.status,
-            permalink: item.permalink,
-            thumbnail: item.thumbnail,
-            catalog_product_id: item.catalog_product_id,
-            available_quantity: item.available_quantity,
-            sold_quantity: item.sold_quantity,
-            seller_custom_field: item.seller_custom_field,
-            // Adicionar outros campos essenciais que você queira salvar.
-            // Ex: category_id, currency_id etc.
-        }));
-
-        formData.append('items', JSON.stringify(itemsToSave));
-        formData.append('accountId', accountId);
-        formData.append('postedOnAccounts', JSON.stringify(postedOnAccounts));
-
-        try {
-            const result = await saveMyItemsAction({}, formData);
-            if (result.error) {
-                throw new Error(result.error);
-            }
-            toast({
-                title: "Sucesso!",
-                description: `${result.count} anúncios foram salvos/atualizados no banco de dados.`
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao Salvar',
-                description: error.message
-            });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    return (
-        <Button onClick={handleSave} disabled={isSaving || items.length === 0}>
-            {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-            {isSaving ? 'Salvando...' : `Salvar ${items.length} Anúncios no Sistema`}
-        </Button>
-    )
-}
-
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
     const [items, setItems] = useState<MyItem[]>([]);
@@ -270,9 +183,6 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
                         )})}
                     </Accordion>
                 </CardContent>
-                <CardFooter>
-                    <SaveItemsButton items={items} accountId={accountId} postedOnAccounts={[accountName]} />
-                </CardFooter>
                 </>
             )}
         </Card>

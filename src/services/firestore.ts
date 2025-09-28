@@ -789,27 +789,8 @@ export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
 };
 
 // --- MY ITEMS (ML) ---
-export async function saveMyItems(items: MyItem[], accountId: string): Promise<number> {
-    const batch = writeBatch(db);
-    const itemsCol = collection(db, 'ml_items');
-    
-    items.forEach(item => {
-        const docRef = doc(itemsCol, item.id);
-        const dataToSave = { 
-            ...item, 
-            accountId: accountId, // Add accountId to the data
-            savedAt: new Date().toISOString(),
-            marketplace: "Mercado Livre" // Add marketplace field
-        };
-        batch.set(docRef, toFirestore(dataToSave), { merge: true });
-    });
-
-    await batch.commit();
-    return items.length;
-}
-
 export async function loadMyItems(): Promise<MyItem[]> {
-    const itemsCol = collection(db, 'ml_items');
+    const itemsCol = collection(db, 'anuncios');
     const q = query(itemsCol, orderBy('savedAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => fromFirestore({ ...d.data(), id: d.id }) as MyItem);
