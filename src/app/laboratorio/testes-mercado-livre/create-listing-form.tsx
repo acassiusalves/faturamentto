@@ -207,6 +207,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
             buying_mode: 'buy_it_now',
             condition: 'new',
+            accountId: '',
         }
     });
 
@@ -224,7 +225,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         }
     }, [product, form]);
 
-    const onSubmit = async (data: ListingFormValues) => {
+    const onSubmit = (data: ListingFormValues) => {
         setIsSubmitting(true);
         const formData = new FormData();
         formData.append('catalog_product_id', data.catalogProductId);
@@ -235,28 +236,23 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
         
-        formAction(formData); // Note: this is from useFormState, not a direct call
+        formAction(formData); 
     };
     
     useEffect(() => {
-        if (!formState) return;
+        if (!isSubmitting) return;
 
-        if (isSubmitting) {
-            if (formState.error) {
-                toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
-                setIsSubmitting(false); 
-            } else if (formState.success && formState.result) {
-                toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
-                form.reset();
-                onClose();
-                setIsSubmitting(false);
-            } else if (!formState.success && !formState.error) {
-                // Initial state, do nothing
-            } else {
-                 setIsSubmitting(false);
-            }
+        if (formState.error) {
+            toast({ variant: 'destructive', title: 'Erro ao Criar Anúncio', description: formState.error });
+            setIsSubmitting(false); 
+        } else if (formState.success && formState.result) {
+            toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
+            form.reset();
+            onClose();
+            setIsSubmitting(false);
         }
-    }, [formState, isSubmitting, toast, form, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formState, isSubmitting]);
 
 
     if (!product) return null;
