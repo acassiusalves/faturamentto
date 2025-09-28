@@ -36,11 +36,13 @@ type FiltersSidebarProps = {
   selectedShipping: string[];
   selectedStoreTypes: string[];
   brandSearch: string;
+  modelSearch: string;
   onFilterChange: (filterId: string, values: string[]) => void;
   onBrandChange: (brands: string[]) => void;
   onShippingChange: (shipping: string[]) => void;
   onStoreTypeChange: (storeTypes: string[]) => void;
   onBrandSearchChange: (search: string) => void;
+  onModelSearchChange: (search: string) => void;
   className?: string;
 };
 
@@ -54,34 +56,26 @@ export function FiltersSidebar({
   selectedShipping,
   selectedStoreTypes,
   brandSearch,
+  modelSearch,
   onFilterChange,
   onBrandChange,
   onShippingChange,
   onStoreTypeChange,
   onBrandSearchChange,
+  onModelSearchChange,
   className,
 }: FiltersSidebarProps) {
 
-  const handleBrandToggle = (brandName: string) => {
-    const newSelection = selectedBrands.includes(brandName)
-      ? selectedBrands.filter(b => b !== brandName)
-      : [...selectedBrands, brandName];
-    onBrandChange(newSelection);
+  const handleCheckboxToggle = (
+    currentSelection: string[],
+    setter: (newSelection: string[]) => void,
+    value: string
+  ) => {
+    const newSelection = currentSelection.includes(value)
+      ? currentSelection.filter(v => v !== value)
+      : [...currentSelection, value];
+    setter(newSelection);
   };
-  
-  const handleShippingToggle = (shippingName: string) => {
-    const newSelection = selectedShipping.includes(shippingName)
-      ? selectedShipping.filter(s => s !== shippingName)
-      : [...selectedShipping, shippingName];
-    onShippingChange(newSelection);
-  }
-
-  const handleStoreTypeToggle = (storeType: 'official' | 'non-official') => {
-      const newSelection = selectedStoreTypes.includes(storeType)
-        ? selectedStoreTypes.filter(st => st !== storeType)
-        : [...selectedStoreTypes, storeType];
-      onStoreTypeChange(newSelection);
-  }
   
   const handleDynamicFilterToggle = (filterId: string, value: string) => {
     const currentValues = activeFilters[filterId] || [];
@@ -97,12 +91,12 @@ export function FiltersSidebar({
     for (const key in activeFilters) {
       clearedFilters[key] = [];
     }
-    onFilterChange(clearedFilters as any, [] as any); // Bit of a hack for the type
     Object.keys(clearedFilters).forEach(key => onFilterChange(key, []));
     onBrandChange([]);
     onShippingChange([]);
     onStoreTypeChange([]);
     onBrandSearchChange("");
+    onModelSearchChange("");
   };
 
   const filteredBrands = React.useMemo(() => {
@@ -131,14 +125,14 @@ export function FiltersSidebar({
                          <div className="space-y-2 pt-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="store-type-official" className="flex items-center gap-2 font-normal cursor-pointer">
-                                    <Checkbox id="store-type-official" checked={selectedStoreTypes.includes('official')} onCheckedChange={() => handleStoreTypeToggle('official')} />
+                                    <Checkbox id="store-type-official" checked={selectedStoreTypes.includes('official')} onCheckedChange={() => handleCheckboxToggle(selectedStoreTypes, onStoreTypeChange, 'official')} />
                                     Lojas Oficiais
                                 </Label>
                                 <span className="text-xs text-muted-foreground">{storeTypeOptions.official}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                  <Label htmlFor="store-type-non-official" className="flex items-center gap-2 font-normal cursor-pointer">
-                                    <Checkbox id="store-type-non-official" checked={selectedStoreTypes.includes('non-official')} onCheckedChange={() => handleStoreTypeToggle('non-official')} />
+                                    <Checkbox id="store-type-non-official" checked={selectedStoreTypes.includes('non-official')} onCheckedChange={() => handleCheckboxToggle(selectedStoreTypes, onStoreTypeChange, 'non-official')} />
                                     Lojas Não Oficiais
                                 </Label>
                                  <span className="text-xs text-muted-foreground">{storeTypeOptions.nonOfficial}</span>
@@ -158,7 +152,7 @@ export function FiltersSidebar({
                             {shippingOptions.map(opt => (
                                 <div key={opt.name} className="flex items-center justify-between">
                                     <Label htmlFor={`ship-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
-                                        <Checkbox id={`ship-${opt.name}`} checked={selectedShipping.includes(opt.name)} onCheckedChange={() => handleShippingToggle(opt.name)} />
+                                        <Checkbox id={`ship-${opt.name}`} checked={selectedShipping.includes(opt.name)} onCheckedChange={() => handleCheckboxToggle(selectedShipping, onShippingChange, opt.name)} />
                                         {opt.name}
                                     </Label>
                                     <span className="text-xs text-muted-foreground">{opt.count}</span>
@@ -180,7 +174,7 @@ export function FiltersSidebar({
                                 {filteredBrands.map(opt => (
                                     <div key={opt.name} className="flex items-center justify-between">
                                         <Label htmlFor={`brand-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
-                                            <Checkbox id={`brand-${opt.name}`} checked={selectedBrands.includes(opt.name)} onCheckedChange={() => handleBrandToggle(opt.name)} />
+                                            <Checkbox id={`brand-${opt.name}`} checked={selectedBrands.includes(opt.name)} onCheckedChange={() => handleCheckboxToggle(selectedBrands, onBrandChange, opt.name)} />
                                             {opt.name}
                                         </Label>
                                         <span className="text-xs text-muted-foreground">{opt.count}</span>
@@ -195,28 +189,44 @@ export function FiltersSidebar({
             {/* Filtros Dinâmicos */}
             {dynamicFilterOptions.length > 0 && (
                 <>
-                {dynamicFilterOptions.map(filter => (
+                {dynamicFilterOptions.map(filter => {
+                    const isModelFilter = filter.id === 'MODEL';
+                    const filteredOptions = isModelFilter 
+                        ? filter.options.filter(opt => opt.name.toLowerCase().includes(modelSearch.toLowerCase()))
+                        : filter.options;
+
+                    return (
                      <AccordionItem key={filter.id} value={filter.id}>
                         <AccordionTrigger className="text-sm font-semibold">{filter.name}</AccordionTrigger>
                         <AccordionContent>
-                            <div className="space-y-2 pt-2 max-h-48 overflow-y-auto">
-                                {filter.options.map(opt => (
-                                    <div key={opt.name} className="flex items-center justify-between">
-                                        <Label htmlFor={`dyn-${filter.id}-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
-                                            <Checkbox 
-                                                id={`dyn-${filter.id}-${opt.name}`} 
-                                                checked={(activeFilters[filter.id] || []).includes(opt.name)} 
-                                                onCheckedChange={() => handleDynamicFilterToggle(filter.id, opt.name)} 
-                                            />
-                                            {opt.name}
-                                        </Label>
-                                        <span className="text-xs text-muted-foreground">{opt.count}</span>
-                                    </div>
-                                ))}
+                            <div className="space-y-2 pt-2">
+                                {isModelFilter && (
+                                    <Input 
+                                        placeholder="Filtrar modelos..." 
+                                        value={modelSearch} 
+                                        onChange={e => onModelSearchChange(e.target.value)} 
+                                    />
+                                )}
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {filteredOptions.map(opt => (
+                                        <div key={opt.name} className="flex items-center justify-between">
+                                            <Label htmlFor={`dyn-${filter.id}-${opt.name}`} className="flex items-center gap-2 font-normal cursor-pointer">
+                                                <Checkbox 
+                                                    id={`dyn-${filter.id}-${opt.name}`} 
+                                                    checked={(activeFilters[filter.id] || []).includes(opt.name)} 
+                                                    onCheckedChange={() => handleDynamicFilterToggle(filter.id, opt.name)} 
+                                                />
+                                                {opt.name}
+                                            </Label>
+                                            <span className="text-xs text-muted-foreground">{opt.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </AccordionContent>
                     </AccordionItem>
-                ))}
+                    )
+                })}
                 </>
             )}
         </Accordion>

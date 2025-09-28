@@ -151,6 +151,7 @@ export default function BuscarMercadoLivrePage() {
     const [brandSearch, setBrandSearch] = useState("");
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [selectedStoreTypes, setSelectedStoreTypes] = useState<string[]>([]);
+    const [modelSearch, setModelSearch] = useState('');
 
 
     // Pagination state
@@ -164,7 +165,7 @@ export default function BuscarMercadoLivrePage() {
       const brandMap = new Map<string, number>();
       const shippingMap = new Map<string, number>();
       const storeTypeMap = { official: 0, nonOfficial: 0 };
-      const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY']);
+      const attributeWhitelist = new Set(['MODEL', 'RAM', 'INTERNAL_MEMORY', 'COLOR']);
   
       state.result.forEach(product => {
         // Dynamic Attributes
@@ -294,6 +295,7 @@ export default function BuscarMercadoLivrePage() {
       setSelectedShipping([]);
       setSelectedStoreTypes([]);
       setBrandSearch('');
+      setModelSearch('');
     }, [state.result]);
 
     useEffect(() => {
@@ -383,6 +385,7 @@ export default function BuscarMercadoLivrePage() {
                         selectedShipping={selectedShipping}
                         selectedStoreTypes={selectedStoreTypes}
                         brandSearch={brandSearch}
+                        modelSearch={modelSearch}
                         onFilterChange={(filterId, values) => {
                             setActiveFilters(prev => ({...prev, [filterId]: values}));
                         }}
@@ -390,6 +393,7 @@ export default function BuscarMercadoLivrePage() {
                         onShippingChange={setSelectedShipping}
                         onStoreTypeChange={setSelectedStoreTypes}
                         onBrandSearchChange={setBrandSearch}
+                        onModelSearchChange={setModelSearch}
                     />
 
                     <Card>
