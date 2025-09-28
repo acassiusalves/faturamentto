@@ -791,7 +791,7 @@ export const deleteMlAnalysis = async (analysisId: string): Promise<void> => {
 // --- MY ITEMS (ML) ---
 export async function loadMyItems(): Promise<MyItem[]> {
     const itemsCol = collection(db, 'anuncios');
-    const q = query(itemsCol, orderBy('savedAt', 'desc'));
+    const q = query(itemsCol, orderBy('last_updated', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => fromFirestore({ ...d.data(), id: d.id }) as MyItem);
 }
