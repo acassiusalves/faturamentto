@@ -51,6 +51,42 @@ export function MercadoLivreIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function MagaluLogo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+    return (
+      <svg
+        viewBox="0 0 256 256"
+        xmlns="http://www.w3.org/2000/svg"
+        className={cn("h-6 w-6", className)}
+        {...props}
+      >
+        <path
+          fill="#0086FE"
+          d="M192.341 0H63.659L0 109.11h256L192.341 0z"
+        ></path>
+        <path
+          fill="#00529A"
+          d="M128 206.89L0 109.11h63.659L128 0l64.341 109.11H256L128 206.89z"
+        ></path>
+        <path
+          fill="#0086FE"
+          d="M128 206.89l-31.829-54.272h63.658L128 206.89z"
+        ></path>
+        <path
+          fill="#00529A"
+          d="M128 206.89L96.171 152.618h31.829L128 206.89z"
+        ></path>
+        <path
+          fill="#0086FE"
+          d="M128 256l-31.829-54.272H31.83L128 256zM128 256l31.829-54.272h64.341L128 256z"
+        ></path>
+        <path
+          fill="#00529A"
+          d="M128 256l-31.829-54.272h31.829L128 256z"
+        ></path>
+      </svg>
+    );
+}
+
 
 export function AmazonLogo(props: SVGProps<SVGSVGElement>) {
   return (

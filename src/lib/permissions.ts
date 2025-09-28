@@ -3,7 +3,7 @@
 "use client";
 
 import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive } from 'lucide-react';
-import { MercadoLivreLogo } from '@/components/icons';
+import { MercadoLivreLogo, MagaluLogo } from '@/components/icons';
 
 export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
@@ -71,6 +71,7 @@ export const navLinks = [
       subItems: [
         { href: "/laboratorio", label: "Painel do Laboratório", icon: Beaker },
         { href: "/laboratorio/testes-mercado-livre", label: "Testes Mercado Livre", icon: MercadoLivreLogo },
+        { href: "/laboratorio/testes-magalu", label: "Testes Magalu", icon: MagaluLogo },
         { href: "/laboratorio/analise-zpl", label: "Análise de ZPL", icon: ClipboardPaste },
         { href: "/laboratorio/testes-gpt", label: "Testes GPT", icon: BrainCircuit },
       ]
@@ -127,8 +128,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/login': [], // Public page, no roles required
     '/laboratorio': ['admin', 'socio'],
     '/laboratorio/testes-mercado-livre': ['admin', 'socio'],
+    '/laboratorio/testes-magalu': ['admin', 'socio'],
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 };
-
-    
