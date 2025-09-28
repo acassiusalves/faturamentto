@@ -220,21 +220,28 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
 async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string[]>> {
     const allActiveCatalogs = new Map<string, string[]>(); // catalog_id -> accountName[]
     
-    const myItems = await loadMyItems();
-    const mlAccounts = await loadMlAccounts();
+    const [myItems, mlAccounts] = await Promise.all([
+        loadMyItems(),
+        loadMlAccounts(),
+    ]);
     
+    // Create a map from the NUMERIC user ID to the account nickname.
     const accountIdToNameMap = new Map<string, string>();
     mlAccounts.forEach(acc => {
+        // Use `userId` which is the numeric ID from Mercado Livre.
         if (acc.userId) {
             accountIdToNameMap.set(String(acc.userId), acc.nickname || acc.id);
         }
     });
 
     for (const item of myItems) {
+        // Check for active status and catalog ID.
         if (item.status === 'active' && item.catalog_product_id && item.id_conta_autenticada) {
             const catalogId = item.catalog_product_id;
+            // The `id_conta_autenticada` from the `anuncios` collection is the numeric user ID.
             const accountId = String(item.id_conta_autenticada);
             
+            // Find the nickname using the numeric ID.
             const accountName = accountIdToNameMap.get(accountId);
 
             if (accountName) {

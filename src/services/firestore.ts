@@ -473,7 +473,7 @@ export const loadCompanyCosts = async (): Promise<{ fixed: CompanyCost[]; variab
 };
 
 export const saveCompanyCosts = async (costs: { fixed: CompanyCost[]; variable: CompanyCost[] }): Promise<void> => {
-    const docRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'app-data', 'companyCosts');
+    const docRef = doc(db, USers_COLLECTION, DEFAULT_USER_ID, 'app-data', 'companyCosts');
     await setDoc(docRef, costs);
 };
 
