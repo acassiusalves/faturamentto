@@ -5,18 +5,18 @@ import type { CreateListingPayload } from '@/lib/types';
 
 const ML_API = "https://api.mercadolibre.com";
 
-async function getFirstVariationId(catalogProductId: string, token: string): Promise<string | null> {
-    // Busca o produto de catálogo para descobrir variações
+async function fetchProductDetails(catalogProductId: string, token: string) {
     const url = `${ML_API}/products/${catalogProductId}`;
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) return null;
-    const p = await r.json();
-    // Alguns catálogos expõem variações em p.variations
-    const v = Array.isArray(p?.variations) && p.variations.length ? p.variations[0] : null;
-    // A chave costuma ser 'id' (o ID da variação do catálogo)
-    return v?.id ? String(v.id) : null;
+    const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Falha ao buscar detalhes do produto de catálogo: ${errorData.message}`);
+    }
+    return response.json();
 }
-
 
 export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
@@ -32,12 +32,17 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         
         const token = await getMlToken(accountId);
 
-        // Tente descobrir a variação do catálogo (se existir)
-        const variationId = await getFirstVariationId(catalog_product_id, token);
+        // 1. Fetch product details from catalog to get correct category, variations, etc.
+        const productDetails = await fetchProductDetails(catalog_product_id, token);
+
+        const category_id = productDetails.category_id;
+        if (!category_id) {
+            throw new Error('Não foi possível determinar a categoria do produto a partir do catálogo.');
+        }
 
         const itemPayload: Record<string, any> = {
-            title: `Anúncio de Catálogo para ${catalog_product_id}`, // O ML vai sobrescrever isso, mas é bom ter
-            category_id: 'MLB1055', // Categoria de fallback (Celulares e Smartphones), idealmente viria do produto
+            title: productDetails.name || `Anúncio para ${catalog_product_id}`,
+            category_id: category_id,
             site_id: "MLB",
             catalog_product_id,
             price,
@@ -46,8 +51,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             buying_mode,
             condition,
             listing_type_id,
-            pictures: [], // Vazio para catálogo
-            catalog_listing: true, // Garante que é um anúncio de catálogo
+            pictures: [], // Empty for catalog listings
+            catalog_listing: true, // Ensure it's a catalog listing
             sale_terms: [
                 { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
                 { id: "WARRANTY_TIME", value_name: "3 meses" }
@@ -56,6 +61,17 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
                  { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
             ]
         };
+
+        // 2. Check for variations and add if they exist
+        if (productDetails.variations && productDetails.variations.length > 0) {
+            const firstVariation = productDetails.variations[0];
+            if (firstVariation.id) {
+                itemPayload.catalog_product_variation_id = String(firstVariation.id);
+            }
+        }
+        
+        // 3. (Future enhancement) Check for required attributes like FAMILY_NAME if needed.
+        // For now, the basic payload is robust enough for most cases.
 
         const createItemUrl = `${ML_API}/items`;
 

@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProducts } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount } from '@/lib/types';
 import { getSellersReputation, getMlToken } from '@/services/mercadolivre';
@@ -223,8 +223,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.id_conta_autenticada), acc.nickname || String(acc.id_conta_autenticada)]));
-
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.nickname || String(acc.id)]));
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
@@ -973,15 +972,21 @@ export async function createCatalogListingAction(
         }
     }
     
-    const { createListingFromCatalog } = await import('@/app/api/ml/create-listing/route');
-    const result = await createListingFromCatalog(payload);
-    
-    if (result.error) {
-        return { success: false, error: result.error, result: result.data };
+    // This now calls the improved API route
+    const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_URL}/api/ml/create-listing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    const result = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+        return { success: false, error: result.error, result: result.data || null };
     }
     
     revalidatePath('/laboratorio/testes-mercado-livre');
-    return { success: true, error: null, result: result.data };
+    return { success: true, error: null, result: result };
 
   } catch(e: any) {
     return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
@@ -1002,4 +1007,3 @@ export async function saveProductsAction(products: Product[]) {
     
 
     
-
