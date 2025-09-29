@@ -243,10 +243,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </FormItem>
                                 )} />
                                 
-                                <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Produto</FormLabel>
-                                         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+                                        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
