@@ -341,6 +341,7 @@ export interface MercadoLivreCredentials {
   clientSecret: string;
   redirectUri: string;
   refreshToken: string;
+  accessToken?: string;
   apiStatus?: ApiKeyStatus;
   nickname?: string;
   id_conta_autenticada?: string; 
@@ -739,6 +740,7 @@ export interface CreateListingPayload {
   accountId: string;
   buying_mode: 'buy_it_now';
   condition: 'new' | 'used' | 'not_specified';
+  category_id: string;
 }
 
 export interface CreateListingResult {
@@ -746,3 +748,5 @@ export interface CreateListingResult {
     error: string | null;
     result: any | null; // A resposta da API, seja de sucesso ou erro.
 }
+
+    

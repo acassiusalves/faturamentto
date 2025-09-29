@@ -960,7 +960,7 @@ export async function createCatalogListingAction(
     
     // 1. Fetch credentials securely on the server-side using the Document ID
     const creds = await getMlCredentialsById(accountId);
-    if (!creds || !creds.accessToken) {
+    if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
     
@@ -970,9 +970,10 @@ export async function createCatalogListingAction(
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: accountId,
+        accountId: accountId, // This is the doc ID, not used by ML API but useful for logging
         buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
+        category_id: formData.get('category_id') as string,
     };
     
     // Simple validation
@@ -1033,3 +1034,5 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+    

@@ -248,9 +248,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
-        formData.append('accountId', data.accountId); // Envia o ID do documento
+        formData.append('accountId', data.accountId);
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
+        formData.append('category_id', product.category_id); // Passando o category_id
         
         formAction(formData); 
     };
@@ -374,3 +375,5 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+
+    

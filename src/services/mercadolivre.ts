@@ -155,18 +155,21 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             listing_type_id, 
             buying_mode,
             condition,
+            category_id, // Use a category_id recebida
         } = payload;
         
-        // 1. Fetch product details from catalog to get correct category
-        const productDetails = await fetchProductDetails(catalog_product_id, accessToken);
 
-        const category_id = productDetails.category_id;
         if (!category_id) {
             throw new Error('Não foi possível determinar a categoria do produto a partir do catálogo.');
         }
+        
+        // A busca por detalhes do produto agora é desnecessária se a category_id é passada.
+        // A action que chama esta função já deve garantir que a categoria exista.
+        const productDetailsResponse = await fetchProductDetails(catalog_product_id, accessToken);
+        const productName = productDetailsResponse.name || `Anúncio para ${catalog_product_id}`;
 
         const itemPayload: Record<string, any> = {
-            title: productDetails.name || `Anúncio para ${catalog_product_id}`,
+            title: productName,
             category_id: category_id,
             site_id: "MLB",
             catalog_product_id,
@@ -187,9 +190,9 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             ]
         };
 
-        // 2. Check for variations
-        if (productDetails.variations && productDetails.variations.length > 0) {
-            const firstVariation = productDetails.variations[0];
+        // Check for variations
+        if (productDetailsResponse.variations && productDetailsResponse.variations.length > 0) {
+            const firstVariation = productDetailsResponse.variations[0];
             if (firstVariation.id) {
                 itemPayload.catalog_product_variation_id = String(firstVariation.id);
             }
@@ -220,3 +223,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    
