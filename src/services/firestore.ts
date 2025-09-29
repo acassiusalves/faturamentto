@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 import { db } from '@/lib/firebase';
 import {
@@ -659,7 +660,15 @@ export const loadUsersWithRoles = async (): Promise<AppUser[]> => {
 export const loadMlAccounts = async (): Promise<MlAccount[]> => {
     const accountsCol = collection(db, 'mercadoLivreAccounts');
     const snapshot = await getDocs(accountsCol);
-    return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<MlAccount, 'id'>) }));
+    return snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+            id: d.id,
+            // Prioritize nickname, then accountName, then ID
+            accountName: data.nickname || data.accountName || d.id,
+            ...data
+        } as MlAccount;
+    });
 }
 
 export const getMlCredentialsByNickname = async (nickname: string): Promise<MercadoLivreCredentials | null> => {
@@ -1027,3 +1036,5 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
+
+    

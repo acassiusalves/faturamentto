@@ -177,8 +177,10 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                 </CardHeader>
                 <CardContent>
                     <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
-                        {formState.result ? JSON.stringify(formState.result, null, 2) 
-                        : 'Aguardando envio...'}
+                        <code>
+                            {formState.result ? JSON.stringify(formState.result, null, 2) 
+                            : (formState.error ? formState.error : 'Aguardando envio...')}
+                        </code>
                     </pre>
                      {formState.error && (
                         <Alert variant="destructive" className="mt-4">
@@ -374,3 +376,5 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+
+    

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { loadAppSettings, getMlCredentialsByNickname } from '@/services/firestore';
@@ -55,7 +56,7 @@ export async function getMlToken(accountIdentifier?: string): Promise<string> {
   let creds: Partial<MercadoLivreCredentials> & { appId?: string } | null;
 
   if (accountIdentifier) {
-      // Usa o identificador (que é o `accountName`) para buscar as credenciais
+      // Usa o identificador (que pode ser o `accountName`) para buscar as credenciais
       creds = await getMlCredentialsByNickname(accountIdentifier);
   } else {
      // Fallback para a conta primária se nenhum identificador for fornecido
@@ -232,3 +233,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    
