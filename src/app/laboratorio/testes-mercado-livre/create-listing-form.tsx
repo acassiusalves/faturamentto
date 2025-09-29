@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check } from 'lucide-react';
-import { createCatalogListingAction, findAveragePriceAction, fetchAllProductsFromFeedAction } from '@/app/actions';
+import { createCatalogListingAction, fetchAllProductsFromFeedAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -44,7 +44,6 @@ const listingSchema = z.object({
 type ListingFormValues = z.infer<typeof listingSchema>;
 
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
-const initialPriceState = { averagePrice: null, product: null, error: null };
 
 type FeedProduct = FeedEntry['products'][0];
 
@@ -64,8 +63,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     
     const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [searchState, searchAction] = useFormState(findAveragePriceAction, initialPriceState);
-    const [isSearching, setIsSearching] = useState(false);
     const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
 
     const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
@@ -82,7 +79,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             catalogProductId: product?.catalog_product_id || '',
             title: product?.name || '',
             sellerSku: '',
-            price: product?.price || undefined,
+            price: product?.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
             accountIds: [],
@@ -119,7 +116,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 catalogProductId: product.catalog_product_id || '',
                 title: product.name || '',
                 sellerSku: '',
-                price: product.price || undefined,
+                price: product.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
                 accountIds: [],
@@ -141,31 +138,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
       }
     }, [isOpen, form]);
 
-    useEffect(() => {
-        setIsSearching(false);
-        if (searchState.error) {
-            toast({ variant: 'destructive', title: 'Erro na Busca', description: searchState.error });
-            setCalculatedPrices({ averageCost: null, finalPrice: null });
-        }
-        if (searchState.averagePrice !== null && searchState.product) {
-            const averageCost = searchState.averagePrice;
-            const finalPrice = averageCost * 1.35; // Add 35% margin
-
-            form.setValue('price', parseFloat(finalPrice.toFixed(2)));
-            form.setValue('sellerSku', searchState.product.sku, { shouldValidate: true });
-            setSelectedProductInfo({ name: searchState.product.name, sku: searchState.product.sku });
-            setCalculatedPrices({ averageCost, finalPrice });
-            
-            toast({ title: 'Produto Selecionado!', description: `SKU ${searchState.product.sku} e preço sugerido de ${formatCurrency(finalPrice)} aplicados.` });
-            setIsSearchPopoverOpen(false);
-        }
-    }, [searchState, toast, form]);
-
     const handleProductSelect = (productToSelect: FeedProduct) => {
-        setIsSearching(true);
-        const formData = new FormData();
-        formData.append('searchTerm', productToSelect.sku || productToSelect.name || '');
-        searchAction(formData);
+        form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
+        setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
+        setIsSearchPopoverOpen(false); // Close popover on selection
     };
 
 
@@ -275,10 +251,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                         placeholder="Buscar por nome ou SKU..."
                                                         value={searchTerm}
                                                         onValueChange={setSearchTerm}
-                                                        disabled={isFetchingFeedProducts || isSearching}
+                                                        disabled={isFetchingFeedProducts}
                                                     />
                                                     <CommandList>
-                                                        {isFetchingFeedProducts || isSearching ? (
+                                                        {isFetchingFeedProducts ? (
                                                             <div className="p-2 text-center text-sm text-muted-foreground"> <Loader2 className="mx-auto animate-spin" /> </div>
                                                         ) : (
                                                             <>
@@ -374,36 +350,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
 
                     <div className="space-y-4">
-                        {isSearching ? (
-                             <Card>
-                                <CardContent className="p-6 flex items-center justify-center h-full">
-                                    <Loader2 className="animate-spin text-primary" />
-                                </CardContent>
-                             </Card>
-                        ) : selectedProductInfo && (
-                            <Card>
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-base">Produto Selecionado</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <p className="font-semibold">{selectedProductInfo.name}</p>
-                                    <p className="text-sm text-muted-foreground">SKU: {selectedProductInfo.sku}</p>
-                                    {calculatedPrices.averageCost !== null && (
-                                        <div className="mt-2 text-md">
-                                            <span>Custo Médio + Gordura: </span>
-                                            <span className="font-bold text-muted-foreground">{formatCurrency(calculatedPrices.averageCost)}</span>
-                                        </div>
-                                    )}
-                                     {calculatedPrices.finalPrice !== null && (
-                                        <div className="mt-1 text-lg">
-                                            <span>Preço de Venda Sugerido (+35%): </span>
-                                            <span className="font-bold text-primary">{formatCurrency(calculatedPrices.finalPrice)}</span>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
                        {Object.keys(formStates).length > 0 && (
                             <Card>
                                 <CardHeader className="p-3">

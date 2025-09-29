@@ -1077,60 +1077,6 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
     }
 }
 
-export async function findAveragePriceAction(
-  _prevState: any,
-  formData: FormData
-): Promise<{ averagePrice: number | null, product: FeedEntry['products'][0] | null, error: string | null }> {
-  try {
-    const searchTerm = formData.get('searchTerm') as string;
-    if (!searchTerm) {
-      return { averagePrice: null, product: null, error: 'O termo de busca é obrigatório.' };
-    }
-
-    const { feedEntries, gordura } = await loadAllFeedEntriesWithGordura();
-
-    // 1. Agrupar por fornecedor e pegar a data mais recente de cada um
-    const latestEntriesByStore = new Map<string, FeedEntry>();
-    for (const entry of feedEntries) {
-      if (!latestEntriesByStore.has(entry.storeName) || new Date(entry.date) > new Date(latestEntriesByStore.get(entry.storeName)!.date)) {
-        latestEntriesByStore.set(entry.storeName, entry);
-      }
-    }
-
-    // 2. Buscar o produto nos registros mais recentes
-    const foundProducts: any[] = [];
-    const lowerSearchTerm = searchTerm.toLowerCase();
-
-    for (const entry of latestEntriesByStore.values()) {
-      const foundProduct = entry.products.find(p =>
-        p.name?.toLowerCase().includes(lowerSearchTerm) ||
-        p.sku?.toLowerCase().includes(lowerSearchTerm)
-      );
-      if (foundProduct) {
-        foundProducts.push(foundProduct);
-      }
-    }
-
-    if (foundProducts.length === 0) {
-      return { averagePrice: null, product: null, error: 'Produto não encontrado em nenhuma lista de fornecedor recente.' };
-    }
-
-    // 3. Calcular a média de preço
-    const prices = foundProducts.map(p => parseFloat(p.costPrice?.replace(',', '.'))).filter(p => !isNaN(p) && p > 0);
-    if (prices.length === 0) {
-      return { averagePrice: null, product: foundProducts[0], error: 'Produto encontrado, mas sem preços válidos para calcular a média.' };
-    }
-
-    const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-    const finalPrice = averagePrice + (gordura || 0);
-
-    return { averagePrice: finalPrice, product: foundProducts[0], error: null };
-
-  } catch (e: any) {
-    return { averagePrice: null, product: null, error: e.message || 'Falha inesperada ao buscar preço médio.' };
-  }
-}
-
 export async function fetchAllProductsFromFeedAction(): Promise<{ products: FeedEntry['products'] | null, error: string | null }> {
     try {
         const products = await fetchAllProductsFromFeedService();
