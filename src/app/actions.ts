@@ -965,7 +965,6 @@ export async function createCatalogListingAction(
 
     payload = {
       site_id: "MLB",
-      title: formData.get('title') as string,
       category_id: formData.get('category_id') as string,
       price: Number(formData.get('price')),
       currency_id: "BRL",
@@ -974,40 +973,24 @@ export async function createCatalogListingAction(
       listing_type_id: formData.get('listing_type_id') as string,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
       sale_terms: [
-        {
-          "id": "WARRANTY_TYPE",
-          "value_name": "Garantia do vendedor",
-        },
-        {
-          "id": "WARRANTY_TIME",
-          "value_name": "3 meses",
-        },
+        { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
+        { id: "WARRANTY_TIME", value_name: "3 meses" },
       ],
       pictures: [],
       attributes: [
+        { id: "CARRIER", value_name: "Liberado" },
         {
-          "id": "CARRIER",
-          "value_name": "Liberado",
+          id: "ITEM_CONDITION",
+          value_name: formData.get('condition') === 'new' ? 'Nuevo' : 'Usado',
         },
-        {
-          "id": "ITEM_CONDITION",
-          "value_name": formData.get('condition') === 'new' ? 'Nuevo' : 'Usado',
-        },
-        {
-          "id": "SELLER_SKU",
-          "value_name": formData.get('sellerSku') as string,
-        },
+        { id: "SELLER_SKU", value_name: formData.get('sellerSku') as string },
       ],
       catalog_product_id: formData.get('catalog_product_id') as string,
       catalog_listing: true, 
       shipping: {
         "mode": "me2",
         "methods": [],
-        "tags": [
-            "self_service_out",
-            "mandatory_free_shipping",
-            "self_service_available"
-        ],
+        "tags": [ "self_service_out", "mandatory_free_shipping", "self_service_available" ],
         "dimensions": null,
         "local_pick_up": false,
         "free_shipping": true,
@@ -1015,15 +998,9 @@ export async function createCatalogListingAction(
       },
     };
     
-    // Basic validation
-    for (const key in payload) {
-        const p = payload as any;
-        if (['pictures', 'shipping', 'sale_terms', 'attributes', 'title'].includes(key)) continue;
-
-        if (p[key as keyof CreateListingPayload] === undefined || p[key as keyof CreateListingPayload] === null) {
-            if(key === 'title' && p.catalog_listing === true) continue;
-            return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
-        }
+    // Adiciona o título apenas se não for um anúncio de catálogo
+    if (!payload.catalog_listing) {
+      payload.title = formData.get('title') as string;
     }
     
     const result = await createListingFromCatalog(payload, creds.accessToken);
@@ -1085,3 +1062,4 @@ export async function fetchAllProductsFromFeedAction(): Promise<{ products: Feed
         return { products: null, error: e.message || 'Falha ao buscar produtos do feed.' };
     }
 }
+

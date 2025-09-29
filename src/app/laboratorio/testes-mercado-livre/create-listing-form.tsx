@@ -136,7 +136,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const handleProductSelect = (productToSelect: FeedProduct) => {
         form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
         setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
-        setIsSearchPopoverOpen(false); // Close popover on selection
+        setIsSearchPopoverOpen(false);
+        setSearchTerm("");
     };
 
 
@@ -149,8 +150,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         for (const accountId of data.accountIds) {
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
-            formData.append('title', data.title || product.name);
-            formData.append('sellerSku', data.sellerSku); // Changed to sellerSku
+            // formData.append('title', data.title || product.name); // Title is optional for catalog listings
+            formData.append('sellerSku', data.sellerSku);
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
             formData.append('listing_type_id', data.listingTypeId);
@@ -226,7 +227,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 
                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Produto</FormLabel>
+                                        <FormLabel>Produto (para SKU)</FormLabel>
                                         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
@@ -241,12 +242,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                 </FormControl>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                                <Command filter={(value, search) => {
-                                                    const [name, sku] = value.split('|');
-                                                    const term = search.toLowerCase();
-                                                    if (name.toLowerCase().includes(term) || sku.toLowerCase().includes(term)) return 1;
-                                                    return 0;
-                                                }}>
+                                                 <Command>
                                                     <CommandInput
                                                         placeholder="Buscar por nome ou SKU..."
                                                         value={searchTerm}
@@ -265,6 +261,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
                                                                             onSelect={() => handleProductSelect(p)}
+                                                                            onPointerDown={(e) => e.preventDefault()}
+                                                                            onMouseDown={(e) => e.preventDefault()}
+                                                                            onClick={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
                                                                               <div className="flex flex-col text-left">
@@ -347,16 +346,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
 
                     <div className="space-y-4">
-                        {selectedProductInfo && (
-                            <Alert>
-                                <Info className="h-4 w-4" />
-                                <AlertTitle>Produto Selecionado</AlertTitle>
-                                <AlertDescription>
-                                    <p>Nome: <span className="font-semibold">{selectedProductInfo.name}</span></p>
-                                    <p>SKU a ser enviado: <span className="font-semibold font-mono">{selectedProductInfo.sku}</span></p>
-                                </AlertDescription>
-                            </Alert>
-                        )}
                        {Object.keys(formStates).length > 0 && (
                             <Card>
                                 <CardHeader className="p-3">
@@ -377,7 +366,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                              <div>
                                                                 <p className="text-muted-foreground font-semibold">Erro:</p>
                                                                 <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto text-destructive-foreground">
-                                                                    <code>{state.error}</code>
+                                                                    <code>{JSON.stringify(state.result, null, 2)}</code>
                                                                 </pre>
                                                             </div>
                                                         )}
@@ -393,7 +382,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                             </div>
                                                         )}
                                                         
-                                                        {state.result && (
+                                                        {state.result && state.success && (
                                                             <div>
                                                                 <p className="text-muted-foreground font-semibold">Resposta da API:</p>
                                                                 <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
