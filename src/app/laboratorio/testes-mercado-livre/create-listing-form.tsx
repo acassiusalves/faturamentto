@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info } from 'lucide-react';
 import { createCatalogListingAction, fetchAllProductsFromFeedAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { ChevronsUpDown } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 
 const listingSchema = z.object({
@@ -74,7 +76,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             catalogProductId: product?.catalog_product_id || '',
             title: product?.name || '',
             sellerSku: '',
-            price: product?.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
+            price: undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
             accountIds: [],
@@ -111,7 +113,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 catalogProductId: product.catalog_product_id || '',
                 title: product.name || '',
                 sellerSku: '',
-                price: product.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
+                price: product?.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
                 accountIds: [],
@@ -340,6 +342,16 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
 
                     <div className="space-y-4">
+                        {selectedProductInfo && (
+                            <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>Produto Selecionado</AlertTitle>
+                                <AlertDescription>
+                                    <p>Nome: <span className="font-semibold">{selectedProductInfo.name}</span></p>
+                                    <p>SKU a ser enviado: <span className="font-semibold font-mono">{selectedProductInfo.sku}</span></p>
+                                </AlertDescription>
+                            </Alert>
+                        )}
                        {Object.keys(formStates).length > 0 && (
                             <Card>
                                 <CardHeader className="p-3">
@@ -348,7 +360,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <div className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80 space-y-2">
+                                    <ScrollArea className="p-4 bg-muted rounded-b-md text-xs max-h-80 space-y-2">
                                         {Object.entries(formStates).map(([accountId, state]) => {
                                             const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
                                             return (
@@ -373,7 +385,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                 </div>
                                             )
                                         })}
-                                    </div>
+                                    </ScrollArea>
                                 </CardContent>
                             </Card>
                         )}
