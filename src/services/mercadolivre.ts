@@ -53,23 +53,37 @@ export async function getMlToken(accountIdentifier?: string): Promise<string> {
     return cached.token;
   }
   
-  let creds: Partial<MercadoLivreCredentials> & { appId?: string; accountName?: string } | null = null;
+  let creds: Partial<MercadoLivreCredentials> | null = null;
 
   if (accountIdentifier) {
-      const accountDocRef = doc(db, 'mercadoLivreAccounts', accountIdentifier);
-      const docSnap = await getDoc(accountDocRef);
-      if (docSnap.exists()) {
-          creds = docSnap.data() as MercadoLivreCredentials;
+      // Prioritize direct lookup by ID if it's a valid Firestore ID format
+      if (/^[a-zA-Z0-9]{20}$/.test(accountIdentifier)) {
+          const accountDocRef = doc(db, 'mercadoLivreAccounts', accountIdentifier);
+          const docSnap = await getDoc(accountDocRef);
+          if (docSnap.exists()) {
+              creds = docSnap.data() as MercadoLivreCredentials;
+          }
+      }
+      
+      // If not found by ID, try by name
+      if (!creds) {
+          const accountsCol = collection(db, 'mercadoLivreAccounts');
+          const q = query(accountsCol, where("accountName", "==", accountIdentifier), limit(1));
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+              creds = snapshot.docs[0].data() as MercadoLivreCredentials;
+          }
       }
   } 
   
+  // Fallback to primary account from settings if no specific account was found
   if (!creds) {
      const settings = await loadAppSettings().catch(() => null);
      creds = settings?.mercadoLivre || null;
   }
   
   if (!creds || !creds.appId || !creds.clientSecret || !creds.refreshToken) {
-    throw new Error(`Credenciais para a conta '${creds?.accountName || cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
+    throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
   const token = await generateNewAccessToken({
@@ -167,7 +181,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             price, 
             available_quantity, 
             listing_type_id, 
-            accountId, // This is now the document ID
+            accountId, // This is now the Firestore document ID
             buying_mode,
             condition,
         } = payload;
