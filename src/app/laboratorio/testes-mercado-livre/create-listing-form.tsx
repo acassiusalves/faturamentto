@@ -23,6 +23,7 @@ import { ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 
 const listingSchema = z.object({
@@ -132,7 +133,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
         setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
         setIsSearchPopoverOpen(false);
-        setSearchTerm(''); // Clear search term after selection
     };
 
     const handleCopyToClipboard = (text: string) => {
@@ -251,11 +251,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                 </FormControl>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                                 <Command>
+                                                 <Command filter={(value, search) => {
+                                                    const [name, sku] = value.split('|');
+                                                    if (name.toLowerCase().includes(search.toLowerCase())) return 1;
+                                                    if (sku.toLowerCase().includes(search.toLowerCase())) return 1;
+                                                    return 0;
+                                                 }}>
                                                     <CommandInput
                                                         placeholder="Buscar por nome ou SKU..."
-                                                        value={searchTerm}
-                                                        onValueChange={setSearchTerm}
                                                         disabled={isFetchingFeedProducts}
                                                     />
                                                     <CommandList>
@@ -265,13 +268,11 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                             <>
                                                                 <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                                 <CommandGroup>
-                                                                    {filteredFeedProducts.map((p, index) => (
+                                                                    {allFeedProducts.map((p, index) => (
                                                                         <CommandItem
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
-                                                                            onMouseDown={(e) => e.preventDefault()}
-                                                                            onPointerDown={(e) => e.preventDefault()}
-                                                                            onClick={() => handleProductSelect(p)}
+                                                                            onSelect={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
                                                                               <div className="flex flex-col text-left">
