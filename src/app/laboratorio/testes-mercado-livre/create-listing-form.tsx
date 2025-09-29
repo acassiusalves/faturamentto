@@ -11,14 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search } from 'lucide-react';
 import { useFormState } from 'react-dom';
-import { createCatalogListingAction } from '@/app/actions';
+import { createCatalogListingAction, findAveragePriceAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
+import { MultiSelect, type Option } from '@/components/ui/multi-select';
+import { PriceAverageDialog } from './price-average-dialog';
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
@@ -26,194 +27,13 @@ const listingSchema = z.object({
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
-    accountId: z.string().min(1, 'Selecione a conta para publicar.'),
+    accountIds: z.array(z.string()).min(1, 'Selecione pelo menos uma conta para publicar.'),
     condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }).default('new'),
 });
 
 type ListingFormValues = z.infer<typeof listingSchema>;
 
-interface CreateListingFormProps {
-  accounts: MlAccount[];
-}
-
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
-
-export function CreateListingForm({ accounts }: CreateListingFormProps) {
-    const { toast } = useToast();
-    const [formState, formAction] = useFormState(createCatalogListingAction, initialFormState);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    const form = useForm<ListingFormValues>({
-        resolver: zodResolver(listingSchema),
-        defaultValues: {
-            catalogProductId: '',
-            price: undefined,
-            quantity: 1,
-            condition: 'new',
-        }
-    });
-
-    const onSubmit = async (data: ListingFormValues) => {
-        setIsSubmitting(true);
-        const formData = new FormData();
-        // A ordem aqui não importa tanto quanto na action que monta o payload final
-        formData.append('catalog_product_id', data.catalogProductId);
-        formData.append('price', String(data.price));
-        formData.append('available_quantity', String(data.quantity));
-        formData.append('listing_type_id', data.listingTypeId);
-        formData.append('accountId', data.accountId);
-        formData.append('condition', data.condition);
-        
-        await formAction(formData);
-        setIsSubmitting(false);
-    }
-    
-    useEffect(() => {
-        if (formState.success && formState.result) {
-            toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
-            form.reset();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formState]);
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><PlusCircle /> Criar Anúncio de Catálogo</CardTitle>
-                    <CardDescription>Crie um novo anúncio em uma de suas contas a partir de um ID de produto de catálogo do ML.</CardDescription>
-                </CardHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)}>
-                        <CardContent className="space-y-4">
-                            <FormField control={form.control} name="catalogProductId" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>ID do Produto de Catálogo</FormLabel>
-                                    <FormControl><Input placeholder="MLB123456789" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="price" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Preço</FormLabel>
-                                        <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control} name="quantity" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Estoque</FormLabel>
-                                        <FormControl><Input type="number" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="listingTypeId" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Tipo de Anúncio</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="gold_special">Clássico</SelectItem>
-                                                <SelectItem value="gold_pro">Premium</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control} name="accountId" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Publicar na Conta</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-                             <FormField control={form.control} name="condition" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Condição</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="new">Novo</SelectItem>
-                                            <SelectItem value="used">Usado</SelectItem>
-                                            <SelectItem value="not_specified">Não especificado</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </CardContent>
-                        <CardFooter>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                Criar Anúncio
-                            </Button>
-                        </CardFooter>
-                    </form>
-                </Form>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Database/> Resposta da API</CardTitle>
-                    <CardDescription>A resposta da API do Mercado Livre aparecerá aqui após a tentativa de criação.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {formState.error && (
-                        <Alert variant="destructive" className="mb-4">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
-                            <AlertDescription className="max-h-48 overflow-y-auto">
-                                <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto">
-                                    <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                    {formState.result ? JSON.stringify(formState.result, null, 2) : formState.error}
-                                    </code>
-                                </pre>
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                    {formState.payload && (
-                         <Card className="mb-4">
-                            <CardHeader className="p-3">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <Send /> Payload Enviado
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <pre className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80">
-                                    <code>{JSON.stringify(formState.payload, null, 2)}</code>
-                                </pre>
-                            </CardContent>
-                        </Card>
-                    )}
-                    {formState.success && formState.result && (
-                         <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
-                            <code>
-                                {JSON.stringify(formState.result, null, 2)}
-                            </code>
-                        </pre>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
@@ -225,9 +45,12 @@ interface CreateListingDialogProps {
 
 export function CreateListingDialog({ isOpen, onClose, product, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
-    const [formState, formAction] = useFormState(createCatalogListingAction, initialFormState);
+    const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPriceAverageOpen, setIsPriceAverageOpen] = useState(false);
     
+    const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
+
     const form = useForm<ListingFormValues>({
         resolver: zodResolver(listingSchema),
         defaultValues: {
@@ -237,7 +60,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
             condition: 'new',
-            accountId: '',
+            accountIds: [],
         }
     });
 
@@ -249,181 +72,193 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 price: product.price || undefined,
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
-                accountId: '',
+                accountIds: [],
                 condition: 'new',
             });
         }
     }, [product, form]);
 
-    const onSubmit = (data: ListingFormValues) => {
+    const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
-        const formData = new FormData();
-        formData.append('catalog_product_id', data.catalogProductId);
-        formData.append('title', data.title || product.name);
-        formData.append('price', String(data.price));
-        formData.append('available_quantity', String(data.quantity));
-        formData.append('listing_type_id', data.listingTypeId);
-        formData.append('accountId', data.accountId);
-        formData.append('condition', data.condition);
-        formData.append('category_id', product.category_id);
+        setFormStates({}); // Limpa os resultados anteriores
+
+        const results: Record<string, CreateListingResult> = {};
         
-        formAction(formData); 
+        for (const accountId of data.accountIds) {
+            const formData = new FormData();
+            formData.append('catalog_product_id', data.catalogProductId);
+            formData.append('title', data.title || product.name);
+            formData.append('price', String(data.price));
+            formData.append('available_quantity', String(data.quantity));
+            formData.append('listing_type_id', data.listingTypeId);
+            formData.append('accountId', accountId); // Ação envia um por um
+            formData.append('condition', data.condition);
+            formData.append('category_id', product.category_id);
+            
+            const result = await createCatalogListingAction(initialFormState, formData);
+            results[accountId] = result;
+            setFormStates(prev => ({...prev, [accountId]: result}));
+        }
+        
+        setIsSubmitting(false);
+        const successCount = Object.values(results).filter(r => r.success).length;
+        const errorCount = data.accountIds.length - successCount;
+
+        if (successCount > 0) {
+            toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
+        }
+        if (errorCount > 0) {
+             toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
+        }
+        if (errorCount === 0) {
+            form.reset();
+            onClose();
+        }
     };
     
-    useEffect(() => {
-        if (!isSubmitting) return;
-
-        if (formState.success || formState.error) {
-             setIsSubmitting(false);
-            if (formState.success && formState.result) {
-                toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
-                form.reset();
-                onClose();
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formState, isSubmitting]);
-
+    const handlePriceCalculated = (avgPrice: number) => {
+        form.setValue('price', avgPrice);
+        setIsPriceAverageOpen(false);
+        toast({
+            title: "Preço Preenchido!",
+            description: `O preço médio calculado de ${avgPrice.toFixed(2)} foi inserido no campo.`
+        });
+    };
 
     if (!product) return null;
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
-                <DialogHeader>
-                    <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
-                    <DialogDescription>
-                        Preencha os detalhes abaixo para publicar este produto em uma de suas contas.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
-                    {/* Coluna do Formulário */}
-                    <div>
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField control={form.control} name="accountId" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Publicar na Conta</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="price" render={({ field }) => (
+        <>
+            <Dialog open={isOpen} onOpenChange={onClose}>
+                <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
+                    <DialogHeader>
+                        <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
+                        <DialogDescription>
+                            Preencha os detalhes abaixo para publicar este produto em uma ou mais de suas contas.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
+                        {/* Coluna do Formulário */}
+                        <div>
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                    <FormField control={form.control} name="accountIds" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Preço</FormLabel>
-                                            <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                            <FormLabel>Publicar nas Contas</FormLabel>
+                                                <MultiSelect
+                                                    options={accountOptions}
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    placeholder="Selecione as contas..."
+                                                />
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                    <FormField control={form.control} name="quantity" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Estoque</FormLabel>
-                                            <FormControl><Input type="number" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="listingTypeId" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Tipo de Anúncio</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="gold_special">Clássico</SelectItem>
-                                                    <SelectItem value="gold_pro">Premium</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="condition" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Condição</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="new">Novo</SelectItem>
-                                                    <SelectItem value="used">Usado</SelectItem>
-                                                    <SelectItem value="not_specified">Não especificado</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-                                <DialogFooter className="pt-4">
-                                     <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                                    <Button type="submit" disabled={isSubmitting}>
-                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                        Criar Anúncio
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </Form>
-                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="price" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Preço</FormLabel>
+                                                <div className="flex items-center gap-2">
+                                                    <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                                    <Button type="button" variant="outline" size="icon" onClick={() => setIsPriceAverageOpen(true)}>
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="quantity" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Estoque</FormLabel>
+                                                <FormControl><Input type="number" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Tipo de Anúncio</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="gold_special">Clássico</SelectItem>
+                                                        <SelectItem value="gold_pro">Premium</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="condition" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Condição</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="new">Novo</SelectItem>
+                                                        <SelectItem value="used">Usado</SelectItem>
+                                                        <SelectItem value="not_specified">Não especificado</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                    <DialogFooter className="pt-4">
+                                        <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                                        <Button type="submit" disabled={isSubmitting}>
+                                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                            Criar Anúncio(s)
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </Form>
+                        </div>
 
-                    {/* Coluna do Payload e Erro */}
-                    <div className="space-y-4">
-                        {formState.error && (
-                            <Alert variant="destructive">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
-                                <AlertDescription className="max-h-40 overflow-y-auto">
-                                    <pre className="mt-2 w-full rounded-md bg-slate-950 p-4">
-                                        <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                            {formState.result ? JSON.stringify(formState.result, null, 2) : formState.error}
-                                        </code>
-                                    </pre>
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                         {formState.payload && (
-                             <Card>
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-2">
-                                        <Send /> Payload Enviado
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <pre className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80">
-                                        <code>{JSON.stringify(formState.payload, null, 2)}</code>
-                                    </pre>
-                                </CardContent>
-                            </Card>
-                        )}
-                        {formState.success && formState.result && (
-                             <Alert variant="default" className="border-green-600">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>Sucesso!</AlertTitle>
-                                <AlertDescription className="max-h-40 overflow-y-auto">
-                                    <pre className="mt-2 w-full rounded-md bg-slate-100 dark:bg-slate-800 p-4">
-                                        <code className="text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                            {JSON.stringify(formState.result, null, 2)}
-                                        </code>
-                                    </pre>
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        {/* Coluna do Payload e Erro */}
+                        <div className="space-y-4">
+                           {Object.keys(formStates).length > 0 && (
+                                <Card>
+                                    <CardHeader className="p-3">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Send /> Resultados da Publicação
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80 space-y-2">
+                                            {Object.entries(formStates).map(([accountId, state]) => {
+                                                const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
+                                                return (
+                                                    <div key={accountId}>
+                                                        <h4 className="font-semibold">{accountName}: {state.success ? 'Sucesso' : 'Falha'}</h4>
+                                                        <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                            <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                {state.result ? JSON.stringify(state.result, null, 2) : state.error}
+                                                            </code>
+                                                        </pre>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </DialogContent>
-        </Dialog>
+                </DialogContent>
+            </Dialog>
+
+            <PriceAverageDialog 
+                isOpen={isPriceAverageOpen}
+                onClose={() => setIsPriceAverageOpen(false)}
+                productName={product.name}
+                productSku={product.model || ''} // Usar o modelo como SKU de busca
+                onPriceCalculated={handlePriceCalculated}
+            />
+        </>
     );
 }
-
-    

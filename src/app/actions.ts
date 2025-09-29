@@ -3,9 +3,9 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -965,7 +965,6 @@ export async function createCatalogListingAction(
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
 
-    // Corresponde à ordem do payload de exemplo
     payload = {
       site_id: "MLB",
       category_id: formData.get('category_id') as string,
@@ -1015,20 +1014,17 @@ export async function createCatalogListingAction(
       },
       price: Number(formData.get('price')),
       listing_type_id: formData.get('listing_type_id') as string,
-      title: formData.get('title') as string, // Title is back
+      title: formData.get('title') as string,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
     
     // Basic validation
     for (const key in payload) {
         const p = payload as any;
-        // Skip optional or complex fields from this basic check
         if (['pictures', 'shipping', 'sale_terms', 'attributes'].includes(key)) continue;
 
         if (p[key as keyof CreateListingPayload] === undefined || p[key as keyof CreateListingPayload] === null) {
-            // Se for anúncio de catálogo, o título é opcional, caso contrário é obrigatório
             if(key === 'title' && p.catalog_listing === true) continue;
-             
             return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
         }
     }
@@ -1084,4 +1080,74 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
     }
 }
 
+
+const parsePriceString = (priceStr: string | undefined): number => {
+    if (!priceStr) return 0;
+    return parseFloat(priceStr.replace(',', '.'));
+};
+
+const getVariable = async (name: string): Promise<number> => {
+    const costs = await loadCompanyCosts();
+    const variable = costs?.variable.find(v => v.description.toLowerCase() === name.toLowerCase());
+    return variable?.value || 0;
+}
+
+export async function findAveragePriceAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ averagePrice: number | null; error: string | null; }> {
+  try {
+    const searchTerm = formData.get('searchTerm') as string;
+    if (!searchTerm) {
+      throw new Error('Termo de busca é obrigatório.');
+    }
+    
+    const allEntries: FeedEntry[] = await loadAllFeedEntries();
+
+    // 1. Encontrar a data mais recente para cada fornecedor (storeName)
+    const latestEntries = new Map<string, FeedEntry>();
+    for (const entry of allEntries) {
+        if (!latestEntries.has(entry.storeName) || new Date(entry.date) > new Date(latestEntries.get(entry.storeName)!.date)) {
+            latestEntries.set(entry.storeName, entry);
+        }
+    }
+    
+    // 2. Buscar o produto nessas listas mais recentes
+    const foundPrices: number[] = [];
+    const lowerSearchTerm = searchTerm.toLowerCase();
+
+    for (const entry of latestEntries.values()) {
+        // Encontra o PRIMEIRO produto correspondente (evita duplicatas no mesmo doc)
+        const product = entry.products.find(p => 
+            p.name.toLowerCase().includes(lowerSearchTerm) ||
+            p.sku.toLowerCase().includes(lowerSearchTerm)
+        );
+
+        if (product && product.costPrice) {
+            const price = parsePriceString(product.costPrice);
+            if (!isNaN(price)) {
+                foundPrices.push(price);
+            }
+        }
+    }
+
+    if (foundPrices.length === 0) {
+      return { averagePrice: null, error: 'Nenhum preço encontrado para este produto nas listas mais recentes.' };
+    }
+
+    // 3. Calcular a média
+    const sum = foundPrices.reduce((a, b) => a + b, 0);
+    const average = sum / foundPrices.length;
+
+    // 4. Buscar e somar a variável "gordura"
+    const fatValue = await getVariable('gordura');
+    
+    const finalAverage = average + fatValue;
+
+    return { averagePrice: finalAverage, error: null };
+
+  } catch (e: any) {
+    return { averagePrice: null, error: e.message || 'Falha ao calcular o preço médio.' };
+  }
+}
     

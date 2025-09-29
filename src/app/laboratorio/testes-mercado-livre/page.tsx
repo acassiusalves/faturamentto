@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { CreateListingForm } from './create-listing-form';
+import { CreateListingDialog } from './create-listing-form';
 
 
 const MyItemsList = ({ accountId, accountName }: { accountId: string, accountName: string }) => {
@@ -199,7 +199,8 @@ export default function TestesMercadoLivrePage() {
                 </p>
             </div>
 
-            <CreateListingForm accounts={accounts} />
+            {/* A funcionalidade de criação foi movida para um diálogo na página de busca */}
+            {/* <CreateListingForm accounts={accounts} /> */}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                  <AccountsList accounts={accounts} isLoading={isLoadingAccounts} onFetch={handleFetchAccounts} />
