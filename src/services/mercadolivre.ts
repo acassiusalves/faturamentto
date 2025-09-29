@@ -152,16 +152,17 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         }
 
         const itemPayload: Record<string, any> = {
-            category_id: category_id,
+            title: "Xiaomi Redmi Note 13 Pro 5g 256gb 8gb Ram Global", // Título adicionado
             site_id: "MLB",
-            catalog_product_id,
-            price,
+            category_id: category_id,
+            price: price,
             currency_id: 'BRL',
-            available_quantity,
-            buying_mode,
-            condition,
-            listing_type_id,
-            pictures: [], // Empty for catalog listings
+            available_quantity: available_quantity,
+            buying_mode: buying_mode,
+            listing_type_id: listing_type_id,
+            condition: condition,
+            pictures: [],
+            catalog_product_id: catalog_product_id,
             catalog_listing: true,
             sale_terms: [
                 { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
@@ -169,6 +170,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             ],
             attributes: [
                  { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
+                 { id: "CARRIER", value_name: "Liberado" }, // Atributo CARRIER adicionado
+                 { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" } // Atributo SELLER_SKU adicionado
             ]
         };
         
