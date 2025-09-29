@@ -146,11 +146,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             category_id,
         } = payload;
         
-
-        if (!category_id) {
-            throw new Error('Não foi possível determinar a categoria do produto a partir do catálogo.');
-        }
-
         const itemPayload: Record<string, any> = {
             site_id: "MLB",
             category_id: category_id,
@@ -159,6 +154,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             available_quantity: available_quantity,
             buying_mode: buying_mode,
             listing_type_id: listing_type_id,
+            condition: condition,
             sale_terms: [
                 { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
                 { id: "WARRANTY_TIME", value_name: "3 meses" }
