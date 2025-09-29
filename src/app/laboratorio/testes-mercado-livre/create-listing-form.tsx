@@ -135,7 +135,7 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                                             </FormControl>
                                             <SelectContent>
                                                 {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                                    <SelectItem key={acc.id} value={acc.nickname || acc.id}>{acc.nickname || acc.id}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -249,8 +249,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             onClose();
         }
         
-        // Error is now handled by the Alert component, no toast needed.
-        
         // Always stop submitting spinner after action is done
         setIsSubmitting(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,7 +277,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </FormControl>
                                     <SelectContent>
                                         {accounts.map(acc => (
-                                            <SelectItem key={acc.id} value={acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                            <SelectItem key={acc.id} value={acc.nickname || acc.id}>{acc.nickname || acc.id}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

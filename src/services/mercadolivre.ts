@@ -1,7 +1,7 @@
 
 'use server';
 
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings, getMlCredentialsByNickname } from '@/services/firestore';
 import type { MercadoLivreCredentials, CreateListingPayload } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
@@ -44,39 +44,29 @@ export async function generateNewAccessToken(creds: {
     return j.access_token;
 }
 
-export async function getMlToken(accountId?: string): Promise<string> {
-  const cacheKey = accountId || 'primary';
+export async function getMlToken(accountIdentifier?: string): Promise<string> {
+  const cacheKey = accountIdentifier || 'primary';
   const cached = _tokenCache[cacheKey];
 
   if (cached && Date.now() < cached.expiresAt - 60_000) { // 1 min de margem
     return cached.token;
   }
   
-  let creds: Partial<MercadoLivreCredentials> & { appId?: string } | undefined;
+  let creds: Partial<MercadoLivreCredentials> & { appId?: string } | null;
 
-  if (accountId) {
-      // CORREÇÃO: Usar a coleção 'mercadoLivreAccounts' em vez de 'users'
-      const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
-      const docSnap = await getDoc(accountDocRef);
-      if (docSnap.exists()) {
-          creds = docSnap.data() as Partial<MercadoLivreCredentials> & { appId?: string };
-      } else {
-          throw new Error(`A conta do Mercado Livre com ID '${accountId}' não foi encontrada na coleção 'mercadoLivreAccounts'.`);
-      }
+  if (accountIdentifier) {
+      creds = await getMlCredentialsByNickname(accountIdentifier);
   } else {
      const settings = await loadAppSettings().catch(() => null);
-     // Fallback to primary 'mercadoLivre' key if accountId is not provided
-     creds = settings?.mercadoLivre;
+     creds = settings?.mercadoLivre || null;
   }
   
-  const appId = creds?.appId;
-
-  if (!appId || !creds?.clientSecret || !creds?.refreshToken) {
+  if (!creds || !creds.appId || !creds.clientSecret || !creds.refreshToken) {
     throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
   const token = await generateNewAccessToken({
-      appId,
+      appId: creds.appId,
       clientSecret: creds.clientSecret,
       refreshToken: creds.refreshToken
   });
@@ -170,7 +160,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             price, 
             available_quantity, 
             listing_type_id, 
-            accountId,
+            accountId, // This will now be the nickname
             buying_mode,
             condition,
         } = payload;

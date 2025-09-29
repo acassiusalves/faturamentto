@@ -662,6 +662,18 @@ export const loadMlAccounts = async (): Promise<MlAccount[]> => {
     return snapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<MlAccount, 'id'>) }));
 }
 
+export const getMlCredentialsByNickname = async (nickname: string): Promise<MercadoLivreCredentials | null> => {
+    if (!nickname) return null;
+    const accountsCol = collection(db, 'mercadoLivreAccounts');
+    const q = query(accountsCol, where("nickname", "==", nickname), limit(1));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        return null;
+    }
+    return snapshot.docs[0].data() as MercadoLivreCredentials;
+}
+
+
 export const updateMlAccount = async (accountId: string, nickname: string): Promise<void> => {
     const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
     await updateDoc(accountDocRef, { nickname });
