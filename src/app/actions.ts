@@ -957,23 +957,20 @@ export async function createCatalogListingAction(
 ): Promise<CreateListingResult> {
   try {
     const accountId = formData.get('accountId') as string; // This is the Firestore Document ID
-
+    
     // 1. Fetch credentials securely on the server-side using the Document ID
     const creds = await getMlCredentialsById(accountId);
-    if (!creds) {
-      return { success: false, error: `Credenciais para a conta ID ${accountId} não encontradas.`, result: null };
+    if (!creds || !creds.accessToken) {
+      return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
     
-    // 2. Generate a fresh access token
-    const accessToken = await generateNewAccessToken(creds);
-
-    // 3. Prepare payload for ML API
+    // 2. Prepare payload for ML API
     const payload: CreateListingPayload = {
         catalog_product_id: formData.get('catalog_product_id') as string,
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: accountId, // Keep for logging if needed, but not for ML API
+        accountId: accountId,
         buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
@@ -985,8 +982,8 @@ export async function createCatalogListingAction(
         }
     }
     
-    // 4. Call the function that makes the API request, passing the fresh token
-    const result = await createListingFromCatalog(payload, accessToken);
+    // 3. Call the function that makes the API request, passing the existing token
+    const result = await createListingFromCatalog(payload, creds.accessToken);
 
     if (result.error) {
         return { success: false, error: result.error, result: result.data };
@@ -1036,5 +1033,3 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
-
-    

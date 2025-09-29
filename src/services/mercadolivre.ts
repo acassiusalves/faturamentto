@@ -220,5 +220,3 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
-
-    
