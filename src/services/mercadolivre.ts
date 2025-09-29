@@ -169,8 +169,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             ],
             attributes: [
                  { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
-                 { id: "CARRIER", value_name: "Liberado" }, // Atributo CARRIER adicionado
-                 { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" } // Atributo SELLER_SKU adicionado
+                 { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" }
             ]
         };
         
