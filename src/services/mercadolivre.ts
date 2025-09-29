@@ -133,18 +133,6 @@ export async function getSellersReputation(
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 
-async function fetchProductDetails(catalogProductId: string, token: string) {
-    const url = `${ML_API_BASE}/products/${catalogProductId}`;
-    const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store'
-    });
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Falha ao buscar detalhes do produto de catálogo: ${errorData.message}`);
-    }
-    return response.json();
-}
 
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
@@ -155,21 +143,15 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             listing_type_id, 
             buying_mode,
             condition,
-            category_id, // Use a category_id recebida
+            category_id,
         } = payload;
         
 
         if (!category_id) {
             throw new Error('Não foi possível determinar a categoria do produto a partir do catálogo.');
         }
-        
-        // A busca por detalhes do produto agora é desnecessária se a category_id é passada.
-        // A action que chama esta função já deve garantir que a categoria exista.
-        const productDetailsResponse = await fetchProductDetails(catalog_product_id, accessToken);
-        const productName = productDetailsResponse.name || `Anúncio para ${catalog_product_id}`;
 
         const itemPayload: Record<string, any> = {
-            title: productName,
             category_id: category_id,
             site_id: "MLB",
             catalog_product_id,
@@ -189,14 +171,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                  { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
             ]
         };
-
-        // Check for variations
-        if (productDetailsResponse.variations && productDetailsResponse.variations.length > 0) {
-            const firstVariation = productDetailsResponse.variations[0];
-            if (firstVariation.id) {
-                itemPayload.catalog_product_variation_id = String(firstVariation.id);
-            }
-        }
         
         const createItemUrl = `${ML_API_BASE}/items`;
 
@@ -223,5 +197,3 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
-
-    
