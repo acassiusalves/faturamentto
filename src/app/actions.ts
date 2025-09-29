@@ -972,8 +972,16 @@ export async function createCatalogListingAction(
             return { success: false, error: `O campo '${key}' é obrigatório.`, result: null };
         }
     }
+    
+    const allAccounts = await loadMlAccounts();
+    const selectedAccount = allAccounts.find(acc => acc.accountName === payload.accountId || acc.id === payload.accountId);
 
-    const result = await createListingFromCatalog(payload);
+    if (!selectedAccount) {
+         return { success: false, error: `Credenciais para a conta '${payload.accountId}' do Mercado Livre não estão configuradas ou estão incompletas.`, result: null };
+    }
+    
+    // Use the document ID for token retrieval, which is more reliable
+    const result = await createListingFromCatalog(payload, selectedAccount.id);
 
     if (result.error) {
         return { success: false, error: result.error, result: result.data };
