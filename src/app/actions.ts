@@ -961,7 +961,7 @@ export async function createCatalogListingAction(
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: formData.get('accountId') as string,
+        accountId: formData.get('accountId') as string, // This is now the accountName
         buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
@@ -973,14 +973,15 @@ export async function createCatalogListingAction(
         }
     }
     
+    // Find the account by its name to get its document ID for token retrieval
     const allAccounts = await loadMlAccounts();
-    const selectedAccount = allAccounts.find(acc => acc.accountName === payload.accountId || acc.id === payload.accountId);
+    const selectedAccount = allAccounts.find(acc => acc.accountName === payload.accountId);
 
     if (!selectedAccount) {
-         return { success: false, error: `Credenciais para a conta '${payload.accountId}' do Mercado Livre não estão configuradas ou estão incompletas.`, result: null };
+         return { success: false, error: `Conta '${payload.accountId}' não encontrada no banco de dados.`, result: null };
     }
     
-    // Use the document ID for token retrieval, which is more reliable
+    // Use the document ID for token retrieval
     const result = await createListingFromCatalog(payload, selectedAccount.id);
 
     if (result.error) {
@@ -1031,3 +1032,5 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+    

@@ -178,7 +178,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             condition,
         } = payload;
         
-        // The accountId received here is now the Firestore Document ID, which is reliable
+        // The accountId received here is the Firestore Document ID, which is reliable
         const token = await getMlToken(accountId);
 
         // 1. Fetch product details from catalog to get correct category, variations, etc.
@@ -244,3 +244,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    

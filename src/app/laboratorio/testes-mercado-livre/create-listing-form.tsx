@@ -176,13 +176,7 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                     <CardDescription>A resposta da API do Mercado Livre aparecerá aqui após a tentativa de criação.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
-                        <code>
-                            {formState.result ? JSON.stringify(formState.result, null, 2) 
-                            : (formState.error ? formState.error : 'Aguardando envio...')}
-                        </code>
-                    </pre>
-                     {formState.error && (
+                    {formState.error && (
                         <Alert variant="destructive" className="mt-4">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
@@ -195,6 +189,12 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                             </AlertDescription>
                         </Alert>
                     )}
+                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
+                        <code>
+                            {formState.success && formState.result ? JSON.stringify(formState.result, null, 2) 
+                            : 'Aguardando envio...'}
+                        </code>
+                    </pre>
                 </CardContent>
             </Card>
         </div>
@@ -248,7 +248,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
-        formData.append('accountId', data.accountId);
+        formData.append('accountId', data.accountId); // Envia o accountName
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
         
@@ -256,15 +256,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     };
     
     useEffect(() => {
-        if (!formState.success && !formState.error && !isSubmitting) return;
-
-        if (formState.success && formState.result) {
-            toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
-            form.reset();
-            onClose();
+        if (!isSubmitting && (formState.success || formState.error)) {
+             setIsSubmitting(false);
+            if (formState.success && formState.result) {
+                toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
+                form.reset();
+                onClose();
+            }
         }
-        
-        setIsSubmitting(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formState]);
 
@@ -375,3 +374,5 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+
+    
