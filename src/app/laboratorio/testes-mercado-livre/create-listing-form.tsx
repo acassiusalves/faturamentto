@@ -16,12 +16,6 @@ import { createCatalogListingAction, fetchAllProductsFromFeedAction } from '@/ap
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -137,6 +131,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
         setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
         setIsSearchPopoverOpen(false);
+        setSearchTerm(''); // Clear search term after selection
     };
 
     const handleCopyToClipboard = (text: string) => {
@@ -199,36 +194,44 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     <div>
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField control={form.control} name="accountIds" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Publicar nas Contas</FormLabel>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-start">
-                                                    {field.value?.length > 0 ? `${field.value.length} conta(s) selecionada(s)` : "Selecione as contas..."}
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
-                                                {accountOptions.map(option => (
-                                                    <DropdownMenuCheckboxItem
-                                                        key={option.value}
-                                                        checked={field.value.includes(option.value)}
-                                                        onCheckedChange={(checked) => {
-                                                            const newValue = checked 
-                                                                ? [...field.value, option.value]
-                                                                : field.value.filter(v => v !== option.value);
-                                                            field.onChange(newValue);
-                                                        }}
-                                                        onSelect={e => e.preventDefault()}
-                                                    >
-                                                        {option.label}
-                                                    </DropdownMenuCheckboxItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                <FormField
+                                    control={form.control}
+                                    name="accountIds"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Publicar nas Contas</FormLabel>
+                                            <FormControl>
+                                                <div className="space-y-2 rounded-md border p-2">
+                                                    {accountOptions.map(option => {
+                                                        // Verifica se já existe um anúncio para esta conta e tipo de anúncio
+                                                        const isAlreadyPosted = product.postedOnAccounts?.some(
+                                                            p => p.accountId === option.value && p.listingTypeId === form.watch('listingTypeId')
+                                                        );
+                                                        
+                                                        return (
+                                                            <div key={option.value} className={cn("flex items-center space-x-3 space-y-0 p-2 rounded-md", isAlreadyPosted && "opacity-50 cursor-not-allowed")}>
+                                                                <Checkbox
+                                                                    id={`account-${option.value}`}
+                                                                    checked={field.value?.includes(option.value)}
+                                                                    disabled={isAlreadyPosted}
+                                                                    onCheckedChange={(checked) => {
+                                                                        return checked
+                                                                            ? field.onChange([...field.value, option.value])
+                                                                            : field.onChange(field.value?.filter((value) => value !== option.value));
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`account-${option.value}`} className={cn("font-normal", isAlreadyPosted && "cursor-not-allowed")}>
+                                                                    {option.label} {isAlreadyPosted && <span className="text-destructive text-xs">(Já postado como {form.watch('listingTypeId') === 'gold_pro' ? 'Premium' : 'Clássico'})</span>}
+                                                                </Label>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 
                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                     <FormItem>
@@ -288,7 +291,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={form.control} name="price" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Preço</FormLabel>
+                                            <FormLabel>Preço de Venda</FormLabel>
                                             <FormControl>
                                                 <Input type="number" placeholder="299.90" {...field} />
                                             </FormControl>

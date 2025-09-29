@@ -225,7 +225,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
     const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.accountName || acc.id]));
 
     for (const item of myItems) {
-        if (item.status === 'active' && item.catalog_product_id) {
+        if (item.status === 'active' && item.catalog_product_id && item.id_conta_autenticada) {
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
             const accountName = accountIdToNameMap.get(accountId) || accountId;
@@ -237,8 +237,9 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
             
             const accounts = allActiveCatalogs.get(catalogId)!;
             
-            if (accountName && !accounts.some(a => a.accountName === accountName && a.listingTypeId === listingTypeId)) {
-                accounts.push({ accountName, listingTypeId });
+            // Usar accountId para checagem de unicidade
+            if (accountId && !accounts.some(a => a.accountId === accountId && a.listingTypeId === listingTypeId)) {
+                accounts.push({ accountId, accountName, listingTypeId });
             }
         }
     }
@@ -957,12 +958,27 @@ export async function createCatalogListingAction(
   let payload: CreateListingPayload | null = null;
   try {
     const accountId = formData.get('accountId') as string;
+    const listingTypeId = formData.get('listing_type_id') as string;
+    const catalogProductId = formData.get('catalog_product_id') as string;
     
     const creds = await getMlCredentialsById(accountId);
     if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
     
+    // START: Lógica de verificação de duplicidade
+    const myItems = await loadMyItems();
+    const existingListing = myItems.find(item => 
+      item.id_conta_autenticada === accountId &&
+      item.catalog_product_id === catalogProductId &&
+      item.listing_type_id === listingTypeId &&
+      item.status === 'active'
+    );
+    if (existingListing) {
+      return { success: false, error: `Já existe um anúncio ativo (${existingListing.id}) para este produto, nesta conta e com este tipo de anúncio.`, result: null };
+    }
+    // END: Lógica de verificação de duplicidade
+
     const conditionValue = formData.get('condition') as string;
     const itemConditionValueName = conditionValue === 'new' ? 'Nuevo' : 'Usado';
     const itemConditionValueId = conditionValue === 'new' ? '2230284' : '2230581';
@@ -975,7 +991,7 @@ export async function createCatalogListingAction(
       currency_id: "BRL",
       available_quantity: Number(formData.get('available_quantity')),
       buying_mode: "buy_it_now",
-      listing_type_id: formData.get('listing_type_id') as string,
+      listing_type_id: listingTypeId,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
       sale_terms: [
         { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
@@ -1006,7 +1022,7 @@ export async function createCatalogListingAction(
             value_name: formData.get('sellerSku') as string 
         },
       ],
-      catalog_product_id: formData.get('catalog_product_id') as string,
+      catalog_product_id: catalogProductId,
       catalog_listing: true, 
       shipping: {
         mode: "me2",
@@ -1035,6 +1051,7 @@ export async function createCatalogListingAction(
     }
     
     revalidatePath('/laboratorio/testes-mercado-livre');
+    revalidatePath('/anuncios'); // Adicionado para revalidar a página de anúncios
     return { success: true, error: null, result: result.data, payload };
 
   } catch(e: any) {
@@ -1087,3 +1104,4 @@ export async function fetchAllProductsFromFeedAction(): Promise<{ products: Feed
         return { products: null, error: e.message || 'Falha ao buscar produtos do feed.' };
     }
 }
+

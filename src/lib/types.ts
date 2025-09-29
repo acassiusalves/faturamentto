@@ -678,6 +678,7 @@ export interface SaleCosts {
 export type MoneyLike = string | number | null | undefined;
 
 export interface PostedOnAccount {
+    accountId: string;
     accountName: string;
     listingTypeId: string;
 }
@@ -753,7 +754,12 @@ export interface CreateListingPayload {
   pictures: any[];
   attributes: {
     id: string;
+    name?: string;
+    value_id?: string;
     value_name: string;
+    value_struct?: any;
+    attribute_group_id?: string;
+    attribute_group_name?: string;
   }[];
   catalog_product_id: string;
   catalog_listing: boolean;
