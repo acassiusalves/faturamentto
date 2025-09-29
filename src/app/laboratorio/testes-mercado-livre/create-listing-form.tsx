@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const listingSchema = z.object({
@@ -268,7 +269,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                         <CommandItem
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
-                                                                            onSelect={() => handleProductSelect(p)}
+                                                                            onMouseDown={(e) => e.preventDefault()}
+                                                                            onPointerDown={(e) => e.preventDefault()}
+                                                                            onClick={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
                                                                               <div className="flex flex-col text-left">
