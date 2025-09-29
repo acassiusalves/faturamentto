@@ -136,38 +136,13 @@ const ML_API_BASE = "https://api.mercadolibre.com";
 
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
-        const { 
-            catalog_product_id, 
-            price, 
-            available_quantity, 
-            listing_type_id, 
-            buying_mode,
-            condition,
-            category_id,
-        } = payload;
-        
-        const itemPayload: Record<string, any> = {
-            site_id: "MLB",
-            category_id: category_id,
-            price: price,
-            currency_id: 'BRL',
-            available_quantity: available_quantity,
-            buying_mode: buying_mode,
-            listing_type_id: listing_type_id,
-            condition: condition,
-            sale_terms: [
-                { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
-                { id: "WARRANTY_TIME", value_name: "3 meses" }
-            ],
-            pictures: [],
-            attributes: [
-                 { id: "ITEM_CONDITION", value_name: condition === 'new' ? 'Novo' : 'Usado' },
-                 { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" }
-            ],
-            catalog_product_id: catalog_product_id,
-            catalog_listing: true,
-        };
-        
+        const itemPayload = { ...payload };
+
+        // O title é removido pela action, mas garantimos aqui também.
+        if ('title' in itemPayload) {
+            delete (itemPayload as any).title;
+        }
+
         const createItemUrl = `${ML_API_BASE}/items`;
 
         const response = await fetch(createItemUrl, {

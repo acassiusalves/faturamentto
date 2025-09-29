@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send } from 'lucide-react';
 import { useFormState } from 'react-dom';
 import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingResult } from '@/lib/types';
@@ -273,107 +273,139 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
                 <DialogHeader>
                     <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
                     <DialogDescription>
                         Preencha os detalhes abaixo para publicar este produto em uma de suas contas.
                     </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                        <FormField control={form.control} name="accountId" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Publicar na Conta</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {accounts.map(acc => (
-                                            <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )} />
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="price" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Preço</FormLabel>
-                                    <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="quantity" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Estoque</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="listingTypeId" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo de Anúncio</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="gold_special">Clássico</SelectItem>
-                                            <SelectItem value="gold_pro">Premium</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                             <FormField control={form.control} name="condition" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Condição</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="new">Novo</SelectItem>
-                                            <SelectItem value="used">Usado</SelectItem>
-                                            <SelectItem value="not_specified">Não especificado</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                        <DialogFooter className="flex-col-reverse sm:flex-col-reverse sm:space-x-0 items-stretch gap-2">
-                             <div className="flex justify-end gap-2">
-                                <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                    Criar Anúncio
-                                </Button>
-                             </div>
-                             {formState.error && (
-                                <Alert variant="destructive">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
-                                    <AlertDescription className="max-h-48 overflow-y-auto">
-                                        <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto">
-                                            <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
+                    {/* Coluna do Formulário */}
+                    <div>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField control={form.control} name="accountId" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Publicar na Conta</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Selecione a conta..." /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {accounts.map(acc => (
+                                                    <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="price" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Preço</FormLabel>
+                                            <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="quantity" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Estoque</FormLabel>
+                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Tipo de Anúncio</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="gold_special">Clássico</SelectItem>
+                                                    <SelectItem value="gold_pro">Premium</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="condition" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Condição</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="new">Novo</SelectItem>
+                                                    <SelectItem value="used">Usado</SelectItem>
+                                                    <SelectItem value="not_specified">Não especificado</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                                <DialogFooter className="pt-4">
+                                     <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                        Criar Anúncio
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </div>
+
+                    {/* Coluna do Payload e Erro */}
+                    <div className="space-y-4">
+                        {formState.error && (
+                            <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
+                                <AlertDescription className="max-h-40 overflow-y-auto">
+                                    <pre className="mt-2 w-full rounded-md bg-slate-950 p-4">
+                                        <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                                             {formState.result ? JSON.stringify(formState.result, null, 2) : formState.error}
-                                            </code>
-                                        </pre>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                        </DialogFooter>
-                    </form>
-                </Form>
+                                        </code>
+                                    </pre>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                         {formState.payload && (
+                             <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Send /> Payload Enviado
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs max-h-80">
+                                        <code>{JSON.stringify(formState.payload, null, 2)}</code>
+                                    </pre>
+                                </CardContent>
+                            </Card>
+                        )}
+                        {formState.success && formState.result && (
+                             <Alert variant="default" className="border-green-600">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Sucesso!</AlertTitle>
+                                <AlertDescription className="max-h-40 overflow-y-auto">
+                                    <pre className="mt-2 w-full rounded-md bg-slate-100 dark:bg-slate-800 p-4">
+                                        <code className="text-sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                            {JSON.stringify(formState.result, null, 2)}
+                                        </code>
+                                    </pre>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                    </div>
+                </div>
             </DialogContent>
         </Dialog>
     );
 }
-
-    

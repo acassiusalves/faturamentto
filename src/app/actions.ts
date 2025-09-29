@@ -955,46 +955,65 @@ export async function createCatalogListingAction(
   _prevState: any,
   formData: FormData
 ): Promise<CreateListingResult> {
+  let payload: CreateListingPayload | null = null;
   try {
-    const accountId = formData.get('accountId') as string; // This is the Firestore Document ID
+    const accountId = formData.get('accountId') as string;
     
-    // 1. Fetch credentials securely on the server-side using the Document ID
     const creds = await getMlCredentialsById(accountId);
     if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
     
-    // 2. Prepare payload for ML API
-    const payload: CreateListingPayload = {
+    // Correção: `title` removido e `category_id` adicionado
+    const productName = formData.get('productName') as string;
+
+    const data: Omit<CreateListingPayload, 'site_id' | 'currency_id' | 'pictures'> = {
+        title: productName, // Adicionado conforme solicitado
         catalog_product_id: formData.get('catalog_product_id') as string,
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: accountId, // This is the doc ID, not used by ML API but useful for logging
-        buying_mode: formData.get('buying_mode') as 'buy_it_now',
+        buying_mode: 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
         category_id: formData.get('category_id') as string,
+        sale_terms: [
+            { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
+            { id: "WARRANTY_TIME", value_name: "3 meses" }
+        ],
+        attributes: [
+             { id: "ITEM_CONDITION", value_name: (formData.get('condition') as string === 'new' ? 'Novo' : 'Usado') },
+             { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" }
+        ],
+        catalog_listing: true, // Mantido como true, conforme solicitado
+    };
+
+    // Monta o payload completo
+    payload = {
+      site_id: 'MLB',
+      currency_id: 'BRL',
+      pictures: [],
+      ...data,
     };
     
-    // Simple validation
-    for (const [key, value] of Object.entries(payload)) {
-        if (!value) {
-            return { success: false, error: `O campo '${key}' é obrigatório.`, result: null };
+    for (const key in payload) {
+        if (!payload[key as keyof CreateListingPayload]) {
+             if(key !== 'pictures') { // pictures pode ser array vazio
+                return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
+             }
         }
     }
     
-    // 3. Call the function that makes the API request, passing the existing token
     const result = await createListingFromCatalog(payload, creds.accessToken);
 
     if (result.error) {
-        return { success: false, error: result.error, result: result.data };
+        return { success: false, error: result.error, result: result.data, payload };
     }
     
     revalidatePath('/laboratorio/testes-mercado-livre');
-    return { success: true, error: null, result: result.data };
+    return { success: true, error: null, result: result.data, payload };
 
   } catch(e: any) {
-    return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null };
+    return { success: false, error: e.message || 'Falha ao criar o anúncio.', result: null, payload };
   }
 }
 
@@ -1034,5 +1053,3 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
-
-    

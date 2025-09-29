@@ -733,20 +733,25 @@ export type FullFlowResult = {
 
 
 export interface CreateListingPayload {
-  catalog_product_id: string;
-  price: number;
-  available_quantity: number;
-  listing_type_id: string;
-  accountId: string;
-  buying_mode: 'buy_it_now';
-  condition: 'new' | 'used' | 'not_specified';
+  title: string;
+  site_id: 'MLB';
   category_id: string;
+  price: number;
+  currency_id: 'BRL';
+  available_quantity: number;
+  buying_mode: 'buy_it_now';
+  listing_type_id: string;
+  condition: 'new' | 'used' | 'not_specified';
+  sale_terms: { id: string; value_name: string; }[];
+  pictures: any[];
+  attributes: { id: string; value_name: string; }[];
+  catalog_product_id: string;
+  catalog_listing: boolean;
 }
 
 export interface CreateListingResult {
     success: boolean;
     error: string | null;
     result: any | null; // A resposta da API, seja de sucesso ou erro.
+    payload?: CreateListingPayload;
 }
-
-    
