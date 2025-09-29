@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { useForm, useFormState } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -27,7 +27,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { ChevronsUpDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import { PriceAverageDialog } from './price-average-dialog';
+import { useFormState } from 'react-dom';
+
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
@@ -59,9 +60,12 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
-    const [foundProductInfo, setFoundProductInfo] = useState<{name: string, sku: string} | null>(null);
-    const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+    // States for product search
+    const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchState, searchAction] = useFormState(findAveragePriceAction, initialPriceState);
+    const [isSearching, setIsSearching] = useState(false);
+    const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
 
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
@@ -91,8 +95,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 accountIds: [],
                 condition: 'new',
             });
-            setFoundProductInfo(null);
-            setCalculatedPrice(null);
+            setSelectedProductInfo(null);
+            setSearchTerm('');
         }
     }, [product, form]);
     
@@ -100,10 +104,33 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
       if (!isOpen) {
         form.reset();
         setFormStates({});
-        setFoundProductInfo(null);
-        setCalculatedPrice(null);
+        setSelectedProductInfo(null);
+        setSearchTerm('');
       }
     }, [isOpen, form]);
+
+    useEffect(() => {
+        setIsSearching(false);
+        if (searchState.error) {
+            toast({ variant: 'destructive', title: 'Erro na Busca', description: searchState.error });
+        }
+        if (searchState.averagePrice !== null && searchState.product) {
+            form.setValue('price', searchState.averagePrice);
+            form.setValue('sellerSku', searchState.product.sku);
+            setSelectedProductInfo({ name: searchState.product.name, sku: searchState.product.sku });
+            toast({ title: 'Produto e Preço Encontrados!', description: `Preço médio de ${formatCurrency(searchState.averagePrice)} aplicado.` });
+            setIsSearchPopoverOpen(false); // Close popover on selection
+        }
+    }, [searchState, toast, form]);
+
+    const handleSearch = () => {
+        if (!searchTerm.trim()) return;
+        setIsSearching(true);
+        const formData = new FormData();
+        formData.append('searchTerm', searchTerm);
+        searchAction(formData);
+    };
+
 
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
@@ -144,204 +171,213 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         }
     };
     
-    const handleProductFound = (price: number, foundProduct: { name: string; sku: string; }) => {
-        setCalculatedPrice(price);
-        setFoundProductInfo(foundProduct);
-        form.setValue('sellerSku', foundProduct.sku);
-        setIsPriceDialogOpen(false);
-    };
-
     if (!product) return null;
 
     return (
-        <>
-            <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
-                    <DialogHeader>
-                        <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
-                        <DialogDescription>
-                            Preencha os detalhes abaixo para publicar este produto em uma ou mais de suas contas.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
-                        <div>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                    <FormField control={form.control} name="accountIds" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Publicar nas Contas</FormLabel>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-start">
-                                                        {field.value?.length > 0 ? `${field.value.length} conta(s) selecionada(s)` : "Selecione as contas..."}
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
-                                                    {accountOptions.map(option => (
-                                                        <DropdownMenuCheckboxItem
-                                                            key={option.value}
-                                                            checked={field.value.includes(option.value)}
-                                                            onCheckedChange={(checked) => {
-                                                                const newValue = checked 
-                                                                    ? [...field.value, option.value]
-                                                                    : field.value.filter(v => v !== option.value);
-                                                                field.onChange(newValue);
-                                                            }}
-                                                            onSelect={e => e.preventDefault()}
-                                                        >
-                                                            {option.label}
-                                                        </DropdownMenuCheckboxItem>
-                                                    ))}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="sellerSku" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Produto</FormLabel>
-                                            <div className="flex items-center gap-2">
-                                                <Input placeholder="Clique na busca para selecionar" {...field} readOnly className="bg-muted/50 cursor-not-allowed" />
-                                                <Button type="button" variant="secondary" size="icon" onClick={() => setIsPriceDialogOpen(true)}>
-                                                    <Search className="h-4 w-4"/>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
+                <DialogHeader>
+                    <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
+                    <DialogDescription>
+                        Preencha os detalhes abaixo para publicar este produto em uma ou mais de suas contas.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
+                    <div>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField control={form.control} name="accountIds" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Publicar nas Contas</FormLabel>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-start">
+                                                    {field.value?.length > 0 ? `${field.value.length} conta(s) selecionada(s)` : "Selecione as contas..."}
                                                 </Button>
-                                            </div>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                                                {accountOptions.map(option => (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={option.value}
+                                                        checked={field.value.includes(option.value)}
+                                                        onCheckedChange={(checked) => {
+                                                            const newValue = checked 
+                                                                ? [...field.value, option.value]
+                                                                : field.value.filter(v => v !== option.value);
+                                                            field.onChange(newValue);
+                                                        }}
+                                                        onSelect={e => e.preventDefault()}
+                                                    >
+                                                        {option.label}
+                                                    </DropdownMenuCheckboxItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                
+                                <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Produto</FormLabel>
+                                         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                    >
+                                                        {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                <div className="flex items-center border-b px-3">
+                                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    <Input
+                                                        placeholder="Buscar por nome ou SKU..."
+                                                        value={searchTerm}
+                                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                                        className="h-11 border-0 ring-0 focus-visible:ring-0"
+                                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); }}}
+                                                    />
+                                                    <Button variant="ghost" size="icon" onClick={handleSearch} disabled={isSearching}>
+                                                        {isSearching ? <Loader2 className="animate-spin" /> : <Search />}
+                                                    </Button>
+                                                </div>
+                                                {/* Aqui você poderia listar os resultados da busca se a ação retornasse uma lista */}
+                                                <div className="p-2 text-center text-sm text-muted-foreground">
+                                                    Clique em buscar para encontrar o produto e seu preço médio.
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="price" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Preço</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" placeholder="299.90" {...field} />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField control={form.control} name="price" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Preço</FormLabel>
+                                    <FormField control={form.control} name="quantity" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Estoque</FormLabel>
+                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="listingTypeId" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Tipo de Anúncio</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="299.90" {...field} />
+                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                                 </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="quantity" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Estoque</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField control={form.control} name="listingTypeId" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Tipo de Anúncio</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="gold_special">Clássico</SelectItem>
-                                                        <SelectItem value="gold_pro">Premium</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="condition" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Condição</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="new">Novo</SelectItem>
-                                                        <SelectItem value="used">Usado</SelectItem>
-                                                        <SelectItem value="not_specified">Não especificado</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </div>
-                                    <DialogFooter className="pt-4">
-                                        <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                                        <Button type="submit" disabled={isSubmitting}>
-                                            {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                            Criar Anúncio(s)
-                                        </Button>
-                                    </DialogFooter>
-                                </form>
-                            </Form>
-                        </div>
-
-                        <div className="space-y-4">
-                            {foundProductInfo && (
-                                <Card>
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-base">Produto Selecionado</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="font-semibold">{foundProductInfo.name}</p>
-                                        <p className="text-sm text-muted-foreground">SKU: {foundProductInfo.sku}</p>
-                                        {calculatedPrice !== null && (
-                                            <div className="mt-2 text-lg">
-                                                <span>Preço Médio + Gordura: </span>
-                                                <span className="font-bold text-primary">{formatCurrency(calculatedPrice)}</span>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                           {Object.keys(formStates).length > 0 && (
-                                <Card>
-                                    <CardHeader className="p-3">
-                                        <CardTitle className="text-base flex items-center gap-2">
-                                            <Send /> Resultados da Publicação
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80 space-y-2">
-                                            {Object.entries(formStates).map(([accountId, state]) => {
-                                                const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
-                                                return (
-                                                    <div key={accountId}>
-                                                        <h4 className="font-semibold">{accountName}: {state.success ? 'Sucesso' : 'Falha'}</h4>
-                                                        {state.payload && (
-                                                            <>
-                                                                <p className="text-muted-foreground mt-1">Payload enviado:</p>
-                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                                    <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                        {JSON.stringify(state.payload, null, 2)}
-                                                                    </code>
-                                                                </pre>
-                                                            </>
-                                                        )}
-                                                        <p className="text-muted-foreground mt-1">Resposta da API:</p>
-                                                        <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                            <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                {state.result ? JSON.stringify(state.result, null, 2) : state.error}
-                                                            </code>
-                                                        </pre>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </div>
+                                                <SelectContent>
+                                                    <SelectItem value="gold_special">Clássico</SelectItem>
+                                                    <SelectItem value="gold_pro">Premium</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="condition" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Condição</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="new">Novo</SelectItem>
+                                                    <SelectItem value="used">Usado</SelectItem>
+                                                    <SelectItem value="not_specified">Não especificado</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                                <DialogFooter className="pt-4">
+                                    <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                        Criar Anúncio(s)
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
                     </div>
-                </DialogContent>
-            </Dialog>
 
-             <PriceAverageDialog
-                isOpen={isPriceDialogOpen}
-                onClose={() => setIsPriceDialogOpen(false)}
-                productName={product.name}
-                productSku={product.model || ''}
-                onPriceCalculated={handleProductFound}
-            />
-        </>
+                    <div className="space-y-4">
+                        {selectedProductInfo && (
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">Produto Selecionado</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="font-semibold">{selectedProductInfo.name}</p>
+                                    <p className="text-sm text-muted-foreground">SKU: {selectedProductInfo.sku}</p>
+                                    {searchState.averagePrice !== null && (
+                                        <div className="mt-2 text-lg">
+                                            <span>Preço Médio + Gordura: </span>
+                                            <span className="font-bold text-primary">{formatCurrency(searchState.averagePrice)}</span>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                       {Object.keys(formStates).length > 0 && (
+                            <Card>
+                                <CardHeader className="p-3">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Send /> Resultados da Publicação
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80 space-y-2">
+                                        {Object.entries(formStates).map(([accountId, state]) => {
+                                            const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
+                                            return (
+                                                <div key={accountId}>
+                                                    <h4 className="font-semibold">{accountName}: {state.success ? 'Sucesso' : 'Falha'}</h4>
+                                                    {state.payload && (
+                                                        <>
+                                                            <p className="text-muted-foreground mt-1">Payload enviado:</p>
+                                                            <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                    {JSON.stringify(state.payload, null, 2)}
+                                                                </code>
+                                                            </pre>
+                                                        </>
+                                                    )}
+                                                    <p className="text-muted-foreground mt-1">Resposta da API:</p>
+                                                    <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                        <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                            {state.result ? JSON.stringify(state.result, null, 2) : state.error}
+                                                        </code>
+                                                    </pre>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 }
-
-    
