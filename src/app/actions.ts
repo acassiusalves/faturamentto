@@ -5,7 +5,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -40,7 +40,7 @@ async function fetchItemsSellerAddresses(
   if (!itemIds.length) return out;
 
   const CHUNK = 20; // seguro para /items?ids=
-  for (let i = 0; i < itemIds.length; i += CHUNK) {
+  for (let i = 0; <itemIds.length; i += CHUNK) {
     const batch = itemIds.slice(i, i + CHUNK);
     const url = `https://api.mercadolibre.com/items?ids=${batch.join(",")}&attributes=id,seller_address,last_updated`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -86,7 +86,7 @@ async function fetchUsersAddress(
   if (!uniq.length) return out;
 
   const CONCURRENCY = 8;
-  for (let i = 0; i < uniq.length; i += CONCURRENCY) {
+  for (let i = 0; <uniq.length; i += CONCURRENCY) {
     const batch = uniq.slice(i, i + CONCURRENCY);
     await Promise.allSettled(
       batch.map(async (sid) => {
@@ -217,8 +217,8 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
 }
 
 // Fetches active catalog IDs for a given ML account from the local DB
-async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string[]>> {
-    const allActiveCatalogs = new Map<string, string[]>(); // catalog_id -> accountName[]
+async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, PostedOnAccount[]>> {
+    const allActiveCatalogs = new Map<string, PostedOnAccount[]>(); // catalog_id -> { accountName, listingTypeId }[]
     
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
@@ -231,14 +231,16 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
             const accountName = accountIdToNameMap.get(accountId) || accountId;
+            const listingTypeId = item.listing_type_id || '';
 
             if (!allActiveCatalogs.has(catalogId)) {
                 allActiveCatalogs.set(catalogId, []);
             }
             
             const accounts = allActiveCatalogs.get(catalogId)!;
-            if (accountName && !accounts.includes(accountName)) {
-                accounts.push(accountName);
+            // Evita duplicatas se a mesma conta/tipo de anúncio já foi adicionada
+            if (accountName && !accounts.some(a => a.accountName === accountName && a.listingTypeId === listingTypeId)) {
+                accounts.push({ accountName, listingTypeId });
             }
         }
     }
@@ -285,7 +287,7 @@ export async function searchMercadoLivreAction(
     // 2. Fetch winner item for each catalog product
     const CONCURRENCY = 8;
     const winnerByCat = new Map<string, any>();
-    for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
+    for (let i = 0; <catalogProducts.length; i += CONCURRENCY) {
       const batch = catalogProducts.slice(i, i + CONCURRENCY);
       await Promise.allSettled(
         batch.map(async (p: any) => {
@@ -406,7 +408,7 @@ export async function searchMercadoLivreAction(
                 },
                 rating_average: reviewsResult.rating_average ?? 0,
                 reviews_count: reviewsResult.reviews_count ?? 0,
-                postedOnAccounts: postedOnAccounts, // Add the new field (now an array)
+                postedOnAccounts: postedOnAccounts, // Add the new field (now an array of objects)
                 raw_data: { 
                   catalog_product: p, 
                   winner_item: winner,
@@ -965,15 +967,15 @@ export async function createCatalogListingAction(
 
     // Corresponde à ordem do payload de exemplo
     payload = {
-      site_id: 'MLB',
-      title: formData.get('title') as string,
-      category_id: formData.get('category_id') as string,
-      price: Number(formData.get('price')),
-      currency_id: 'BRL',
-      available_quantity: Number(formData.get('available_quantity')),
-      buying_mode: 'buy_it_now',
-      listing_type_id: formData.get('listing_type_id') as string,
-      condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
+      site_id: 'MLB';
+      title: formData.get('title') as string;
+      category_id: formData.get('category_id') as string;
+      price: Number(formData.get('price'));
+      currency_id: 'BRL';
+      available_quantity: Number(formData.get('available_quantity'));
+      buying_mode: 'buy_it_now';
+      listing_type_id: formData.get('listing_type_id') as string;
+      condition: formData.get('condition') as 'new' | 'used' | 'not_specified';
       sale_terms: [
         {
             "id": "WARRANTY_TYPE",
@@ -983,18 +985,9 @@ export async function createCatalogListingAction(
             "id": "WARRANTY_TIME",
             "value_name": "3 meses"
         }
-      ],
-      pictures: [],
+      ];
+      pictures: [];
       attributes: [
-        {
-            "id": "CARRIER",
-            "name": "Compañía telefónica",
-            "value_id": "298335",
-            "value_name": "Liberado",
-            "value_struct": null,
-            "attribute_group_id": "OTHERS",
-            "attribute_group_name": "Otros"
-        },
         {
             "id": "ITEM_CONDITION",
             "name": "Condición del ítem",
@@ -1008,20 +1001,20 @@ export async function createCatalogListingAction(
             "id": "SELLER_SKU",
             "value_name": "XIA-N13P-256-BLK"
         }
-      ],
-      catalog_product_id: formData.get('catalog_product_id') as string,
-      catalog_listing: true, 
+      ];
+      catalog_product_id: formData.get('catalog_product_id') as string;
+      catalog_listing: true; 
       shipping: {
         "mode": "me2",
-        "methods": [],
+        "methods": [];
         "tags": [
             "self_service_out",
             "mandatory_free_shipping",
             "self_service_available"
-        ],
-        "dimensions": null,
-        "local_pick_up": false,
-        "free_shipping": true,
+        ];
+        "dimensions": null;
+        "local_pick_up": false;
+        "free_shipping": true;
         "logistic_type": "xd_drop_off"
       }
     };
@@ -1068,12 +1061,12 @@ export async function saveProductsAction(products: Product[]) {
 export async function saveMagaluCredentialsAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null; message: string; }> {
     try {
         const payload: MagaluCredentials = {
-            accountName: formData.get('accountName') as string,
-            uuid: formData.get('uuid') as string,
-            clientId: formData.get('clientId') as string,
-            clientSecret: formData.get('clientSecret') as string,
-            refreshToken: formData.get('refreshToken') as string,
-            accessToken: formData.get('accessToken') as string | undefined,
+            accountName: formData.get('accountName') as string;
+            uuid: formData.get('uuid') as string;
+            clientId: formData.get('clientId') as string;
+            clientSecret: formData.get('clientSecret') as string;
+            refreshToken: formData.get('refreshToken') as string;
+            accessToken: formData.get('accessToken') as string | undefined;
         };
 
         if (!payload.accountName || !payload.clientId || !payload.clientSecret) {

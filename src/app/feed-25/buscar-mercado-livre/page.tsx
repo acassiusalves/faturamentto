@@ -23,7 +23,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CreateListingDialog } from '@/app/laboratorio/testes-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
-import type { MlAccount } from '@/lib/types';
+import type { MlAccount, PostedOnAccount } from '@/lib/types';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -63,7 +63,7 @@ interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
-    postedOnAccounts?: string[];
+    postedOnAccounts?: PostedOnAccount[];
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -485,10 +485,10 @@ export default function BuscarMercadoLivrePage() {
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {product.postedOnAccounts && product.postedOnAccounts.map(accountName => (
-                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                                {product.postedOnAccounts?.map((account) => (
+                                                                    <Badge key={account.accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        Postado em: {accountName}
+                                                                        {account.accountName}: <span className="font-bold ml-1">{listingTypeMap[account.listingTypeId] || 'N/A'}</span>
                                                                     </Badge>
                                                                 ))}
                                                             </div>
@@ -685,3 +685,5 @@ export default function BuscarMercadoLivrePage() {
         </>
     );
 }
+
+    

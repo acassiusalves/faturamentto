@@ -675,6 +675,12 @@ export interface SaleCosts {
 }
 
 export type MoneyLike = string | number | null | undefined;
+
+export interface PostedOnAccount {
+    accountName: string;
+    listingTypeId: string;
+}
+
 export interface ProductResult {
     thumbnail: string;
     name: string;
@@ -710,7 +716,7 @@ export interface ProductResult {
     date_created?: string | null;
     rating_average?: number;
     reviews_count?: number;
-    postedOnAccounts?: string[];
+    postedOnAccounts?: PostedOnAccount[];
     raw_data?: {
       catalog_product?: any;
       winner_item?: any;
@@ -763,3 +769,5 @@ export interface CreateListingResult {
     result: any | null; // A resposta da API, seja de sucesso ou erro.
     payload?: CreateListingPayload;
 }
+
+    
