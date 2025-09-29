@@ -4,7 +4,13 @@ import * as React from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Command,
   CommandEmpty,
@@ -14,7 +20,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export type Option = { label: string; value: string };
 
@@ -34,6 +39,7 @@ export function MultiSelect({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   const toggle = (val: string) => {
     if (value.includes(val)) onChange(value.filter((v) => v !== val));
@@ -51,11 +57,15 @@ export function MultiSelect({
       : value.length === 1
       ? options.find((o) => o.value === value[0])?.label || placeholder
       : `${value.length} selecionados`;
+  
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className={cn("w-full md:w-[260px]", className)}>
-      <Popover open={open} onOpenChange={setOpen} modal={false}>
-        <PopoverTrigger asChild>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
           <Button
             type="button"
             variant="outline"
@@ -71,42 +81,35 @@ export function MultiSelect({
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </div>
           </Button>
-        </PopoverTrigger>
-
-        <PopoverContent
-          align="start"
-          sideOffset={6}
-          className="z-[9999] w-[var(--radix-popover-trigger-width)] p-0 pointer-events-auto"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <Command>
-            <CommandInput placeholder="Filtrar..." />
-            <CommandList className="max-h-64 overflow-auto pointer-events-auto">
-              <CommandEmpty>{emptyText}</CommandEmpty>
-              <CommandGroup>
-                {options.map((opt) => {
-                  const checked = value.includes(opt.value);
-                  return (
-                    <CommandItem
-                      key={opt.value}
-                      className="gap-2 cursor-pointer"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onSelect={() => toggle(opt.value)}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] p-0">
+          <div className="p-2">
+            <Command>
+              <CommandInput 
+                placeholder="Filtrar..."
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+              />
+            </Command>
+          </div>
+          <DropdownMenuGroup className="max-h-60 overflow-auto">
+            {filteredOptions.length === 0 ? (
+                <div className="py-2 text-center text-sm text-muted-foreground">{emptyText}</div>
+            ) : (
+                filteredOptions.map((opt) => (
+                    <DropdownMenuCheckboxItem
+                        key={opt.value}
+                        checked={value.includes(opt.value)}
+                        onCheckedChange={() => toggle(opt.value)}
+                        onSelect={(e) => e.preventDefault()}
                     >
-                      <Checkbox
-                        checked={checked}
-                        className="pointer-events-none"
-                      />
-                      <span className="flex-1 truncate">{opt.label}</span>
-                      {checked && <Check className="h-4 w-4" />}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                        {opt.label}
+                    </DropdownMenuCheckboxItem>
+                ))
+            )}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {value.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">

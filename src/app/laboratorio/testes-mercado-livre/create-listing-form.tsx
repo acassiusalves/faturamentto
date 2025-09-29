@@ -11,15 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search } from 'lucide-react';
-import { useFormState } from 'react-dom';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Calculator } from 'lucide-react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { createCatalogListingAction, findAveragePriceAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
-import { PriceAverageDialog } from './price-average-dialog';
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
@@ -47,8 +46,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const { toast } = useToast();
     const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isPriceAverageOpen, setIsPriceAverageOpen] = useState(false);
-    
+    const [isFindingPrice, setIsFindingPrice] = useState(false);
+
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
     const form = useForm<ListingFormValues>({
@@ -116,13 +115,29 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         }
     };
     
-    const handlePriceCalculated = (avgPrice: number) => {
-        form.setValue('price', avgPrice);
-        setIsPriceAverageOpen(false);
-        toast({
-            title: "Preço Preenchido!",
-            description: `O preço médio calculado de ${avgPrice.toFixed(2)} foi inserido no campo.`
-        });
+    const handleFindAveragePrice = async () => {
+        const searchTerm = product?.name || product?.model || '';
+        if (!searchTerm) {
+            toast({ variant: 'destructive', title: 'Termo de busca vazio.' });
+            return;
+        }
+
+        setIsFindingPrice(true);
+        const formData = new FormData();
+        formData.append('searchTerm', searchTerm);
+        
+        const result = await findAveragePriceAction({ averagePrice: null, error: null }, formData);
+
+        if (result.error) {
+            toast({ variant: 'destructive', title: 'Erro ao Calcular Média', description: result.error });
+        } else if (result.averagePrice !== null) {
+            form.setValue('price', parseFloat(result.averagePrice.toFixed(2)));
+            toast({
+                title: 'Preço Médio Encontrado!',
+                description: `O preço de ${result.averagePrice.toFixed(2)} foi preenchido.`,
+            });
+        }
+        setIsFindingPrice(false);
     };
 
     if (!product) return null;
@@ -159,9 +174,11 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             <FormItem>
                                                 <FormLabel>Preço</FormLabel>
                                                 <div className="flex items-center gap-2">
-                                                    <FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl>
-                                                    <Button type="button" variant="outline" size="icon" onClick={() => setIsPriceAverageOpen(true)}>
-                                                        <Search className="h-4 w-4" />
+                                                    <FormControl>
+                                                        <Input type="number" placeholder="299.90" {...field} />
+                                                    </FormControl>
+                                                    <Button type="button" variant="outline" size="icon" onClick={handleFindAveragePrice} disabled={isFindingPrice}>
+                                                        {isFindingPrice ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                                     </Button>
                                                 </div>
                                                 <FormMessage />
@@ -235,6 +252,17 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                 return (
                                                     <div key={accountId}>
                                                         <h4 className="font-semibold">{accountName}: {state.success ? 'Sucesso' : 'Falha'}</h4>
+                                                        {state.payload && (
+                                                            <>
+                                                                <p className="text-muted-foreground mt-1">Payload enviado:</p>
+                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                    <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                        {JSON.stringify(state.payload, null, 2)}
+                                                                    </code>
+                                                                </pre>
+                                                            </>
+                                                        )}
+                                                        <p className="text-muted-foreground mt-1">Resposta da API:</p>
                                                         <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
                                                             <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                                                                 {state.result ? JSON.stringify(state.result, null, 2) : state.error}
@@ -251,14 +279,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
                 </DialogContent>
             </Dialog>
-
-            <PriceAverageDialog 
-                isOpen={isPriceAverageOpen}
-                onClose={() => setIsPriceAverageOpen(false)}
-                productName={product.name}
-                productSku={product.model || ''} // Usar o modelo como SKU de busca
-                onPriceCalculated={handlePriceCalculated}
-            />
         </>
     );
 }
