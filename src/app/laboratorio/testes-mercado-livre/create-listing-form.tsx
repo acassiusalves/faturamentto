@@ -260,7 +260,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                             <>
                                                                 <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                                 <CommandGroup>
-                                                                    {allFeedProducts.map((p, index) => (
+                                                                    {filteredFeedProducts.map((p, index) => (
                                                                         <CommandItem
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
@@ -365,31 +365,48 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <ScrollArea className="p-4 bg-muted rounded-b-md text-xs max-h-80 space-y-2">
-                                        {Object.entries(formStates).map(([accountId, state]) => {
-                                            const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
-                                            return (
-                                                <div key={accountId}>
-                                                    <h4 className="font-semibold">{accountName}: {state.success ? 'Sucesso' : 'Falha'}</h4>
-                                                    {state.payload && (
-                                                        <>
-                                                            <p className="text-muted-foreground mt-1">Payload enviado:</p>
-                                                            <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                                <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                    {JSON.stringify(state.payload, null, 2)}
-                                                                </code>
-                                                            </pre>
-                                                        </>
-                                                    )}
-                                                    <p className="text-muted-foreground mt-1">Resposta da API:</p>
-                                                    <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                        <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                            {state.result ? JSON.stringify(state.result, null, 2) : state.error}
-                                                        </code>
-                                                    </pre>
-                                                </div>
-                                            )
-                                        })}
+                                    <ScrollArea className="bg-muted rounded-b-md text-xs max-h-80">
+                                        <div className="p-4 space-y-4">
+                                            {Object.entries(formStates).map(([accountId, state]) => {
+                                                const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
+                                                return (
+                                                    <div key={accountId} className="space-y-2">
+                                                        <h4 className="font-semibold">{accountName}: {state.success ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
+                                                        
+                                                        {state.error && (
+                                                             <div>
+                                                                <p className="text-muted-foreground font-semibold">Erro:</p>
+                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto text-destructive-foreground">
+                                                                    <code>{state.error}</code>
+                                                                </pre>
+                                                            </div>
+                                                        )}
+
+                                                        {state.payload && (
+                                                            <div>
+                                                                <p className="text-muted-foreground font-semibold">Payload Enviado:</p>
+                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                    <code className="text-white text-[11px] leading-tight" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                        {JSON.stringify(state.payload, null, 2)}
+                                                                    </code>
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {state.result && (
+                                                            <div>
+                                                                <p className="text-muted-foreground font-semibold">Resposta da API:</p>
+                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                    <code className="text-white text-[11px] leading-tight" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                        {JSON.stringify(state.result, null, 2)}
+                                                                    </code>
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
                                     </ScrollArea>
                                 </CardContent>
                             </Card>
