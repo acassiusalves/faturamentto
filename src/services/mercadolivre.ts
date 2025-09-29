@@ -58,15 +58,8 @@ export async function getMlToken(accountIdentifier?: string): Promise<string> {
   let creds: Partial<MercadoLivreCredentials> & { appId?: string } | null = null;
 
   if (accountIdentifier) {
-      // If an identifier is provided, try to find the account by that ID (more reliable)
-      const accountDocRef = doc(db, 'mercadoLivreAccounts', accountIdentifier);
-      const docSnap = await getDoc(accountDocRef);
-      if (docSnap.exists()) {
-          creds = docSnap.data() as MercadoLivreCredentials;
-      } else {
-        // Fallback to searching by name if ID search fails
-        creds = await getMlCredentialsByAccountName(accountIdentifier);
-      }
+      // Busca pelo accountName
+      creds = await getMlCredentialsByAccountName(accountIdentifier);
   } 
   
   // If no identifier or if search by identifier failed, try fetching the primary account
@@ -167,18 +160,19 @@ async function fetchProductDetails(catalogProductId: string, token: string) {
     return response.json();
 }
 
-export async function createListingFromCatalog(payload: CreateListingPayload, accountId: string) {
+export async function createListingFromCatalog(payload: CreateListingPayload) {
     try {
         const { 
             catalog_product_id, 
             price, 
             available_quantity, 
             listing_type_id, 
+            accountId, // This is the accountName
             buying_mode,
             condition,
         } = payload;
         
-        // The accountId received here is the Firestore Document ID, which is reliable
+        // Use the accountName to get the token
         const token = await getMlToken(accountId);
 
         // 1. Fetch product details from catalog to get correct category, variations, etc.
