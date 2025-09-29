@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check } from 'lucide-react';
-import { createCatalogListingAction, findAveragePriceAction } from '@/app/actions';
-import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
+import { createCatalogListingAction, findAveragePriceAction, fetchAllProductsFromFeedAction } from '@/app/actions';
+import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -46,6 +46,8 @@ type ListingFormValues = z.infer<typeof listingSchema>;
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
 const initialPriceState = { averagePrice: null, product: null, error: null };
 
+type FeedProduct = FeedEntry['products'][0];
+
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
@@ -67,6 +69,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const [isSearching, setIsSearching] = useState(false);
     const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
 
+    const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
+    const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
+
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
     const form = useForm<ListingFormValues>({
@@ -82,6 +87,29 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             accountIds: [],
         }
     });
+    
+    useEffect(() => {
+        async function fetchAllProducts() {
+            setIsFetchingFeedProducts(true);
+            const result = await fetchAllProductsFromFeedAction();
+            if (result.products) {
+                setAllFeedProducts(result.products);
+            }
+            setIsFetchingFeedProducts(false);
+        }
+        if (isOpen) {
+          fetchAllProducts();
+        }
+    }, [isOpen]);
+
+    const filteredFeedProducts = React.useMemo(() => {
+        if (!searchTerm) return allFeedProducts;
+        const lowerSearch = searchTerm.toLowerCase();
+        return allFeedProducts.filter(p => 
+            p.name?.toLowerCase().includes(lowerSearch) || 
+            p.sku?.toLowerCase().includes(lowerSearch)
+        );
+    }, [allFeedProducts, searchTerm]);
 
     useEffect(() => {
         if (product) {
@@ -116,18 +144,18 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         }
         if (searchState.averagePrice !== null && searchState.product) {
             form.setValue('price', searchState.averagePrice);
-            form.setValue('sellerSku', searchState.product.sku);
+            form.setValue('sellerSku', searchState.product.sku, { shouldValidate: true });
             setSelectedProductInfo({ name: searchState.product.name, sku: searchState.product.sku });
             toast({ title: 'Produto e Preço Encontrados!', description: `Preço médio de ${formatCurrency(searchState.averagePrice)} aplicado.` });
-            setIsSearchPopoverOpen(false); // Close popover on selection
+            setIsSearchPopoverOpen(false);
         }
     }, [searchState, toast, form]);
 
-    const handleSearch = () => {
-        if (!searchTerm.trim()) return;
+    const handleProductSelect = (productToSelect: FeedProduct) => {
+        setSearchTerm(productToSelect.name || ''); // Update search term to selected product name
         setIsSearching(true);
         const formData = new FormData();
-        formData.append('searchTerm', searchTerm);
+        formData.append('searchTerm', productToSelect.sku || productToSelect.name || '');
         searchAction(formData);
     };
 
@@ -166,7 +194,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
         }
         if (errorCount === 0) {
-            form.reset();
             onClose();
         }
     };
@@ -228,29 +255,44 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                         role="combobox"
                                                         className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
                                                     >
-                                                        {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
+                                                        <span className="truncate">{selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}</span>
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                <div className="flex items-center border-b px-3">
-                                                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    <Input
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                                <Command>
+                                                    <CommandInput
                                                         placeholder="Buscar por nome ou SKU..."
                                                         value={searchTerm}
-                                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                                        className="h-11 border-0 ring-0 focus-visible:ring-0"
-                                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); }}}
+                                                        onValueChange={setSearchTerm}
+                                                        disabled={isFetchingFeedProducts}
                                                     />
-                                                    <Button variant="ghost" size="icon" onClick={handleSearch} disabled={isSearching}>
-                                                        {isSearching ? <Loader2 className="animate-spin" /> : <Search />}
-                                                    </Button>
-                                                </div>
-                                                {/* Aqui você poderia listar os resultados da busca se a ação retornasse uma lista */}
-                                                <div className="p-2 text-center text-sm text-muted-foreground">
-                                                    Clique em buscar para encontrar o produto e seu preço médio.
-                                                </div>
+                                                    <CommandList>
+                                                        {isFetchingFeedProducts ? (
+                                                            <div className="p-2 text-center text-sm text-muted-foreground"> <Loader2 className="mx-auto animate-spin" /> </div>
+                                                        ) : (
+                                                            <>
+                                                                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {filteredFeedProducts.map((p, index) => (
+                                                                        <CommandItem
+                                                                            key={`${p.sku}-${index}`}
+                                                                            value={`${p.name} ${p.sku}`}
+                                                                            onSelect={() => handleProductSelect(p)}
+                                                                        >
+                                                                            <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-semibold">{p.name}</span>
+                                                                                <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                                                            </div>
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </>
+                                                        )}
+                                                    </CommandList>
+                                                </Command>
                                             </PopoverContent>
                                         </Popover>
                                         <FormMessage />
@@ -320,7 +362,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
 
                     <div className="space-y-4">
-                        {selectedProductInfo && (
+                        {isSearching ? (
+                             <Card>
+                                <CardContent className="p-6 flex items-center justify-center h-full">
+                                    <Loader2 className="animate-spin text-primary" />
+                                </CardContent>
+                             </Card>
+                        ) : selectedProductInfo && (
                             <Card>
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base">Produto Selecionado</CardTitle>

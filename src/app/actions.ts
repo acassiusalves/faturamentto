@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
@@ -1131,4 +1131,11 @@ export async function findAveragePriceAction(
   }
 }
 
-    
+export async function fetchAllProductsFromFeedAction(): Promise<{ products: FeedEntry['products'] | null, error: string | null }> {
+    try {
+        const products = await fetchAllProductsFromFeedService();
+        return { products, error: null };
+    } catch (e: any) {
+        return { products: null, error: e.message || 'Falha ao buscar produtos do feed.' };
+    }
+}

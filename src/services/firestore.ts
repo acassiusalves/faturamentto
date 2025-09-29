@@ -779,6 +779,29 @@ export const loadAllFeedEntries = async (): Promise<FeedEntry[]> => {
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data() }) as FeedEntry);
 };
 
+export async function fetchAllProductsFromFeed(): Promise<FeedEntry['products']> {
+    const feedEntries = await loadAllFeedEntries();
+    const latestEntriesByStore = new Map<string, FeedEntry>();
+    for (const entry of feedEntries) {
+      if (!latestEntriesByStore.has(entry.storeName) || new Date(entry.date) > new Date(latestEntriesByStore.get(entry.storeName)!.date)) {
+        latestEntriesByStore.set(entry.storeName, entry);
+      }
+    }
+
+    const allProductsMap = new Map<string, FeedEntry['products'][0]>();
+    for (const entry of latestEntriesByStore.values()) {
+        entry.products.forEach(product => {
+            const key = product.sku || product.name;
+            if (key && !allProductsMap.has(key)) {
+                allProductsMap.set(key, product);
+            }
+        });
+    }
+
+    return Array.from(allProductsMap.values());
+}
+
+
 export const loadAllFeedEntriesWithGordura = async (): Promise<{ feedEntries: FeedEntry[], gordura: number }> => {
     const [feedEntries, settings] = await Promise.all([
         loadAllFeedEntries(),
@@ -1053,7 +1076,5 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
-
-    
 
     
