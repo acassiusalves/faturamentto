@@ -62,7 +62,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // States for product search
     const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchState, searchAction] = useFormState(findAveragePriceAction, initialPriceState);
@@ -71,6 +70,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
     const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
     const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
+    
+    // State to hold the calculated prices for display
+    const [calculatedPrices, setCalculatedPrices] = useState<{ averageCost: number | null, finalPrice: number | null }>({ averageCost: null, finalPrice: null });
 
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
@@ -83,8 +85,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             price: product?.price || undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
-            condition: 'new',
             accountIds: [],
+            condition: 'new',
         }
     });
     
@@ -125,6 +127,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             });
             setSelectedProductInfo(null);
             setSearchTerm('');
+            setCalculatedPrices({ averageCost: null, finalPrice: null });
         }
     }, [product, form]);
     
@@ -134,6 +137,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         setFormStates({});
         setSelectedProductInfo(null);
         setSearchTerm('');
+        setCalculatedPrices({ averageCost: null, finalPrice: null });
       }
     }, [isOpen, form]);
 
@@ -141,12 +145,18 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         setIsSearching(false);
         if (searchState.error) {
             toast({ variant: 'destructive', title: 'Erro na Busca', description: searchState.error });
+            setCalculatedPrices({ averageCost: null, finalPrice: null });
         }
         if (searchState.averagePrice !== null && searchState.product) {
-            form.setValue('price', searchState.averagePrice);
+            const averageCost = searchState.averagePrice;
+            const finalPrice = averageCost * 1.35; // Add 35% margin
+
+            form.setValue('price', parseFloat(finalPrice.toFixed(2)));
             form.setValue('sellerSku', searchState.product.sku, { shouldValidate: true });
             setSelectedProductInfo({ name: searchState.product.name, sku: searchState.product.sku });
-            toast({ title: 'Produto e Preço Encontrados!', description: `Preço médio de ${formatCurrency(searchState.averagePrice)} aplicado.` });
+            setCalculatedPrices({ averageCost, finalPrice });
+            
+            toast({ title: 'Produto Selecionado!', description: `SKU ${searchState.product.sku} e preço sugerido de ${formatCurrency(finalPrice)} aplicados.` });
             setIsSearchPopoverOpen(false);
         }
     }, [searchState, toast, form]);
@@ -243,7 +253,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </FormItem>
                                 )} />
                                 
-                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Produto</FormLabel>
                                         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
@@ -265,27 +275,30 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                         placeholder="Buscar por nome ou SKU..."
                                                         value={searchTerm}
                                                         onValueChange={setSearchTerm}
-                                                        disabled={isFetchingFeedProducts}
+                                                        disabled={isFetchingFeedProducts || isSearching}
                                                     />
                                                     <CommandList>
-                                                        {isFetchingFeedProducts ? (
+                                                        {isFetchingFeedProducts || isSearching ? (
                                                             <div className="p-2 text-center text-sm text-muted-foreground"> <Loader2 className="mx-auto animate-spin" /> </div>
                                                         ) : (
                                                             <>
                                                                 <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                                 <CommandGroup>
                                                                     {filteredFeedProducts.map((p, index) => (
-                                                                        <CommandItem
+                                                                        <button
                                                                             key={`${p.sku}-${index}`}
-                                                                            value={`${p.name} ${p.sku}`}
-                                                                            onSelect={() => handleProductSelect(p)}
+                                                                            type="button"
+                                                                            onPointerDown={(e) => e.preventDefault()}
+                                                                            onMouseDown={(e) => e.preventDefault()}
+                                                                            onClick={() => handleProductSelect(p)}
+                                                                            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
                                                                         >
-                                                                            <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
-                                                                            <div className="flex flex-col">
+                                                                             <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                                              <div className="flex flex-col text-left">
                                                                                 <span className="font-semibold">{p.name}</span>
                                                                                 <span className="text-xs text-muted-foreground">{p.sku}</span>
                                                                             </div>
-                                                                        </CommandItem>
+                                                                        </button>
                                                                     ))}
                                                                 </CommandGroup>
                                                             </>
@@ -372,13 +385,19 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-base">Produto Selecionado</CardTitle>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="space-y-3">
                                     <p className="font-semibold">{selectedProductInfo.name}</p>
                                     <p className="text-sm text-muted-foreground">SKU: {selectedProductInfo.sku}</p>
-                                    {searchState.averagePrice !== null && (
-                                        <div className="mt-2 text-lg">
-                                            <span>Preço Médio + Gordura: </span>
-                                            <span className="font-bold text-primary">{formatCurrency(searchState.averagePrice)}</span>
+                                    {calculatedPrices.averageCost !== null && (
+                                        <div className="mt-2 text-md">
+                                            <span>Custo Médio + Gordura: </span>
+                                            <span className="font-bold text-muted-foreground">{formatCurrency(calculatedPrices.averageCost)}</span>
+                                        </div>
+                                    )}
+                                     {calculatedPrices.finalPrice !== null && (
+                                        <div className="mt-1 text-lg">
+                                            <span>Preço de Venda Sugerido (+35%): </span>
+                                            <span className="font-bold text-primary">{formatCurrency(calculatedPrices.finalPrice)}</span>
                                         </div>
                                     )}
                                 </CardContent>
