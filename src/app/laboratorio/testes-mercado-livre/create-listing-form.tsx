@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, PlusCircle, Database, AlertTriangle, Send } from 'lucide-react';
 import { useFormState } from 'react-dom';
 import { createCatalogListingAction } from '@/app/actions';
-import type { MlAccount, ProductResult, CreateListingResult } from '@/lib/types';
+import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
