@@ -136,12 +136,53 @@ const ML_API_BASE = "https://api.mercadolibre.com";
 
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
-        const itemPayload = { ...payload };
-
-        // O title é removido pela action, mas garantimos aqui também.
-        if ('title' in itemPayload) {
-            delete (itemPayload as any).title;
-        }
+        const itemPayload = {
+            site_id: payload.site_id,
+            title: payload.title,
+            category_id: payload.category_id,
+            price: payload.price,
+            currency_id: payload.currency_id,
+            available_quantity: payload.available_quantity,
+            buying_mode: payload.buying_mode,
+            listing_type_id: payload.listing_type_id,
+            sale_terms: [
+                {
+                    "id": "WARRANTY_TYPE",
+                    "value_name": "Garantia do vendedor"
+                },
+                {
+                    "id": "WARRANTY_TIME",
+                    "value_name": "3 meses"
+                }
+            ],
+            pictures: [],
+            attributes: [
+                {
+                    "id": "CARRIER",
+                    "name": "Compañía telefónica",
+                    "value_id": "298335",
+                    "value_name": "Liberado",
+                    "value_struct": null,
+                    "attribute_group_id": "OTHERS",
+                    "attribute_group_name": "Otros"
+                },
+                {
+                    "id": "ITEM_CONDITION",
+                    "name": "Condición del ítem",
+                    "value_id": "2230284",
+                    "value_name": "Nuevo",
+                    "value_struct": null,
+                    "attribute_group_id": "OTHERS",
+                    "attribute_group_name": "Otros"
+                },
+                {
+                    "id": "SELLER_SKU",
+                    "value_name": "XIA-N13P-256-BLK"
+                }
+            ],
+            catalog_product_id: payload.catalog_product_id,
+            catalog_listing: payload.catalog_listing,
+        };
 
         const createItemUrl = `${ML_API_BASE}/items`;
 

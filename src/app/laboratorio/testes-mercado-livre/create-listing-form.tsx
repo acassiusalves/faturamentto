@@ -26,7 +26,6 @@ const listingSchema = z.object({
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
     accountId: z.string().min(1, 'Selecione a conta para publicar.'),
-    buying_mode: z.enum(['buy_it_now'], { required_error: 'O modo de compra é obrigatório.' }).default('buy_it_now'),
     condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }).default('new'),
 });
 
@@ -49,7 +48,6 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
             catalogProductId: '',
             price: undefined,
             quantity: 1,
-            buying_mode: 'buy_it_now',
             condition: 'new',
         }
     });
@@ -57,12 +55,12 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
         const formData = new FormData();
+        // A ordem aqui não importa tanto quanto na action que monta o payload final
         formData.append('catalog_product_id', data.catalogProductId);
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
         formData.append('accountId', data.accountId);
-        formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
         
         await formAction(formData);
@@ -236,7 +234,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             price: product?.price || undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
-            buying_mode: 'buy_it_now',
             condition: 'new',
             accountId: '',
         }
@@ -250,7 +247,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
                 accountId: '',
-                buying_mode: 'buy_it_now',
                 condition: 'new',
             });
         }
@@ -259,15 +255,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const onSubmit = (data: ListingFormValues) => {
         setIsSubmitting(true);
         const formData = new FormData();
+        // A ordem aqui não importa tanto quanto na action que monta o payload final
         formData.append('catalog_product_id', data.catalogProductId);
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
         formData.append('accountId', data.accountId);
-        formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
         formData.append('category_id', product.category_id);
-        formData.append('productName', product.name); // Passando o nome do produto para o título
         
         formAction(formData); 
     };

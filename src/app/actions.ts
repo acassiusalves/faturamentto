@@ -963,13 +963,10 @@ export async function createCatalogListingAction(
     if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
-    
-    const productName = formData.get('productName') as string;
 
-    // A ordem dos campos agora corresponde à do seu exemplo
+    // Corresponde à ordem do payload de exemplo
     payload = {
       site_id: 'MLB',
-      title: productName,
       category_id: formData.get('category_id') as string,
       price: Number(formData.get('price')),
       currency_id: 'BRL',
@@ -977,24 +974,15 @@ export async function createCatalogListingAction(
       buying_mode: 'buy_it_now',
       listing_type_id: formData.get('listing_type_id') as string,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
-      sale_terms: [
-          { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
-          { id: "WARRANTY_TIME", value_name: "3 meses" }
-      ],
-      pictures: [],
-      attributes: [
-           { id: "ITEM_CONDITION", value_name: (formData.get('condition') as string === 'new' ? 'Novo' : 'Usado') },
-           { id: "SELLER_SKU", value_name: "XIA-N13P-256-BLK" }
-      ],
       catalog_product_id: formData.get('catalog_product_id') as string,
       catalog_listing: true, 
     };
     
     for (const key in payload) {
         if (!payload[key as keyof CreateListingPayload]) {
-             if(key !== 'pictures' && key !== 'title') {
+            if(key !== 'pictures') {
                 return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
-             }
+            }
         }
     }
     
