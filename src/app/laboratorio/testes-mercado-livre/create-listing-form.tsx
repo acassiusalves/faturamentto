@@ -137,7 +137,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
         setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
         setIsSearchPopoverOpen(false);
-        setSearchTerm("");
     };
 
     const handleCopyToClipboard = (text: string) => {
@@ -157,7 +156,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         for (const accountId of data.accountIds) {
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
-            // Title is now optional and will only be added to the payload if not a catalog listing, which it is.
             formData.append('sellerSku', data.sellerSku);
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
@@ -165,7 +163,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             formData.append('accountId', accountId);
             formData.append('condition', data.condition);
             formData.append('category_id', product.category_id);
-            formData.append('catalog_listing', 'true');
             
             const result = await createCatalogListingAction(initialFormState, formData);
             results[accountId] = result;
@@ -269,9 +266,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
                                                                             onSelect={() => handleProductSelect(p)}
-                                                                            onPointerDown={(e) => e.preventDefault()}
-                                                                            onMouseDown={(e) => e.preventDefault()}
-                                                                            onClick={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
                                                                               <div className="flex flex-col text-left">

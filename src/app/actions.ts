@@ -962,6 +962,11 @@ export async function createCatalogListingAction(
     if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
     }
+    
+    const conditionValue = formData.get('condition') as string;
+    const itemConditionValueName = conditionValue === 'new' ? 'Nuevo' : 'Usado';
+    const itemConditionValueId = conditionValue === 'new' ? '2230284' : '2230581';
+
 
     payload = {
       site_id: "MLB",
@@ -978,23 +983,43 @@ export async function createCatalogListingAction(
       ],
       pictures: [],
       attributes: [
-        { id: "CARRIER", value_name: "Liberado" },
         {
-          id: "ITEM_CONDITION",
-          value_name: formData.get('condition') === 'new' ? 'Nuevo' : 'Usado',
+            id: "CARRIER",
+            name: "Compañía telefónica",
+            value_id: "298335",
+            value_name: "Liberado",
+            value_struct: null,
+            attribute_group_id: "OTHERS",
+            attribute_group_name: "Otros"
         },
-        { id: "SELLER_SKU", value_name: formData.get('sellerSku') as string },
+        {
+            id: "ITEM_CONDITION",
+            name: "Condición del ítem",
+            value_id: itemConditionValueId,
+            value_name: itemConditionValueName,
+            value_struct: null,
+            attribute_group_id: "OTHERS",
+            attribute_group_name: "Otros"
+        },
+        { 
+            id: "SELLER_SKU",
+            value_name: formData.get('sellerSku') as string 
+        },
       ],
       catalog_product_id: formData.get('catalog_product_id') as string,
       catalog_listing: true, 
       shipping: {
-        "mode": "me2",
-        "methods": [],
-        "tags": [ "self_service_out", "mandatory_free_shipping", "self_service_available" ],
-        "dimensions": null,
-        "local_pick_up": false,
-        "free_shipping": true,
-        "logistic_type": "xd_drop_off"
+        mode: "me2",
+        methods: [],
+        tags: [
+            "self_service_out",
+            "mandatory_free_shipping",
+            "self_service_available"
+        ],
+        dimensions: null,
+        local_pick_up: false,
+        free_shipping: true,
+        logistic_type: "xd_drop_off"
       },
     };
     
@@ -1062,4 +1087,3 @@ export async function fetchAllProductsFromFeedAction(): Promise<{ products: Feed
         return { products: null, error: e.message || 'Falha ao buscar produtos do feed.' };
     }
 }
-
