@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy } from 'lucide-react';
 import { createCatalogListingAction, fetchAllProductsFromFeedAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -73,27 +73,27 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const form = useForm<ListingFormValues>({
         resolver: zodResolver(listingSchema),
         defaultValues: {
-            catalogProductId: product?.catalog_product_id || '',
-            title: product?.name || '',
+            catalogProductId: '',
+            title: '',
             sellerSku: '',
             price: undefined,
             quantity: 1,
-            listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
+            listingTypeId: 'gold_special',
             accountIds: [],
             condition: 'new',
         }
     });
-    
+
     useEffect(() => {
-        async function fetchAllProducts() {
+        if (isOpen) {
+          const fetchAllProducts = async () => {
             setIsFetchingFeedProducts(true);
             const result = await fetchAllProductsFromFeedAction();
             if (result.products) {
-                setAllFeedProducts(result.products);
+              setAllFeedProducts(result.products);
             }
             setIsFetchingFeedProducts(false);
-        }
-        if (isOpen) {
+          }
           fetchAllProducts();
         }
     }, [isOpen]);
@@ -140,6 +140,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         setSearchTerm("");
     };
 
+    const handleCopyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast({
+            title: 'Copiado!',
+            description: 'O conteúdo JSON foi copiado para a área de transferência.',
+        });
+    };
 
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
@@ -150,7 +157,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         for (const accountId of data.accountIds) {
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
-            // formData.append('title', data.title || product.name); // Title is optional for catalog listings
+            // Title is now optional and will only be added to the payload if not a catalog listing, which it is.
             formData.append('sellerSku', data.sellerSku);
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
@@ -158,6 +165,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             formData.append('accountId', accountId);
             formData.append('condition', data.condition);
             formData.append('category_id', product.category_id);
+            formData.append('catalog_listing', 'true');
             
             const result = await createCatalogListingAction(initialFormState, formData);
             results[accountId] = result;
@@ -174,7 +182,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
         }
-        if (errorCount === 0) {
+        if (errorCount === 0 && isOpen) { // Only close if all successful
             onClose();
         }
     };
@@ -345,7 +353,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                         </Form>
                     </div>
 
-                    <div className="space-y-4">
+                   <div className="space-y-4">
                        {Object.keys(formStates).length > 0 && (
                             <Card>
                                 <CardHeader className="p-3">
@@ -358,36 +366,39 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                         <div className="p-4 space-y-4">
                                             {Object.entries(formStates).map(([accountId, state]) => {
                                                 const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
+                                                const payloadStr = JSON.stringify(state.payload, null, 2);
+                                                const resultStr = JSON.stringify(state.result, null, 2);
                                                 return (
                                                     <div key={accountId} className="space-y-2">
                                                         <h4 className="font-semibold">{accountName}: {state.success ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
                                                         
-                                                        {state.error && (
-                                                             <div>
-                                                                <p className="text-muted-foreground font-semibold">Erro:</p>
-                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto text-destructive-foreground">
-                                                                    <code>{JSON.stringify(state.result, null, 2)}</code>
-                                                                </pre>
-                                                            </div>
-                                                        )}
-
                                                         {state.payload && (
                                                             <div>
-                                                                <p className="text-muted-foreground font-semibold">Payload Enviado:</p>
-                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <p className="text-muted-foreground font-semibold">Payload Enviado:</p>
+                                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(payloadStr)}>
+                                                                        <ClipboardCopy className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                                <pre className="w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
                                                                     <code className="text-white text-[11px] leading-tight" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                        {JSON.stringify(state.payload, null, 2)}
+                                                                        {payloadStr}
                                                                     </code>
                                                                 </pre>
                                                             </div>
                                                         )}
-                                                        
-                                                        {state.result && state.success && (
-                                                            <div>
-                                                                <p className="text-muted-foreground font-semibold">Resposta da API:</p>
-                                                                <pre className="mt-1 w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                                    <code className="text-white text-[11px] leading-tight" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                        {JSON.stringify(state.result, null, 2)}
+
+                                                        {state.result && (
+                                                             <div>
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <p className="text-muted-foreground font-semibold">Resposta da API:</p>
+                                                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(resultStr)}>
+                                                                        <ClipboardCopy className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                                <pre className="w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
+                                                                    <code className={cn("text-[11px] leading-tight", state.success ? "text-green-400" : "text-red-400")} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                        {resultStr}
                                                                     </code>
                                                                 </pre>
                                                             </div>
