@@ -961,7 +961,7 @@ export async function createCatalogListingAction(
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: formData.get('accountId') as string, // This is the accountName
+        accountId: formData.get('accountId') as string, // This is now the Firestore document ID
         buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
@@ -973,7 +973,7 @@ export async function createCatalogListingAction(
         }
     }
     
-    // Pass the accountName directly to the creation function
+    // The logic is now inside createListingFromCatalog, which will use the accountId (doc ID)
     const result = await createListingFromCatalog(payload);
 
     if (result.error) {

@@ -135,7 +135,7 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                                             </FormControl>
                                             <SelectContent>
                                                 {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.accountName || acc.id}>{acc.accountName || acc.id}</SelectItem>
+                                                    <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -248,7 +248,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
-        formData.append('accountId', data.accountId); // Envia o accountName
+        formData.append('accountId', data.accountId); // Envia o ID do documento
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
         
@@ -290,7 +290,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </FormControl>
                                     <SelectContent>
                                         {accounts.map(acc => (
-                                            <SelectItem key={acc.id} value={acc.accountName || acc.id}>{acc.accountName || acc.id}</SelectItem>
+                                            <SelectItem key={acc.id} value={acc.id}>{acc.accountName || acc.id}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -374,5 +374,3 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
-
-    

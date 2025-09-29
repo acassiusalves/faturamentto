@@ -2,7 +2,7 @@
 
 'use server';
 
-import { loadAppSettings, getMlCredentialsByAccountName } from '@/services/firestore';
+import { loadAppSettings } from '@/services/firestore';
 import type { MercadoLivreCredentials, CreateListingPayload } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
@@ -46,30 +46,30 @@ export async function generateNewAccessToken(creds: {
 }
 
 export async function getMlToken(accountIdentifier?: string): Promise<string> {
-  // Use accountIdentifier or a default 'primary' key for caching and fetching credentials
   const cacheKey = accountIdentifier || 'primary';
   const cached = _tokenCache[cacheKey];
 
-  // Return cached token if it's still valid (with a 1-minute safety margin)
   if (cached && Date.now() < cached.expiresAt - 60_000) {
     return cached.token;
   }
   
-  let creds: Partial<MercadoLivreCredentials> & { appId?: string } | null = null;
+  let creds: Partial<MercadoLivreCredentials> & { appId?: string; accountName?: string } | null = null;
 
   if (accountIdentifier) {
-      // Busca pelo accountName
-      creds = await getMlCredentialsByAccountName(accountIdentifier);
+      const accountDocRef = doc(db, 'mercadoLivreAccounts', accountIdentifier);
+      const docSnap = await getDoc(accountDocRef);
+      if (docSnap.exists()) {
+          creds = docSnap.data() as MercadoLivreCredentials;
+      }
   } 
   
-  // If no identifier or if search by identifier failed, try fetching the primary account
   if (!creds) {
      const settings = await loadAppSettings().catch(() => null);
      creds = settings?.mercadoLivre || null;
   }
   
   if (!creds || !creds.appId || !creds.clientSecret || !creds.refreshToken) {
-    throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
+    throw new Error(`Credenciais para a conta '${creds?.accountName || cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
   const token = await generateNewAccessToken({
@@ -167,12 +167,12 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             price, 
             available_quantity, 
             listing_type_id, 
-            accountId, // This is the accountName
+            accountId, // This is now the document ID
             buying_mode,
             condition,
         } = payload;
         
-        // Use the accountName to get the token
+        // Use the accountId (document ID) to get the token
         const token = await getMlToken(accountId);
 
         // 1. Fetch product details from catalog to get correct category, variations, etc.
@@ -238,5 +238,3 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
-
-    
