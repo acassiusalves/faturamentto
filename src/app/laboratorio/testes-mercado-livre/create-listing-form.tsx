@@ -152,7 +152,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     }, [searchState, toast, form]);
 
     const handleProductSelect = (productToSelect: FeedProduct) => {
-        setSearchTerm(productToSelect.name || ''); // Update search term to selected product name
         setIsSearching(true);
         const formData = new FormData();
         formData.append('searchTerm', productToSelect.sku || productToSelect.name || '');
