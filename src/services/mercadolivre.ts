@@ -137,14 +137,12 @@ const ML_API_BASE = "https://api.mercadolibre.com";
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
         const itemPayload = {
-            site_id: payload.site_id,
-            title: payload.title,
+            site_id: "MLB",
             category_id: payload.category_id,
-            price: payload.price,
-            currency_id: payload.currency_id,
+            currency_id: "BRL",
             available_quantity: payload.available_quantity,
-            buying_mode: payload.buying_mode,
-            listing_type_id: payload.listing_type_id,
+            buying_mode: "buy_it_now",
+            pictures: [],
             sale_terms: [
                 {
                     "id": "WARRANTY_TYPE",
@@ -155,7 +153,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                     "value_name": "3 meses"
                 }
             ],
-            pictures: [],
             attributes: [
                 {
                     "id": "CARRIER",
@@ -181,7 +178,22 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                 }
             ],
             catalog_product_id: payload.catalog_product_id,
-            catalog_listing: payload.catalog_listing,
+            catalog_listing: true,
+            shipping: {
+                "mode": "me2",
+                "methods": [],
+                "tags": [
+                    "self_service_out",
+                    "mandatory_free_shipping",
+                    "self_service_available"
+                ],
+                "dimensions": null,
+                "local_pick_up": false,
+                "free_shipping": true,
+                "logistic_type": "xd_drop_off"
+            },
+            price: payload.price,
+            listing_type_id: payload.listing_type_id,
         };
 
         const createItemUrl = `${ML_API_BASE}/items`;
