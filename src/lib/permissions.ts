@@ -97,7 +97,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/analise-por-conta': ['admin', 'socio', 'financeiro'],
     '/produtos': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
-    '/estoque/conferencia': ['admin', 'socio', 'financeiro'],
+    '/estoque/conferencia': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque/devolucoes': ['admin', 'socio', 'expedicao'],
     '/picking': ['admin', 'socio', 'expedicao'],
     '/conciliacao': ['admin', 'socio', 'financeiro'],
