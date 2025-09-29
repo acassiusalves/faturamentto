@@ -55,12 +55,13 @@ export async function getMlToken(accountId?: string): Promise<string> {
   let creds: Partial<MercadoLivreCredentials> & { appId?: string } | undefined;
 
   if (accountId) {
+      // CORREÇÃO: Usar a coleção 'mercadoLivreAccounts' em vez de 'users'
       const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
       const docSnap = await getDoc(accountDocRef);
       if (docSnap.exists()) {
           creds = docSnap.data() as Partial<MercadoLivreCredentials> & { appId?: string };
       } else {
-          throw new Error(`A conta do Mercado Livre com ID '${accountId}' não foi encontrada.`);
+          throw new Error(`A conta do Mercado Livre com ID '${accountId}' não foi encontrada na coleção 'mercadoLivreAccounts'.`);
       }
   } else {
      const settings = await loadAppSettings().catch(() => null);
