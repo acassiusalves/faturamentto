@@ -152,7 +152,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         }
 
         const itemPayload: Record<string, any> = {
-            title: "Xiaomi Redmi Note 13 Pro 5g 256gb 8gb Ram Global", // Título adicionado
             site_id: "MLB",
             category_id: category_id,
             price: price,
