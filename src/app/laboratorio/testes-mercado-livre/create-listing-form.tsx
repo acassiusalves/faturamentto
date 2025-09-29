@@ -36,7 +36,7 @@ interface CreateListingFormProps {
   accounts: MlAccount[];
 }
 
-const initialFormState: CreateListingResult = { success: false, error: null, result: null };
+const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
 
 export function CreateListingForm({ accounts }: CreateListingFormProps) {
     const { toast } = useToast();
@@ -177,7 +177,7 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                 </CardHeader>
                 <CardContent>
                     {formState.error && (
-                        <Alert variant="destructive" className="mt-4">
+                        <Alert variant="destructive" className="mb-4">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
                             <AlertDescription className="max-h-48 overflow-y-auto">
@@ -189,12 +189,27 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                             </AlertDescription>
                         </Alert>
                     )}
-                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
-                        <code>
-                            {formState.success && formState.result ? JSON.stringify(formState.result, null, 2) 
-                            : 'Aguardando envio...'}
-                        </code>
-                    </pre>
+                    {formState.payload && (
+                         <Card className="mb-4">
+                            <CardHeader className="p-3">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Send /> Payload Enviado
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <pre className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80">
+                                    <code>{JSON.stringify(formState.payload, null, 2)}</code>
+                                </pre>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {formState.success && formState.result && (
+                         <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs min-h-[300px]">
+                            <code>
+                                {JSON.stringify(formState.result, null, 2)}
+                            </code>
+                        </pre>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -251,7 +266,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         formData.append('accountId', data.accountId);
         formData.append('buying_mode', data.buying_mode);
         formData.append('condition', data.condition);
-        formData.append('category_id', product.category_id); // Passando o category_id
+        formData.append('category_id', product.category_id);
+        formData.append('productName', product.name); // Passando o nome do produto para o título
         
         formAction(formData); 
     };
@@ -266,7 +282,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formState]);
+    }, [formState, isSubmitting]);
 
 
     if (!product) return null;
@@ -378,13 +394,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                         )}
                          {formState.payload && (
                              <Card>
-                                <CardHeader>
+                                <CardHeader className="p-3">
                                     <CardTitle className="text-base flex items-center gap-2">
                                         <Send /> Payload Enviado
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <pre className="p-4 bg-muted rounded-md overflow-x-auto text-xs max-h-80">
+                                <CardContent className="p-0">
+                                    <pre className="p-4 bg-muted rounded-b-md overflow-x-auto text-xs max-h-80">
                                         <code>{JSON.stringify(formState.payload, null, 2)}</code>
                                     </pre>
                                 </CardContent>
