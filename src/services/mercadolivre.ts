@@ -138,11 +138,14 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
     try {
         const itemPayload = {
             site_id: "MLB",
+            title: payload.title,
             category_id: payload.category_id,
+            price: payload.price,
             currency_id: "BRL",
             available_quantity: payload.available_quantity,
             buying_mode: "buy_it_now",
-            pictures: [],
+            listing_type_id: payload.listing_type_id,
+            condition: payload.condition,
             sale_terms: [
                 {
                     "id": "WARRANTY_TYPE",
@@ -153,8 +156,9 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                     "value_name": "3 meses"
                 }
             ],
+            pictures: [],
             attributes: [
-                {
+                 {
                     "id": "CARRIER",
                     "name": "Compañía telefónica",
                     "value_id": "298335",
@@ -166,8 +170,8 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                 {
                     "id": "ITEM_CONDITION",
                     "name": "Condición del ítem",
-                    "value_id": "2230284",
-                    "value_name": "Nuevo",
+                    "value_id": payload.condition === 'new' ? "2230284" : (payload.condition === 'used' ? "2230582" : null),
+                    "value_name": payload.condition === 'new' ? "Novo" : (payload.condition === 'used' ? "Usado" : "Não especificado"),
                     "value_struct": null,
                     "attribute_group_id": "OTHERS",
                     "attribute_group_name": "Otros"
@@ -178,7 +182,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                 }
             ],
             catalog_product_id: payload.catalog_product_id,
-            catalog_listing: true,
+            catalog_listing: false,
             shipping: {
                 "mode": "me2",
                 "methods": [],
@@ -192,8 +196,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                 "free_shipping": true,
                 "logistic_type": "xd_drop_off"
             },
-            price: payload.price,
-            listing_type_id: payload.listing_type_id,
         };
 
         const createItemUrl = `${ML_API_BASE}/items`;
@@ -222,3 +224,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    

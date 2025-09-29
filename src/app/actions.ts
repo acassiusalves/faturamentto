@@ -223,8 +223,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.accountName || String(acc.id)]));
-
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.id), acc.accountName || String(acc.id)]));
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
@@ -967,6 +966,7 @@ export async function createCatalogListingAction(
     // Corresponde à ordem do payload de exemplo
     payload = {
       site_id: 'MLB',
+      title: formData.get('title') as string,
       category_id: formData.get('category_id') as string,
       price: Number(formData.get('price')),
       currency_id: 'BRL',
@@ -974,15 +974,69 @@ export async function createCatalogListingAction(
       buying_mode: 'buy_it_now',
       listing_type_id: formData.get('listing_type_id') as string,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
+      sale_terms: [
+        {
+            "id": "WARRANTY_TYPE",
+            "value_name": "Garantia do vendedor"
+        },
+        {
+            "id": "WARRANTY_TIME",
+            "value_name": "3 meses"
+        }
+      ],
+      pictures: [],
+      attributes: [
+        {
+            "id": "CARRIER",
+            "name": "Compañía telefónica",
+            "value_id": "298335",
+            "value_name": "Liberado",
+            "value_struct": null,
+            "attribute_group_id": "OTHERS",
+            "attribute_group_name": "Otros"
+        },
+        {
+            "id": "ITEM_CONDITION",
+            "name": "Condición del ítem",
+            "value_id": "2230284",
+            "value_name": "Nuevo",
+            "value_struct": null,
+            "attribute_group_id": "OTHERS",
+            "attribute_group_name": "Otros"
+        },
+        {
+            "id": "SELLER_SKU",
+            "value_name": "XIA-N13P-256-BLK"
+        }
+      ],
       catalog_product_id: formData.get('catalog_product_id') as string,
       catalog_listing: true, 
+      shipping: {
+        "mode": "me2",
+        "methods": [],
+        "tags": [
+            "self_service_out",
+            "mandatory_free_shipping",
+            "self_service_available"
+        ],
+        "dimensions": null,
+        "local_pick_up": false,
+        "free_shipping": true,
+        "logistic_type": "xd_drop_off"
+      }
     };
     
+    // Basic validation
+    if (!payload.title && !payload.catalog_listing) {
+       return { success: false, error: "O campo 'title' é obrigatório para anúncios tradicionais.", result: null, payload };
+    }
     for (const key in payload) {
-        if (!payload[key as keyof CreateListingPayload]) {
-            if(key !== 'pictures') {
-                return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
-            }
+        const p = payload as any;
+        // Skip optional or complex fields from this basic check
+        if (key === 'pictures' || key === 'shipping' || key === 'sale_terms' || key === 'attributes' || (key === 'title' && p.catalog_listing)) continue;
+
+        if (!p[key as keyof CreateListingPayload]) {
+            return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
         }
     }
     
@@ -1036,3 +1090,5 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+    

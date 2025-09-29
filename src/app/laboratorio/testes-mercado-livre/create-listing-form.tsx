@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
+    title: z.string().optional(),
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
@@ -231,6 +232,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         resolver: zodResolver(listingSchema),
         defaultValues: {
             catalogProductId: product?.catalog_product_id || '',
+            title: product?.name || '',
             price: product?.price || undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
@@ -243,6 +245,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (product) {
             form.reset({
                 catalogProductId: product.catalog_product_id || '',
+                title: product.name || '',
                 price: product.price || undefined,
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
@@ -255,8 +258,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const onSubmit = (data: ListingFormValues) => {
         setIsSubmitting(true);
         const formData = new FormData();
-        // A ordem aqui não importa tanto quanto na action que monta o payload final
         formData.append('catalog_product_id', data.catalogProductId);
+        formData.append('title', data.title || product.name);
         formData.append('price', String(data.price));
         formData.append('available_quantity', String(data.quantity));
         formData.append('listing_type_id', data.listingTypeId);
@@ -268,7 +271,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     };
     
     useEffect(() => {
-        if (!isSubmitting && (formState.success || formState.error)) {
+        if (!isSubmitting) return;
+
+        if (formState.success || formState.error) {
              setIsSubmitting(false);
             if (formState.success && formState.result) {
                 toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
@@ -420,3 +425,5 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+
+    
