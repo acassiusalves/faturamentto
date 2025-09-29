@@ -402,6 +402,7 @@ export interface AppSettings {
     standardizePrompt?: string;
     lookupPrompt?: string;
     favoriteCategories?: MLCategory[];
+    gordura_variable?: number;
 }
 
 // -- Purchase History Types --
@@ -740,7 +741,7 @@ export type FullFlowResult = {
 
 export interface CreateListingPayload {
   site_id: 'MLB';
-  title: string;
+  title?: string;
   category_id: string;
   price: number;
   currency_id: 'BRL';
@@ -752,12 +753,7 @@ export interface CreateListingPayload {
   pictures: any[];
   attributes: {
     id: string;
-    name?: string;
-    value_id?: string | null;
     value_name: string;
-    value_struct?: any;
-    attribute_group_id?: string;
-    attribute_group_name?: string;
   }[];
   catalog_product_id: string;
   catalog_listing: boolean;
@@ -771,3 +767,5 @@ export interface CreateListingResult {
     result: any | null; // A resposta da API, seja de sucesso ou erro.
     payload?: CreateListingPayload;
 }
+
+    

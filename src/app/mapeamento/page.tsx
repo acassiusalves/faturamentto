@@ -1,6 +1,6 @@
 
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, Trash2, CheckCircle, XCircle, AlertTriangle, Upload, Sparkles, Plug, FileDown, Sheet, Database, Info, FileSpreadsheet, HardDriveUpload, ArrowRight, Map, Save, Pencil } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
-import type { ColumnMapping, AllMappingsState, Sale, ApiKeyStatus } from "@/lib/types";
+import type { ColumnMapping, AllMappingsState, Sale, ApiKeyStatus, AppSettings } from "@/lib/types";
 import Papa from "papaparse";
 import { getMappingSuggestions } from "@/lib/actions";
 import { testIderisConnection, fetchOrdersFromIderis } from "@/services/ideris";
@@ -99,6 +99,10 @@ export default function MappingPage() {
   const [ml2ApiStatus, setMl2ApiStatus] = useState<ApiKeyStatus>('unchecked');
   const [isTestingMl2Connection, setIsTestingMl2Connection] = useState(false);
 
+  // --- Gordura State ---
+  const [gordura, setGordura] = useState<number>(0);
+  const [isSavingGordura, setIsSavingGordura] = useState(false);
+
 
   const { toast } = useToast();
   
@@ -122,6 +126,7 @@ export default function MappingPage() {
             if (settings.geminiApiStatus) setGeminiApiStatus(settings.geminiApiStatus as ApiKeyStatus);
             if (settings.openaiApiStatus) setOpenaiApiStatus(settings.openaiApiStatus as ApiKeyStatus);
             if (settings.googleSheetsApiStatus) setGoogleSheetsApiStatus(settings.googleSheetsApiStatus as ApiKeyStatus);
+            setGordura(settings.gordura_variable || 0);
 
             // Load Mercado Livre credentials
             if (settings.mercadoLivre) {
@@ -553,6 +558,18 @@ export default function MappingPage() {
       setIsTestingMl2Connection(false);
     }
   };
+  
+  const handleSaveGordura = async () => {
+    setIsSavingGordura(true);
+    try {
+      await saveAppSettings({ gordura_variable: gordura });
+      toast({ title: 'Variável Salva!', description: 'O valor da "gordura" foi salvo com sucesso.'});
+    } catch(e) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível salvar a variável.'});
+    } finally {
+      setIsSavingGordura(false);
+    }
+  }
 
 
 
@@ -787,6 +804,30 @@ export default function MappingPage() {
                       </Button>
                   </div>
               </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Variável "Gordura"</CardTitle>
+                    <CardDescription>
+                        Defina um valor fixo a ser somado ao preço médio de custo dos produtos na busca do Feed.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2 max-w-xs">
+                        <Label htmlFor="gordura-input">Valor da Gordura (R$)</Label>
+                        <Input
+                            id="gordura-input"
+                            type="number"
+                            value={gordura}
+                            onChange={e => setGordura(Number(e.target.value))}
+                            placeholder="Ex: 50.00"
+                        />
+                         <Button onClick={handleSaveGordura} disabled={isSavingGordura}>
+                            {isSavingGordura ? <Loader2 className="animate-spin" /> : <Save />}
+                            Salvar Valor
+                        </Button>
+                    </div>
+                </CardContent>
             </Card>
           </TabsContent>
 
@@ -1030,3 +1071,5 @@ export default function MappingPage() {
     </>
   );
 }
+
+    

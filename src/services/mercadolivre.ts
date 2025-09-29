@@ -136,7 +136,6 @@ const ML_API_BASE = "https://api.mercadolibre.com";
 
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
-        // A ordem dos campos aqui é determinada pelo objeto 'payload' que vem da action.
         const itemPayload = {
             site_id: payload.site_id,
             category_id: payload.category_id,
@@ -151,7 +150,6 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             shipping: payload.shipping,
             price: payload.price,
             listing_type_id: payload.listing_type_id,
-            // O title é opcional e só será adicionado se existir no payload.
             ...(payload.title && { title: payload.title }), 
         };
 
@@ -181,3 +179,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    

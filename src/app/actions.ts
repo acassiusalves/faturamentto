@@ -3,7 +3,7 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
@@ -218,15 +218,13 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
 
 // Fetches active catalog IDs for a given ML account from the local DB
 async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, PostedOnAccount[]>> {
-    const allActiveCatalogs = new Map<string, PostedOnAccount[]>(); // catalog_id -> { accountName, listingTypeId }[]
+    const allActiveCatalogs = new Map<string, PostedOnAccount[]>();
     
-    // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
     const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.accountName || acc.id]));
 
     for (const item of myItems) {
-        // We only care about active items with a catalog ID
         if (item.status === 'active' && item.catalog_product_id) {
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
@@ -238,7 +236,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
             }
             
             const accounts = allActiveCatalogs.get(catalogId)!;
-            // Evita duplicatas se a mesma conta/tipo de anúncio já foi adicionada
+            
             if (accountName && !accounts.some(a => a.accountName === accountName && a.listingTypeId === listingTypeId)) {
                 accounts.push({ accountName, listingTypeId });
             }
@@ -969,10 +967,12 @@ export async function createCatalogListingAction(
       site_id: "MLB",
       title: formData.get('title') as string,
       category_id: formData.get('category_id') as string,
+      price: Number(formData.get('price')),
       currency_id: "BRL",
       available_quantity: Number(formData.get('available_quantity')),
       buying_mode: "buy_it_now",
-      pictures: [],
+      listing_type_id: formData.get('listing_type_id') as string,
+      condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
       sale_terms: [
         {
           "id": "WARRANTY_TYPE",
@@ -983,24 +983,15 @@ export async function createCatalogListingAction(
           "value_name": "3 meses",
         },
       ],
+      pictures: [],
       attributes: [
         {
           "id": "CARRIER",
-          "name": "Compañía telefónica",
-          "value_id": "298335",
           "value_name": "Liberado",
-          "value_struct": null,
-          "attribute_group_id": "OTHERS",
-          "attribute_group_name": "Otros",
         },
         {
           "id": "ITEM_CONDITION",
-          "name": "Condición del ítem",
-          "value_id": formData.get('condition') === 'new' ? '2230284' : '2230582',
           "value_name": formData.get('condition') === 'new' ? 'Nuevo' : 'Usado',
-          "value_struct": null,
-          "attribute_group_id": "OTHERS",
-          "attribute_group_name": "Otros",
         },
         {
           "id": "SELLER_SKU",
@@ -1022,9 +1013,6 @@ export async function createCatalogListingAction(
         "free_shipping": true,
         "logistic_type": "xd_drop_off"
       },
-      price: Number(formData.get('price')),
-      listing_type_id: formData.get('listing_type_id') as string,
-      condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
     
     // Basic validation
@@ -1088,3 +1076,59 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+export async function findAveragePriceAction(
+  _prevState: any,
+  formData: FormData
+): Promise<{ averagePrice: number | null, product: FeedEntry['products'][0] | null, error: string | null }> {
+  try {
+    const searchTerm = formData.get('searchTerm') as string;
+    if (!searchTerm) {
+      return { averagePrice: null, product: null, error: 'O termo de busca é obrigatório.' };
+    }
+
+    const { feedEntries, gordura } = await loadAllFeedEntriesWithGordura();
+
+    // 1. Agrupar por fornecedor e pegar a data mais recente de cada um
+    const latestEntriesByStore = new Map<string, FeedEntry>();
+    for (const entry of feedEntries) {
+      if (!latestEntriesByStore.has(entry.storeName) || new Date(entry.date) > new Date(latestEntriesByStore.get(entry.storeName)!.date)) {
+        latestEntriesByStore.set(entry.storeName, entry);
+      }
+    }
+
+    // 2. Buscar o produto nos registros mais recentes
+    const foundProducts: any[] = [];
+    const lowerSearchTerm = searchTerm.toLowerCase();
+
+    for (const entry of latestEntriesByStore.values()) {
+      const foundProduct = entry.products.find(p =>
+        p.name?.toLowerCase().includes(lowerSearchTerm) ||
+        p.sku?.toLowerCase().includes(lowerSearchTerm)
+      );
+      if (foundProduct) {
+        foundProducts.push(foundProduct);
+      }
+    }
+
+    if (foundProducts.length === 0) {
+      return { averagePrice: null, product: null, error: 'Produto não encontrado em nenhuma lista de fornecedor recente.' };
+    }
+
+    // 3. Calcular a média de preço
+    const prices = foundProducts.map(p => parseFloat(p.costPrice?.replace(',', '.'))).filter(p => !isNaN(p) && p > 0);
+    if (prices.length === 0) {
+      return { averagePrice: null, product: foundProducts[0], error: 'Produto encontrado, mas sem preços válidos para calcular a média.' };
+    }
+
+    const averagePrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    const finalPrice = averagePrice + (gordura || 0);
+
+    return { averagePrice: finalPrice, product: foundProducts[0], error: null };
+
+  } catch (e: any) {
+    return { averagePrice: null, product: null, error: e.message || 'Falha inesperada ao buscar preço médio.' };
+  }
+}
+
+    

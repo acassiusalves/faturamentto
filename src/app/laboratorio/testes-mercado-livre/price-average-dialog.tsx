@@ -27,17 +27,17 @@ interface PriceAverageDialogProps {
   onClose: () => void;
   productName: string;
   productSku: string;
-  onPriceCalculated: (price: number) => void;
+  onPriceCalculated: (price: number, product: { name: string; sku: string; }) => void;
 }
 
-const initialPriceState = { averagePrice: null, error: null };
+const initialPriceState: { averagePrice: number | null, product: any | null, error: string | null } = { averagePrice: null, product: null, error: null };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
-      {pending ? <Loader2 className="animate-spin" /> : <Calculator className="mr-2" />}
-      Calcular Média
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? <Loader2 className="animate-spin" /> : <Search className="mr-2" />}
+      Buscar Produto e Calcular Média
     </Button>
   );
 }
@@ -59,8 +59,8 @@ export function PriceAverageDialog({ isOpen, onClose, productName, productSku, o
   }, [state.error, toast]);
   
   const handleConfirmPrice = () => {
-    if (state.averagePrice !== null) {
-      onPriceCalculated(state.averagePrice);
+    if (state.averagePrice !== null && state.product !== null) {
+      onPriceCalculated(state.averagePrice, state.product);
     }
   };
 
@@ -68,9 +68,9 @@ export function PriceAverageDialog({ isOpen, onClose, productName, productSku, o
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Calcular Preço Médio de Custo</DialogTitle>
+          <DialogTitle>Buscar Produto e Calcular Preço Médio</DialogTitle>
           <DialogDescription>
-            Busque o preço médio de um produto com base nas últimas listas de fornecedores salvas no Feed.
+            Busque o preço médio de um produto com base nas últimas listas de fornecedores salvas no Feed e adicione a "gordura". O SKU encontrado será usado no anúncio.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4 py-4">
@@ -86,9 +86,20 @@ export function PriceAverageDialog({ isOpen, onClose, productName, productSku, o
           </div>
           <SubmitButton />
         </form>
+
+        {state.product && (
+            <Alert>
+                <AlertTitle className="text-lg">Produto Encontrado</AlertTitle>
+                <AlertDescription>
+                    <p>Nome: <span className="font-semibold">{state.product.name}</span></p>
+                    <p>SKU: <span className="font-mono font-semibold">{state.product.sku}</span></p>
+                </AlertDescription>
+            </Alert>
+        )}
+
         {state.averagePrice !== null && (
           <Alert>
-            <AlertTitle className="text-lg">Preço Médio Calculado</AlertTitle>
+            <AlertTitle className="text-lg">Preço Médio + Gordura Calculado</AlertTitle>
             <AlertDescription className="text-2xl font-bold text-primary py-2">
               {formatCurrency(state.averagePrice)}
             </AlertDescription>
@@ -103,11 +114,13 @@ export function PriceAverageDialog({ isOpen, onClose, productName, productSku, o
         )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleConfirmPrice} disabled={state.averagePrice === null}>
-            Usar este Preço
+          <Button onClick={handleConfirmPrice} disabled={state.averagePrice === null || state.product === null}>
+            Usar este Produto e Preço
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    

@@ -664,7 +664,7 @@ export const loadMlAccounts = async (): Promise<MlAccount[]> => {
         const data = d.data();
         return {
             id: d.id,
-            accountName: data.accountName || d.id,
+            accountName: data.accountName || data.nickname || d.id, // Adicionado nickname como fallback
             ...data
         } as MlAccount;
     });
@@ -778,6 +778,16 @@ export const loadAllFeedEntries = async (): Promise<FeedEntry[]> => {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => fromFirestore({ ...doc.data() }) as FeedEntry);
 };
+
+export const loadAllFeedEntriesWithGordura = async (): Promise<{ feedEntries: FeedEntry[], gordura: number }> => {
+    const [feedEntries, settings] = await Promise.all([
+        loadAllFeedEntries(),
+        loadAppSettings()
+    ]);
+    const gordura = settings?.gordura_variable || 0;
+    return { feedEntries, gordura: Number(gordura) };
+};
+
 
 export const deleteFeedEntry = async (id: string): Promise<void> => {
     const docRef = doc(db, "feed_entries", id);
@@ -1043,5 +1053,7 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
+
+    
 
     

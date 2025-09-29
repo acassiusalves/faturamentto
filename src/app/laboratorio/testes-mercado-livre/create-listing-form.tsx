@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFormState } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -11,24 +11,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send } from 'lucide-react';
-import { createCatalogListingAction } from '@/app/actions';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check } from 'lucide-react';
+import { createCatalogListingAction, findAveragePriceAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { MultiSelect, type Option } from '@/components/ui/multi-select';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem
-} from "@/components/ui/dropdown-menu"
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import { ChevronsUpDown } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { PriceAverageDialog } from './price-average-dialog';
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
     title: z.string().optional(),
-    sellerSku: z.string().min(1, 'O SKU do vendedor é obrigatório.'),
+    sellerSku: z.string().min(1, 'É obrigatório selecionar um produto para obter o SKU.'),
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
@@ -39,6 +43,8 @@ const listingSchema = z.object({
 type ListingFormValues = z.infer<typeof listingSchema>;
 
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
+const initialPriceState = { averagePrice: null, product: null, error: null };
+
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
@@ -52,6 +58,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const { toast } = useToast();
     const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [isPriceDialogOpen, setIsPriceDialogOpen] = useState(false);
+    const [foundProductInfo, setFoundProductInfo] = useState<{name: string, sku: string} | null>(null);
+    const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
 
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
@@ -81,6 +91,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 accountIds: [],
                 condition: 'new',
             });
+            setFoundProductInfo(null);
+            setCalculatedPrice(null);
         }
     }, [product, form]);
     
@@ -88,12 +100,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
       if (!isOpen) {
         form.reset();
         setFormStates({});
+        setFoundProductInfo(null);
+        setCalculatedPrice(null);
       }
     }, [isOpen, form]);
 
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
-        setFormStates({}); // Limpa os resultados anteriores
+        setFormStates({}); 
 
         const results: Record<string, CreateListingResult> = {};
         
@@ -105,7 +119,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
             formData.append('listing_type_id', data.listingTypeId);
-            formData.append('accountId', accountId); // Ação envia um por um
+            formData.append('accountId', accountId);
             formData.append('condition', data.condition);
             formData.append('category_id', product.category_id);
             
@@ -129,6 +143,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             onClose();
         }
     };
+    
+    const handleProductFound = (price: number, foundProduct: { name: string; sku: string; }) => {
+        setCalculatedPrice(price);
+        setFoundProductInfo(foundProduct);
+        form.setValue('sellerSku', foundProduct.sku);
+        setIsPriceDialogOpen(false);
+    };
 
     if (!product) return null;
 
@@ -143,7 +164,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
-                        {/* Coluna do Formulário */}
                         <div>
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -167,7 +187,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                     : field.value.filter(v => v !== option.value);
                                                                 field.onChange(newValue);
                                                             }}
-                                                            onSelect={e => e.preventDefault()} // Prevent closing menu on select
+                                                            onSelect={e => e.preventDefault()}
                                                         >
                                                             {option.label}
                                                         </DropdownMenuCheckboxItem>
@@ -177,13 +197,19 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                     <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                    <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>SELLER_SKU (Seu SKU)</FormLabel>
-                                            <FormControl><Input placeholder="SKU do seu produto" {...field} /></FormControl>
+                                            <FormLabel>Produto</FormLabel>
+                                            <div className="flex items-center gap-2">
+                                                <Input placeholder="Clique na busca para selecionar" {...field} readOnly className="bg-muted/50 cursor-not-allowed" />
+                                                <Button type="button" variant="secondary" size="icon" onClick={() => setIsPriceDialogOpen(true)}>
+                                                    <Search className="h-4 w-4"/>
+                                                </Button>
+                                            </div>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
+
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={form.control} name="price" render={({ field }) => (
                                             <FormItem>
@@ -246,8 +272,25 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                             </Form>
                         </div>
 
-                        {/* Coluna do Payload e Erro */}
                         <div className="space-y-4">
+                            {foundProductInfo && (
+                                <Card>
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-base">Produto Selecionado</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="font-semibold">{foundProductInfo.name}</p>
+                                        <p className="text-sm text-muted-foreground">SKU: {foundProductInfo.sku}</p>
+                                        {calculatedPrice !== null && (
+                                            <div className="mt-2 text-lg">
+                                                <span>Preço Médio + Gordura: </span>
+                                                <span className="font-bold text-primary">{formatCurrency(calculatedPrice)}</span>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+
                            {Object.keys(formStates).length > 0 && (
                                 <Card>
                                     <CardHeader className="p-3">
@@ -289,6 +332,16 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
                 </DialogContent>
             </Dialog>
+
+             <PriceAverageDialog
+                isOpen={isPriceDialogOpen}
+                onClose={() => setIsPriceDialogOpen(false)}
+                productName={product.name}
+                productSku={product.model || ''}
+                onPriceCalculated={handleProductFound}
+            />
         </>
     );
 }
+
+    
