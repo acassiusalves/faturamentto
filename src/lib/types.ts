@@ -740,7 +740,7 @@ export type FullFlowResult = {
 
 export interface CreateListingPayload {
   site_id: 'MLB';
-  title?: string;
+  title: string;
   category_id: string;
   price: number;
   currency_id: 'BRL';
@@ -771,5 +771,3 @@ export interface CreateListingResult {
     result: any | null; // A resposta da API, seja de sucesso ou erro.
     payload?: CreateListingPayload;
 }
-
-    

@@ -11,18 +11,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Calculator } from 'lucide-react';
-import { useFormState, useFormStatus } from 'react-dom';
-import { createCatalogListingAction, findAveragePriceAction } from '@/app/actions';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send } from 'lucide-react';
+import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { MultiSelect, type Option } from '@/components/ui/multi-select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
     title: z.string().optional(),
+    sellerSku: z.string().min(1, 'O SKU do vendedor é obrigatório.'),
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
@@ -46,7 +51,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const { toast } = useToast();
     const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isFindingPrice, setIsFindingPrice] = useState(false);
 
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
@@ -55,6 +59,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         defaultValues: {
             catalogProductId: product?.catalog_product_id || '',
             title: product?.name || '',
+            sellerSku: '',
             price: product?.price || undefined,
             quantity: 1,
             listingTypeId: (product?.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
@@ -68,6 +73,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             form.reset({
                 catalogProductId: product.catalog_product_id || '',
                 title: product.name || '',
+                sellerSku: '',
                 price: product.price || undefined,
                 quantity: 1,
                 listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
@@ -76,6 +82,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             });
         }
     }, [product, form]);
+    
+    useEffect(() => {
+      if (!isOpen) {
+        form.reset();
+        setFormStates({});
+      }
+    }, [isOpen, form]);
 
     const onSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
@@ -87,6 +100,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
             formData.append('title', data.title || product.name);
+            formData.append('seller_sku', data.sellerSku);
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
             formData.append('listing_type_id', data.listingTypeId);
@@ -114,31 +128,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             onClose();
         }
     };
-    
-    const handleFindAveragePrice = async () => {
-        const searchTerm = product?.name || product?.model || '';
-        if (!searchTerm) {
-            toast({ variant: 'destructive', title: 'Termo de busca vazio.' });
-            return;
-        }
-
-        setIsFindingPrice(true);
-        const formData = new FormData();
-        formData.append('searchTerm', searchTerm);
-        
-        const result = await findAveragePriceAction({ averagePrice: null, error: null }, formData);
-
-        if (result.error) {
-            toast({ variant: 'destructive', title: 'Erro ao Calcular Média', description: result.error });
-        } else if (result.averagePrice !== null) {
-            form.setValue('price', parseFloat(result.averagePrice.toFixed(2)));
-            toast({
-                title: 'Preço Médio Encontrado!',
-                description: `O preço de ${result.averagePrice.toFixed(2)} foi preenchido.`,
-            });
-        }
-        setIsFindingPrice(false);
-    };
 
     if (!product) return null;
 
@@ -160,12 +149,37 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     <FormField control={form.control} name="accountIds" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Publicar nas Contas</FormLabel>
-                                                <MultiSelect
-                                                    options={accountOptions}
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    placeholder="Selecione as contas..."
-                                                />
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-start">
+                                                        {field.value?.length > 0 ? `${field.value.length} conta(s) selecionada(s)` : "Selecione as contas..."}
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                                                    {accountOptions.map(option => (
+                                                        <DropdownMenuCheckboxItem
+                                                            key={option.value}
+                                                            checked={field.value.includes(option.value)}
+                                                            onCheckedChange={(checked) => {
+                                                                const newValue = checked 
+                                                                    ? [...field.value, option.value]
+                                                                    : field.value.filter(v => v !== option.value);
+                                                                field.onChange(newValue);
+                                                            }}
+                                                            onSelect={e => e.preventDefault()} // Prevent closing menu on select
+                                                        >
+                                                            {option.label}
+                                                        </DropdownMenuCheckboxItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                     <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>SELLER_SKU (Seu SKU)</FormLabel>
+                                            <FormControl><Input placeholder="SKU do seu produto" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -173,14 +187,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                         <FormField control={form.control} name="price" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Preço</FormLabel>
-                                                <div className="flex items-center gap-2">
-                                                    <FormControl>
-                                                        <Input type="number" placeholder="299.90" {...field} />
-                                                    </FormControl>
-                                                    <Button type="button" variant="outline" size="icon" onClick={handleFindAveragePrice} disabled={isFindingPrice}>
-                                                        {isFindingPrice ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                                    </Button>
-                                                </div>
+                                                <FormControl>
+                                                    <Input type="number" placeholder="299.90" {...field} />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />

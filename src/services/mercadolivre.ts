@@ -136,57 +136,23 @@ const ML_API_BASE = "https://api.mercadolibre.com";
 
 export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
+        // A ordem dos campos aqui é determinada pelo objeto 'payload' que vem da action.
         const itemPayload = {
-            site_id: "MLB",
-            title: payload.title,
+            site_id: payload.site_id,
             category_id: payload.category_id,
-            price: payload.price,
-            currency_id: "BRL",
+            currency_id: payload.currency_id,
             available_quantity: payload.available_quantity,
-            buying_mode: "buy_it_now",
-            listing_type_id: payload.listing_type_id,
-            condition: payload.condition,
-            sale_terms: [
-                {
-                    "id": "WARRANTY_TYPE",
-                    "value_name": "Garantia do vendedor"
-                },
-                {
-                    "id": "WARRANTY_TIME",
-                    "value_name": "3 meses"
-                }
-            ],
-            pictures: [],
-            attributes: [
-                 {
-                    "id": "ITEM_CONDITION",
-                    "name": "Condición del ítem",
-                    "value_id": payload.condition === 'new' ? "2230284" : (payload.condition === 'used' ? "2230582" : null),
-                    "value_name": payload.condition === 'new' ? "Nuevo" : (payload.condition === 'used' ? "Usado" : "No especificado"),
-                    "value_struct": null,
-                    "attribute_group_id": "OTHERS",
-                    "attribute_group_name": "Otros"
-                },
-                {
-                    "id": "SELLER_SKU",
-                    "value_name": "XIA-N13P-256-BLK"
-                }
-            ],
+            buying_mode: payload.buying_mode,
+            pictures: payload.pictures,
+            sale_terms: payload.sale_terms,
+            attributes: payload.attributes,
             catalog_product_id: payload.catalog_product_id,
-            catalog_listing: false, // Changed to false
-            shipping: {
-                "mode": "me2",
-                "methods": [],
-                "tags": [
-                    "self_service_out",
-                    "mandatory_free_shipping",
-                    "self_service_available"
-                ],
-                "dimensions": null,
-                "local_pick_up": false,
-                "free_shipping": true,
-                "logistic_type": "xd_drop_off"
-            },
+            catalog_listing: payload.catalog_listing,
+            shipping: payload.shipping,
+            price: payload.price,
+            listing_type_id: payload.listing_type_id,
+            // O title é opcional e só será adicionado se existir no payload.
+            ...(payload.title && { title: payload.title }), 
         };
 
         const createItemUrl = `${ML_API_BASE}/items`;
@@ -215,5 +181,3 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
-
-    

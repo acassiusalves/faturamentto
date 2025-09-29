@@ -223,7 +223,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.id), acc.accountName || String(acc.id)]));
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.accountName || acc.id]));
 
     for (const item of myItems) {
         // We only care about active items with a catalog ID
@@ -967,35 +967,45 @@ export async function createCatalogListingAction(
 
     payload = {
       site_id: "MLB",
+      title: formData.get('title') as string,
       category_id: formData.get('category_id') as string,
       currency_id: "BRL",
       available_quantity: Number(formData.get('available_quantity')),
       buying_mode: "buy_it_now",
       pictures: [],
       sale_terms: [
-          {
-              "id": "WARRANTY_TYPE",
-              "value_name": "Garantia do vendedor"
-          },
-          {
-              "id": "WARRANTY_TIME",
-              "value_name": "3 meses"
-          }
+        {
+          "id": "WARRANTY_TYPE",
+          "value_name": "Garantia do vendedor",
+        },
+        {
+          "id": "WARRANTY_TIME",
+          "value_name": "3 meses",
+        },
       ],
       attributes: [
-          {
-            "id": "ITEM_CONDITION",
-            "name": "Condición del ítem",
-            "value_id": formData.get('condition') === 'new' ? "2230284" : (formData.get('condition') === 'used' ? "2230582" : null),
-            "value_name": formData.get('condition') === 'new' ? "Nuevo" : (formData.get('condition') === 'used' ? "Usado" : "No especificado"),
-            "value_struct": null,
-            "attribute_group_id": "OTHERS",
-            "attribute_group_name": "Otros"
-          },
-          {
-              "id": "SELLER_SKU",
-              "value_name": "XIA-N13P-256-BLK"
-          }
+        {
+          "id": "CARRIER",
+          "name": "Compañía telefónica",
+          "value_id": "298335",
+          "value_name": "Liberado",
+          "value_struct": null,
+          "attribute_group_id": "OTHERS",
+          "attribute_group_name": "Otros",
+        },
+        {
+          "id": "ITEM_CONDITION",
+          "name": "Condición del ítem",
+          "value_id": formData.get('condition') === 'new' ? '2230284' : '2230582',
+          "value_name": formData.get('condition') === 'new' ? 'Nuevo' : 'Usado',
+          "value_struct": null,
+          "attribute_group_id": "OTHERS",
+          "attribute_group_name": "Otros",
+        },
+        {
+          "id": "SELLER_SKU",
+          "value_name": formData.get('seller_sku') as string,
+        },
       ],
       catalog_product_id: formData.get('catalog_product_id') as string,
       catalog_listing: true, 
@@ -1014,14 +1024,13 @@ export async function createCatalogListingAction(
       },
       price: Number(formData.get('price')),
       listing_type_id: formData.get('listing_type_id') as string,
-      title: formData.get('title') as string,
       condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
     
     // Basic validation
     for (const key in payload) {
         const p = payload as any;
-        if (['pictures', 'shipping', 'sale_terms', 'attributes'].includes(key)) continue;
+        if (['pictures', 'shipping', 'sale_terms', 'attributes', 'title'].includes(key)) continue;
 
         if (p[key as keyof CreateListingPayload] === undefined || p[key as keyof CreateListingPayload] === null) {
             if(key === 'title' && p.catalog_listing === true) continue;
@@ -1079,75 +1088,3 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
-
-
-const parsePriceString = (priceStr: string | undefined): number => {
-    if (!priceStr) return 0;
-    return parseFloat(priceStr.replace(',', '.'));
-};
-
-const getVariable = async (name: string): Promise<number> => {
-    const costs = await loadCompanyCosts();
-    const variable = costs?.variable.find(v => v.description.toLowerCase() === name.toLowerCase());
-    return variable?.value || 0;
-}
-
-export async function findAveragePriceAction(
-  _prevState: any,
-  formData: FormData
-): Promise<{ averagePrice: number | null; error: string | null; }> {
-  try {
-    const searchTerm = formData.get('searchTerm') as string;
-    if (!searchTerm) {
-      throw new Error('Termo de busca é obrigatório.');
-    }
-    
-    const allEntries: FeedEntry[] = await loadAllFeedEntries();
-
-    // 1. Encontrar a data mais recente para cada fornecedor (storeName)
-    const latestEntries = new Map<string, FeedEntry>();
-    for (const entry of allEntries) {
-        if (!latestEntries.has(entry.storeName) || new Date(entry.date) > new Date(latestEntries.get(entry.storeName)!.date)) {
-            latestEntries.set(entry.storeName, entry);
-        }
-    }
-    
-    // 2. Buscar o produto nessas listas mais recentes
-    const foundPrices: number[] = [];
-    const lowerSearchTerm = searchTerm.toLowerCase();
-
-    for (const entry of latestEntries.values()) {
-        // Encontra o PRIMEIRO produto correspondente (evita duplicatas no mesmo doc)
-        const product = entry.products.find(p => 
-            p.name.toLowerCase().includes(lowerSearchTerm) ||
-            p.sku.toLowerCase().includes(lowerSearchTerm)
-        );
-
-        if (product && product.costPrice) {
-            const price = parsePriceString(product.costPrice);
-            if (!isNaN(price)) {
-                foundPrices.push(price);
-            }
-        }
-    }
-
-    if (foundPrices.length === 0) {
-      return { averagePrice: null, error: 'Nenhum preço encontrado para este produto nas listas mais recentes.' };
-    }
-
-    // 3. Calcular a média
-    const sum = foundPrices.reduce((a, b) => a + b, 0);
-    const average = sum / foundPrices.length;
-
-    // 4. Buscar e somar a variável "gordura"
-    const fatValue = await getVariable('gordura');
-    
-    const finalAverage = average + fatValue;
-
-    return { averagePrice: finalAverage, error: null };
-
-  } catch (e: any) {
-    return { averagePrice: null, error: e.message || 'Falha ao calcular o preço médio.' };
-  }
-}
-    
