@@ -150,7 +150,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
             formData.append('title', data.title || product.name);
-            formData.append('seller_sku', data.sellerSku);
+            formData.append('sellerSku', data.sellerSku); // Changed to sellerSku
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
             formData.append('listing_type_id', data.listingTypeId);

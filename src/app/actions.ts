@@ -995,7 +995,7 @@ export async function createCatalogListingAction(
         },
         {
           "id": "SELLER_SKU",
-          "value_name": formData.get('seller_sku') as string,
+          "value_name": formData.get('sellerSku') as string,
         },
       ],
       catalog_product_id: formData.get('catalog_product_id') as string,
