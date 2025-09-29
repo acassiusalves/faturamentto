@@ -740,12 +740,16 @@ export type FullFlowResult = {
 
 export interface CreateListingPayload {
   site_id: 'MLB';
+  title?: string;
   category_id: string;
+  price: number;
   currency_id: 'BRL';
   available_quantity: number;
   buying_mode: 'buy_it_now';
-  pictures: any[];
+  listing_type_id: string;
+  condition: 'new' | 'used' | 'not_specified';
   sale_terms: { id: string; value_name: string; }[];
+  pictures: any[];
   attributes: {
     id: string;
     name?: string;
@@ -757,8 +761,6 @@ export interface CreateListingPayload {
   }[];
   catalog_product_id: string;
   catalog_listing: boolean;
-  price: number;
-  listing_type_id: string;
   shipping?: any;
 }
 

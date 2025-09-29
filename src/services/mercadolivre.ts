@@ -159,19 +159,10 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
             pictures: [],
             attributes: [
                  {
-                    "id": "CARRIER",
-                    "name": "Compañía telefónica",
-                    "value_id": "298335",
-                    "value_name": "Liberado",
-                    "value_struct": null,
-                    "attribute_group_id": "OTHERS",
-                    "attribute_group_name": "Otros"
-                },
-                {
                     "id": "ITEM_CONDITION",
                     "name": "Condición del ítem",
                     "value_id": payload.condition === 'new' ? "2230284" : (payload.condition === 'used' ? "2230582" : null),
-                    "value_name": payload.condition === 'new' ? "Novo" : (payload.condition === 'used' ? "Usado" : "Não especificado"),
+                    "value_name": payload.condition === 'new' ? "Nuevo" : (payload.condition === 'used' ? "Usado" : "No especificado"),
                     "value_struct": null,
                     "attribute_group_id": "OTHERS",
                     "attribute_group_name": "Otros"
@@ -182,7 +173,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload, ac
                 }
             ],
             catalog_product_id: payload.catalog_product_id,
-            catalog_listing: false,
+            catalog_listing: false, // Changed to false
             shipping: {
                 "mode": "me2",
                 "methods": [],

@@ -40,7 +40,7 @@ async function fetchItemsSellerAddresses(
   if (!itemIds.length) return out;
 
   const CHUNK = 20; // seguro para /items?ids=
-  for (let i = 0; <itemIds.length; i += CHUNK) {
+  for (let i = 0; i < itemIds.length; i += CHUNK) {
     const batch = itemIds.slice(i, i + CHUNK);
     const url = `https://api.mercadolibre.com/items?ids=${batch.join(",")}&attributes=id,seller_address,last_updated`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -86,7 +86,7 @@ async function fetchUsersAddress(
   if (!uniq.length) return out;
 
   const CONCURRENCY = 8;
-  for (let i = 0; <uniq.length; i += CONCURRENCY) {
+  for (let i = 0; i < uniq.length; i += CONCURRENCY) {
     const batch = uniq.slice(i, i + CONCURRENCY);
     await Promise.allSettled(
       batch.map(async (sid) => {
@@ -287,7 +287,7 @@ export async function searchMercadoLivreAction(
     // 2. Fetch winner item for each catalog product
     const CONCURRENCY = 8;
     const winnerByCat = new Map<string, any>();
-    for (let i = 0; <catalogProducts.length; i += CONCURRENCY) {
+    for (let i = 0; i < catalogProducts.length; i += CONCURRENCY) {
       const batch = catalogProducts.slice(i, i + CONCURRENCY);
       await Promise.allSettled(
         batch.map(async (p: any) => {
@@ -967,68 +967,68 @@ export async function createCatalogListingAction(
 
     // Corresponde à ordem do payload de exemplo
     payload = {
-      site_id: 'MLB';
-      title: formData.get('title') as string;
-      category_id: formData.get('category_id') as string;
-      price: Number(formData.get('price'));
-      currency_id: 'BRL';
-      available_quantity: Number(formData.get('available_quantity'));
-      buying_mode: 'buy_it_now';
-      listing_type_id: formData.get('listing_type_id') as string;
-      condition: formData.get('condition') as 'new' | 'used' | 'not_specified';
+      site_id: "MLB",
+      category_id: formData.get('category_id') as string,
+      currency_id: "BRL",
+      available_quantity: Number(formData.get('available_quantity')),
+      buying_mode: "buy_it_now",
+      pictures: [],
       sale_terms: [
-        {
-            "id": "WARRANTY_TYPE",
-            "value_name": "Garantia do vendedor"
-        },
-        {
-            "id": "WARRANTY_TIME",
-            "value_name": "3 meses"
-        }
-      ];
-      pictures: [];
+          {
+              "id": "WARRANTY_TYPE",
+              "value_name": "Garantia do vendedor"
+          },
+          {
+              "id": "WARRANTY_TIME",
+              "value_name": "3 meses"
+          }
+      ],
       attributes: [
-        {
+          {
             "id": "ITEM_CONDITION",
             "name": "Condición del ítem",
-            "value_id": "2230284",
-            "value_name": "Nuevo",
+            "value_id": formData.get('condition') === 'new' ? "2230284" : (formData.get('condition') === 'used' ? "2230582" : null),
+            "value_name": formData.get('condition') === 'new' ? "Nuevo" : (formData.get('condition') === 'used' ? "Usado" : "No especificado"),
             "value_struct": null,
             "attribute_group_id": "OTHERS",
             "attribute_group_name": "Otros"
-        },
-        {
-            "id": "SELLER_SKU",
-            "value_name": "XIA-N13P-256-BLK"
-        }
-      ];
-      catalog_product_id: formData.get('catalog_product_id') as string;
-      catalog_listing: true; 
+          },
+          {
+              "id": "SELLER_SKU",
+              "value_name": "XIA-N13P-256-BLK"
+          }
+      ],
+      catalog_product_id: formData.get('catalog_product_id') as string,
+      catalog_listing: true, 
       shipping: {
         "mode": "me2",
-        "methods": [];
+        "methods": [],
         "tags": [
             "self_service_out",
             "mandatory_free_shipping",
             "self_service_available"
-        ];
-        "dimensions": null;
-        "local_pick_up": false;
-        "free_shipping": true;
+        ],
+        "dimensions": null,
+        "local_pick_up": false,
+        "free_shipping": true,
         "logistic_type": "xd_drop_off"
-      }
+      },
+      price: Number(formData.get('price')),
+      listing_type_id: formData.get('listing_type_id') as string,
+      title: formData.get('title') as string, // Title is back
+      condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
     
     // Basic validation
-    if (!payload.title && !payload.catalog_listing) {
-       return { success: false, error: "O campo 'title' é obrigatório para anúncios tradicionais.", result: null, payload };
-    }
     for (const key in payload) {
         const p = payload as any;
         // Skip optional or complex fields from this basic check
-        if (key === 'pictures' || key === 'shipping' || key === 'sale_terms' || key === 'attributes' || (key === 'title' && p.catalog_listing)) continue;
+        if (['pictures', 'shipping', 'sale_terms', 'attributes'].includes(key)) continue;
 
-        if (!p[key as keyof CreateListingPayload]) {
+        if (p[key as keyof CreateListingPayload] === undefined || p[key as keyof CreateListingPayload] === null) {
+            // Se for anúncio de catálogo, o título é opcional, caso contrário é obrigatório
+            if(key === 'title' && p.catalog_listing === true) continue;
+             
             return { success: false, error: `O campo '${key}' é obrigatório.`, result: null, payload };
         }
     }
@@ -1061,12 +1061,12 @@ export async function saveProductsAction(products: Product[]) {
 export async function saveMagaluCredentialsAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null; message: string; }> {
     try {
         const payload: MagaluCredentials = {
-            accountName: formData.get('accountName') as string;
-            uuid: formData.get('uuid') as string;
-            clientId: formData.get('clientId') as string;
-            clientSecret: formData.get('clientSecret') as string;
-            refreshToken: formData.get('refreshToken') as string;
-            accessToken: formData.get('accessToken') as string | undefined;
+            accountName: formData.get('accountName') as string,
+            uuid: formData.get('uuid') as string,
+            clientId: formData.get('clientId') as string,
+            clientSecret: formData.get('clientSecret') as string,
+            refreshToken: formData.get('refreshToken') as string,
+            accessToken: formData.get('accessToken') as string | undefined,
         };
 
         if (!payload.accountName || !payload.clientId || !payload.clientSecret) {
