@@ -135,7 +135,7 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                                             </FormControl>
                                             <SelectContent>
                                                 {accounts.map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.nickname || acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                                    <SelectItem key={acc.id} value={acc.accountName || acc.id}>{acc.accountName || acc.id}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -180,6 +180,19 @@ export function CreateListingForm({ accounts }: CreateListingFormProps) {
                         {formState.result ? JSON.stringify(formState.result, null, 2) 
                         : 'Aguardando envio...'}
                     </pre>
+                     {formState.error && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Erro ao Criar Anúncio</AlertTitle>
+                            <AlertDescription className="max-h-48 overflow-y-auto">
+                                <pre className="mt-2 w-full rounded-md bg-slate-950 p-4 overflow-x-auto">
+                                    <code className="text-white text-xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                    {formState.result ? JSON.stringify(formState.result, null, 2) : formState.error}
+                                    </code>
+                                </pre>
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -277,7 +290,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     </FormControl>
                                     <SelectContent>
                                         {accounts.map(acc => (
-                                            <SelectItem key={acc.id} value={acc.nickname || acc.id}>{acc.nickname || acc.id}</SelectItem>
+                                            <SelectItem key={acc.id} value={acc.accountName || acc.id}>{acc.accountName || acc.id}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

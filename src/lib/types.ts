@@ -342,9 +342,10 @@ export interface MercadoLivreCredentials {
   redirectUri: string;
   refreshToken: string;
   apiStatus?: ApiKeyStatus;
-  nickname?: string; // Adding nickname to the credentials
-  id_conta_autenticada?: string; // Adicionando id_conta_autenticada
+  nickname?: string;
+  id_conta_autenticada?: string; 
   userId?: number;
+  accountName?: string;
 }
 
 export interface MagaluCredentials {
@@ -361,12 +362,13 @@ export interface MagaluCredentials {
 export interface MlAccount {
     id: string; // Document ID from Firestore
     nickname?: string;
+    accountName?: string;
     appId: string;
     clientSecret: string;
     refreshToken: string;
     redirectUri: string;
     apiStatus?: ApiKeyStatus;
-    id_conta_autenticada?: string; // Adicionando id_conta_autenticada
+    id_conta_autenticada?: string; 
     userId?: number;
 }
 

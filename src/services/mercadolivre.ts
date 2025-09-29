@@ -4,7 +4,7 @@
 import { loadAppSettings, getMlCredentialsByNickname } from '@/services/firestore';
 import type { MercadoLivreCredentials, CreateListingPayload } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
 
 
 type MlTokenResponse = {
@@ -55,8 +55,10 @@ export async function getMlToken(accountIdentifier?: string): Promise<string> {
   let creds: Partial<MercadoLivreCredentials> & { appId?: string } | null;
 
   if (accountIdentifier) {
+      // Usa o identificador (que é o `accountName`) para buscar as credenciais
       creds = await getMlCredentialsByNickname(accountIdentifier);
   } else {
+     // Fallback para a conta primária se nenhum identificador for fornecido
      const settings = await loadAppSettings().catch(() => null);
      creds = settings?.mercadoLivre || null;
   }
@@ -160,7 +162,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             price, 
             available_quantity, 
             listing_type_id, 
-            accountId, // This will now be the nickname
+            accountId, // This is the accountName/nickname
             buying_mode,
             condition,
         } = payload;

@@ -665,7 +665,7 @@ export const loadMlAccounts = async (): Promise<MlAccount[]> => {
 export const getMlCredentialsByNickname = async (nickname: string): Promise<MercadoLivreCredentials | null> => {
     if (!nickname) return null;
     const accountsCol = collection(db, 'mercadoLivreAccounts');
-    const q = query(accountsCol, where("nickname", "==", nickname), limit(1));
+    const q = query(accountsCol, where("accountName", "==", nickname), limit(1));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
         return null;
@@ -943,3 +943,87 @@ export const removeGlobalFromAllProducts = async (): Promise<{count: number}> =>
     }
     return { count: updatedCount };
 };
+
+// --- RETURNS ---
+export const saveReturnLogs = async (
+  returnLogs: Omit<ReturnLog, 'id'>[],
+  productId: string,
+  costPrice: number,
+  origin: string
+) => {
+  const batch = writeBatch(db);
+  const returnsCol = collection(db, "returns");
+  const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+
+  for (const log of returnLogs) {
+    const returnDocRef = doc(returnsCol);
+
+    // 1. Save the return log
+    const returnLogWithId: ReturnLog = { 
+        ...log, 
+        id: returnDocRef.id,
+        returnedAt: new Date().toISOString()
+    };
+    batch.set(returnDocRef, toFirestore(returnLogWithId));
+
+    // 2. Add the item back to the inventory
+    const inventoryDocRef = doc(inventoryCol);
+    const newInventoryItem: InventoryItem = {
+      id: inventoryDocRef.id,
+      productId,
+      name: log.productName,
+      sku: log.sku,
+      costPrice,
+      quantity: 1,
+      serialNumber: log.serialNumber,
+      origin,
+      condition: log.condition,
+      createdAt: new Date().toISOString(),
+      category: 'Celular', // Assuming returns are always 'Celular' for now
+      orderNumber: log.orderNumber, // Track the origin order
+    };
+    batch.set(inventoryDocRef, toFirestore(newInventoryItem));
+    
+    // 3. Log the inventory entry
+    await logInventoryEntry(batch, newInventoryItem);
+  }
+
+  await batch.commit();
+};
+
+
+export const loadTodaysReturnLogs = async (): Promise<ReturnLog[]> => {
+  const todayStart = startOfDay(new Date());
+  const logCol = collection(db, 'returns');
+  const q = query(logCol, where('returnedAt', '>=', todayStart.toISOString()), orderBy('returnedAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as ReturnLog);
+};
+
+export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
+  const batch = writeBatch(db);
+
+  // 1. Delete the return log itself
+  const returnLogRef = doc(db, 'returns', returnLog.id);
+  batch.delete(returnLogRef);
+  
+  // 2. Find and delete the corresponding item from inventory and its entry log
+  const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+  const qInv = query(inventoryCol, where('serialNumber', '==', returnLog.serialNumber), limit(1));
+  const invSnapshot = await getDocs(qInv);
+
+  if (!invSnapshot.empty) {
+      const invDoc = invSnapshot.docs[0];
+      batch.delete(invDoc.ref);
+      
+      // Also find and delete from entry-logs
+      const entryLogCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
+      const qLog = query(entryLogCol, where('originalInventoryId', '==', invDoc.id), limit(1));
+      const logSnapshot = await getDocs(qLog);
+      if (!logSnapshot.empty) {
+          batch.delete(logSnapshot.docs[0].ref);
+      }
+  }
+  
+  await batch.commit();
+}
