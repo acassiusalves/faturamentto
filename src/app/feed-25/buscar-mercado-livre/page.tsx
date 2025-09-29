@@ -459,6 +459,15 @@ export default function BuscarMercadoLivrePage() {
                                             const displayName = (product.name ?? "").trim() || "Produto do Mercado Livre";
                                             const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
                                             const shippingCost = getShippingCostFor1To2Kg(product.price);
+                                            
+                                            const groupedPostedAccounts = (product.postedOnAccounts || []).reduce((acc, current) => {
+                                                if (!acc[current.accountName]) {
+                                                    acc[current.accountName] = [];
+                                                }
+                                                acc[current.accountName].push(listingTypeMap[current.listingTypeId] || 'N/A');
+                                                return acc;
+                                            }, {} as Record<string, string[]>);
+
 
                                             return (
                                                 <TableRow key={product.id} className={cn("align-top", product.price === 0 && "opacity-50 bg-muted/50")}>
@@ -485,10 +494,10 @@ export default function BuscarMercadoLivrePage() {
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {product.postedOnAccounts?.map((account) => (
-                                                                    <Badge key={account.accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                                {Object.entries(groupedPostedAccounts).map(([accountName, listingTypes]) => (
+                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                                         <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        {account.accountName}: <span className="font-bold ml-1">{listingTypeMap[account.listingTypeId] || 'N/A'}</span>
+                                                                        {accountName}: <span className="font-bold ml-1">{listingTypes.join(' e ')}</span>
                                                                     </Badge>
                                                                 ))}
                                                             </div>
