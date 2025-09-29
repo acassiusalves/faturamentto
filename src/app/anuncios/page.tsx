@@ -186,14 +186,14 @@ const MyItemsList = ({ accountId, accountName }: { accountId: string, accountNam
 function AccountItem({ account, onUpdate }: { account: MlAccount, onUpdate: () => void }) {
     const { toast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
-    const [nickname, setNickname] = useState(account.nickname || '');
+    const [accountName, setAccountName] = useState(account.accountName || '');
 
     const [formState, formAction] = useFormState(updateMlAccountNicknameAction, { success: false, error: null });
 
     const handleSave = () => {
         const formData = new FormData();
         formData.append('accountId', account.id);
-        formData.append('nickname', nickname);
+        formData.append('accountName', accountName);
         formAction(formData);
     };
 
@@ -216,13 +216,13 @@ function AccountItem({ account, onUpdate }: { account: MlAccount, onUpdate: () =
                         <Users className="h-5 w-5 text-muted-foreground"/>
                         {isEditing ? (
                              <Input 
-                                value={nickname} 
-                                onChange={(e) => setNickname(e.target.value)}
+                                value={accountName} 
+                                onChange={(e) => setAccountName(e.target.value)}
                                 onClick={(e) => e.stopPropagation()}
                                 className="h-8"
                             />
                         ) : (
-                            <span className="font-semibold text-lg">{account.nickname || account.id}</span>
+                            <span className="font-semibold text-lg">{account.accountName || account.id}</span>
                         )}
                     </div>
                 </AccordionTrigger>
@@ -244,7 +244,7 @@ function AccountItem({ account, onUpdate }: { account: MlAccount, onUpdate: () =
                 </div>
             </div>
             <AccordionContent className="p-0">
-                <MyItemsList accountId={account.id} accountName={nickname || account.id} />
+                <MyItemsList accountId={account.id} accountName={accountName || account.id} />
             </AccordionContent>
         </AccordionItem>
     );

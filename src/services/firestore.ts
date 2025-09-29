@@ -664,28 +664,33 @@ export const loadMlAccounts = async (): Promise<MlAccount[]> => {
         const data = d.data();
         return {
             id: d.id,
-            // Prioritize nickname, then accountName, then ID
-            accountName: data.nickname || data.accountName || d.id,
+            accountName: data.accountName || d.id,
             ...data
         } as MlAccount;
     });
 }
 
-export const getMlCredentialsByNickname = async (nickname: string): Promise<MercadoLivreCredentials | null> => {
-    if (!nickname) return null;
+export const getMlCredentialsByAccountName = async (accountName: string): Promise<MercadoLivreCredentials | null> => {
+    if (!accountName) return null;
     const accountsCol = collection(db, 'mercadoLivreAccounts');
-    const q = query(accountsCol, where("accountName", "==", nickname), limit(1));
+    const q = query(accountsCol, where("accountName", "==", accountName), limit(1));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
+        // Fallback: If not found, check if an account document has this name as its ID.
+        const docRef = doc(db, 'mercadoLivreAccounts', accountName);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as MercadoLivreCredentials;
+        }
         return null;
     }
     return snapshot.docs[0].data() as MercadoLivreCredentials;
 }
 
 
-export const updateMlAccount = async (accountId: string, nickname: string): Promise<void> => {
+export const updateMlAccount = async (accountId: string, accountName: string): Promise<void> => {
     const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
-    await updateDoc(accountDocRef, { nickname });
+    await updateDoc(accountDocRef, { accountName });
 }
 
 
@@ -1036,5 +1041,3 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
-
-    

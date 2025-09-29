@@ -223,7 +223,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, string
     // Load all saved items from our Firestore database
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
-    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.nickname || String(acc.id)]));
+    const accountIdToNameMap = new Map(mlAccounts.map(acc => [String(acc.userId), acc.accountName || String(acc.id)]));
 
 
     for (const item of myItems) {
@@ -938,12 +938,12 @@ export async function runOpenAiAction(
     
 export async function updateMlAccountNicknameAction(_prevState: any, formData: FormData): Promise<{ success: boolean; error: string | null }> {
     const accountId = formData.get('accountId') as string;
-    const nickname = formData.get('nickname') as string;
-    if (!accountId || !nickname) {
-        return { success: false, error: 'ID da conta e nickname são obrigatórios.' };
+    const accountName = formData.get('accountName') as string;
+    if (!accountId || !accountName) {
+        return { success: false, error: 'ID da conta e nome da conta são obrigatórios.' };
     }
     try {
-        await updateMlAccount(accountId, nickname);
+        await updateMlAccount(accountId, accountName);
         revalidatePath('/anuncios');
         return { success: true, error: null };
     } catch (e: any) {

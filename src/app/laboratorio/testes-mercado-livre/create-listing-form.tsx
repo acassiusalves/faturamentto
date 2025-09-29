@@ -256,7 +256,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     };
     
     useEffect(() => {
-        if (!formState.success && !formState.error) return; // Ignore initial state
+        if (!formState.success && !formState.error && !isSubmitting) return;
 
         if (formState.success && formState.result) {
             toast({ title: 'Anúncio Criado com Sucesso!', description: `ID do novo anúncio: ${formState.result.id}` });
@@ -264,7 +264,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             onClose();
         }
         
-        // Always stop submitting spinner after action is done
         setIsSubmitting(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formState]);
@@ -376,5 +375,3 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
-
-    
