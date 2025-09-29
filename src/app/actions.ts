@@ -3,10 +3,10 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult } from '@/lib/types';
-import { getSellersReputation, getMlToken, createListingFromCatalog } from '@/services/mercadolivre';
+import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
 import { parseZplFields, updateFieldAt } from '@/lib/zpl';
@@ -956,12 +956,24 @@ export async function createCatalogListingAction(
   formData: FormData
 ): Promise<CreateListingResult> {
   try {
+    const accountId = formData.get('accountId') as string; // This is the Firestore Document ID
+
+    // 1. Fetch credentials securely on the server-side using the Document ID
+    const creds = await getMlCredentialsById(accountId);
+    if (!creds) {
+      return { success: false, error: `Credenciais para a conta ID ${accountId} não encontradas.`, result: null };
+    }
+    
+    // 2. Generate a fresh access token
+    const accessToken = await generateNewAccessToken(creds);
+
+    // 3. Prepare payload for ML API
     const payload: CreateListingPayload = {
         catalog_product_id: formData.get('catalog_product_id') as string,
         price: Number(formData.get('price')),
         available_quantity: Number(formData.get('available_quantity')),
         listing_type_id: formData.get('listing_type_id') as string,
-        accountId: formData.get('accountId') as string, // This is now the Firestore document ID
+        accountId: accountId, // Keep for logging if needed, but not for ML API
         buying_mode: formData.get('buying_mode') as 'buy_it_now',
         condition: formData.get('condition') as 'new' | 'used' | 'not_specified',
     };
@@ -973,8 +985,8 @@ export async function createCatalogListingAction(
         }
     }
     
-    // The logic is now inside createListingFromCatalog, which will use the accountId (doc ID)
-    const result = await createListingFromCatalog(payload);
+    // 4. Call the function that makes the API request, passing the fresh token
+    const result = await createListingFromCatalog(payload, accessToken);
 
     if (result.error) {
         return { success: false, error: result.error, result: result.data };
@@ -1024,3 +1036,5 @@ export async function saveMagaluCredentialsAction(_prevState: any, formData: For
         return { success: false, error: e.message, message: '' };
     }
 }
+
+    

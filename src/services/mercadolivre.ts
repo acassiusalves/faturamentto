@@ -2,7 +2,7 @@
 
 'use server';
 
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings, getMlCredentialsById } from '@/services/firestore';
 import type { MercadoLivreCredentials, CreateListingPayload } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
@@ -38,6 +38,7 @@ export async function generateNewAccessToken(creds: {
 
     if (!r.ok) {
         const msg = await r.text();
+        console.error("ML Token Generation Error:", msg);
         throw new Error(`Falha ao renovar token do Mercado Livre: ${msg}`);
     }
 
@@ -46,51 +47,22 @@ export async function generateNewAccessToken(creds: {
 }
 
 export async function getMlToken(accountIdentifier?: string): Promise<string> {
+  // Use 'primary' as a default key if no identifier is provided
   const cacheKey = accountIdentifier || 'primary';
   const cached = _tokenCache[cacheKey];
 
-  if (cached && Date.now() < cached.expiresAt - 60_000) {
+  if (cached && Date.now() < cached.expiresAt - 60_000) { // 60s buffer
     return cached.token;
   }
-  
-  let creds: Partial<MercadoLivreCredentials> | null = null;
 
-  if (accountIdentifier) {
-      // Prioritize direct lookup by ID if it's a valid Firestore ID format
-      if (/^[a-zA-Z0-9]{20}$/.test(accountIdentifier)) {
-          const accountDocRef = doc(db, 'mercadoLivreAccounts', accountIdentifier);
-          const docSnap = await getDoc(accountDocRef);
-          if (docSnap.exists()) {
-              creds = docSnap.data() as MercadoLivreCredentials;
-          }
-      }
-      
-      // If not found by ID, try by name
-      if (!creds) {
-          const accountsCol = collection(db, 'mercadoLivreAccounts');
-          const q = query(accountsCol, where("accountName", "==", accountIdentifier), limit(1));
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-              creds = snapshot.docs[0].data() as MercadoLivreCredentials;
-          }
-      }
-  } 
-  
-  // Fallback to primary account from settings if no specific account was found
-  if (!creds) {
-     const settings = await loadAppSettings().catch(() => null);
-     creds = settings?.mercadoLivre || null;
-  }
-  
+  // Se o identificador for um ID do Firestore, busca por ID.
+  const creds = await getMlCredentialsById(accountIdentifier);
+
   if (!creds || !creds.appId || !creds.clientSecret || !creds.refreshToken) {
     throw new Error(`Credenciais para a conta '${cacheKey}' do Mercado Livre não estão configuradas ou estão incompletas.`);
   }
 
-  const token = await generateNewAccessToken({
-      appId: creds.appId,
-      clientSecret: creds.clientSecret,
-      refreshToken: creds.refreshToken
-  });
+  const token = await generateNewAccessToken(creds);
   
   _tokenCache[cacheKey] = {
     token: token,
@@ -174,23 +146,19 @@ async function fetchProductDetails(catalogProductId: string, token: string) {
     return response.json();
 }
 
-export async function createListingFromCatalog(payload: CreateListingPayload) {
+export async function createListingFromCatalog(payload: CreateListingPayload, accessToken: string) {
     try {
         const { 
             catalog_product_id, 
             price, 
             available_quantity, 
             listing_type_id, 
-            accountId, // This is now the Firestore document ID
             buying_mode,
             condition,
         } = payload;
         
-        // Use the accountId (document ID) to get the token
-        const token = await getMlToken(accountId);
-
-        // 1. Fetch product details from catalog to get correct category, variations, etc.
-        const productDetails = await fetchProductDetails(catalog_product_id, token);
+        // 1. Fetch product details from catalog to get correct category
+        const productDetails = await fetchProductDetails(catalog_product_id, accessToken);
 
         const category_id = productDetails.category_id;
         if (!category_id) {
@@ -209,7 +177,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             condition,
             listing_type_id,
             pictures: [], // Empty for catalog listings
-            catalog_listing: true, // Ensure it's a catalog listing
+            catalog_listing: true,
             sale_terms: [
                 { id: "WARRANTY_TYPE", value_name: "Garantia do vendedor" },
                 { id: "WARRANTY_TIME", value_name: "3 meses" }
@@ -219,7 +187,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             ]
         };
 
-        // 2. Check for variations and add if they exist
+        // 2. Check for variations
         if (productDetails.variations && productDetails.variations.length > 0) {
             const firstVariation = productDetails.variations[0];
             if (firstVariation.id) {
@@ -233,7 +201,7 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify(itemPayload),
         });
@@ -252,3 +220,5 @@ export async function createListingFromCatalog(payload: CreateListingPayload) {
         return { data: null, error: e.message || 'Erro inesperado ao criar o anúncio.' };
     }
 }
+
+    

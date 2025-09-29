@@ -664,41 +664,30 @@ export const loadMlAccounts = async (): Promise<MlAccount[]> => {
         const data = d.data();
         return {
             id: d.id,
-            accountName: data.accountName || data.nickname || d.id, // Prefer accountName, fallback to nickname, then ID
+            accountName: data.accountName || d.id,
             ...data
         } as MlAccount;
     });
 }
 
-export const getMlCredentialsByAccountName = async (accountName: string): Promise<MercadoLivreCredentials | null> => {
-    if (!accountName) return null;
-    const accountsCol = collection(db, 'mercadoLivreAccounts');
-    
-    // Primary query on 'accountName'
-    const q = query(accountsCol, where("accountName", "==", accountName), limit(1));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-        // Fallback query on 'nickname'
-        const qNickname = query(accountsCol, where("nickname", "==", accountName), limit(1));
-        const snapshotNickname = await getDocs(qNickname);
-        if (!snapshotNickname.empty) {
-             return snapshotNickname.docs[0].data() as MercadoLivreCredentials;
-        }
-        
-        // Final fallback: check if the accountName is actually the document ID
-        const docRef = doc(db, 'mercadoLivreAccounts', accountName);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as MercadoLivreCredentials;
-        }
-
-        return null;
+export const getMlCredentialsById = async (accountId?: string): Promise<MercadoLivreCredentials | null> => {
+    if (!accountId) {
+      // Fallback to the primary account from general settings if no ID is provided
+      const settings = await loadAppSettings();
+      return settings?.mercadoLivre || null;
     }
-    
-    return snapshot.docs[0].data() as MercadoLivreCredentials;
-}
 
+    const accountDocRef = doc(db, 'mercadoLivreAccounts', accountId);
+    const docSnap = await getDoc(accountDocRef);
+
+    if (docSnap.exists()) {
+        return docSnap.data() as MercadoLivreCredentials;
+    }
+
+    // If no specific account found, maybe still fallback to primary? Or throw error.
+    // For now, throwing an error is clearer.
+    throw new Error(`Account with ID '${accountId}' not found in 'mercadoLivreAccounts'.`);
+}
 
 
 export const updateMlAccount = async (accountId: string, accountName: string): Promise<void> => {
@@ -1054,3 +1043,5 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
+
+    
