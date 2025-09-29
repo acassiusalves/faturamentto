@@ -26,8 +26,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { ChevronsUpDown } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
-import { useFormState } from 'react-dom';
 
 
 const listingSchema = z.object({
@@ -67,9 +65,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
     const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
     const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
-    
-    // State to hold the calculated prices for display
-    const [calculatedPrices, setCalculatedPrices] = useState<{ averageCost: number | null, finalPrice: number | null }>({ averageCost: null, finalPrice: null });
 
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
@@ -124,7 +119,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             });
             setSelectedProductInfo(null);
             setSearchTerm('');
-            setCalculatedPrices({ averageCost: null, finalPrice: null });
         }
     }, [product, form]);
     
@@ -134,7 +128,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         setFormStates({});
         setSelectedProductInfo(null);
         setSearchTerm('');
-        setCalculatedPrices({ averageCost: null, finalPrice: null });
       }
     }, [isOpen, form]);
 
@@ -261,20 +254,17 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                 <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                                 <CommandGroup>
                                                                     {filteredFeedProducts.map((p, index) => (
-                                                                        <button
+                                                                        <CommandItem
                                                                             key={`${p.sku}-${index}`}
-                                                                            type="button"
-                                                                            onPointerDown={(e) => e.preventDefault()}
-                                                                            onMouseDown={(e) => e.preventDefault()}
-                                                                            onClick={() => handleProductSelect(p)}
-                                                                            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                                                            value={p.name}
+                                                                            onSelect={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
                                                                               <div className="flex flex-col text-left">
                                                                                 <span className="font-semibold">{p.name}</span>
                                                                                 <span className="text-xs text-muted-foreground">{p.sku}</span>
                                                                             </div>
-                                                                        </button>
+                                                                        </CommandItem>
                                                                     ))}
                                                                 </CommandGroup>
                                                             </>
