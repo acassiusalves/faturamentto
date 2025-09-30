@@ -17,7 +17,6 @@ import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResul
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -54,15 +53,15 @@ interface CreateListingDialogProps {
 
 export function CreateListingDialog({ isOpen, onClose, product, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
-    const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formStates, setFormStates = useState<Record<string, CreateListingResult>>({});
+    const [isSubmitting, setIsSubmitting = useState(false);
     
-    const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
+    const [isSearchPopoverOpen, setIsSearchPopoverOpen = useState(false);
+    const [searchTerm, setSearchTerm = useState('');
+    const [selectedProductInfo, setSelectedProductInfo = useState<{name: string, sku: string} | null>(null);
 
-    const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
-    const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
+    const [allFeedProducts, setAllFeedProducts = useState<FeedProduct[]>([]);
+    const [isFetchingFeedProducts, setIsFetchingFeedProducts = useState(true);
 
     const searchInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -450,3 +449,4 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
+    
