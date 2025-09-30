@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import type { SearchableProduct } from '@/lib/types';
+import type { SearchableProduct, PostedOnAccount } from '@/lib/types';
 import {
     Dialog,
     DialogContent,
@@ -126,10 +126,10 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                                     <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
                                                         {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                     </Link>
-                                                     {postedOnAccounts.map((accountName: string) => (
-                                                        <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                     {postedOnAccounts.map((account: PostedOnAccount) => (
+                                                        <Badge key={account.accountId} className="bg-yellow-400 text-black hover:bg-yellow-500">
                                                             <CheckCircle className="mr-1 h-3 w-3"/>
-                                                            Postado em: {accountName}
+                                                            Postado em: {account.accountName}
                                                         </Badge>
                                                     ))}
                                                 </div>
