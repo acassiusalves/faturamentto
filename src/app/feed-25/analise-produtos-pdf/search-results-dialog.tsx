@@ -112,7 +112,10 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                             <TableBody>
                                 {filteredResults.length > 0 ? filteredResults.map(offer => {
                                     const isModelMatch = product?.model && offer.model && offer.model?.toLowerCase() === product?.model?.toLowerCase();
-                                    const postedOnAccounts = (offer as any).postedOnAccounts || [];
+                                    const rawPosted = (offer as any).postedOnAccounts;
+                                    const postedOnAccounts: PostedOnAccount[] = Array.isArray(rawPosted)
+                                      ? rawPosted
+                                      : rawPosted ? [rawPosted] : [];
                                     return (
                                      <TableRow key={offer.id}>
                                         <TableCell>
@@ -166,6 +169,3 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
     );
 }
 
-    
-
-    
