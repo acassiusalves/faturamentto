@@ -320,26 +320,28 @@ export default function EstoquePage() {
       .filter((attr): attr is ProductAttribute => !!attr);
   }, [settings]);
 
+  const formValues = cellularForm.watch();
+
   const generatedCellularName = useMemo(() => {
     if (!settings) return "";
     return orderedAttributes
-      .map(attr => cellularForm.watch(attr.key))
+      .map(attr => formValues[attr.key])
       .filter(Boolean)
       .join(" ");
-  }, [cellularForm, orderedAttributes, settings]);
+  }, [formValues, orderedAttributes, settings]);
   
   const canSubmitCellular = useMemo(() => {
     if (!settings || !orderedAttributes.length) return false;
-    const allRequiredFilled = orderedAttributes.every(attr => !!cellularForm.watch(attr.key));
+    const allRequiredFilled = orderedAttributes.every(attr => !!formValues[attr.key]);
     return allRequiredFilled && generatedCellularName.length > 0;
-  }, [settings, cellularForm, generatedCellularName, orderedAttributes]);
+  }, [settings, formValues, generatedCellularName, orderedAttributes]);
 
   const generatedCellularSku = useMemo(() => {
     if (!canSubmitCellular) return "";
     
     const baseName = orderedAttributes
       .filter(attr => attr.key !== 'cor')
-      .map(attr => cellularForm.watch(attr.key))
+      .map(attr => formValues[attr.key])
       .filter(Boolean)
       .join(" ");
 
@@ -365,13 +367,13 @@ export default function EstoquePage() {
         sequentialNumberPart = (maxSkuNum + 1).toString();
     }
     
-    const color = cellularForm.watch('cor') || '';
+    const color = formValues['cor'] || '';
     const colorCode = color.length > 2 && color.includes(' ') 
       ? color.split(' ').map(w => w.charAt(0)).join('').toUpperCase() 
       : color.charAt(0).toUpperCase();
 
     return `#${sequentialNumberPart}${colorCode}`;
-  }, [products, cellularForm, canSubmitCellular, orderedAttributes]);
+  }, [products, formValues, canSubmitCellular, orderedAttributes]);
 
   const onCellularSubmit = async (data: Record<string, string>) => {
     if (!canSubmitCellular || !generatedCellularSku) return;
