@@ -244,88 +244,89 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 />
                                 
                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Produto (para SKU)</FormLabel>
-                                        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen} modal={false}>
-                                          <PopoverTrigger asChild>
-                                            <FormControl>
-                                              <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                type="button"
-                                                aria-expanded={isSearchPopoverOpen}
-                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
-                                              >
-                                                <span className="truncate">
-                                                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                            </FormControl>
-                                          </PopoverTrigger>
+    <FormItem>
+        <FormLabel>Produto (para SKU)</FormLabel>
+        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+          <PopoverTrigger asChild>
+            <FormControl>
+              <Button
+                variant="outline"
+                role="combobox"
+                type="button"
+                aria-expanded={isSearchPopoverOpen}
+                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+              >
+                <span className="truncate">
+                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </FormControl>
+          </PopoverTrigger>
 
-                                            <PopoverContent
-                                                className="w-[--radix-popover-trigger-width] p-0 z-50"
-                                                align="start"
-                                                sideOffset={4}
-                                                onCloseAutoFocus={(e) => e.preventDefault()}
-                                                onInteractOutside={(e) => e.preventDefault()}
-                                            >
-                                                <Command filter={(value, search) => {
-                                                const [name, sku] = value.split("|");
-                                                const s = search.toLowerCase();
-                                                if (name?.toLowerCase().includes(s)) return 1;
-                                                if (sku?.toLowerCase().includes(s)) return 1;
-                                                return 0;
-                                                }}>
-                                                <CommandInput
-                                                    ref={searchInputRef}
-                                                    placeholder="Buscar por nome ou SKU..."
-                                                    disabled={isFetchingFeedProducts}
-                                                    value={searchTerm}
-                                                    onValueChange={setSearchTerm}
-                                                />
-                                                <CommandList>
-                                                    {isFetchingFeedProducts ? (
-                                                    <div className="p-2 text-center text-sm text-muted-foreground">
-                                                        <Loader2 className="mx-auto animate-spin" />
-                                                    </div>
-                                                    ) : (
-                                                    <>
-                                                        <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                        <CommandGroup>
-                                                        {filteredFeedProducts.map((p, index) => (
-                                                            <CommandItem
-                                                                key={`${p.sku}-${index}`}
-                                                                value={`${p.name}|${p.sku}`}
-                                                                onSelect={() => handleProductSelect(p)}
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    handleProductSelect(p);
-                                                                }}
-                                                            >
-                                                            <Check
-                                                                className={cn(
-                                                                    "mr-2 h-4 w-4",
-                                                                    selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
-                                                                )}
-                                                            />
-                                                            <div className="flex flex-col text-left">
-                                                                <span className="font-semibold">{p.name}</span>
-                                                                <span className="text-xs text-muted-foreground">{p.sku}</span>
-                                                            </div>
-                                                            </CommandItem>
-                                                        ))}
-                                                        </CommandGroup>
-                                                    </>
-                                                    )}
-                                                </CommandList>
-                                                </Command>
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+          <PopoverContent
+            className="w-[--radix-popover-trigger-width] p-0 z-50"
+            align="start"
+            sideOffset={4}
+            onInteractOutside={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <Command filter={(value, search) => {
+              const [name, sku] = value.split("|");
+              const s = search.toLowerCase();
+              if (name?.toLowerCase().includes(s)) return 1;
+              if (sku?.toLowerCase().includes(s)) return 1;
+              return 0;
+            }}>
+              <CommandInput
+                ref={searchInputRef}
+                placeholder="Buscar por nome ou SKU..."
+                disabled={isFetchingFeedProducts}
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+              />
+              <CommandList>
+                {isFetchingFeedProducts ? (
+                  <div className="p-2 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      {filteredFeedProducts.map((p, index) => (
+                        <CommandItem
+                          key={`${p.sku}-${index}`}
+                          value={`${p.name}|${p.sku}`}
+                          onSelect={() => handleProductSelect(p)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleProductSelect(p);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col text-left">
+                            <span className="font-semibold">{p.name}</span>
+                            <span className="text-xs text-muted-foreground">{p.sku}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <FormMessage />
+    </FormItem>
+)} />
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={form.control} name="price" render={({ field }) => (
