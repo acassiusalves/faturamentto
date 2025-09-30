@@ -30,6 +30,16 @@ interface SearchResultsDialogProps {
 // Offer type is now based on the more detailed ProductResult from actions
 type Offer = import('@/lib/types').ProductResult;
 
+// Helpers seguros para texto
+const safeText = (v: any) =>
+  v == null ? "" : (typeof v === "string" || typeof v === "number") ? String(v) : JSON.stringify(v);
+
+const getListingType = (offer: any) => {
+  const raw = offer?.listing_type_id ?? offer?.listingTypeId;
+  return typeof raw === "string" ? raw : safeText(raw);
+};
+
+
 const listingTypeMap: Record<string, string> = {
     "gold_special": "Clássico",
     "gold_pro": "Premium"
@@ -120,34 +130,68 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
                                      <TableRow key={offer.id}>
                                         <TableCell>
                                             <div className="relative h-20 w-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                                                {offer.thumbnail && <Image src={offer.thumbnail} alt={offer.name} fill className="object-contain" data-ai-hint="product image"/>}
+                                                {offer.thumbnail && (
+                                                  <Image
+                                                    src={offer.thumbnail}
+                                                    alt={safeText(offer.name) || "Produto"}
+                                                    fill
+                                                    className="object-contain"
+                                                    data-ai-hint="product image"
+                                                  />
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
-                                                        {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
-                                                    </Link>
-                                                     {postedOnAccounts.map((account: PostedOnAccount) => (
-                                                        <Badge key={account.accountId} className="bg-yellow-400 text-black hover:bg-yellow-500">
-                                                            <CheckCircle className="mr-1 h-3 w-3"/>
-                                                            Postado em: {account.accountName}
-                                                        </Badge>
-                                                    ))}
+                                                  <Link
+                                                    href={offer.catalog_product_id ? `https://www.mercadolivre.com.br/p/${safeText(offer.catalog_product_id)}` : "#"}
+                                                    target="_blank"
+                                                    className="font-medium text-primary hover:underline"
+                                                  >
+                                                    {safeText(offer.name)} <ExternalLink className="inline-block h-3 w-3 ml-1" />
+                                                  </Link>
+
+                                                  {postedOnAccounts.map((account: PostedOnAccount, idx) => {
+                                                    // GARANTE string SEMPRE:
+                                                    const label = safeText(
+                                                      (account as any)?.accountName ??
+                                                      (account as any)?.name ??
+                                                      account
+                                                    );
+                                                    const keyVal = (account as any)?.accountId ?? idx;
+
+                                                    return (
+                                                      <Badge key={String(keyVal)} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                        <CheckCircle className="mr-1 h-3 w-3" />
+                                                        {/* Só string aqui */}
+                                                        {"Postado em: "}{label}
+                                                      </Badge>
+                                                    );
+                                                  })}
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
-                                                <p className="text-xs text-muted-foreground">Marca: {offer.brand} | Modelo: {offer.model}</p>
-                                                <p className="text-xs text-muted-foreground">Vendedor: <span className="font-semibold">{(offer as any).seller_nickname}</span> {(offer as any).is_official_store && <Badge variant="outline">Loja Oficial</Badge>}</p>
+
+                                                <p className="text-xs text-muted-foreground">
+                                                  ID Catálogo: {safeText(offer.catalog_product_id)}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  Marca: {safeText(offer.brand)} | Modelo: {safeText(offer.model)}
+                                                </p>
+
+                                                <p className="text-xs text-muted-foreground">Vendedor: <span className="font-semibold">{safeText((offer as any).seller_nickname)}</span> {(offer as any).is_official_store && <Badge variant="outline">Loja Oficial</Badge>}</p>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {(offer as any).shipping_logistic_type === 'fulfillment' ? <FullIcon /> : <MercadoEnviosIcon />}
-                                                    {(offer as any).listing_type_id && <Badge variant="outline">{listingTypeMap[(offer as any).listing_type_id] || (offer as any).listing_type_id}</Badge>}
-                                                    {isModelMatch && (
-                                                        <Badge className="bg-green-600 text-white hover:bg-green-700">
-                                                            <CheckCircle className="mr-1 h-3 w-3" />
-                                                            Correspondência de modelo
-                                                        </Badge>
-                                                    )}
+                                                  {(offer as any).shipping_logistic_type === "fulfillment" ? <FullIcon /> : <MercadoEnviosIcon />}
+                                                  {!!((offer as any).listing_type_id ?? (offer as any).listingTypeId) && (
+                                                    <Badge variant="outline">
+                                                      {listingTypeMap[getListingType(offer)] ?? getListingType(offer)}
+                                                    </Badge>
+                                                  )}
+                                                  {isModelMatch && (
+                                                    <Badge className="bg-green-600 text-white hover:bg-green-700">
+                                                      <CheckCircle className="mr-1 h-3 w-3" />
+                                                      Correspondência de modelo
+                                                    </Badge>
+                                                  )}
                                                 </div>
                                             </div>
                                         </TableCell>
@@ -168,4 +212,3 @@ export function SearchResultsDialog({ isOpen, onClose, product }: SearchResultsD
         </Dialog>
     );
 }
-
