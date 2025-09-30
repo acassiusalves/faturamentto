@@ -460,13 +460,10 @@ export default function BuscarMercadoLivrePage() {
                                             const repLevel = product.reputation?.level_id ? reputationLevelMap[product.reputation.level_id] : null;
                                             const shippingCost = getShippingCostFor1To2Kg(product.price);
                                             
-                                            const groupedPostedAccounts = (product.postedOnAccounts || []).reduce((acc, current) => {
-                                                if (!acc[current.accountName]) {
-                                                    acc[current.accountName] = [];
-                                                }
-                                                acc[current.accountName].push(listingTypeMap[current.listingTypeId] || 'N/A');
-                                                return acc;
-                                            }, {} as Record<string, string[]>);
+                                            const rawPosted = (product as any).postedOnAccounts;
+                                            const postedOnAccounts: PostedOnAccount[] = Array.isArray(rawPosted)
+                                              ? rawPosted
+                                              : rawPosted ? [rawPosted] : [];
 
 
                                             return (
@@ -494,12 +491,24 @@ export default function BuscarMercadoLivrePage() {
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${product.catalog_product_id}`} target="_blank" className="font-semibold text-primary hover:underline">
                                                                 {product.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {Object.entries(groupedPostedAccounts).map(([accountName, listingTypes]) => (
-                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
-                                                                        <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        {accountName}: <span className="font-bold ml-1">{listingTypes.join(' e ')}</span>
-                                                                    </Badge>
-                                                                ))}
+                                                                {postedOnAccounts.map((account, idx) => {
+                                                                    const name = typeof account?.accountName === 'string'
+                                                                        ? account.accountName
+                                                                        : typeof (account as any)?.name === 'string'
+                                                                        ? (account as any).name
+                                                                        : typeof account === 'object'
+                                                                        ? JSON.stringify(account)
+                                                                        : String(account);
+                                                                    
+                                                                    const listingType = listingTypeMap[account.listingTypeId] || 'N/A';
+
+                                                                    return (
+                                                                        <Badge key={account.accountId ?? idx} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                                            <CheckCircle className="mr-1 h-3 w-3"/>
+                                                                            {name}: <span className="font-bold ml-1">{listingType}</span>
+                                                                        </Badge>
+                                                                    );
+                                                                })}
                                                             </div>
                                                             
                                                             <div className="text-xs text-muted-foreground mt-1">
@@ -694,5 +703,3 @@ export default function BuscarMercadoLivrePage() {
         </>
     );
 }
-
-    
