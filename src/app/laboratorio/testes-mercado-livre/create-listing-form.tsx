@@ -269,6 +269,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             align="start"
                                             sideOffset={4}
                                             onCloseAutoFocus={(e) => e.preventDefault()}
+                                            onInteractOutside={(e) => e.preventDefault()}
                                           >
                                             <Command filter={(value, search) => {
                                               const [name, sku] = value.split("|");
@@ -297,11 +298,11 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                         <CommandItem
                                                           key={`${p.sku}-${index}`}
                                                           value={`${p.name}|${p.sku}`}
-                                                          onMouseDown={(e) => {
+                                                          onSelect={() => handleProductSelect(p)}
+                                                          onClick={(e) => {
                                                             e.preventDefault();
                                                             handleProductSelect(p);
                                                           }}
-                                                          onSelect={() => handleProductSelect(p)}
                                                         >
                                                           <Check
                                                             className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")}
