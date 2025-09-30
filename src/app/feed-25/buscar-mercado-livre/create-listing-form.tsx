@@ -268,46 +268,56 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             align="start"
                                             sideOffset={4}
                                           >
-                                            <Command shouldFilter={false}>
-                                              <CommandInput
-                                                ref={searchInputRef}
-                                                placeholder="Buscar por nome ou SKU..."
-                                                disabled={isFetchingFeedProducts}
-                                                value={searchTerm}
-                                                onValueChange={setSearchTerm}
-                                              />
-                                              <CommandList>
+                                            <div className="flex flex-col">
+                                              {/* Input de busca customizado */}
+                                              <div className="border-b p-2">
+                                                <Input
+                                                  ref={searchInputRef}
+                                                  placeholder="Buscar por nome ou SKU..."
+                                                  disabled={isFetchingFeedProducts}
+                                                  value={searchTerm}
+                                                  onChange={(e) => setSearchTerm(e.target.value)}
+                                                  className="h-9"
+                                                />
+                                              </div>
+                                              
+                                              {/* Lista de produtos */}
+                                              <div className="max-h-[300px] overflow-y-auto">
                                                 {isFetchingFeedProducts ? (
-                                                  <div className="p-2 text-center text-sm text-muted-foreground">
-                                                    <Loader2 className="mx-auto animate-spin" />
+                                                  <div className="p-4 text-center text-sm text-muted-foreground">
+                                                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                                                   </div>
                                                 ) : filteredFeedProducts.length === 0 ? (
-                                                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                                  <div className="p-4 text-center text-sm text-muted-foreground">
+                                                    Nenhum produto encontrado.
+                                                  </div>
                                                 ) : (
-                                                  <CommandGroup>
+                                                  <div className="p-1">
                                                     {filteredFeedProducts.map((p, index) => (
-                                                      <CommandItem
+                                                      <div
                                                         key={`${p.sku}-${index}`}
-                                                        value={`${p.name}|${p.sku}`}
-                                                        onSelect={() => handleProductSelect(p)}
-                                                        className="cursor-pointer"
+                                                        onClick={() => handleProductSelect(p)}
+                                                        className={cn(
+                                                          "flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                          selectedProductInfo?.sku === p.sku && "bg-accent"
+                                                        )}
                                                       >
                                                         <Check
                                                           className={cn(
-                                                            "mr-2 h-4 w-4",
+                                                            "mt-0.5 h-4 w-4 shrink-0",
                                                             selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
                                                           )}
                                                         />
-                                                        <div className="flex flex-col text-left">
-                                                          <span className="font-semibold">{p.name}</span>
+                                                        <div className="flex flex-col text-left flex-1 min-w-0">
+                                                          <span className="font-semibold text-sm truncate">{p.name}</span>
                                                           <span className="text-xs text-muted-foreground">{p.sku}</span>
                                                         </div>
-                                                      </CommandItem>
+                                                      </div>
                                                     ))}
-                                                  </CommandGroup>
+                                                  </div>
                                                 )}
-                                              </CommandList>
-                                            </Command>
+                                              </div>
+                                            </div>
                                           </PopoverContent>
                                         </Popover>
                                         <FormMessage />
