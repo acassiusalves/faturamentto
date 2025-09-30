@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, SearchableProduct } from '@/lib/types';
+import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
@@ -801,7 +801,11 @@ export default function CatalogoPdfPage() {
                                                 if (margin < 12 && (commissionValue + catalogCost + shippingCost) > 0) {
                                                    suggestedPrice = (commissionValue + catalogCost + shippingCost) / 0.88;
                                                  }
-
+                                                const posted = Array.isArray(offer.postedOnAccounts)
+                                                  ? offer.postedOnAccounts
+                                                  : offer.postedOnAccounts
+                                                    ? [offer.postedOnAccounts]
+                                                    : [];
 
                                                 return (
                                                     <div key={offer.id} className="grid grid-cols-[80px_1fr_auto] items-center gap-4 p-2 border-b last:border-b-0">
@@ -813,12 +817,28 @@ export default function CatalogoPdfPage() {
                                                                 <Link href={`https://www.mercadolivre.com.br/p/${offer.catalog_product_id}`} target="_blank" className="font-medium text-primary hover:underline">
                                                                     {offer.name} <ExternalLink className="inline-block h-3 w-3 ml-1" />
                                                                 </Link>
-                                                                {offer.postedOnAccounts && offer.postedOnAccounts.map((accountName: string) => (
-                                                                    <Badge key={accountName} className="bg-yellow-400 text-black hover:bg-yellow-500">
-                                                                        <CheckCircle className="mr-1 h-3 w-3"/>
-                                                                        Postado em: {accountName}
+                                                                {posted.map((acc: any, idx: number) => {
+                                                                  const label =
+                                                                    typeof acc === 'string'
+                                                                      ? acc
+                                                                      : typeof acc?.accountName === 'string'
+                                                                        ? acc.accountName
+                                                                        : typeof acc?.name === 'string'
+                                                                          ? acc.name
+                                                                          : '';
+
+                                                                  const keyVal =
+                                                                    typeof acc === 'string'
+                                                                      ? acc
+                                                                      : acc?.accountId ?? idx;
+
+                                                                  return (
+                                                                    <Badge key={String(keyVal)} className="bg-yellow-400 text-black hover:bg-yellow-500">
+                                                                      <CheckCircle className="mr-1 h-3 w-3" />
+                                                                      Postado em: {String(label)}
                                                                     </Badge>
-                                                                ))}
+                                                                  );
+                                                                })}
                                                             </div>
 
                                                             <p className="text-xs text-muted-foreground">ID Catálogo: {offer.catalog_product_id}</p>
