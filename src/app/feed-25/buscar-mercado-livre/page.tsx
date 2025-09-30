@@ -22,7 +22,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CreateListingDialog } from '@/app/laboratorio/testes-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
+import { CreateListingDialog } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
 import type { MlAccount, PostedOnAccount } from '@/lib/types';
 
 
