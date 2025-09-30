@@ -141,7 +141,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
         setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
         setIsSearchPopoverOpen(false);
-        setSearchTerm(''); // Limpa a busca ao selecionar
+        setSearchTerm('');
     };
 
     const handleCopyToClipboard = (text: string) => {
@@ -184,7 +184,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
         }
-        if (errorCount === 0 && isOpen) { // Only close if all successful
+        if (errorCount === 0 && isOpen) {
             onClose();
         }
     };
@@ -213,7 +213,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             <FormControl>
                                                 <div className="space-y-2 rounded-md border p-2">
                                                     {accountOptions.map(option => {
-                                                        // Verifica se já existe um anúncio para esta conta e tipo de anúncio
                                                         const isAlreadyPosted = product.postedOnAccounts?.some(
                                                             p => p.accountId === option.value && p.listingTypeId === form.watch('listingTypeId')
                                                         );
@@ -269,16 +268,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                             align="start"
                                             sideOffset={4}
                                           >
-                                            <Command 
-                                              filter={(value, search) => {
-                                                const [name, sku] = value.split("|");
-                                                const s = search.toLowerCase();
-                                                if (name?.toLowerCase().includes(s)) return 1;
-                                                if (sku?.toLowerCase().includes(s)) return 1;
-                                                return 0;
-                                              }}
-                                              shouldFilter={false}
-                                            >
+                                            <Command shouldFilter={false}>
                                               <CommandInput
                                                 ref={searchInputRef}
                                                 placeholder="Buscar por nome ou SKU..."
@@ -291,31 +281,30 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                   <div className="p-2 text-center text-sm text-muted-foreground">
                                                     <Loader2 className="mx-auto animate-spin" />
                                                   </div>
+                                                ) : filteredFeedProducts.length === 0 ? (
+                                                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                 ) : (
-                                                  <>
-                                                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                                                    <CommandGroup>
-                                                      {filteredFeedProducts.map((p, index) => (
-                                                        <CommandItem
-                                                          key={`${p.sku}-${index}`}
-                                                          value={`${p.name}|${p.sku}`}
-                                                          onSelect={() => handleProductSelect(p)}
-                                                          className="cursor-pointer"
-                                                        >
-                                                          <Check
-                                                            className={cn(
-                                                              "mr-2 h-4 w-4",
-                                                              selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
-                                                            )}
-                                                          />
-                                                          <div className="flex flex-col text-left">
-                                                            <span className="font-semibold">{p.name}</span>
-                                                            <span className="text-xs text-muted-foreground">{p.sku}</span>
-                                                          </div>
-                                                        </CommandItem>
-                                                      ))}
-                                                    </CommandGroup>
-                                                  </>
+                                                  <CommandGroup>
+                                                    {filteredFeedProducts.map((p, index) => (
+                                                      <CommandItem
+                                                        key={`${p.sku}-${index}`}
+                                                        value={`${p.name}|${p.sku}`}
+                                                        onSelect={() => handleProductSelect(p)}
+                                                        className="cursor-pointer"
+                                                      >
+                                                        <Check
+                                                          className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
+                                                          )}
+                                                        />
+                                                        <div className="flex flex-col text-left">
+                                                          <span className="font-semibold">{p.name}</span>
+                                                          <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                                        </div>
+                                                      </CommandItem>
+                                                    ))}
+                                                  </CommandGroup>
                                                 )}
                                               </CommandList>
                                             </Command>
