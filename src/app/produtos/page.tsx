@@ -338,12 +338,12 @@ export default function EstoquePage() {
 
   const generatedCellularSku = useMemo(() => {
     if (!canSubmitCellular) return "";
-    
+
     const baseName = orderedAttributes
-      .filter(attr => attr.key !== 'cor')
-      .map(attr => formValues[attr.key])
-      .filter(Boolean)
-      .join(" ");
+        .filter(attr => attr.key !== 'cor')
+        .map(attr => formValues[attr.key])
+        .filter(Boolean)
+        .join(" ");
 
     const existingProductWithSameBase = products.find(p => {
         if (p.category !== 'Celular') return false;
@@ -354,7 +354,7 @@ export default function EstoquePage() {
             .join(" ");
         return pBaseName === baseName;
     });
-
+    
     let sequentialNumberPart: string;
 
     if (existingProductWithSameBase?.sku) {
@@ -374,7 +374,7 @@ export default function EstoquePage() {
       : color.charAt(0).toUpperCase();
 
     return `#${sequentialNumberPart}${colorCode}`;
-  }, [products, formValues, canSubmitCellular, orderedAttributes]);
+}, [products, formValues, canSubmitCellular, orderedAttributes]);
 
   const onCellularSubmit = async (data: Record<string, string>) => {
     if (!canSubmitCellular || !generatedCellularSku) return;
@@ -929,8 +929,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
-    
-
-    
-
