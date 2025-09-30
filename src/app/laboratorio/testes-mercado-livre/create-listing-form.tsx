@@ -64,6 +64,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
     const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
 
+    const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      if (isSearchPopoverOpen) {
+        setTimeout(() => searchInputRef.current?.focus(), 0);
+      }
+    }, [isSearchPopoverOpen]);
+
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
     const form = useForm<ListingFormValues>({
@@ -251,7 +259,11 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <PopoverContent 
+                                                className="w-[--radix-popover-trigger-width] p-0 z-50"
+                                                align="start"
+                                                onCloseAutoFocus={(e) => e.preventDefault()}
+                                            >
                                                  <Command filter={(value, search) => {
                                                     const [name, sku] = value.split('|');
                                                     if (name.toLowerCase().includes(search.toLowerCase())) return 1;
@@ -259,8 +271,11 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                     return 0;
                                                  }}>
                                                     <CommandInput
+                                                        ref={searchInputRef}
                                                         placeholder="Buscar por nome ou SKU..."
                                                         disabled={isFetchingFeedProducts}
+                                                        value={searchTerm}
+                                                        onValueChange={setSearchTerm}
                                                     />
                                                     <CommandList>
                                                         {isFetchingFeedProducts ? (
@@ -269,10 +284,14 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                             <>
                                                                 <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                                                                 <CommandGroup>
-                                                                    {allFeedProducts.map((p, index) => (
+                                                                    {filteredFeedProducts.map((p, index) => (
                                                                         <CommandItem
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
+                                                                            onMouseDown={(e) => {
+                                                                                e.preventDefault();
+                                                                                handleProductSelect(p);
+                                                                            }}
                                                                             onSelect={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
