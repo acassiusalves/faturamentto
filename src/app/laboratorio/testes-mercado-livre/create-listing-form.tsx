@@ -237,12 +237,13 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 <FormField control={form.control} name="sellerSku" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Produto (para SKU)</FormLabel>
-                                        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+                                        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen} modal={false}>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
                                                         variant="outline"
                                                         role="combobox"
+                                                        type="button"
                                                         className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
                                                     >
                                                         <span className="truncate">{selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}</span>
@@ -250,7 +251,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                                                  <Command filter={(value, search) => {
                                                     const [name, sku] = value.split('|');
                                                     if (name.toLowerCase().includes(search.toLowerCase())) return 1;
@@ -272,6 +273,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                                         <CommandItem
                                                                             key={`${p.sku}-${index}`}
                                                                             value={`${p.name}|${p.sku}`}
+                                                                            onPointerDown={(e) => e.preventDefault()}
+                                                                            onMouseDown={(e) => e.preventDefault()}
                                                                             onSelect={() => handleProductSelect(p)}
                                                                         >
                                                                              <Check className={cn("mr-2 h-4 w-4", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
