@@ -53,15 +53,15 @@ interface CreateListingDialogProps {
 
 export function CreateListingDialog({ isOpen, onClose, product, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
-    const [formStates, setFormStates = useState<Record<string, CreateListingResult>>({});
-    const [isSubmitting, setIsSubmitting = useState(false);
+    const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [isSearchPopoverOpen, setIsSearchPopoverOpen = useState(false);
-    const [searchTerm, setSearchTerm = useState('');
-    const [selectedProductInfo, setSelectedProductInfo = useState<{name: string, sku: string} | null>(null);
+    const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
 
-    const [allFeedProducts, setAllFeedProducts = useState<FeedProduct[]>([]);
-    const [isFetchingFeedProducts, setIsFetchingFeedProducts = useState(true);
+    const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
+    const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
 
     const searchInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -245,79 +245,79 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     <FormItem>
                                         <FormLabel>Produto (para SKU)</FormLabel>
                                         <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
-                                          <PopoverTrigger asChild>
-                                            <FormControl>
-                                              <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                type="button"
-                                                aria-expanded={isSearchPopoverOpen}
-                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
-                                              >
-                                                <span className="truncate">
-                                                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                            </FormControl>
-                                          </PopoverTrigger>
-                                
-                                          <PopoverContent
-                                            className="w-[--radix-popover-trigger-width] p-0"
-                                            align="start"
-                                            sideOffset={4}
-                                          >
-                                            <div className="flex flex-col">
-                                              {/* Input de busca customizado */}
-                                              <div className="border-b p-2">
-                                                <Input
-                                                  ref={searchInputRef}
-                                                  placeholder="Buscar por nome ou SKU..."
-                                                  disabled={isFetchingFeedProducts}
-                                                  value={searchTerm}
-                                                  onChange={(e) => setSearchTerm(e.target.value)}
-                                                  className="h-9"
-                                                />
-                                              </div>
-                                              
-                                              {/* Lista de produtos */}
-                                              <div className="max-h-[300px] overflow-y-auto">
-                                                {isFetchingFeedProducts ? (
-                                                  <div className="p-4 text-center text-sm text-muted-foreground">
-                                                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                                                  </div>
-                                                ) : filteredFeedProducts.length === 0 ? (
-                                                  <div className="p-4 text-center text-sm text-muted-foreground">
-                                                    Nenhum produto encontrado.
-                                                  </div>
-                                                ) : (
-                                                  <div className="p-1">
-                                                    {filteredFeedProducts.map((p, index) => (
-                                                      <div
-                                                        key={`${p.sku}-${index}`}
-                                                        onClick={() => handleProductSelect(p)}
-                                                        className={cn(
-                                                          "flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors",
-                                                          selectedProductInfo?.sku === p.sku && "bg-accent"
-                                                        )}
-                                                      >
-                                                        <Check
-                                                          className={cn(
-                                                            "mt-0.5 h-4 w-4 shrink-0",
-                                                            selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
-                                                          )}
-                                                        />
-                                                        <div className="flex flex-col text-left flex-1 min-w-0">
-                                                          <span className="font-semibold text-sm truncate">{p.name}</span>
-                                                          <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    type="button"
+                                                    aria-expanded={isSearchPopoverOpen}
+                                                    className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                >
+                                                    <span className="truncate">
+                                                    {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+
+                                            <PopoverContent
+                                                className="w-[--radix-popover-trigger-width] p-0"
+                                                align="start"
+                                                sideOffset={4}
+                                            >
+                                                <div className="flex flex-col">
+                                                {/* Input de busca customizado */}
+                                                <div className="border-b p-2">
+                                                    <Input
+                                                    ref={searchInputRef}
+                                                    placeholder="Buscar por nome ou SKU..."
+                                                    disabled={isFetchingFeedProducts}
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="h-9"
+                                                    />
+                                                </div>
+                                                
+                                                {/* Lista de produtos */}
+                                                <div className="max-h-[300px] overflow-y-auto">
+                                                    {isFetchingFeedProducts ? (
+                                                    <div className="p-4 text-center text-sm text-muted-foreground">
+                                                        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                                                    </div>
+                                                    ) : filteredFeedProducts.length === 0 ? (
+                                                    <div className="p-4 text-center text-sm text-muted-foreground">
+                                                        Nenhum produto encontrado.
+                                                    </div>
+                                                    ) : (
+                                                    <div className="p-1">
+                                                        {filteredFeedProducts.map((p, index) => (
+                                                        <div
+                                                            key={`${p.sku}-${index}`}
+                                                            onClick={() => handleProductSelect(p)}
+                                                            className={cn(
+                                                            "flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                            selectedProductInfo?.sku === p.sku && "bg-accent"
+                                                            )}
+                                                        >
+                                                            <Check
+                                                            className={cn(
+                                                                "mt-0.5 h-4 w-4 shrink-0",
+                                                                selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                            />
+                                                            <div className="flex flex-col text-left flex-1 min-w-0">
+                                                            <span className="font-semibold text-sm truncate">{p.name}</span>
+                                                            <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                                            </div>
                                                         </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </PopoverContent>
+                                                        ))}
+                                                    </div>
+                                                    )}
+                                                </div>
+                                                </div>
+                                            </PopoverContent>
                                         </Popover>
                                         <FormMessage />
                                     </FormItem>
@@ -449,4 +449,3 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         </Dialog>
     );
 }
-    
