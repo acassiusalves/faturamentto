@@ -346,6 +346,7 @@ export default function EstoquePage() {
       .join(" ");
 
     const existingProductWithSameBase = products.find(p => {
+        if (p.category !== 'Celular') return false;
         const pBaseName = attributeOrder
             .filter(key => key !== 'cor')
             .map(key => p.attributes[key])
@@ -359,8 +360,8 @@ export default function EstoquePage() {
     if (existingProductWithSameBase?.sku) {
         sequentialNumberPart = existingProductWithSameBase.sku.replace(/[^0-9]/g, '');
     } else {
-        const maxSkuNum = products.reduce((max, p) => {
-            if (!p.sku) return max;
+        const cellularProducts = products.filter(p => p.category === 'Celular' && p.sku);
+        const maxSkuNum = cellularProducts.reduce((max, p) => {
             const num = parseInt(p.sku.replace(/[^0-9]/g, ''), 10);
             return isNaN(num) ? max : Math.max(max, num);
         }, 0);
@@ -932,3 +933,4 @@ export default function EstoquePage() {
     
 
     
+
