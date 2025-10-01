@@ -591,8 +591,10 @@ export default function CatalogoPdfPage() {
             });
             toast({ title: 'Análise Salva!', description: 'Você pode encontrá-la no menu Arquivo.' });
             setIsSaveAlertOpen(false);
+            router.push('/arquivo/analises-pdf-salvas');
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: e.message || 'Ocorreu um erro inesperado ao salvar. Verifique o console.' });
+            console.error("Save analysis error:", e);
         } finally {
             setIsSaving(false);
         }

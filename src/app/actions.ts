@@ -3,10 +3,10 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService, savePdfAnalysis } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
 import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry, SavedPdfAnalysis, ProductResult } from '@/lib/types';
-import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
+import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken, fetchAllMyItems } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
 import { parseZplFields, updateFieldAt } from '@/lib/zpl';
@@ -258,11 +258,18 @@ export async function fetchActiveCatalogProductsAction(): Promise<{
   error: string | null;
 }> {
   try {
+    // 1. Sincronizar todos os anúncios de todas as contas do ML
+    const mlAccounts = await loadMlAccounts();
+    await fetchAllMyItems(mlAccounts.map(acc => acc.id));
+
+    // 2. Após sincronizar, ler os anúncios ativos do banco de dados
     const map = await fetchAllActiveCatalogProductsFromDB();
     const data = Object.fromEntries(map);
+
+    revalidatePath('/feed-25/analise-produtos-pdf');
     return { data, error: null };
   } catch (e: any) {
-    return { data: {}, error: e.message || 'Falha ao buscar anúncios ativos do DB.' };
+    return { data: {}, error: e.message || 'Falha ao buscar anúncios ativos.' };
   }
 }
 
@@ -1123,28 +1130,6 @@ export async function fetchAllProductsFromFeedAction(): Promise<{ products: Feed
         return { products: null, error: e.message || 'Falha ao buscar produtos do feed.' };
     }
 }
-
-export async function savePdfAnalysisAction(
-    _prevState: any,
-    formData: FormData
-): Promise<{ success: boolean; error: string | null; }> {
-    try {
-        const payload: Omit<SavedPdfAnalysis, 'id' | 'createdAt'> = {
-            analysisName: formData.get('analysisName') as string,
-            brand: formData.get('brand') as string,
-            extractedProducts: JSON.parse(formData.get('extractedProducts') as string),
-            batchSearchResults: JSON.parse(formData.get('batchSearchResults') as string),
-        };
-        
-        if (!payload.analysisName) throw new Error("O nome da análise é obrigatório.");
-
-        await savePdfAnalysis(payload);
-        revalidatePath('/arquivo/analises-pdf-salvas');
-        return { success: true, error: null };
-
-    } catch (e: any) {
-        return { success: false, error: e.message || 'Falha ao salvar a análise.' };
-    }
-}
+    
 
     
