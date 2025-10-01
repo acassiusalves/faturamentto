@@ -14,9 +14,9 @@ export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precifi
 export const STEP_EXECUTION: Record<StepId, { provider: "openai" | "gemini"; model: string }> = {
   organizar:  { provider: "openai", model: "gpt-4o-mini" },
   padronizar: { provider: "openai", model: "gpt-4o-mini" },
-  lookup:     { provider: "gemini", model: "gemini-1.5-flash" },
-  mapear:     { provider: "gemini", model: "gemini-1.5-pro" },
-  precificar: { provider: "gemini", model: "gemini-1.5-pro" },
+  lookup:     { provider: "gemini", model: "gemini-2.0-flash" },
+  mapear:     { provider: "gemini", model: "gemini-2.0-flash" },
+  precificar: { provider: "gemini", model: "gemini-2.0-flash" },
   teste_gpt:  { provider: "openai", model: "gpt-4o-mini" },
 };
 
@@ -28,7 +28,7 @@ async function callOpenAI(prompt: string, model: string, apiKey: string): Promis
         const chatCompletion = await openai.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
             model: model,
-            response_format: { type: "json_object" }, // Forçar saída JSON
+            response_format: { type: "json_object" },
         });
 
         const content = chatCompletion.choices[0]?.message?.content;
@@ -37,7 +37,6 @@ async function callOpenAI(prompt: string, model: string, apiKey: string): Promis
             throw new Error("A API da OpenAI não retornou conteúdo.");
         }
         
-        // O conteúdo já é uma string JSON, então apenas retornamos.
         return content;
         
     } catch (error) {
@@ -54,7 +53,7 @@ async function callGemini(prompt: string, model: string): Promise<string> {
 
   const geminiPrompt = ai.definePrompt({
     name: 'genericGeminiPrompt',
-    model: `googleai/${model}`,
+    model: model, // O modelo já vem com o prefixo googleai/ do runStep
     prompt: prompt,
     output: {
       format: 'json'
@@ -83,7 +82,6 @@ export async function runStep(step: StepId, prompt: string): Promise<string> {
     if (!key) throw new Error("OPENAI_API_KEY não encontrada nas App Settings (página de Mapeamento).");
     return await callOpenAI(prompt, model, key);
   } else {
-    // A chave do Gemini já é tratada dentro do getAi/callGemini
-    return await callGemini(prompt, model);
+    return await callGemini(prompt, `googleai/${model}`);
   }
 }
