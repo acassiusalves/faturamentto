@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle, Save, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount, ProductResult } from '@/lib/types';
+import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount, ProductResult, SavedPdfAnalysis } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useRouter } from 'next/navigation';
 
 
 // PDF.js dinâmico
@@ -190,6 +191,7 @@ const toNumberSafe = (v: string | number | null | undefined) => {
 
 export default function CatalogoPdfPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [pdfDoc, setPdfDoc] = useState<any>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -234,6 +236,29 @@ export default function CatalogoPdfPage() {
     const [isSaveAlertOpen, setIsSaveAlertOpen] = useState(false);
     const [analysisName, setAnalysisName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+
+    // Load from localStorage on mount
+    useEffect(() => {
+        try {
+            const savedDataString = localStorage.getItem('loadedPdfAnalysis');
+            if (savedDataString) {
+                const savedData: SavedPdfAnalysis = JSON.parse(savedDataString);
+                setAnalysisName(savedData.analysisName);
+                setBrand(savedData.brand);
+                setAllProducts(savedData.extractedProducts);
+                setBatchSearchResults(savedData.batchSearchResults);
+                toast({
+                    title: "Análise Restaurada",
+                    description: `Análise "${savedData.analysisName}" carregada do seu histórico.`
+                });
+                // Clear the data from localStorage after loading to prevent reloading on refresh
+                localStorage.removeItem('loadedPdfAnalysis');
+            }
+        } catch (error) {
+            console.error("Failed to load analysis from localStorage", error);
+            toast({ variant: 'destructive', title: "Erro ao Carregar", description: "Não foi possível restaurar a análise salva." });
+        }
+    }, [toast]);
 
 
     // Inicializa PDF.js e carrega a chave Gemini
@@ -1031,6 +1056,8 @@ export default function CatalogoPdfPage() {
 
     
 
+
+    
 
     
 

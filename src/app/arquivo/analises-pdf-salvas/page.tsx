@@ -13,9 +13,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import type { SavedPdfAnalysis } from '@/lib/types';
 import { loadPdfAnalyses, deletePdfAnalysis } from '@/services/firestore';
+import { useRouter } from 'next/navigation';
 
 export default function AnalisesPdfSalvasPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [analyses, setAnalyses] = useState<SavedPdfAnalysis[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -57,16 +59,9 @@ export default function AnalisesPdfSalvasPage() {
     };
     
     const handleLoadAnalysis = (analysis: SavedPdfAnalysis) => {
-        // Here you would typically use a state management solution (like Zustand, Redux, or Context)
-        // to pass this data to the analysis page. For simplicity with the current setup,
-        // we'll use localStorage and notify the user.
         try {
             localStorage.setItem('loadedPdfAnalysis', JSON.stringify(analysis));
-            toast({
-                title: "Análise Carregada!",
-                description: "Os dados foram carregados. Navegue para a página de Análise de PDF para vê-los.",
-                action: <Link href="/feed-25/analise-produtos-pdf" className="bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 rounded-md">Ir para Análise</Link>
-            });
+            router.push('/feed-25/analise-produtos-pdf');
         } catch (error) {
             toast({
                 variant: "destructive",
@@ -173,5 +168,7 @@ export default function AnalisesPdfSalvasPage() {
         </div>
     );
 }
+
+    
 
     
