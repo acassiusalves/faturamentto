@@ -1092,6 +1092,18 @@ export async function savePdfAnalysis(analysis: Omit<SavedPdfAnalysis, 'id' | 'c
     await setDoc(docRef, toFirestore(dataToSave));
     return docRef.id;
 }
+
+export async function loadPdfAnalyses(): Promise<SavedPdfAnalysis[]> {
+    const analysisCol = collection(db, 'pdf-analyses');
+    const q = query(analysisCol, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as SavedPdfAnalysis);
+}
+
+export async function deletePdfAnalysis(analysisId: string): Promise<void> {
+    const docRef = doc(db, 'pdf-analyses', analysisId);
+    await deleteDoc(docRef);
+}
     
 
     
