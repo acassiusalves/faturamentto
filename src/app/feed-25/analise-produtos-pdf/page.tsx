@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo, useRef } from 'react';
@@ -6,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle, Save, Archive } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle, Save, Archive, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
+import { analyzeCatalogAction, findTrendingProductsAction, fetchActiveCatalogProductsAction } from '@/app/actions';
 import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount, ProductResult, SavedPdfAnalysis } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -236,6 +237,9 @@ export default function CatalogoPdfPage() {
     const [isSaveAlertOpen, setIsSaveAlertOpen] = useState(false);
     const [analysisName, setAnalysisName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    
+    // State for posted accounts refresh
+    const [isRefreshingPosted, setIsRefreshingPosted] = useState(false);
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -504,18 +508,12 @@ export default function CatalogoPdfPage() {
             
             const searchResult = await searchMercadoLivreAction({ result: null, error: null }, formData);
             if (searchResult?.result) {
-                const matchingOffers = searchResult.result.filter((offer: any) => 
-                    offer.model?.toLowerCase() === product.model?.toLowerCase()
-                );
-
-                if (matchingOffers.length > 0) {
-                    const offersWithProductInfo = matchingOffers.map(offer => ({
-                        ...offer,
-                        originalProductName: product.name,
-                        originalProductPrice: product.price // Adicionando o preço original aqui
-                    }));
-                    setBatchSearchResults(prev => [...prev, ...offersWithProductInfo]);
-                }
+                const offersWithProductInfo = searchResult.result.map((offer: any) => ({
+                    ...offer,
+                    originalProductName: product.name,
+                    originalProductPrice: product.price
+                }));
+                setBatchSearchResults(prev => [...prev, ...offersWithProductInfo]);
             } else {
                  console.warn(`A busca por "${product.name}" não retornou um resultado válido.`);
             }
@@ -525,11 +523,44 @@ export default function CatalogoPdfPage() {
         setIsBatchSearching(false);
         setBatchSearchStatus('Busca concluída!');
     };
+    
+    const handleRefreshPostedStatus = async () => {
+        setIsRefreshingPosted(true);
+        try {
+            const { data, error } = await fetchActiveCatalogProductsAction();
+            if (error) {
+                throw new Error(error);
+            }
+            
+            // Cria um mapa com os dados atualizados
+            const updatedPostedMap = new Map<string, PostedOnAccount[]>(Object.entries(data));
+
+            // Atualiza o estado `batchSearchResults` com os novos dados de `postedOnAccounts`
+            setBatchSearchResults(prevResults => 
+                prevResults.map(offer => {
+                    const catalogId = offer.catalog_product_id;
+                    if (catalogId && updatedPostedMap.has(catalogId)) {
+                        return { ...offer, postedOnAccounts: updatedPostedMap.get(catalogId) };
+                    }
+                    // Se não houver atualização, retorna o item como estava, mas garante que o campo exista como array vazio
+                    return { ...offer, postedOnAccounts: offer.postedOnAccounts || [] };
+                })
+            );
+
+            toast({ title: 'Status de Anúncios Atualizado!', description: 'A informação "Postado em" foi sincronizada.' });
+
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Erro ao Atualizar', description: err.message });
+        } finally {
+            setIsRefreshingPosted(false);
+        }
+    };
+
 
     const groupedBatchResults = useMemo(() => {
         const groups = new Map<string, { offers: any[], originalPrice: string }>();
         batchSearchResults.forEach(offer => {
-            const modelKey = offer.model || 'Outros Modelos';
+            const modelKey = offer.model || offer.originalProductName || 'Outros Modelos';
             if (!groups.has(modelKey)) {
                 groups.set(modelKey, { offers: [], originalPrice: offer.originalProductPrice });
             }
@@ -696,7 +727,6 @@ export default function CatalogoPdfPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-2/5">Produto</TableHead>
-                                        <TableHead className="min-w-[220px] w-[260px]">Modelo</TableHead>
                                         <TableHead>Marca</TableHead>
                                         <TableHead>Preço Unit.</TableHead>
                                         <TableHead>Total Cx</TableHead>
@@ -726,34 +756,6 @@ export default function CatalogoPdfPage() {
                                                           <p className="text-xs text-muted-foreground">{product.description}</p>
                                                         </div>
                                                       </div>
-                                                    </TableCell>
-                                                    <TableCell className="align-top max-w-[480px]">
-                                                        <div className="flex flex-col gap-1.5">
-                                                            <div
-                                                                className="px-2 py-1 rounded-md border bg-muted/40 text-sm leading-tight whitespace-normal break-words w-full cursor-pointer hover:bg-muted"
-                                                                title="Clique para copiar"
-                                                                onClick={() => handleCopyToClipboard(product.model || '')}
-                                                                >
-                                                                {product.model || '—'}
-                                                            </div>
-                                                            {product.isTrending && (
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger>
-                                                                            <div className="flex items-center gap-2 text-green-600 font-semibold text-xs whitespace-nowrap cursor-pointer">
-                                                                                em alta <TrendingUp className="h-4 w-4" />
-                                                                            </div>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p className="font-semibold">Buscas no Mercado Livre</p>
-                                                                            <ul className="list-disc list-inside">
-                                                                                {trendingKeywords.map(kw => <li key={kw}>{kw}</li>)}
-                                                                            </ul>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            )}
-                                                        </div>
                                                     </TableCell>
                                                      <TableCell>
                                                         <Input 
@@ -829,13 +831,21 @@ export default function CatalogoPdfPage() {
              {groupedBatchResults.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <PackageSearch />
-                            Produtos Encontrados com Correspondência de Modelo
-                        </CardTitle>
-                        <CardDescription>
-                            A busca automática encontrou estes anúncios no Mercado Livre que correspondem ao modelo dos produtos extraídos.
-                        </CardDescription>
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <PackageSearch />
+                                    Resultados da Busca no ML
+                                </CardTitle>
+                                <CardDescription>
+                                    A busca automática encontrou estes anúncios no Mercado Livre.
+                                </CardDescription>
+                            </div>
+                             <Button variant="outline" onClick={handleRefreshPostedStatus} disabled={isRefreshingPosted}>
+                                {isRefreshingPosted ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                                Atualizar Anúncios Postados
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <Accordion type="multiple" className="space-y-4">

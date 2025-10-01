@@ -247,6 +247,20 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
     return allActiveCatalogs;
 }
 
+// Nova action para ser chamada pelo client
+export async function fetchActiveCatalogProductsAction(): Promise<{
+  data: Record<string, PostedOnAccount[]>;
+  error: string | null;
+}> {
+  try {
+    const map = await fetchAllActiveCatalogProductsFromDB();
+    const data = Object.fromEntries(map);
+    return { data, error: null };
+  } catch (e: any) {
+    return { data: {}, error: e.message || 'Falha ao buscar anúncios ativos do DB.' };
+  }
+}
+
 
 // Server Actions
 export async function searchMercadoLivreAction(

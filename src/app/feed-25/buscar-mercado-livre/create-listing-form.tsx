@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy } from 'lucide-react';
-import { createCatalogListingAction, fetchAllProductsFromFeedAction } from '@/app/actions';
+import { createCatalogListingAction, fetchAllProductsFromFeedAction, revalidatePage } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -179,6 +179,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
         if (successCount > 0) {
             toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
+            revalidatePage('/feed-25/analise-produtos-pdf'); // revalidate the page to show new posted ads
         }
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
