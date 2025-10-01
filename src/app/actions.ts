@@ -242,6 +242,7 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
             
             const accounts = allActiveCatalogs.get(catalogId)!;
             
+            // Corrige a lógica para evitar duplicatas: verifica a combinação de ID da conta e tipo de anúncio
             if (accountId && !accounts.some(a => a.accountId === accountId && a.listingTypeId === listingTypeId)) {
                 accounts.push({ accountId, accountName, listingTypeId });
             }
