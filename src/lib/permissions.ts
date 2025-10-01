@@ -2,7 +2,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore } from 'lucide-react';
 import { MercadoLivreLogo, MagaluLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -46,6 +46,7 @@ export const navLinks = [
         { href: "/arquivo/status-ideris", label: "Status Ideris", icon: ListChecks },
         { href: "/arquivo/dados-mercado-livre", label: "Dados de Categoria (ML)", icon: Database },
         { href: "/arquivo/meus-anuncios-salvos", label: "Meus Anúncios Salvos", icon: HardDrive },
+        { href: "/arquivo/analises-pdf-salvas", label: "Análises de PDF Salvas", icon: ArchiveRestore },
         { href: "/arquivo/dados-frete-mercado-livre", label: "Dados Frete Mercado Livre", icon: Truck },
       ]
     },
@@ -108,6 +109,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],
     '/arquivo/dados-frete-mercado-livre': ['admin', 'socio', 'financeiro'],
     '/arquivo/meus-anuncios-salvos': ['admin', 'socio', 'financeiro'],
+    '/arquivo/analises-pdf-salvas': ['admin', 'socio', 'financeiro'],
     '/relatorios': ['admin', 'socio', 'financeiro'],
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
@@ -132,3 +134,5 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 };
+
+    

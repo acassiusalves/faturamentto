@@ -17,11 +17,11 @@ export default function ArchivePage() {
       <Tabs defaultValue="entradas" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="entradas">
-              <ArrowDownToDot className="mr-2"/>
+              <ArrowDownToDot className="mr-2 h-4 w-4" />
               Histórico de Entradas
             </TabsTrigger>
             <TabsTrigger value="saidas">
-              <ArrowUpFromDot className="mr-2"/>
+              <ArrowUpFromDot className="mr-2 h-4 w-4" />
               Histórico de Saídas (Picking)
             </TabsTrigger>
         </TabsList>
@@ -35,3 +35,5 @@ export default function ArchivePage() {
     </div>
   );
 }
+
+    

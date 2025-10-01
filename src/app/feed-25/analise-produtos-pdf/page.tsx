@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { BookImage, Loader2, Upload, FileText, XCircle, ChevronLeft, ChevronRight, Play, FastForward, Search, Wand2, ChevronsLeft, ChevronsRight, PackageSearch, TrendingUp, Truck, AlertTriangle, Clock, CheckCircle, Save, Archive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeCatalogAction, findTrendingProductsAction } from '@/app/actions';
-import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount } from '@/lib/types';
+import type { AnalyzeCatalogOutput, SearchableProduct, PostedOnAccount, ProductResult } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SearchResultsDialog } from './search-results-dialog';
@@ -23,7 +23,18 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { parsePriceToNumber, formatBRL } from '@/lib/utils';
-import { loadAppSettings } from '@/services/firestore';
+import { loadAppSettings, savePdfAnalysis } from '@/services/firestore';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 // PDF.js dinâmico
@@ -209,7 +220,7 @@ export default function CatalogoPdfPage() {
     // Busca em lote
     const [isBatchSearching, setIsBatchSearching] = useState(false);
     const [batchSearchProgress, setBatchSearchProgress] = useState(0);
-    const [batchSearchResults, setBatchSearchResults] = useState<any[]>([]);
+    const [batchSearchResults, setBatchSearchResults] = useState<ProductResult[]>([]);
     const [batchSearchStatus, setBatchSearchStatus] = useState('');
 
     // Paginação de resultados agrupados
@@ -219,6 +230,11 @@ export default function CatalogoPdfPage() {
     const abortRef = useRef<AbortController | null>(null);
     const [progressPct, setProgressPct] = useState(0);
     
+    // State for saving analysis
+    const [isSaveAlertOpen, setIsSaveAlertOpen] = useState(false);
+    const [analysisName, setAnalysisName] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
 
     // Inicializa PDF.js e carrega a chave Gemini
     useEffect(() => {
@@ -323,6 +339,7 @@ export default function CatalogoPdfPage() {
             setCurrentPage(1);
             setPdfDoc(null);
             setIsAnalyzingAll(false);
+            setAnalysisName(selectedFile.name.replace('.pdf', ''));
             
             try {
                 const arrayBuffer = await selectedFile.arrayBuffer();
@@ -502,6 +519,28 @@ export default function CatalogoPdfPage() {
         const startIndex = groupedResultPageIndex * groupedResultPageSize;
         return groupedBatchResults.slice(startIndex, startIndex + groupedResultPageSize);
     }, [groupedBatchResults, groupedResultPageIndex, groupedResultPageSize]);
+    
+    const handleSaveAnalysis = async () => {
+        if (!analysisName.trim()) {
+            toast({ variant: 'destructive', title: 'Nome Obrigatório', description: 'Por favor, dê um nome para esta análise antes de salvar.'});
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await savePdfAnalysis({
+                analysisName: analysisName,
+                brand: brand,
+                extractedProducts: allProducts,
+                batchSearchResults: batchSearchResults,
+            });
+            toast({ title: 'Análise Salva!', description: 'Você pode encontrá-la no menu Arquivo.' });
+            setIsSaveAlertOpen(false);
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: e.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <>
@@ -612,6 +651,10 @@ export default function CatalogoPdfPage() {
                                 <Button onClick={handleBatchSearch} disabled={isBatchSearching}>
                                     {isBatchSearching ? <Loader2 className="animate-spin" /> : <Search />}
                                     Buscar todos no ML
+                                </Button>
+                                <Button variant="outline" onClick={() => setIsSaveAlertOpen(true)}>
+                                    <Archive className="mr-2 h-4 w-4"/>
+                                    Salvar Análise
                                 </Button>
                             </div>
                         </div>
@@ -937,6 +980,34 @@ export default function CatalogoPdfPage() {
                 product={selectedProductForSearch}
             />
         )}
+
+        <AlertDialog open={isSaveAlertOpen} onOpenChange={setIsSaveAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Salvar Análise do Catálogo</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Digite um nome para identificar esta análise. Isso salvará os produtos extraídos e os resultados da busca no ML.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2 py-4">
+                    <Label htmlFor="analysis-name">Nome da Análise</Label>
+                    <Input 
+                        id="analysis-name"
+                        value={analysisName}
+                        onChange={(e) => setAnalysisName(e.target.value)}
+                        placeholder="Ex: Catálogo Xiaomi - Maio 2024"
+                    />
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSaveAnalysis} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
         </>
     );
 }
@@ -960,6 +1031,8 @@ export default function CatalogoPdfPage() {
 
     
 
+
+    
 
     
 

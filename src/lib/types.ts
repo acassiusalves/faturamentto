@@ -774,4 +774,14 @@ export interface CreateListingResult {
     payload?: CreateListingPayload;
 }
 
+export interface SavedPdfAnalysis {
+    id: string;
+    createdAt: string; // ISO date
+    analysisName: string;
+    brand: string;
+    extractedProducts: SearchableProduct[];
+    batchSearchResults: ProductResult[];
+}
+    
+
     

@@ -3,9 +3,9 @@
 'use server';
 
 import type { PipelineResult } from '@/lib/types';
-import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService } from '@/services/firestore';
+import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService, savePdfAnalysis } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry, SavedPdfAnalysis, ProductResult } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -1105,3 +1105,27 @@ export async function fetchAllProductsFromFeedAction(): Promise<{ products: Feed
     }
 }
 
+export async function savePdfAnalysisAction(
+    _prevState: any,
+    formData: FormData
+): Promise<{ success: boolean; error: string | null; }> {
+    try {
+        const payload: Omit<SavedPdfAnalysis, 'id' | 'createdAt'> = {
+            analysisName: formData.get('analysisName') as string,
+            brand: formData.get('brand') as string,
+            extractedProducts: JSON.parse(formData.get('extractedProducts') as string),
+            batchSearchResults: JSON.parse(formData.get('batchSearchResults') as string),
+        };
+        
+        if (!payload.analysisName) throw new Error("O nome da análise é obrigatório.");
+
+        await savePdfAnalysis(payload);
+        revalidatePath('/arquivo/analises-pdf-salvas');
+        return { success: true, error: null };
+
+    } catch (e: any) {
+        return { success: false, error: e.message || 'Falha ao salvar a análise.' };
+    }
+}
+
+    

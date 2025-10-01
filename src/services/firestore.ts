@@ -18,7 +18,7 @@ import {
   updateDoc,
   getCountFromServer
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials, SavedPdfAnalysis } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -1076,5 +1076,22 @@ export async function revertReturnAction(returnLog: ReturnLog): Promise<void> {
   
   await batch.commit();
 }
+
+
+// --- PDF ANALYSIS ---
+export async function savePdfAnalysis(analysis: Omit<SavedPdfAnalysis, 'id' | 'createdAt'>): Promise<string> {
+    const analysisCol = collection(db, 'pdf-analyses');
+    const docRef = doc(analysisCol);
+    
+    const dataToSave: SavedPdfAnalysis = {
+        ...analysis,
+        id: docRef.id,
+        createdAt: new Date().toISOString(),
+    };
+
+    await setDoc(docRef, toFirestore(dataToSave));
+    return docRef.id;
+}
+    
 
     
