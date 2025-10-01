@@ -4,6 +4,7 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   experimental: {
     ppr: false,
+    serverActions: true,
   },
   webpack(config) {
     // Carrega o 'worker' do pdfjs-dist
