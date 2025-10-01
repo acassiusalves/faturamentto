@@ -6,7 +6,7 @@ export const ai = genkit({
   plugins: [
       googleAI(),
   ],
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-2.0-flash',
 });
 
 // Helper function to get the AI instance, optionally with a user-provided API key.
@@ -27,8 +27,11 @@ export function getAi(apiKey?: string | null) {
               );
               const client = new GoogleGenerativeAI(apiKey);
               try {
+                // Remove o prefixo 'googleai/' se existir
+                const modelName = request.model.replace('googleai/', '');
+                
                 return await client
-                  .getGenerativeModel({model: request.model})
+                  .getGenerativeModel({model: modelName})
                   .generateContent(request);
               } catch (e: any) {
                 if (e.message?.includes('API key not valid')) {

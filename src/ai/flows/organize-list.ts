@@ -70,7 +70,7 @@ const OrganizeResultSchema = z.object({
 
 export async function organizeList(input: OrganizeListInput): Promise<OrganizeResult> {
     const ai = getAi(input.apiKey);
-    const model = 'googleai/gemini-1.5-flash';
+    const model = 'googleai/gemini-2.0-flash';
 
     const prompt = ai.definePrompt({
         name: 'organizeListPrompt',

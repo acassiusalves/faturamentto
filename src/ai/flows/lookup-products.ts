@@ -142,7 +142,7 @@ Antes de retornar, verifique:
 `;
 export async function lookupProducts(input: LookupProductsInput): Promise<LookupResult> {
     const ai = getAi(input.apiKey);
-    const model = 'googleai/gemini-1.5-flash';
+    const model = 'googleai/gemini-2.0-flash';
 
     const prompt = ai.definePrompt({
         name: 'lookupProductsPrompt',
