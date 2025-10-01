@@ -12,8 +12,8 @@ export type StepId = "organizar" | "padronizar" | "lookup" | "mapear" | "precifi
 
 
 export const STEP_EXECUTION: Record<StepId, { provider: "openai" | "gemini"; model: string }> = {
-  organizar:  { provider: "openai", model: "gpt-4o-mini" },
-  padronizar: { provider: "openai", model: "gpt-4o-mini" },
+  organizar:  { provider: "gemini", model: "gemini-2.0-flash" },
+  padronizar: { provider: "gemini", model: "gemini-2.0-flash" },
   lookup:     { provider: "gemini", model: "gemini-2.0-flash" },
   mapear:     { provider: "gemini", model: "gemini-2.0-flash" },
   precificar: { provider: "gemini", model: "gemini-2.0-flash" },
