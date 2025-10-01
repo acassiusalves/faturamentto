@@ -220,12 +220,17 @@ async function mapWithConcurrency<T, R>(arr: T[], limit: number, fn: (x: T, i: n
 async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, PostedOnAccount[]>> {
     const allActiveCatalogs = new Map<string, PostedOnAccount[]>();
     
+    // 1. Carrega os anúncios salvos e as contas do ML.
     const myItems = await loadMyItems();
     const mlAccounts = await loadMlAccounts();
     const accountIdToNameMap = new Map(mlAccounts.map(acc => [acc.id, acc.accountName || acc.id]));
 
-    for (const item of myItems) {
-        if (item.status === 'active' && item.catalog_product_id && item.id_conta_autenticada) {
+    // 2. Filtra APENAS os anúncios com status 'active'
+    const activeItems = myItems.filter(item => item.status === 'active');
+
+    // 3. Processa apenas os anúncios ativos
+    for (const item of activeItems) {
+        if (item.catalog_product_id && item.id_conta_autenticada) {
             const catalogId = item.catalog_product_id;
             const accountId = String(item.id_conta_autenticada);
             const accountName = accountIdToNameMap.get(accountId) || accountId;
@@ -237,7 +242,6 @@ async function fetchAllActiveCatalogProductsFromDB(): Promise<Map<string, Posted
             
             const accounts = allActiveCatalogs.get(catalogId)!;
             
-            // Usar accountId para checagem de unicidade
             if (accountId && !accounts.some(a => a.accountId === accountId && a.listingTypeId === listingTypeId)) {
                 accounts.push({ accountId, accountName, listingTypeId });
             }
