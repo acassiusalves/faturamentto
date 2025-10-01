@@ -10,7 +10,6 @@
  */
 
 import { getAi } from '@/ai/genkit';
-import { gemini15Flash, gemini15Pro } from '@genkit-ai/googleai';
 import { z } from 'genkit';
 
 const ProductInputSchema = z.object({
@@ -85,7 +84,7 @@ export async function analyzeFeed(input: any): Promise<AnalyzeFeedOutput> {
   });
   
   const ai = getAi(input.apiKey);
-  const selectedModel = input.modelName === 'gemini-1.5-pro-latest' ? gemini15Pro : gemini15Flash;
+  const selectedModel = 'googleai/gemini-2.0-flash';
 
   const prompt = ai.definePrompt({
     name: 'analyzeFeedPrompt',
