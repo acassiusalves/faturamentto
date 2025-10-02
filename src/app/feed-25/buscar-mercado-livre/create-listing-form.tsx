@@ -71,10 +71,11 @@ interface CreateListingDialogProps {
 }
 
 // Sub-component for each row in the bulk form
-function ListingRow({ index, control, getValues, remove, accounts, product, allFeedProducts }: {
+function ListingRow({ index, control, getValues, setValue, remove, accounts, product, allFeedProducts }: {
     index: number;
     control: any;
     getValues: any;
+    setValue: any;
     remove: (index: number) => void;
     accounts: MlAccount[];
     product: ProductResult;
@@ -95,7 +96,7 @@ function ListingRow({ index, control, getValues, remove, accounts, product, allF
     }, [allFeedProducts, searchTerm]);
 
     const handleProductSelect = (productToSelect: FeedProduct) => {
-        control.setValue(`listings.${index}.sellerSku`, productToSelect.sku, { shouldValidate: true });
+        setValue(`listings.${index}.sellerSku`, productToSelect.sku, { shouldValidate: true });
         setIsSearchPopoverOpen(false);
         setSearchTerm('');
     };
@@ -258,7 +259,7 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
         }
     });
     
-    const { control, handleSubmit, formState: { errors }, getValues } = form;
+    const { control, handleSubmit, formState: { errors }, getValues, setValue } = form;
     const { fields, append, remove } = useFieldArray({
         control,
         name: "listings"
@@ -398,6 +399,7 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
                                         index={index}
                                         control={control}
                                         getValues={getValues}
+                                        setValue={setValue}
                                         remove={remove}
                                         accounts={accounts}
                                         product={products.find(p => p.id === form.getValues(`listings.${index}.productResultId`))!}
