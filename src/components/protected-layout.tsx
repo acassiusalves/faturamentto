@@ -15,6 +15,32 @@ interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
 
+// Helper function to find the first page the user has access to
+function getFirstAccessiblePage(pagePermissions: Record<string, string[]>, userRole: string, inactivePages: string[]): string {
+  // Priority order of pages to check
+  const priorityPages = ['/', '/produtos', '/estoque', '/feed-25', '/analise-por-conta'];
+
+  // First check priority pages
+  for (const page of priorityPages) {
+    const allowedRoles = pagePermissions[page];
+    if (allowedRoles && allowedRoles.includes(userRole) && !inactivePages.includes(page)) {
+      return page;
+    }
+  }
+
+  // If no priority page is accessible, find any accessible page
+  for (const [page, allowedRoles] of Object.entries(pagePermissions)) {
+    if (page !== '/login' && page !== '/perfil' && !page.startsWith('/actions/')) {
+      if (allowedRoles.includes(userRole) && !inactivePages.includes(page)) {
+        return page;
+      }
+    }
+  }
+
+  // Fallback to profile page
+  return '/perfil';
+}
+
 export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const { user, loading, pagePermissions, inactivePages } = useAuth();
   const router = useRouter();
@@ -57,7 +83,8 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     // --- End of Notice Logic ---
     
     if (isLoginPage) {
-        router.push('/');
+        const firstPage = getFirstAccessiblePage(pagePermissions, user.role, inactivePages);
+        router.push(firstPage);
         return;
     }
     
@@ -71,7 +98,8 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     
     // Check if page is inactive
     if (inactivePages.includes(pathname)) {
-        router.push('/');
+        const firstPage = getFirstAccessiblePage(pagePermissions, user.role, inactivePages);
+        router.push(firstPage);
         return;
     }
 
@@ -79,7 +107,8 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     const allowedRoles = pagePermissions[pathname];
     if (allowedRoles && !allowedRoles.includes(user.role)) {
         console.warn(`Access Denied: User with role '${user.role}' tried to access '${pathname}'.`);
-        router.push('/'); // Redirect to dashboard if not permitted
+        const firstPage = getFirstAccessiblePage(pagePermissions, user.role, inactivePages);
+        router.push(firstPage); 
         return;
     }
 

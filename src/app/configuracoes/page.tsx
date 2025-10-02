@@ -230,38 +230,44 @@ export default function SettingsPage() {
 
                                     return (
                                         <AccordionItem value={page} key={page} className="border-b">
-                                             <AccordionTrigger 
-                                                className="p-0 hover:no-underline hover:bg-muted/50 group"
-                                             >
-                                                {triggerContent}
-                                             </AccordionTrigger>
-                                             {hasSubActions && (
-                                                <AccordionContent>
-                                                    <div className="bg-muted/50 p-4 border-t">
-                                                        <h4 className="font-semibold text-sm mb-2 pl-12">Ações Específicas da Página:</h4>
-                                                        {subActions.map(action => (
-                                                             <div key={action} className="grid grid-cols-[1fr,repeat(8,100px),100px] items-center py-2">
-                                                                 <div className="pl-14 text-sm text-muted-foreground italic truncate">
-                                                                    └ Ação: {action.split('/').pop()}
+                                             {hasSubActions ? (
+                                                <>
+                                                    <AccordionTrigger
+                                                        className="p-0 hover:no-underline hover:bg-muted/50 group p-4"
+                                                    >
+                                                        {triggerContent}
+                                                    </AccordionTrigger>
+                                                    <AccordionContent>
+                                                        <div className="bg-muted/50 p-4 border-t">
+                                                            <h4 className="font-semibold text-sm mb-2 pl-12">Ações Específicas da Página:</h4>
+                                                            {subActions.map(action => (
+                                                                 <div key={action} className="grid grid-cols-[1fr,repeat(8,100px),100px] items-center py-2">
+                                                                     <div className="pl-14 text-sm text-muted-foreground italic truncate">
+                                                                        └ Ação: {action.split('/').pop()}
+                                                                     </div>
+                                                                     {availableRoles.map(role => {
+                                                                        const isSuperUser = role.key === 'admin';
+                                                                        const isChecked = isSuperUser || permissions[action]?.includes(role.key);
+                                                                        return (
+                                                                             <div key={`${action}-${role.key}`} className="text-center">
+                                                                                <Checkbox
+                                                                                    checked={isChecked}
+                                                                                    onCheckedChange={(checked) => handlePermissionChange(action, role.key, !!checked)}
+                                                                                    disabled={isSuperUser}
+                                                                                />
+                                                                            </div>
+                                                                        )
+                                                                     })}
+                                                                     <div />
                                                                  </div>
-                                                                 {availableRoles.map(role => {
-                                                                    const isSuperUser = role.key === 'admin';
-                                                                    const isChecked = isSuperUser || permissions[action]?.includes(role.key);
-                                                                    return (
-                                                                         <div key={`${action}-${role.key}`} className="text-center">
-                                                                            <Checkbox
-                                                                                checked={isChecked}
-                                                                                onCheckedChange={(checked) => handlePermissionChange(action, role.key, !!checked)}
-                                                                                disabled={isSuperUser}
-                                                                            />
-                                                                        </div>
-                                                                    )
-                                                                 })}
-                                                                 <div />
-                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </AccordionContent>
+                                                            ))}
+                                                        </div>
+                                                    </AccordionContent>
+                                                </>
+                                             ) : (
+                                                <div className="p-4">
+                                                    {triggerContent}
+                                                </div>
                                              )}
                                         </AccordionItem>
                                     )

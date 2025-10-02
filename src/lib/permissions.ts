@@ -135,6 +135,6 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 
-    // Action-specific permissions
-    '/actions/ml/create-listing': ['admin', 'socio'],
+    // Action-specific permissions (format: /page-path/actions/action-name)
+    '/feed-25/buscar-mercado-livre/actions/create-listing': ['admin', 'socio'],
 };
