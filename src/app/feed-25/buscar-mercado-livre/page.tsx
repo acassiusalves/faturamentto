@@ -2,12 +2,13 @@
 
 'use client';
 
+import * as React from 'react';
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck, CheckCircle, PlusCircle } from 'lucide-react';
+import { Loader2, Search, Package, ExternalLink, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Users, Shield, TrendingDown, Clock, ShieldCheck, HelpCircle, Database, Star, Truck, CheckCircle, PlusCircle, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { searchMercadoLivreAction } from '@/app/actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { CreateListingDialog } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
 import type { MlAccount, PostedOnAccount } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -159,9 +161,13 @@ export default function BuscarMercadoLivrePage() {
     
     // Create Listing Dialog State
     const [isCreateListingOpen, setIsCreateListingOpen] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState<ProductResult | null>(null);
+    const [selectedProducts, setSelectedProducts] = useState<ProductResult[]>([]);
     const [accounts, setAccounts] = useState<MlAccount[]>([]);
     const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+
+    // Selection state
+    const [selectedRowIds, setSelectedRowIds] = useState<Record<string, boolean>>({});
+    const selectedCount = Object.values(selectedRowIds).filter(Boolean).length;
 
 
     // Pagination state
@@ -328,6 +334,7 @@ export default function BuscarMercadoLivrePage() {
       setSelectedStoreTypes([]);
       setBrandSearch('');
       setModelSearch('');
+      setSelectedRowIds({}); // Reset selection on new search
     }, [state.result]);
 
     useEffect(() => {
@@ -352,10 +359,38 @@ export default function BuscarMercadoLivrePage() {
         return () => clearInterval(timer);
     }, [isSearching]);
 
-    const handleCreateListing = (product: ProductResult) => {
-        setSelectedProduct(product);
+    const handleCreateListing = (products: ProductResult[]) => {
+        if (products.length === 0) return;
+        setSelectedProducts(products);
         setIsCreateListingOpen(true);
     };
+
+    const handleCreateSelected = () => {
+        const selected = filteredResults.filter(p => selectedRowIds[p.id]);
+        if(selected.length > 0) {
+            handleCreateListing(selected);
+        }
+    };
+    
+    const toggleRowSelection = (id: string) => {
+        setSelectedRowIds(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const toggleSelectAll = () => {
+        const allVisibleIds = paginatedResults.map(p => p.id);
+        const allSelected = allVisibleIds.every(id => selectedRowIds[id]);
+        const newSelected: Record<string, boolean> = {};
+        if (!allSelected) {
+            allVisibleIds.forEach(id => { newSelected[id] = true });
+        }
+        setSelectedRowIds(prev => ({...prev, ...newSelected}));
+    };
+
+    const isAllVisibleSelected = useMemo(() => {
+        const visibleIds = paginatedResults.map(p => p.id);
+        return visibleIds.length > 0 && visibleIds.every(id => selectedRowIds[id]);
+    }, [paginatedResults, selectedRowIds]);
+
 
     return (
         <>
@@ -435,14 +470,25 @@ export default function BuscarMercadoLivrePage() {
 
                     <Card>
                         <CardHeader>
-                             <div className="flex justify-between items-center">
+                             <div className="flex flex-wrap justify-between items-center gap-4">
                                 <div>
                                     <CardTitle>Resultados da Busca ({filteredResults.length})</CardTitle>
                                     <CardDescription>Produtos encontrados no catálogo do Mercado Livre.</CardDescription>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                    <Label htmlFor="active-only-switch" className="text-sm font-medium">Apenas ativos</Label>
-                                    <Switch id="active-only-switch" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
+                                 <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Label htmlFor="active-only-switch" className="text-sm font-medium">Apenas ativos</Label>
+                                        <Switch id="active-only-switch" checked={showOnlyActive} onCheckedChange={setShowOnlyActive} />
+                                    </div>
+                                    {canCreateListing && (
+                                        <Button
+                                            onClick={handleCreateSelected}
+                                            disabled={selectedCount === 0}
+                                        >
+                                            <Copy className="mr-2 h-4 w-4"/>
+                                            Criar Selecionados ({selectedCount})
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                              {!isSearching && state?.result && (
@@ -456,6 +502,13 @@ export default function BuscarMercadoLivrePage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-[60px] text-center">
+                                                 <Checkbox
+                                                    checked={isAllVisibleSelected}
+                                                    onCheckedChange={toggleSelectAll}
+                                                    aria-label="Selecionar todos"
+                                                />
+                                            </TableHead>
                                             <TableHead className="w-[120px]">Imagem</TableHead>
                                             <TableHead>Nome do Produto</TableHead>
                                             <TableHead>Preço</TableHead>
@@ -475,7 +528,18 @@ export default function BuscarMercadoLivrePage() {
 
 
                                             return (
-                                                <TableRow key={product.id} className={cn("align-top", product.price === 0 && "opacity-50 bg-muted/50")}>
+                                                <TableRow 
+                                                    key={product.id} 
+                                                    className={cn("align-top", product.price === 0 && "opacity-50 bg-muted/50")}
+                                                    data-state={selectedRowIds[product.id] ? 'selected' : ''}
+                                                >
+                                                     <TableCell className="text-center">
+                                                        <Checkbox
+                                                            checked={!!selectedRowIds[product.id]}
+                                                            onCheckedChange={() => toggleRowSelection(product.id)}
+                                                            aria-label={`Selecionar ${displayName}`}
+                                                        />
+                                                    </TableCell>
                                                     <TableCell>
                                                         <div className="w-24 h-24 bg-muted rounded-md overflow-hidden relative flex items-center justify-center">
                                                             {product.thumbnail && !broken.has(product.id) ? (
@@ -632,7 +696,7 @@ export default function BuscarMercadoLivrePage() {
                                                     </TableCell>
                                                     <TableCell className="text-center align-middle">
                                                         {canCreateListing && (
-                                                            <Button variant="secondary" size="sm" onClick={() => handleCreateListing(product)}>
+                                                            <Button variant="secondary" size="sm" onClick={() => handleCreateListing([product])}>
                                                                 <PlusCircle className="h-4 w-4 mr-2" />
                                                                 Criar Anúncio
                                                             </Button>
@@ -642,7 +706,7 @@ export default function BuscarMercadoLivrePage() {
                                             )
                                         }) : (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="h-24 text-center">
+                                                <TableCell colSpan={5} className="h-24 text-center">
                                                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                                                         <Package className="h-10 w-10 mb-2"/>
                                                         Nenhum produto encontrado para os filtros selecionados.
@@ -702,14 +766,15 @@ export default function BuscarMercadoLivrePage() {
             )}
         </main>
         
-        {selectedProduct && (
+        {selectedProducts.length > 0 && (
             <CreateListingDialog
                 isOpen={isCreateListingOpen}
                 onClose={() => setIsCreateListingOpen(false)}
-                product={selectedProduct}
+                products={selectedProducts}
                 accounts={accounts}
             />
         )}
         </>
     );
 }
+

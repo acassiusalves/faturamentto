@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy } from 'lucide-react';
 import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -25,10 +25,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { loadProducts } from '@/services/firestore';
+import Image from 'next/image';
+import { Progress } from '@/components/ui/progress';
 
 
 const listingSchema = z.object({
-    catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
     title: z.string().optional(),
     sellerSku: z.string().optional(), // Tornou-se opcional
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
@@ -44,18 +45,28 @@ const initialFormState: CreateListingResult = { success: false, error: null, res
 
 type FeedProduct = Product;
 
+interface ListingResult {
+    productName: string;
+    accountId: string;
+    accountName: string;
+    status: 'success' | 'error';
+    message: string;
+    payload?: any;
+    response?: any;
+}
+
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  product: ProductResult;
+  products: ProductResult[];
   accounts: MlAccount[];
 }
 
-export function CreateListingDialog({ isOpen, onClose, product, accounts }: CreateListingDialogProps) {
+export function CreateListingDialog({ isOpen, onClose, products, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
-    const [formStates, setFormStates] = useState<Record<string, CreateListingResult>>({});
+    const [listingResults, setListingResults] = useState<ListingResult[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
@@ -67,9 +78,12 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
     const searchInputRef = React.useRef<HTMLInputElement>(null);
     
-    // State para o AlertDialog
     const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [pendingFormData, setPendingFormData] = useState<ListingFormValues | null>(null);
+    
+    // Bulk creation state
+    const [progress, setProgress] = useState(0);
+    const [currentTask, setCurrentTask] = useState('');
 
     useEffect(() => {
       if (isSearchPopoverOpen) {
@@ -82,7 +96,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const form = useForm<ListingFormValues>({
         resolver: zodResolver(listingSchema),
         defaultValues: {
-            catalogProductId: '',
             title: '',
             sellerSku: '',
             price: undefined,
@@ -116,29 +129,33 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         );
     }, [allFeedProducts, searchTerm]);
 
+    const isBulkMode = products.length > 1;
+    const firstProduct = products[0];
+
     useEffect(() => {
-        if (product) {
+        if (products.length > 0) {
             form.reset({
-                catalogProductId: product.catalog_product_id || '',
-                title: product.name || '',
+                title: isBulkMode ? '' : firstProduct.name || '',
                 sellerSku: '',
-                price: product?.price ? parseFloat((product.price * 1.35).toFixed(2)) : undefined,
+                price: isBulkMode ? undefined : (firstProduct?.price ? parseFloat((firstProduct.price * 1.35).toFixed(2)) : undefined),
                 quantity: 1,
-                listingTypeId: (product.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
+                listingTypeId: (firstProduct.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
                 accountIds: [],
                 condition: 'new',
             });
             setSelectedProductInfo(null);
             setSearchTerm('');
         }
-    }, [product, form]);
+    }, [products, form, isBulkMode, firstProduct]);
     
     useEffect(() => {
       if (!isOpen) {
         form.reset();
-        setFormStates({});
+        setListingResults([]);
         setSelectedProductInfo(null);
         setSearchTerm('');
+        setProgress(0);
+        setCurrentTask('');
       }
     }, [isOpen, form]);
 
@@ -159,80 +176,99 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     
     const proceedWithSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
-        setFormStates({}); 
+        setListingResults([]);
+        setProgress(0);
 
-        const results: Record<string, CreateListingResult> = {};
+        const totalOperations = products.length * data.accountIds.length;
+        let completedOperations = 0;
         
-        for (const accountId of data.accountIds) {
-            const formData = new FormData();
-            formData.append('catalog_product_id', data.catalogProductId);
-            formData.append('sellerSku', data.sellerSku || ''); // Envia string vazia se não houver SKU
-            formData.append('price', String(data.price));
-            formData.append('available_quantity', String(data.quantity));
-            formData.append('listing_type_id', data.listingTypeId);
-            formData.append('accountId', accountId);
-            formData.append('condition', data.condition);
-            formData.append('category_id', product.category_id);
-            
-            const result = await createCatalogListingAction(initialFormState, formData);
-            results[accountId] = result;
-            setFormStates(prev => ({...prev, [accountId]: result}));
+        for (const product of products) {
+            for (const accountId of data.accountIds) {
+                const account = accounts.find(a => a.id === accountId);
+                if(!account) continue;
+                
+                completedOperations++;
+                setCurrentTask(`Criando "${product.name}" na conta "${account.accountName || account.id}"...`);
+
+                const formData = new FormData();
+                formData.append('catalog_product_id', product.catalog_product_id);
+                formData.append('sellerSku', data.sellerSku || (isBulkMode ? '' : product.attributes.find(a => a.id === 'SELLER_SKU')?.value_name || '') );
+                formData.append('price', String(isBulkMode ? data.price : (data.price || product.price)));
+                formData.append('available_quantity', String(data.quantity));
+                formData.append('listing_type_id', data.listingTypeId);
+                formData.append('accountId', accountId);
+                formData.append('condition', data.condition);
+                formData.append('category_id', product.category_id);
+                if (!isBulkMode) formData.append('title', data.title || product.name);
+                
+                const result = await createCatalogListingAction(initialFormState, formData);
+
+                setListingResults(prev => [...prev, {
+                    productName: product.name,
+                    accountId: accountId,
+                    accountName: account.accountName || accountId,
+                    status: result.success ? 'success' : 'error',
+                    message: result.error || 'Criado com sucesso!',
+                    payload: result.payload,
+                    response: result.result
+                }]);
+                
+                setProgress((completedOperations / totalOperations) * 100);
+            }
         }
         
         setIsSubmitting(false);
-        const successCount = Object.values(results).filter(r => r.success).length;
-        const errorCount = data.accountIds.length - successCount;
+        setCurrentTask('Concluído!');
+
+        const successCount = listingResults.filter(r => r.status === 'success').length;
+        const errorCount = totalOperations - successCount;
 
         if (successCount > 0) {
             toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
-            // Não precisa mais do revalidate, a ação agora faz a sincronização
         }
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
-        }
-        if (errorCount === 0 && isOpen) {
-            onClose();
         }
     };
 
 
     const onSubmit = async (data: ListingFormValues) => {
-        // Se o SKU não foi preenchido, abre o diálogo de confirmação.
-        if (!data.sellerSku) {
+        if (!isBulkMode && !data.sellerSku) {
             setPendingFormData(data);
             setIsAlertOpen(true);
         } else {
-            // Se o SKU foi preenchido, prossegue normalmente.
             await proceedWithSubmit(data);
         }
     };
     
-    if (!product) return null;
+    if (products.length === 0) return null;
 
     return (
         <>
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
                 <DialogHeader>
-                    <DialogTitle>Criar Anúncio para: {product.name}</DialogTitle>
+                    <DialogTitle>
+                         {isBulkMode ? `Criar ${products.length} Anúncios` : `Criar Anúncio para: ${firstProduct.name}`}
+                    </DialogTitle>
                     <DialogDescription>
-                        Preencha os detalhes abaixo para publicar este produto em uma ou mais de suas contas.
+                        Preencha os detalhes abaixo para publicar este(s) produto(s) em uma ou mais de suas contas.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
                     <div>
                         <Form {...form}>
                             <form id="create-listing-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField
+                                 <FormField
                                     control={form.control}
                                     name="accountIds"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Publicar nas Contas</FormLabel>
                                             <FormControl>
-                                                <div className="space-y-2 rounded-md border p-2">
+                                                <div className="space-y-2 rounded-md border p-2 max-h-40 overflow-y-auto">
                                                     {accountOptions.map(option => {
-                                                        const isAlreadyPosted = product.postedOnAccounts?.some(
+                                                        const isAlreadyPosted = !isBulkMode && firstProduct.postedOnAccounts?.some(
                                                             p => p.accountId === option.value && p.listingTypeId === form.watch('listingTypeId')
                                                         );
                                                         
@@ -261,92 +297,71 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                     )}
                                 />
                                 
-                                <FormField control={form.control} name="sellerSku" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Produto (para SKU)</FormLabel>
-                                        <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
-                                          <PopoverTrigger asChild>
-                                            <FormControl>
-                                              <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                type="button"
-                                                aria-expanded={isSearchPopoverOpen}
-                                                className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
-                                              >
-                                                <span className="truncate">
-                                                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Banco de Dados..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                            </FormControl>
-                                          </PopoverTrigger>
-                                
-                                          <PopoverContent
-                                            className="w-[--radix-popover-trigger-width] p-0"
-                                            align="start"
-                                            sideOffset={4}
-                                          >
-                                            <div className="flex flex-col">
-                                              {/* Input de busca customizado */}
-                                              <div className="border-b p-2">
-                                                <Input
-                                                  ref={searchInputRef}
-                                                  placeholder="Buscar por nome ou SKU..."
-                                                  disabled={isFetchingFeedProducts}
-                                                  value={searchTerm}
-                                                  onChange={(e) => setSearchTerm(e.target.value)}
-                                                  className="h-9"
-                                                />
-                                              </div>
-                                              
-                                              {/* Lista de produtos */}
-                                              <div 
-                                                  className="max-h-[300px] overflow-y-auto overscroll-contain"
-                                                  onWheel={(e) => {
-                                                      e.stopPropagation();
-                                                  }}
-                                              >
-                                                {isFetchingFeedProducts ? (
-                                                  <div className="p-4 text-center text-sm text-muted-foreground">
-                                                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                                                  </div>
-                                                ) : filteredFeedProducts.length === 0 ? (
-                                                  <div className="p-4 text-center text-sm text-muted-foreground">
-                                                    Nenhum produto encontrado.
-                                                  </div>
-                                                ) : (
-                                                  <div className="p-1">
-                                                    {filteredFeedProducts.map((p, index) => (
-                                                      <div
-                                                        key={`${p.sku}-${index}`}
-                                                        onClick={() => handleProductSelect(p)}
-                                                        className={cn(
-                                                          "flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors",
-                                                          selectedProductInfo?.sku === p.sku && "bg-accent"
-                                                        )}
-                                                      >
-                                                        <Check
-                                                          className={cn(
-                                                            "mt-0.5 h-4 w-4 shrink-0",
-                                                            selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0"
-                                                          )}
-                                                        />
-                                                        <div className="flex flex-col text-left flex-1 min-w-0">
-                                                          <span className="font-semibold text-sm truncate">{p.name}</span>
-                                                          <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                {!isBulkMode && (
+                                    <FormField control={form.control} name="sellerSku" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Produto (para SKU)</FormLabel>
+                                            <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    type="button"
+                                                    aria-expanded={isSearchPopoverOpen}
+                                                    className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                                                >
+                                                    <span className="truncate">
+                                                    {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Banco de Dados..."}
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                    
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
+                                                <div className="flex flex-col">
+                                                <div className="border-b p-2">
+                                                    <Input
+                                                    ref={searchInputRef}
+                                                    placeholder="Buscar por nome ou SKU..."
+                                                    disabled={isFetchingFeedProducts}
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    className="h-9"
+                                                    />
+                                                </div>
+                                                
+                                                <div className="max-h-[300px] overflow-y-auto overscroll-contain" onWheel={(e) => e.stopPropagation()}>
+                                                    {isFetchingFeedProducts ? (
+                                                    <div className="p-4 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></div>
+                                                    ) : filteredFeedProducts.length === 0 ? (
+                                                    <div className="p-4 text-center text-sm text-muted-foreground">Nenhum produto encontrado.</div>
+                                                    ) : (
+                                                    <div className="p-1">
+                                                        {filteredFeedProducts.map((p, index) => (
+                                                        <div
+                                                            key={`${p.sku}-${index}`}
+                                                            onClick={() => handleProductSelect(p)}
+                                                            className={cn("flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors", selectedProductInfo?.sku === p.sku && "bg-accent")}
+                                                        >
+                                                            <Check className={cn("mt-0.5 h-4 w-4 shrink-0", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
+                                                            <div className="flex flex-col text-left flex-1 min-w-0">
+                                                            <span className="font-semibold text-sm truncate">{p.name}</span>
+                                                            <span className="text-xs text-muted-foreground">{p.sku}</span>
+                                                            </div>
                                                         </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                                        ))}
+                                                    </div>
+                                                    )}
+                                                </div>
+                                                </div>
+                                            </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                )}
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={form.control} name="price" render={({ field }) => (
@@ -404,7 +419,30 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                     </div>
 
                    <div className="space-y-4">
-                       {Object.keys(formStates).length > 0 && (
+                       {isBulkMode && products.length > 0 && (
+                            <Card>
+                                <CardHeader className="p-3">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Copy /> Produtos Selecionados
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <ScrollArea className="h-48">
+                                        <div className="p-4 space-y-3">
+                                            {products.map(p => (
+                                                <div key={p.id} className="flex items-center gap-2 text-sm p-2 border rounded-md">
+                                                    <div className="relative h-10 w-10 bg-muted rounded-sm overflow-hidden flex-shrink-0">
+                                                        <Image src={p.thumbnail} alt={p.name} fill className="object-contain"/>
+                                                    </div>
+                                                    <p className="flex-1 truncate">{p.name}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                </CardContent>
+                            </Card>
+                       )}
+                       {listingResults.length > 0 && (
                             <Card>
                                 <CardHeader className="p-3">
                                     <CardTitle className="text-base flex items-center gap-2">
@@ -414,48 +452,18 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                 <CardContent className="p-0">
                                     <ScrollArea className="bg-muted rounded-b-md text-xs max-h-80">
                                         <div className="p-4 space-y-4">
-                                            {Object.entries(formStates).map(([accountId, state]) => {
-                                                const accountName = accounts.find(a => a.id === accountId)?.accountName || accountId;
-                                                const payloadStr = JSON.stringify(state.payload, null, 2);
-                                                const resultStr = JSON.stringify(state.result, null, 2);
-                                                return (
-                                                    <div key={accountId} className="space-y-2">
-                                                        <h4 className="font-semibold">{accountName}: {state.success ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
-                                                        
-                                                        {state.payload && (
-                                                            <div>
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <p className="text-muted-foreground font-semibold">Payload Enviado:</p>
-                                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(payloadStr)}>
-                                                                        <ClipboardCopy className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                                <pre className="w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                                    <code className="text-white text-[11px] leading-tight" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                        {payloadStr}
-                                                                    </code>
-                                                                </pre>
-                                                            </div>
-                                                        )}
-
-                                                        {state.result && (
-                                                             <div>
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <p className="text-muted-foreground font-semibold">Resposta da API:</p>
-                                                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(resultStr)}>
-                                                                        <ClipboardCopy className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                                <pre className="w-full rounded-md bg-slate-950 p-2 overflow-x-auto">
-                                                                    <code className={cn("text-[11px] leading-tight", state.success ? "text-green-400" : "text-red-400")} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                        {resultStr}
-                                                                    </code>
-                                                                </pre>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
+                                            {isSubmitting && (
+                                                <div className="space-y-2">
+                                                    <Progress value={progress} />
+                                                    <p className="text-center text-xs text-muted-foreground">{currentTask}</p>
+                                                </div>
+                                            )}
+                                            {listingResults.map((res, index) => (
+                                                <div key={index} className="space-y-2 p-2 border-l-4 rounded-r-md" style={{ borderColor: res.status === 'success' ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }}>
+                                                    <h4 className="font-semibold">{res.productName} ({res.accountName}): {res.status === 'success' ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
+                                                    <p className="text-muted-foreground text-[11px]">{res.message}</p>
+                                                </div>
+                                            ))}
                                         </div>
                                     </ScrollArea>
                                 </CardContent>
@@ -499,3 +507,4 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
      </>
     );
 }
+
