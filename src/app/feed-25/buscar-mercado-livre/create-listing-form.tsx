@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy, XCircle } from 'lucide-react';
 import { createCatalogListingAction } from '@/app/actions';
-import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
+import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry, SuccessfulListing } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -60,13 +60,6 @@ interface ListingResult {
     payload?: any;
     response?: any;
 }
-
-export interface SuccessfulListing {
-    productResultId: string;
-    accountId: string;
-    listingTypeId: string;
-}
-
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
@@ -492,6 +485,7 @@ export function CreateListingDialog({ isOpen, onClose, onComplete, products, acc
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
+        </AlertDialog>
         </>
     );
 }
