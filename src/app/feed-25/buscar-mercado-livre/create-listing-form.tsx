@@ -61,11 +61,18 @@ interface ListingResult {
     response?: any;
 }
 
+export interface SuccessfulListing {
+    productResultId: string;
+    accountId: string;
+    listingTypeId: string;
+}
+
 
 // Dialog Wrapper
 interface CreateListingDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onComplete: (successfulListings: SuccessfulListing[]) => void;
   products: ProductResult[];
   accounts: MlAccount[];
 }
@@ -235,7 +242,7 @@ function ListingRow({ index, control, getValues, setValue, remove, accounts, pro
 }
 
 
-export function CreateListingDialog({ isOpen, onClose, products, accounts }: CreateListingDialogProps) {
+export function CreateListingDialog({ isOpen, onClose, onComplete, products, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
     const [listingResults, setListingResults] = useState<ListingResult[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -314,6 +321,7 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
 
         const totalOperations = operations.length;
         let completedOperations = 0;
+        const successfulListings: SuccessfulListing[] = [];
         
         for (const op of operations) {
             const { listing, accountId, accountName } = op;
@@ -346,14 +354,22 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
                 response: result.result
             }]);
             
+            if (result.success) {
+                successfulListings.push({
+                    productResultId: listing.productResultId,
+                    accountId: accountId,
+                    listingTypeId: listing.listingTypeId,
+                });
+            }
+
             setProgress((completedOperations / totalOperations) * 100);
         }
         
         setIsSubmitting(false);
         setCurrentTask('Concluído!');
         
-        const successCount = operations.length - listingResults.filter(r => r.status === 'error').length;
-        const errorCount = listingResults.filter(r => r.status === 'error').length;
+        const successCount = successfulListings.length;
+        const errorCount = operations.length - successCount;
 
         if (successCount > 0) {
             toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
@@ -361,6 +377,11 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
         }
+
+        // Call onComplete and close dialog after a short delay
+        setTimeout(() => {
+            onComplete(successfulListings);
+        }, 1500);
     };
 
 
@@ -471,7 +492,6 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
-        </AlertDialog>
-     </>
+        </>
     );
 }

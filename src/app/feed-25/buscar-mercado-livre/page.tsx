@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CreateListingDialog } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
+import { CreateListingDialog, type SuccessfulListing } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
 import type { MlAccount, PostedOnAccount } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -372,6 +372,44 @@ export default function BuscarMercadoLivrePage() {
         }
     };
     
+    const handleCreationComplete = (successfulListings: SuccessfulListing[]) => {
+        setIsCreateListingOpen(false); // Close dialog
+        
+        // Update the state to reflect the new listings
+        setState(prevState => {
+            if (!prevState.result) return prevState;
+
+            const updatedResult = [...prevState.result];
+            const accountMap = new Map(accounts.map(a => [a.id, a.accountName || a.id]));
+
+            successfulListings.forEach(success => {
+                const productIndex = updatedResult.findIndex(p => p.id === success.productResultId);
+                if (productIndex !== -1) {
+                    const productToUpdate = updatedResult[productIndex];
+                    if (!productToUpdate.postedOnAccounts) {
+                        productToUpdate.postedOnAccounts = [];
+                    }
+                    // Avoid adding duplicates
+                    const alreadyExists = productToUpdate.postedOnAccounts.some(
+                        p => p.accountId === success.accountId && p.listingTypeId === success.listingTypeId
+                    );
+                    if (!alreadyExists) {
+                        productToUpdate.postedOnAccounts.push({
+                            accountId: success.accountId,
+                            accountName: accountMap.get(success.accountId) || success.accountId,
+                            listingTypeId: success.listingTypeId
+                        });
+                    }
+                }
+            });
+
+            return { ...prevState, result: updatedResult };
+        });
+        
+        // Clear selection after successful creation
+        setSelectedRowIds({});
+    };
+
     const toggleRowSelection = (id: string) => {
         setSelectedRowIds(prev => ({ ...prev, [id]: !prev[id] }));
     };
@@ -780,6 +818,7 @@ export default function BuscarMercadoLivrePage() {
             <CreateListingDialog
                 isOpen={isCreateListingOpen}
                 onClose={() => setIsCreateListingOpen(false)}
+                onComplete={handleCreationComplete}
                 products={selectedProducts}
                 accounts={accounts}
             />
