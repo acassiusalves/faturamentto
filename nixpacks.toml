@@ -3,7 +3,7 @@
 
 [phases.setup]
 # Define os pacotes Nix a serem instalados.
-# nodejs_22 e npm são necessários para o ambiente Next.js.
+# nodejs_22 é necessário para o ambiente Next.js e já inclui o npm.
 nixPkgs = ["nodejs_22", "npm_9_x"]
 
 [phases.install]
@@ -17,4 +17,3 @@ cmds = ["npm run build"]
 [start]
 # Comando para iniciar o servidor Next.js em produção.
 cmd = "npm start"
-
