@@ -378,12 +378,22 @@ export default function BuscarMercadoLivrePage() {
 
     const toggleSelectAll = () => {
         const allVisibleIds = paginatedResults.map(p => p.id);
-        const allSelected = allVisibleIds.every(id => selectedRowIds[id]);
-        const newSelected: Record<string, boolean> = {};
-        if (!allSelected) {
-            allVisibleIds.forEach(id => { newSelected[id] = true });
+        const allSelectedOnPage = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedRowIds[id]);
+
+        const newSelectedRowIds = { ...selectedRowIds };
+
+        if (allSelectedOnPage) {
+            // Deselect all on the current page
+            allVisibleIds.forEach(id => {
+                delete newSelectedRowIds[id];
+            });
+        } else {
+            // Select all on the current page
+            allVisibleIds.forEach(id => {
+                newSelectedRowIds[id] = true;
+            });
         }
-        setSelectedRowIds(prev => ({...prev, ...newSelected}));
+        setSelectedRowIds(newSelectedRowIds);
     };
 
     const isAllVisibleSelected = useMemo(() => {
@@ -777,4 +787,3 @@ export default function BuscarMercadoLivrePage() {
         </>
     );
 }
-
