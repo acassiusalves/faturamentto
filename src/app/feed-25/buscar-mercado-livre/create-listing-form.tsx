@@ -71,9 +71,10 @@ interface CreateListingDialogProps {
 }
 
 // Sub-component for each row in the bulk form
-function ListingRow({ index, control, remove, accounts, product, allFeedProducts }: {
+function ListingRow({ index, control, getValues, remove, accounts, product, allFeedProducts }: {
     index: number;
     control: any;
+    getValues: any;
     remove: (index: number) => void;
     accounts: MlAccount[];
     product: ProductResult;
@@ -202,7 +203,7 @@ function ListingRow({ index, control, remove, accounts, product, allFeedProducts
                             <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-2">
                                 {accounts.map(account => {
                                     const isAlreadyPosted = product.postedOnAccounts?.some(
-                                        p => p.accountId === account.id && p.listingTypeId === control.getValues(`listings.${index}.listingTypeId`)
+                                        p => p.accountId === account.id && p.listingTypeId === getValues(`listings.${index}.listingTypeId`)
                                     );
                                     return (
                                         <div key={account.id} className={cn("flex items-center space-x-2", isAlreadyPosted && "opacity-50 cursor-not-allowed")}>
@@ -257,7 +258,7 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
         }
     });
     
-    const { control, handleSubmit, formState: { errors } } = form;
+    const { control, handleSubmit, formState: { errors }, getValues } = form;
     const { fields, append, remove } = useFieldArray({
         control,
         name: "listings"
@@ -396,6 +397,7 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
                                         key={field.id}
                                         index={index}
                                         control={control}
+                                        getValues={getValues}
                                         remove={remove}
                                         accounts={accounts}
                                         product={products.find(p => p.id === form.getValues(`listings.${index}.productResultId`))!}
