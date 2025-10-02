@@ -41,10 +41,9 @@ export default function SettingsPage() {
                 if (settings.permissions) {
                     const mergedPermissions = { ...defaultPagePermissions };
                     for (const page in settings.permissions) {
-                       if (Object.prototype.hasOwnProperty.call(mergedPermissions, page)) {
+                       if (Object.prototype.hasOwnProperty.call(mergedPermissions, page) || page.startsWith('/actions/')) {
                            mergedPermissions[page] = settings.permissions[page];
                        } else {
-                           // Add new permission if it doesn't exist in default
                            mergedPermissions[page] = settings.permissions[page];
                        }
                     }
@@ -137,7 +136,7 @@ export default function SettingsPage() {
             const appUsers = await loadUsersWithRoles();
             setUsers(appUsers);
             setIsNewUserDialogOpen(false);
-        } catch (error: any) {
+        } catch (error: any) => {
              console.error("Erro ao convidar usuário:", error);
              toast({
                 variant: "destructive",
@@ -151,9 +150,6 @@ export default function SettingsPage() {
     const pageRoutes = allRoutes.filter(p => !p.startsWith('/actions/'));
     const actionRoutesByPage = pageRoutes.reduce((acc, page) => {
         const pageSpecificActions = allRoutes.filter(action => {
-            // Ação pertence a esta página se começar com o nome da página + /
-            // Ex: /feed-25/buscar-mercado-livre/actions/create-listing
-            // E a página é /feed-25/buscar-mercado-livre
             return action.startsWith(`${page}/`) && action.includes('/actions/');
         });
         if (pageSpecificActions.length > 0) {
@@ -199,9 +195,9 @@ export default function SettingsPage() {
                                     const triggerContent = (
                                         <div className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center w-full">
                                             <div className="flex items-center">
-                                                <Button variant="ghost" size="icon" className={cn("h-8 w-8 mr-2", !hasSubActions && "invisible", "group-data-[state=open]:rotate-180 transition-transform")}>
-                                                    <ChevronDown className="h-4 w-4" />
-                                                </Button>
+                                                <div className={cn("h-8 w-8 mr-2 flex items-center justify-center", !hasSubActions && "invisible")}>
+                                                    <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                                </div>
                                                 <span>{page}</span>
                                             </div>
                                             {availableRoles.map(role => {
@@ -213,7 +209,7 @@ export default function SettingsPage() {
                                                             checked={isChecked}
                                                             onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
                                                             disabled={isSuperUser}
-                                                            onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                                            onClick={(e) => e.stopPropagation()}
                                                         />
                                                     </div>
                                                 );
@@ -222,8 +218,8 @@ export default function SettingsPage() {
                                                 <Switch
                                                     checked={!inactivePages.includes(page)}
                                                     onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
-                                                    disabled={page === '/configuracoes'} // prevent locking out
-                                                    onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                                    disabled={page === '/configuracoes'}
+                                                    onClick={(e) => e.stopPropagation()}
                                                 />
                                             </div>
                                         </div>
@@ -232,8 +228,7 @@ export default function SettingsPage() {
                                     return (
                                         <AccordionItem value={page} key={page} className="border-b">
                                              <AccordionTrigger 
-                                                className={cn("p-4 hover:no-underline hover:bg-muted/50 group", !hasSubActions && "cursor-default")}
-                                                disabled={!hasSubActions}
+                                                className="p-0 hover:no-underline hover:bg-muted/50 group"
                                              >
                                                 {triggerContent}
                                              </AccordionTrigger>
@@ -348,5 +343,3 @@ export default function SettingsPage() {
         </>
     )
 }
-
-    
