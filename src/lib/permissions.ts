@@ -12,6 +12,7 @@ export const availableRoles = [
   { key: 'gestor-de-contas', name: 'Gestor de Contas' },
   { key: 'expedicao', name: 'Expedição' },
   { key: 'sac', name: 'SAC' },
+  { key: 'convidado', name: 'Convidado' },
 ];
 
 export const navLinks = [
@@ -95,7 +96,7 @@ export const settingsLinks = [
 // Default permissions, will be overridden by Firestore settings if they exist.
 export const pagePermissions: Record<string, string[]> = {
     // Page route: Allowed roles
-    '/': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas'],
+    '/': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas', 'convidado'],
     '/analise-por-conta': ['admin', 'socio', 'financeiro', 'gestor-de-contas'],
     '/produtos': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
@@ -119,7 +120,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/mapeamento': ['admin', 'socio', 'gestor-de-contas'],
     '/aprovacoes': ['admin', 'socio'],
     '/configuracoes': ['admin'],
-    '/perfil': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas'],
+    '/perfil': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas', 'convidado'],
     '/feed-25': ['admin', 'socio'],
     '/feed-25/lista': ['admin', 'socio'],
     '/feed-25/analise-produtos-pdf': ['admin', 'socio'],
