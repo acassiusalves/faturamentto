@@ -1,0 +1,19 @@
+
+# Configura o ambiente de build para Nixpacks.
+
+[phases.setup]
+# Define os pacotes Nix a serem instalados.
+# nodejs_22 e npm são necessários para o ambiente Next.js.
+nixPkgs = ["nodejs_22", "npm"]
+
+[phases.install]
+# Usa 'npm ci' que é mais rápido e confiável para builds de produção.
+cmds = ["npm ci"]
+
+[phases.build]
+# Comando para buildar a aplicação Next.js.
+cmds = ["npm run build"]
+
+[start]
+# Comando para iniciar o servidor Next.js em produção.
+cmd = "npm run start"
