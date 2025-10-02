@@ -176,96 +176,90 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Página do Sistema</TableHead>
-                                    {availableRoles.map(role => (
-                                        <TableHead key={role.key} className="text-center">{role.name}</TableHead>
-                                    ))}
-                                    <TableHead className="text-center">Ativa</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <Accordion type="multiple" className="w-full">
-                                {pageRoutes.filter(p => p !== '/login' && p !== '/perfil').map(page => {
+                        <div className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center p-4 border-b font-medium text-muted-foreground text-sm">
+                            <div className="pr-4">Página do Sistema</div>
+                            {availableRoles.map(role => (
+                                <div key={role.key} className="text-center">{role.name}</div>
+                            ))}
+                            <div className="text-center">Ativa</div>
+                        </div>
+                        <Accordion type="multiple" className="w-full">
+                           {pageRoutes.filter(p => p !== '/login' && p !== '/perfil').map(page => {
                                     const subActions = actionRoutesByPage[page] || [];
                                     const hasSubActions = subActions.length > 0;
+                                    
+                                    const triggerContent = (
+                                        <div className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center w-full">
+                                            <div className="flex items-center">
+                                                <Button variant="ghost" size="icon" className={cn("h-8 w-8 mr-2", !hasSubActions && "invisible", "group-data-[state=open]:rotate-180 transition-transform")}>
+                                                    <ChevronDown className="h-4 w-4" />
+                                                </Button>
+                                                <span>{page}</span>
+                                            </div>
+                                            {availableRoles.map(role => {
+                                                const isSuperUser = role.key === 'admin';
+                                                const isChecked = isSuperUser || permissions[page]?.includes(role.key);
+                                                return (
+                                                    <div key={`${page}-${role.key}`} className="text-center">
+                                                        <Checkbox
+                                                            checked={isChecked}
+                                                            onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
+                                                            disabled={isSuperUser}
+                                                            onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                                        />
+                                                    </div>
+                                                );
+                                            })}
+                                            <div className="text-center">
+                                                <Switch
+                                                    checked={!inactivePages.includes(page)}
+                                                    onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
+                                                    disabled={page === '/configuracoes'} // prevent locking out
+                                                    onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                                />
+                                            </div>
+                                        </div>
+                                    );
 
                                     return (
-                                     <AccordionItem value={page} key={page} className="border-b-0 contents">
-                                        <>
-                                            <TableRow>
-                                                <TableCell className="font-medium w-[300px]">
-                                                    <div className="flex items-center">
-                                                        <AccordionTrigger asChild disabled={!hasSubActions}>
-                                                            <Button variant="ghost" size="icon" className={cn("h-8 w-8 mr-2", !hasSubActions && "invisible")}>
-                                                                <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-                                                            </Button>
-                                                        </AccordionTrigger>
-                                                        <span>{page}</span>
+                                        <AccordionItem value={page} key={page} className="border-b">
+                                             <AccordionTrigger 
+                                                className={cn("p-4 hover:no-underline hover:bg-muted/50 group", !hasSubActions && "cursor-default")}
+                                                disabled={!hasSubActions}
+                                             >
+                                                {triggerContent}
+                                             </AccordionTrigger>
+                                             {hasSubActions && (
+                                                <AccordionContent>
+                                                    <div className="bg-muted/50 p-4 border-t">
+                                                        {subActions.map(action => (
+                                                             <div key={action} className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center gap-4 py-2">
+                                                                 <div className="pl-14 text-sm text-muted-foreground italic truncate">
+                                                                    └ Ação: {action.split('/').pop()}
+                                                                 </div>
+                                                                 {availableRoles.map(role => {
+                                                                    const isSuperUser = role.key === 'admin';
+                                                                    const isChecked = isSuperUser || permissions[action]?.includes(role.key);
+                                                                    return (
+                                                                         <div key={`${action}-${role.key}`} className="text-center">
+                                                                            <Checkbox
+                                                                                checked={isChecked}
+                                                                                onCheckedChange={(checked) => handlePermissionChange(action, role.key, !!checked)}
+                                                                                disabled={isSuperUser}
+                                                                            />
+                                                                        </div>
+                                                                    )
+                                                                 })}
+                                                                 <div /> 
+                                                             </div>
+                                                        ))}
                                                     </div>
-                                                </TableCell>
-                                                {availableRoles.map(role => {
-                                                    const isSuperUser = role.key === 'admin';
-                                                    const isChecked = isSuperUser || permissions[page]?.includes(role.key);
-                                                    return (
-                                                        <TableCell key={`${page}-${role.key}`} className="text-center">
-                                                            <Checkbox
-                                                                checked={isChecked}
-                                                                onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
-                                                                disabled={isSuperUser}
-                                                            />
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                                <TableCell className="text-center">
-                                                    <Switch
-                                                        checked={!inactivePages.includes(page)}
-                                                        onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
-                                                        disabled={page === '/configuracoes'} // prevent locking out
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                            {hasSubActions && (
-                                                <TableRow>
-                                                    <TableCell colSpan={availableRoles.length + 2} className="p-0">
-                                                        <AccordionContent>
-                                                            <div className="bg-muted/50 p-4">
-                                                                {subActions.map(action => (
-                                                                     <div key={action} className="grid grid-cols-[300px,1fr] items-center gap-4 pl-12 py-2">
-                                                                         <span className="text-sm text-muted-foreground italic truncate">
-                                                                            └ Ação: {action.split('/').pop()}
-                                                                         </span>
-                                                                         <div className="grid grid-cols-7 text-center">
-                                                                             {availableRoles.map(role => {
-                                                                                const isSuperUser = role.key === 'admin';
-                                                                                const isChecked = isSuperUser || permissions[action]?.includes(role.key);
-                                                                                return (
-                                                                                     <div key={`${action}-${role.key}`}>
-                                                                                        <Checkbox
-                                                                                            checked={isChecked}
-                                                                                            onCheckedChange={(checked) => handlePermissionChange(action, role.key, !!checked)}
-                                                                                            disabled={isSuperUser}
-                                                                                        />
-                                                                                    </div>
-                                                                                )
-                                                                             })}
-                                                                         </div>
-                                                                     </div>
-                                                                ))}
-                                                            </div>
-                                                        </AccordionContent>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </>
-                                     </AccordionItem>
-                                    );
+                                                </AccordionContent>
+                                             )}
+                                        </AccordionItem>
+                                    )
                                 })}
-                                </Accordion>
-                            </TableBody>
-                        </Table>
+                        </Accordion>
                     </div>
                 </CardContent>
                  <CardFooter className="justify-end">
