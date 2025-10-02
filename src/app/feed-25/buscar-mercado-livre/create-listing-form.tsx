@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy } from 'lucide-react';
-import { createCatalogListingAction, fetchAllProductsFromFeedAction, revalidatePage } from '@/app/actions';
+import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -23,12 +23,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { loadProducts } from '@/services/firestore';
 
 
 const listingSchema = z.object({
     catalogProductId: z.string().min(10, 'O ID do produto de catálogo é obrigatório (ex: MLB12345678).'),
     title: z.string().optional(),
-    sellerSku: z.string().min(1, 'É obrigatório selecionar um produto para obter o SKU.'),
+    sellerSku: z.string().optional(), // Tornou-se opcional
     price: z.coerce.number().positive('O preço deve ser maior que zero.'),
     quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
     listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
@@ -40,7 +42,7 @@ type ListingFormValues = z.infer<typeof listingSchema>;
 
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
 
-type FeedProduct = FeedEntry['products'][0];
+type FeedProduct = Product;
 
 
 // Dialog Wrapper
@@ -64,6 +66,10 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
     const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
 
     const searchInputRef = React.useRef<HTMLInputElement>(null);
+    
+    // State para o AlertDialog
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [pendingFormData, setPendingFormData] = useState<ListingFormValues | null>(null);
 
     useEffect(() => {
       if (isSearchPopoverOpen) {
@@ -91,9 +97,9 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         if (isOpen) {
           const fetchAllProducts = async () => {
             setIsFetchingFeedProducts(true);
-            const result = await fetchAllProductsFromFeedAction();
-            if (result.products) {
-              setAllFeedProducts(result.products);
+            const products = await loadProducts();
+            if (products) {
+              setAllFeedProducts(products);
             }
             setIsFetchingFeedProducts(false);
           }
@@ -150,8 +156,8 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             description: 'O conteúdo JSON foi copiado para a área de transferência.',
         });
     };
-
-    const onSubmit = async (data: ListingFormValues) => {
+    
+    const proceedWithSubmit = async (data: ListingFormValues) => {
         setIsSubmitting(true);
         setFormStates({}); 
 
@@ -160,7 +166,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
         for (const accountId of data.accountIds) {
             const formData = new FormData();
             formData.append('catalog_product_id', data.catalogProductId);
-            formData.append('sellerSku', data.sellerSku);
+            formData.append('sellerSku', data.sellerSku || ''); // Envia string vazia se não houver SKU
             formData.append('price', String(data.price));
             formData.append('available_quantity', String(data.quantity));
             formData.append('listing_type_id', data.listingTypeId);
@@ -179,7 +185,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
 
         if (successCount > 0) {
             toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
-            revalidatePage('/feed-25/analise-produtos-pdf'); // revalidate the page to show new posted ads
+            // Não precisa mais do revalidate, a ação agora faz a sincronização
         }
         if (errorCount > 0) {
              toast({ variant: 'destructive', title: 'Falhas na Criação', description: `${errorCount} anúncio(s) falharam.` });
@@ -188,10 +194,23 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
             onClose();
         }
     };
+
+
+    const onSubmit = async (data: ListingFormValues) => {
+        // Se o SKU não foi preenchido, abre o diálogo de confirmação.
+        if (!data.sellerSku) {
+            setPendingFormData(data);
+            setIsAlertOpen(true);
+        } else {
+            // Se o SKU foi preenchido, prossegue normalmente.
+            await proceedWithSubmit(data);
+        }
+    };
     
     if (!product) return null;
 
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
                 <DialogHeader>
@@ -203,7 +222,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
                     <div>
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <form id="create-listing-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
                                     control={form.control}
                                     name="accountIds"
@@ -256,7 +275,7 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                                 className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
                                               >
                                                 <span className="truncate">
-                                                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Feed..."}
+                                                  {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Banco de Dados..."}
                                                 </span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                               </Button>
@@ -380,13 +399,6 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                                         </FormItem>
                                     )} />
                                 </div>
-                                <DialogFooter className="pt-4">
-                                    <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-                                    <Button type="submit" disabled={isSubmitting}>
-                                        {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                        Criar Anúncio(s)
-                                    </Button>
-                                </DialogFooter>
                             </form>
                         </Form>
                     </div>
@@ -451,7 +463,39 @@ export function CreateListingDialog({ isOpen, onClose, product, accounts }: Crea
                         )}
                     </div>
                 </div>
+                <DialogFooter>
+                    <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button type="submit" form="create-listing-form" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                        Criar Anúncio(s)
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
+        <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="text-amber-500" />
+                        Criar anúncio sem SKU?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Você não selecionou um produto do seu banco de dados. O anúncio será criado no Mercado Livre, mas não terá um SKU associado no sistema. Deseja continuar?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={async () => {
+                        if (pendingFormData) {
+                            await proceedWithSubmit(pendingFormData);
+                            setPendingFormData(null);
+                        }
+                    }}>
+                        Sim, criar sem SKU
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+     </>
     );
 }

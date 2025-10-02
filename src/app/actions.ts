@@ -986,6 +986,7 @@ export async function createCatalogListingAction(
     const accountId = formData.get('accountId') as string;
     const listingTypeId = formData.get('listing_type_id') as string;
     const catalogProductId = formData.get('catalog_product_id') as string;
+    const sellerSku = formData.get('sellerSku') as string || ''; // Aceita SKU vazio
     
     const creds = await getMlCredentialsById(accountId);
     if (!creds?.accessToken) {
@@ -1042,11 +1043,7 @@ export async function createCatalogListingAction(
             value_struct: null,
             attribute_group_id: "OTHERS",
             attribute_group_name: "Otros"
-        },
-        { 
-            id: "SELLER_SKU",
-            value_name: formData.get('sellerSku') as string 
-        },
+        }
       ],
       catalog_product_id: catalogProductId,
       catalog_listing: true, 
@@ -1064,6 +1061,14 @@ export async function createCatalogListingAction(
         logistic_type: "xd_drop_off"
       },
     };
+    
+    // Adiciona o SKU apenas se ele foi fornecido
+    if (sellerSku) {
+        payload.attributes.push({ 
+            id: "SELLER_SKU",
+            value_name: sellerSku
+        });
+    }
     
     // Adiciona o título apenas se não for um anúncio de catálogo
     if (!payload.catalog_listing) {
