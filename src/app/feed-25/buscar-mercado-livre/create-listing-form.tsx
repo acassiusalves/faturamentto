@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy, XCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy, XCircle, SplitSquareHorizontal } from 'lucide-react';
 import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry, SuccessfulListing } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,8 @@ import { Progress } from '@/components/ui/progress';
 
 
 const singleListingSchema = z.object({
+  // Adiciona um ID único para cada linha do formulário
+  formRowId: z.string(),
   productResultId: z.string(),
   name: z.string(),
   sellerSku: z.string().optional(),
@@ -67,20 +69,22 @@ interface CreateListingDialogProps {
   onClose: () => void;
   onComplete: (successfulListings: SuccessfulListing[]) => void;
   products: ProductResult[];
-  allProductsForFallback: ProductResult[]; // <-- NOVO
+  allProductsForFallback: ProductResult[];
   accounts: MlAccount[];
 }
 
 // Sub-component for each row in the bulk form
-function ListingRow({ index, control, getValues, setValue, remove, accounts, product, allFeedProducts }: {
+function ListingRow({ index, control, getValues, setValue, remove, insert, accounts, product, allFeedProducts, allFormListings }: {
     index: number;
     control: any;
     getValues: any;
     setValue: any;
     remove: (index: number) => void;
+    insert: (index: number, value: any) => void;
     accounts: MlAccount[];
     product: ProductResult;
     allFeedProducts: FeedProduct[];
+    allFormListings: SingleListingFormValues[];
 }) {
     const { toast } = useToast();
     const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
@@ -101,6 +105,21 @@ function ListingRow({ index, control, getValues, setValue, remove, accounts, pro
         setIsSearchPopoverOpen(false);
         setSearchTerm('');
     };
+
+    const handleSplit = () => {
+        const currentValues = getValues(`listings.${index}`);
+        const newRow = {
+            ...currentValues,
+            formRowId: `${currentValues.productResultId}-${Date.now()}`, // ID único para a nova linha
+            accountIds: [], // Limpa as contas selecionadas na cópia
+        };
+        insert(index + 1, newRow);
+        toast({ title: 'Anúncio Duplicado', description: 'Configure as opções para a nova linha.'});
+    };
+
+    const otherSelectedAccountsForThisProduct = allFormListings
+        .filter((listing, i) => i !== index && listing.productResultId === product.id)
+        .flatMap(listing => listing.accountIds);
     
     return (
         <Card className="p-4 space-y-4">
@@ -114,9 +133,14 @@ function ListingRow({ index, control, getValues, setValue, remove, accounts, pro
                         <p className="text-xs text-muted-foreground">ID do Catálogo: {product.catalog_product_id}</p>
                     </div>
                 </div>
-                 <Button variant="ghost" size="icon" onClick={() => remove(index)}>
-                    <XCircle className="h-5 w-5 text-destructive" />
-                </Button>
+                 <div className="flex items-center">
+                    <Button variant="ghost" size="icon" onClick={handleSplit}>
+                        <SplitSquareHorizontal className="h-5 w-5 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={allFormListings.filter(l => l.productResultId === product.id).length <= 1}>
+                        <XCircle className="h-5 w-5 text-destructive" />
+                    </Button>
+                </div>
             </div>
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
                 {/* Produto (para SKU) */}
@@ -207,19 +231,22 @@ function ListingRow({ index, control, getValues, setValue, remove, accounts, pro
                                     const isAlreadyPosted = product.postedOnAccounts?.some(
                                         p => p.accountId === account.id && p.listingTypeId === getValues(`listings.${index}.listingTypeId`)
                                     );
+                                    const isUsedByOtherSplit = otherSelectedAccountsForThisProduct.includes(account.id);
+                                    const isDisabled = isAlreadyPosted || isUsedByOtherSplit;
+                                    
                                     return (
-                                        <div key={account.id} className={cn("flex items-center space-x-2", isAlreadyPosted && "opacity-50 cursor-not-allowed")}>
+                                        <div key={account.id} className={cn("flex items-center space-x-2", isDisabled && "opacity-50 cursor-not-allowed")}>
                                             <Checkbox
-                                                id={`account-${product.id}-${account.id}`}
+                                                id={`account-${product.id}-${account.id}-${index}`}
                                                 checked={field.value?.includes(account.id)}
-                                                disabled={isAlreadyPosted}
+                                                disabled={isDisabled}
                                                 onCheckedChange={(checked) => {
                                                     return checked
-                                                        ? field.onChange([...field.value, account.id])
+                                                        ? field.onChange([...(field.value || []), account.id])
                                                         : field.onChange(field.value?.filter(value => value !== account.id));
                                                 }}
                                             />
-                                            <Label htmlFor={`account-${product.id}-${account.id}`} className={cn("font-normal", isAlreadyPosted && "cursor-not-allowed")}>
+                                            <Label htmlFor={`account-${product.id}-${account.id}-${index}`} className={cn("font-normal", isDisabled && "cursor-not-allowed")}>
                                                 {account.accountName || account.id}
                                             </Label>
                                         </div>
@@ -261,10 +288,12 @@ export function CreateListingDialog({ isOpen, onClose, onComplete, products, all
     });
     
     const { control, handleSubmit, formState: { errors }, getValues, setValue } = form;
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, insert } = useFieldArray({
         control,
         name: "listings"
     });
+    
+    const watchedListings = form.watch("listings");
 
     useEffect(() => {
         if (isOpen) {
@@ -280,6 +309,7 @@ export function CreateListingDialog({ isOpen, onClose, onComplete, products, all
 
           form.reset({
               listings: products.map(p => ({
+                  formRowId: p.id,
                   productResultId: p.id,
                   name: p.name,
                   sellerSku: '',
@@ -420,9 +450,11 @@ export function CreateListingDialog({ isOpen, onClose, onComplete, products, all
                                         getValues={getValues}
                                         setValue={setValue}
                                         remove={remove}
+                                        insert={insert}
                                         accounts={accounts}
                                         product={products.find(p => p.id === form.getValues(`listings.${index}.productResultId`))!}
                                         allFeedProducts={allFeedProducts}
+                                        allFormListings={watchedListings}
                                     />
                                 ))}
                             </div>
