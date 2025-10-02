@@ -17,3 +17,4 @@ cmds = ["npm run build"]
 [start]
 # Comando para iniciar o servidor Next.js em produção.
 cmd = "npm start"
+
