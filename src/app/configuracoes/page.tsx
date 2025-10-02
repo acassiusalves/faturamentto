@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Lock, UserPlus, ShieldCheck, Loader2 } from "lucide-react";
+import { Users, Lock, UserPlus, ShieldCheck, Loader2, ChevronDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pagePermissions as defaultPagePermissions, availableRoles } from "@/lib/permissions";
@@ -16,6 +16,8 @@ import { NewUserDialog } from "@/components/new-user-dialog";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase";
 import { Switch } from "@/components/ui/switch";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
@@ -38,10 +40,13 @@ export default function SettingsPage() {
             if (settings) {
                 if (settings.permissions) {
                     const mergedPermissions = { ...defaultPagePermissions };
-                    for (const page in mergedPermissions) {
-                        if (settings.permissions[page]) {
-                            mergedPermissions[page] = settings.permissions[page];
-                        }
+                    for (const page in settings.permissions) {
+                       if (Object.prototype.hasOwnProperty.call(mergedPermissions, page)) {
+                           mergedPermissions[page] = settings.permissions[page];
+                       } else {
+                           // Add new permission if it doesn't exist in default
+                           mergedPermissions[page] = settings.permissions[page];
+                       }
                     }
                     setPermissions(mergedPermissions);
                 }
@@ -141,6 +146,14 @@ export default function SettingsPage() {
              })
         }
     }
+    
+    const allRoutes = Object.keys(permissions);
+    const pageRoutes = allRoutes.filter(p => !p.startsWith('/actions/'));
+    const actionRoutesByPage = pageRoutes.reduce((acc, page) => {
+        acc[page] = allRoutes.filter(action => action.startsWith(page + '/') && action.includes('/actions/'));
+        return acc;
+    }, {} as Record<string, string[]>);
+
 
     if (isLoading) {
         return <div className="flex items-center justify-center h-[calc(100vh-200px)]"><Loader2 className="animate-spin" /><p className="ml-2">Carregando...</p></div>
@@ -162,7 +175,7 @@ export default function SettingsPage() {
                     <CardDescription>Defina o que cada função pode ver e fazer no sistema. A função de Administrador sempre tem acesso a tudo.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border overflow-auto">
+                    <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -174,31 +187,83 @@ export default function SettingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {Object.keys(permissions).filter(p => p !== '/login' && p !== '/perfil').map(page => (
-                                    <TableRow key={page}>
-                                        <TableCell className="font-medium">{page}</TableCell>
-                                        {availableRoles.map(role => {
-                                            const isSuperUser = role.key === 'admin';
-                                            const isChecked = isSuperUser || permissions[page]?.includes(role.key);
-                                            return (
-                                                <TableCell key={`${page}-${role.key}`} className="text-center">
-                                                    <Checkbox
-                                                        checked={isChecked}
-                                                        onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
-                                                        disabled={isSuperUser}
+                                <Accordion type="multiple" className="w-full">
+                                {pageRoutes.filter(p => p !== '/login' && p !== '/perfil').map(page => {
+                                    const subActions = actionRoutesByPage[page] || [];
+                                    const hasSubActions = subActions.length > 0;
+
+                                    return (
+                                     <AccordionItem value={page} key={page} className="border-b-0 contents">
+                                        <>
+                                            <TableRow>
+                                                <TableCell className="font-medium w-[300px]">
+                                                    <div className="flex items-center">
+                                                        <AccordionTrigger asChild disabled={!hasSubActions}>
+                                                            <Button variant="ghost" size="icon" className={cn("h-8 w-8 mr-2", !hasSubActions && "invisible")}>
+                                                                <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                                                            </Button>
+                                                        </AccordionTrigger>
+                                                        <span>{page}</span>
+                                                    </div>
+                                                </TableCell>
+                                                {availableRoles.map(role => {
+                                                    const isSuperUser = role.key === 'admin';
+                                                    const isChecked = isSuperUser || permissions[page]?.includes(role.key);
+                                                    return (
+                                                        <TableCell key={`${page}-${role.key}`} className="text-center">
+                                                            <Checkbox
+                                                                checked={isChecked}
+                                                                onCheckedChange={(checked) => handlePermissionChange(page, role.key, !!checked)}
+                                                                disabled={isSuperUser}
+                                                            />
+                                                        </TableCell>
+                                                    );
+                                                })}
+                                                <TableCell className="text-center">
+                                                    <Switch
+                                                        checked={!inactivePages.includes(page)}
+                                                        onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
+                                                        disabled={page === '/configuracoes'} // prevent locking out
                                                     />
                                                 </TableCell>
-                                            );
-                                        })}
-                                        <TableCell className="text-center">
-                                            <Switch
-                                                checked={!inactivePages.includes(page)}
-                                                onCheckedChange={(checked) => handlePageActiveChange(page, checked)}
-                                                disabled={page === '/configuracoes'} // prevent locking out
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                            </TableRow>
+                                            {hasSubActions && (
+                                                <TableRow>
+                                                    <TableCell colSpan={availableRoles.length + 2} className="p-0">
+                                                        <AccordionContent>
+                                                            <div className="bg-muted/50 p-4">
+                                                                {subActions.map(action => (
+                                                                     <div key={action} className="grid grid-cols-[300px,1fr] items-center gap-4 pl-12 py-2">
+                                                                         <span className="text-sm text-muted-foreground italic truncate">
+                                                                            └ Ação: {action.split('/').pop()}
+                                                                         </span>
+                                                                         <div className="grid grid-cols-7 text-center">
+                                                                             {availableRoles.map(role => {
+                                                                                const isSuperUser = role.key === 'admin';
+                                                                                const isChecked = isSuperUser || permissions[action]?.includes(role.key);
+                                                                                return (
+                                                                                     <div key={`${action}-${role.key}`}>
+                                                                                        <Checkbox
+                                                                                            checked={isChecked}
+                                                                                            onCheckedChange={(checked) => handlePermissionChange(action, role.key, !!checked)}
+                                                                                            disabled={isSuperUser}
+                                                                                        />
+                                                                                    </div>
+                                                                                )
+                                                                             })}
+                                                                         </div>
+                                                                     </div>
+                                                                ))}
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </>
+                                     </AccordionItem>
+                                    );
+                                })}
+                                </Accordion>
                             </TableBody>
                         </Table>
                     </div>

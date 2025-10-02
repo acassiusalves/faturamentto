@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore } from 'lucide-react';
@@ -123,7 +122,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/perfil': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas', 'convidado'],
     '/feed-25': ['admin', 'socio'],
     '/feed-25/lista': ['admin', 'socio'],
-    '/feed-25/analise-produtos-pdf': ['admin', 'socio'],
+    '/feed-25/analise-produtos-pdf': ['admin', 'socio', 'convidado'],
     '/feed-25/buscar-mercado-livre': ['admin', 'socio', 'convidado'],
     '/feed-25/buscar-categoria-mercado-livre': ['admin', 'socio'],
     '/avisos': ['admin'],

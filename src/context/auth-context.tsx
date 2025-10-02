@@ -50,12 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const role = userDoc.exists() ? userDoc.data().role : 'expedicao'; // Default role if not set
 
         if (appSettings) {
-             if (appSettings.permissions) {
+            if (appSettings.permissions) {
                 const dynamicPermissions = { ...defaultPagePermissions };
-                for (const page in dynamicPermissions) {
-                  if (appSettings.permissions[page]) {
-                    dynamicPermissions[page] = appSettings.permissions[page];
-                  }
+                for (const page in appSettings.permissions) {
+                    // Check if page exists in default, otherwise it's a new (action) permission
+                    if (Object.prototype.hasOwnProperty.call(dynamicPermissions, page)) {
+                        dynamicPermissions[page] = appSettings.permissions[page];
+                    } else {
+                        // This handles new permissions like '/actions/ml/create-listing'
+                        dynamicPermissions[page] = appSettings.permissions[page];
+                    }
                 }
                 
                 // CRITICAL: Ensure admin always has access to all defined pages
