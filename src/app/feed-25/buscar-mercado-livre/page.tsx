@@ -23,63 +23,13 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CreateListingDialog, type SuccessfulListing } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
-import type { MlAccount, PostedOnAccount } from '@/lib/types';
+import { CreateListingDialog } from '@/app/feed-25/buscar-mercado-livre/create-listing-form';
+import type { MlAccount, PostedOnAccount, ProductResult, SuccessfulListing } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
 type MoneyLike = string | number | null | undefined;
-
-interface ProductResult {
-    thumbnail: string;
-    name: string;
-    catalog_product_id: string;
-    id: string;
-    item_id?: string | null;
-    brand: string;
-    model: string;
-    price: number;
-    shipping_type: string;
-    shipping_logistic_type: string;
-    free_shipping: boolean;
-    category_id: string;
-    listing_type_id: string;
-    seller_nickname: string;
-    official_store_id: number | null;
-    is_official_store: boolean;
-    offerCount: number;
-    attributes: { id: string, name: string, value_name: string | null }[]; // Adicionado
-    reputation?: {
-        level_id: string | null;
-        power_seller_status: string | null;
-        metrics: {
-            claims_rate: number;
-            cancellations_rate: number;
-            delayed_rate: number;
-        }
-    }
-    seller_state?: string | null;
-    seller_state_id?: string | null;
-    seller_city?: string | null;
-    seller_city_id?: string | null;
-    date_created?: string | null;
-    rating_average?: number;
-    reviews_count?: number;
-    postedOnAccounts?: PostedOnAccount[];
-    raw_data?: {
-      catalog_product?: any;
-      winner_item?: any;
-      fees_data?: any;
-      reviews_data?: any;
-    };
-    fees?: {
-      listing_fee_amount: number;
-      sale_fee_amount: number;
-      sale_fee_percent: number;
-      fee_total?: number;
-    };
-}
 
 const initialSearchState = {
     result: null as ProductResult[] | null,
@@ -820,6 +770,7 @@ export default function BuscarMercadoLivrePage() {
                 onClose={() => setIsCreateListingOpen(false)}
                 onComplete={handleCreationComplete}
                 products={selectedProducts}
+                allProductsForFallback={state.result || []}
                 accounts={accounts}
             />
         )}

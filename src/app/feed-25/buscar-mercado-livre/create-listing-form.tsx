@@ -67,6 +67,7 @@ interface CreateListingDialogProps {
   onClose: () => void;
   onComplete: (successfulListings: SuccessfulListing[]) => void;
   products: ProductResult[];
+  allProductsForFallback: ProductResult[]; // <-- NOVO
   accounts: MlAccount[];
 }
 
@@ -235,7 +236,7 @@ function ListingRow({ index, control, getValues, setValue, remove, accounts, pro
 }
 
 
-export function CreateListingDialog({ isOpen, onClose, onComplete, products, accounts }: CreateListingDialogProps) {
+export function CreateListingDialog({ isOpen, onClose, onComplete, products, allProductsForFallback, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
     const [listingResults, setListingResults] = useState<ListingResult[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -332,7 +333,11 @@ export function CreateListingDialog({ isOpen, onClose, onComplete, products, acc
             formData.append('listing_type_id', listing.listingTypeId);
             formData.append('accountId', accountId);
             formData.append('condition', listing.condition);
+            
+            // Passa a category_id e o array de todos produtos para o fallback
             formData.append('category_id', product.category_id);
+            formData.append('all_products_for_fallback', JSON.stringify(allProductsForFallback));
+            
             formData.append('title', listing.name);
             
             const result = await createCatalogListingAction(initialFormState, formData);

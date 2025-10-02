@@ -5,7 +5,7 @@
 import type { PipelineResult } from '@/lib/types';
 import { saveAppSettings, loadAppSettings, updateProductAveragePrices, savePrintedLabel, getSaleByOrderId, updateSalesDeliveryType, loadAllTrendKeywords, loadMlAccounts, updateMlAccount, loadMyItems, saveProduct, saveProducts, saveMagaluCredentials, getMlCredentialsById, loadAllFeedEntries, loadCompanyCosts, loadAllFeedEntriesWithGordura, fetchAllProductsFromFeed as fetchAllProductsFromFeedService } from '@/services/firestore';
 import { revalidatePath } from 'next/cache';
-import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry, SavedPdfAnalysis, ProductResult } from '@/lib/types';
+import type { RemixLabelDataInput, RemixLabelDataOutput, AnalyzeLabelOutput, RemixableField, OrganizeResult, StandardizeListOutput, LookupResult, LookupProductsInput, AnalyzeCatalogInput, AnalyzeCatalogOutput, RefineSearchTermInput, RefineSearchTermOutput, Product, FullFlowResult, CreateListingPayload, MlAccount, MagaluCredentials, CreateListingResult, PostedOnAccount, FeedEntry, SavedPdfAnalysis, ProductResult, SuccessfulListing } from '@/lib/types';
 import { getSellersReputation, getMlToken, createListingFromCatalog, generateNewAccessToken, fetchAllMyItems } from '@/services/mercadolivre';
 import { getCatalogOfferCount } from '@/lib/ml';
 import { deterministicLookup } from "@/lib/matching";
@@ -988,6 +988,22 @@ export async function createCatalogListingAction(
     const catalogProductId = formData.get('catalog_product_id') as string;
     const sellerSku = formData.get('sellerSku') as string || ''; // Aceita SKU vazio
     
+    // Fallback para category_id
+    let categoryId = formData.get('category_id') as string;
+    if (!categoryId) {
+        const allProductsJSON = formData.get('all_products_for_fallback') as string | null;
+        if (allProductsJSON) {
+            const allProducts: ProductResult[] = JSON.parse(allProductsJSON);
+            const fallbackProduct = allProducts.find(p => p.category_id);
+            if (fallbackProduct) {
+                categoryId = fallbackProduct.category_id;
+            }
+        }
+    }
+    if (!categoryId) {
+      return { success: false, error: 'A Categoria do produto não foi encontrada e é obrigatória.', result: null };
+    }
+    
     const creds = await getMlCredentialsById(accountId);
     if (!creds?.accessToken) {
       return { success: false, error: `Credenciais ou accessToken para a conta ID ${accountId} não encontrados.`, result: null };
@@ -1013,7 +1029,7 @@ export async function createCatalogListingAction(
 
     payload = {
       site_id: "MLB",
-      category_id: formData.get('category_id') as string,
+      category_id: categoryId,
       price: Number(formData.get('price')),
       currency_id: "BRL",
       available_quantity: Number(formData.get('available_quantity')),
