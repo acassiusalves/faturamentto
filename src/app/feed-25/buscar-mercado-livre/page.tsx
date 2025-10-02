@@ -24,6 +24,7 @@ import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CreateListingDialog } from '@/app/feed-25/buscar-mercado-livre/create-listing-form'; // Ajuste o caminho se necessário
 import type { MlAccount, PostedOnAccount } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 
 
 type MoneyLike = string | number | null | undefined;
@@ -139,6 +140,7 @@ const getShippingCostFor1To2Kg = (price: number): number | null => {
 
 export default function BuscarMercadoLivrePage() {
     const { toast } = useToast();
+    const { user, pagePermissions } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [quantity, setQuantity] = useState(50);
     const [state, setState] = useState(initialSearchState);
@@ -165,6 +167,12 @@ export default function BuscarMercadoLivrePage() {
     // Pagination state
     const [pageIndex, setPageIndex] = useState(0);
     const [pageSize, setPageSize] = useState(50);
+    
+    const canCreateListing = useMemo(() => {
+        if (!user || !pagePermissions) return false;
+        const createPerms = pagePermissions['/actions/ml/create-listing'];
+        return createPerms?.includes(user.role);
+    }, [user, pagePermissions]);
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -623,10 +631,12 @@ export default function BuscarMercadoLivrePage() {
                                                       {formatCurrency(product.price)}
                                                     </TableCell>
                                                     <TableCell className="text-center align-middle">
-                                                        <Button variant="secondary" size="sm" onClick={() => handleCreateListing(product)}>
-                                                            <PlusCircle className="h-4 w-4 mr-2" />
-                                                            Criar Anúncio
-                                                        </Button>
+                                                        {canCreateListing && (
+                                                            <Button variant="secondary" size="sm" onClick={() => handleCreateListing(product)}>
+                                                                <PlusCircle className="h-4 w-4 mr-2" />
+                                                                Criar Anúncio
+                                                            </Button>
+                                                        )}
                                                     </TableCell>
                                                 </TableRow>
                                             )

@@ -124,7 +124,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/feed-25': ['admin', 'socio'],
     '/feed-25/lista': ['admin', 'socio'],
     '/feed-25/analise-produtos-pdf': ['admin', 'socio'],
-    '/feed-25/buscar-mercado-livre': ['admin', 'socio'],
+    '/feed-25/buscar-mercado-livre': ['admin', 'socio', 'convidado'],
     '/feed-25/buscar-categoria-mercado-livre': ['admin', 'socio'],
     '/avisos': ['admin'],
     '/anuncios': ['admin', 'socio', 'gestor-de-contas'],
@@ -135,4 +135,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/testes-magalu': ['admin', 'socio'],
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
+
+    // Action-specific permissions
+    '/actions/ml/create-listing': ['admin', 'socio'],
 };
