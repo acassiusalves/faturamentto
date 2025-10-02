@@ -136,7 +136,7 @@ export default function SettingsPage() {
             const appUsers = await loadUsersWithRoles();
             setUsers(appUsers);
             setIsNewUserDialogOpen(false);
-        } catch (error: any) => {
+        } catch (error: any) {
              console.error("Erro ao convidar usuário:", error);
              toast({
                 variant: "destructive",
@@ -150,7 +150,10 @@ export default function SettingsPage() {
     const pageRoutes = allRoutes.filter(p => !p.startsWith('/actions/'));
     const actionRoutesByPage = pageRoutes.reduce((acc, page) => {
         const pageSpecificActions = allRoutes.filter(action => {
-            return action.startsWith(`${page}/`) && action.includes('/actions/');
+            // Updated logic to correctly find actions for a specific page.
+            // Example: page='/a/b', action='/a/b/actions/c' -> should match.
+            const actionPrefix = `${page}/actions/`;
+            return action.startsWith(actionPrefix);
         });
         if (pageSpecificActions.length > 0) {
             acc[page] = pageSpecificActions;
@@ -180,7 +183,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
-                        <div className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center p-4 border-b font-medium text-muted-foreground text-sm">
+                        <div className="grid grid-cols-[1fr,repeat(8,100px),100px] items-center p-4 border-b font-medium text-muted-foreground text-sm">
                             <div className="pr-4">Página do Sistema</div>
                             {availableRoles.map(role => (
                                 <div key={role.key} className="text-center">{role.name}</div>
@@ -193,7 +196,7 @@ export default function SettingsPage() {
                                     const hasSubActions = subActions.length > 0;
                                     
                                     const triggerContent = (
-                                        <div className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center w-full">
+                                        <div className="grid grid-cols-[1fr,repeat(8,100px),100px] items-center w-full">
                                             <div className="flex items-center">
                                                 <div className={cn("h-8 w-8 mr-2 flex items-center justify-center", !hasSubActions && "invisible")}>
                                                     <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -235,8 +238,9 @@ export default function SettingsPage() {
                                              {hasSubActions && (
                                                 <AccordionContent>
                                                     <div className="bg-muted/50 p-4 border-t">
+                                                        <h4 className="font-semibold text-sm mb-2 pl-12">Ações Específicas da Página:</h4>
                                                         {subActions.map(action => (
-                                                             <div key={action} className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center py-2">
+                                                             <div key={action} className="grid grid-cols-[1fr,repeat(8,100px),100px] items-center py-2">
                                                                  <div className="pl-14 text-sm text-muted-foreground italic truncate">
                                                                     └ Ação: {action.split('/').pop()}
                                                                  </div>
@@ -343,3 +347,5 @@ export default function SettingsPage() {
         </>
     )
 }
+
+    
