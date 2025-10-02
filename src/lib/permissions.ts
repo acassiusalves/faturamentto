@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore } from 'lucide-react';
@@ -135,6 +136,6 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 
-    // Action-specific permissions (format: /page-path/actions/action-name)
-    '/feed-25/buscar-mercado-livre/actions/create-listing': ['admin', 'socio'],
+    // Action-specific permissions
+    '/actions/ml/create-listing': ['admin', 'socio'],
 };
