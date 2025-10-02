@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy } from 'lucide-react';
+import { Loader2, PlusCircle, Database, AlertTriangle, Send, Search, Check, Info, ClipboardCopy, Copy, XCircle } from 'lucide-react';
 import { createCatalogListingAction } from '@/app/actions';
 import type { MlAccount, ProductResult, CreateListingPayload, CreateListingResult, FeedEntry } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -29,17 +29,23 @@ import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';
 
 
-const listingSchema = z.object({
-    title: z.string().optional(),
-    sellerSku: z.string().optional(), // Tornou-se opcional
-    price: z.coerce.number().positive('O preço deve ser maior que zero.'),
-    quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
-    listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.'}),
-    accountIds: z.array(z.string()).min(1, 'Selecione pelo menos uma conta para publicar.'),
-    condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }).default('new'),
+const singleListingSchema = z.object({
+  productResultId: z.string(),
+  name: z.string(),
+  sellerSku: z.string().optional(),
+  price: z.coerce.number().positive('O preço deve ser maior que zero.'),
+  quantity: z.coerce.number().int().min(1, 'A quantidade deve ser de pelo menos 1.'),
+  listingTypeId: z.enum(['gold_special', 'gold_pro'], { required_error: 'Selecione o tipo de anúncio.' }),
+  condition: z.enum(['new', 'used', 'not_specified'], { required_error: 'Selecione a condição.' }).default('new'),
+  accountIds: z.array(z.string()).min(1, 'Selecione pelo menos uma conta para publicar.'),
 });
 
-type ListingFormValues = z.infer<typeof listingSchema>;
+const bulkListingSchema = z.object({
+    listings: z.array(singleListingSchema)
+});
+
+type BulkListingFormValues = z.infer<typeof bulkListingSchema>;
+type SingleListingFormValues = z.infer<typeof singleListingSchema>;
 
 const initialFormState: CreateListingResult = { success: false, error: null, result: null, payload: undefined };
 
@@ -64,46 +70,197 @@ interface CreateListingDialogProps {
   accounts: MlAccount[];
 }
 
+// Sub-component for each row in the bulk form
+function ListingRow({ index, control, remove, accounts, product, allFeedProducts }: {
+    index: number;
+    control: any;
+    remove: (index: number) => void;
+    accounts: MlAccount[];
+    product: ProductResult;
+    allFeedProducts: FeedProduct[];
+}) {
+    const { toast } = useToast();
+    const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+    const filteredFeedProducts = React.useMemo(() => {
+        if (!searchTerm) return allFeedProducts;
+        const lowerSearch = searchTerm.toLowerCase();
+        return allFeedProducts.filter(p =>
+            p.name?.toLowerCase().includes(lowerSearch) ||
+            p.sku?.toLowerCase().includes(lowerSearch)
+        );
+    }, [allFeedProducts, searchTerm]);
+
+    const handleProductSelect = (productToSelect: FeedProduct) => {
+        control.setValue(`listings.${index}.sellerSku`, productToSelect.sku, { shouldValidate: true });
+        setIsSearchPopoverOpen(false);
+        setSearchTerm('');
+    };
+    
+    return (
+        <Card className="p-4 space-y-4">
+             <div className="flex justify-between items-start">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                     <div className="relative h-16 w-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                        <Image src={product.thumbnail} alt={product.name} fill className="object-contain" data-ai-hint="product image"/>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate" title={product.name}>{product.name}</p>
+                        <p className="text-xs text-muted-foreground">ID do Catálogo: {product.catalog_product_id}</p>
+                    </div>
+                </div>
+                 <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                    <XCircle className="h-5 w-5 text-destructive" />
+                </Button>
+            </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
+                {/* Produto (para SKU) */}
+                 <FormField
+                    control={control}
+                    name={`listings.${index}.sellerSku`}
+                    render={({ field }) => (
+                         <FormItem className="w-full">
+                            <FormLabel>Produto (para SKU)</FormLabel>
+                            <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}>
+                                            <span className="truncate">
+                                                {field.value ? (allFeedProducts.find(p => p.sku === field.value)?.name || field.value) : "Buscar produto..."}
+                                            </span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
+                                    <div className="flex flex-col">
+                                        <div className="border-b p-2">
+                                            <Input ref={searchInputRef} placeholder="Buscar por nome ou SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-9"/>
+                                        </div>
+                                        <ScrollArea className="max-h-60" onWheel={e => e.stopPropagation()}>
+                                            <div className="p-1">
+                                                {filteredFeedProducts.map(p => (
+                                                    <div key={p.id} onClick={() => handleProductSelect(p)} className="flex items-start gap-2 p-2 rounded-sm cursor-pointer hover:bg-accent">
+                                                        <Check className={cn("mt-0.5 h-4 w-4 shrink-0", field.value === p.sku ? "opacity-100" : "opacity-0")} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-semibold text-sm truncate">{p.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{p.sku}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+
+                {/* Preço de Venda */}
+                <FormField control={control} name={`listings.${index}.price`} render={({ field }) => (
+                    <FormItem><FormLabel>Preço de Venda</FormLabel><FormControl><Input type="number" placeholder="299.90" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+
+                {/* Estoque */}
+                 <FormField control={control} name={`listings.${index}.quantity`} render={({ field }) => (
+                    <FormItem><FormLabel>Estoque</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                
+                {/* Tipo de Anúncio */}
+                <FormField control={control} name={`listings.${index}.listingTypeId`} render={({ field }) => (
+                    <FormItem><FormLabel>Tipo de Anúncio</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="gold_special">Clássico</SelectItem><SelectItem value="gold_pro">Premium</SelectItem></SelectContent>
+                        </Select>
+                    <FormMessage /></FormItem>
+                )} />
+                
+                 {/* Condição */}
+                <FormField control={control} name={`listings.${index}.condition`} render={({ field }) => (
+                    <FormItem><FormLabel>Condição</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="new">Novo</SelectItem><SelectItem value="used">Usado</SelectItem><SelectItem value="not_specified">Não especificado</SelectItem></SelectContent>
+                        </Select>
+                    <FormMessage /></FormItem>
+                )} />
+
+             </div>
+             {/* Contas */}
+            <FormField
+                control={control}
+                name={`listings.${index}.accountIds`}
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Publicar nas Contas</FormLabel>
+                        <FormControl>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-md border p-2">
+                                {accounts.map(account => {
+                                    const isAlreadyPosted = product.postedOnAccounts?.some(
+                                        p => p.accountId === account.id && p.listingTypeId === control.getValues(`listings.${index}.listingTypeId`)
+                                    );
+                                    return (
+                                        <div key={account.id} className={cn("flex items-center space-x-2", isAlreadyPosted && "opacity-50 cursor-not-allowed")}>
+                                            <Checkbox
+                                                id={`account-${product.id}-${account.id}`}
+                                                checked={field.value?.includes(account.id)}
+                                                disabled={isAlreadyPosted}
+                                                onCheckedChange={(checked) => {
+                                                    return checked
+                                                        ? field.onChange([...field.value, account.id])
+                                                        : field.onChange(field.value?.filter(value => value !== account.id));
+                                                }}
+                                            />
+                                            <Label htmlFor={`account-${product.id}-${account.id}`} className={cn("font-normal", isAlreadyPosted && "cursor-not-allowed")}>
+                                                {account.accountName || account.id}
+                                            </Label>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </Card>
+    );
+}
+
+
 export function CreateListingDialog({ isOpen, onClose, products, accounts }: CreateListingDialogProps) {
     const { toast } = useToast();
     const [listingResults, setListingResults] = useState<ListingResult[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [isSearchPopoverOpen, setIsSearchPopoverOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedProductInfo, setSelectedProductInfo] = useState<{name: string, sku: string} | null>(null);
-
     const [allFeedProducts, setAllFeedProducts] = useState<FeedProduct[]>([]);
     const [isFetchingFeedProducts, setIsFetchingFeedProducts] = useState(true);
 
-    const searchInputRef = React.useRef<HTMLInputElement>(null);
-    
     const [isAlertOpen, setIsAlertOpen] = useState(false);
-    const [pendingFormData, setPendingFormData] = useState<ListingFormValues | null>(null);
+    const [pendingFormData, setPendingFormData] = useState<BulkListingFormValues | null>(null);
     
     // Bulk creation state
     const [progress, setProgress] = useState(0);
     const [currentTask, setCurrentTask] = useState('');
 
-    useEffect(() => {
-      if (isSearchPopoverOpen) {
-        setTimeout(() => searchInputRef.current?.focus(), 0);
-      }
-    }, [isSearchPopoverOpen]);
-
     const accountOptions = React.useMemo(() => accounts.map(acc => ({ value: acc.id, label: acc.accountName || acc.id })), [accounts]);
 
-    const form = useForm<ListingFormValues>({
-        resolver: zodResolver(listingSchema),
+    const form = useForm<BulkListingFormValues>({
+        resolver: zodResolver(bulkListingSchema),
         defaultValues: {
-            title: '',
-            sellerSku: '',
-            price: undefined,
-            quantity: 1,
-            listingTypeId: 'gold_special',
-            accountIds: [],
-            condition: 'new',
+            listings: []
         }
+    });
+    
+    const { control, handleSubmit, formState: { errors } } = form;
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: "listings"
     });
 
     useEffect(() => {
@@ -117,111 +274,84 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
             setIsFetchingFeedProducts(false);
           }
           fetchAllProducts();
+
+          form.reset({
+              listings: products.map(p => ({
+                  productResultId: p.id,
+                  name: p.name,
+                  sellerSku: '',
+                  price: p?.price ? parseFloat((p.price * 1.35).toFixed(2)) : 0,
+                  quantity: 10,
+                  listingTypeId: (p.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
+                  condition: 'new',
+                  accountIds: [],
+              }))
+          });
+          setListingResults([]);
+          setProgress(0);
+          setCurrentTask('');
+
         }
-    }, [isOpen]);
-
-    const filteredFeedProducts = React.useMemo(() => {
-        if (!searchTerm) return allFeedProducts;
-        const lowerSearch = searchTerm.toLowerCase();
-        return allFeedProducts.filter(p => 
-            p.name?.toLowerCase().includes(lowerSearch) || 
-            p.sku?.toLowerCase().includes(lowerSearch)
-        );
-    }, [allFeedProducts, searchTerm]);
-
-    const isBulkMode = products.length > 1;
-    const firstProduct = products[0];
-
-    useEffect(() => {
-        if (products.length > 0) {
-            form.reset({
-                title: isBulkMode ? '' : firstProduct.name || '',
-                sellerSku: '',
-                price: isBulkMode ? undefined : (firstProduct?.price ? parseFloat((firstProduct.price * 1.35).toFixed(2)) : undefined),
-                quantity: 1,
-                listingTypeId: (firstProduct.listing_type_id as 'gold_special' | 'gold_pro') || 'gold_special',
-                accountIds: [],
-                condition: 'new',
-            });
-            setSelectedProductInfo(null);
-            setSearchTerm('');
-        }
-    }, [products, form, isBulkMode, firstProduct]);
+    }, [isOpen, products, form]);
     
-    useEffect(() => {
-      if (!isOpen) {
-        form.reset();
-        setListingResults([]);
-        setSelectedProductInfo(null);
-        setSearchTerm('');
-        setProgress(0);
-        setCurrentTask('');
-      }
-    }, [isOpen, form]);
-
-    const handleProductSelect = (productToSelect: FeedProduct) => {
-        form.setValue('sellerSku', productToSelect.sku, { shouldValidate: true });
-        setSelectedProductInfo({ name: productToSelect.name, sku: productToSelect.sku });
-        setIsSearchPopoverOpen(false);
-        setSearchTerm('');
-    };
-
-    const handleCopyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast({
-            title: 'Copiado!',
-            description: 'O conteúdo JSON foi copiado para a área de transferência.',
-        });
-    };
     
-    const proceedWithSubmit = async (data: ListingFormValues) => {
+    const proceedWithSubmit = async (data: BulkListingFormValues) => {
         setIsSubmitting(true);
         setListingResults([]);
         setProgress(0);
+        
+        const operations: { listing: SingleListingFormValues; accountId: string; accountName: string }[] = [];
+        data.listings.forEach(listing => {
+            listing.accountIds.forEach(accountId => {
+                const account = accounts.find(a => a.id === accountId);
+                if (account) {
+                    operations.push({ listing, accountId, accountName: account.accountName || accountId });
+                }
+            });
+        });
 
-        const totalOperations = products.length * data.accountIds.length;
+        const totalOperations = operations.length;
         let completedOperations = 0;
         
-        for (const product of products) {
-            for (const accountId of data.accountIds) {
-                const account = accounts.find(a => a.id === accountId);
-                if(!account) continue;
-                
-                completedOperations++;
-                setCurrentTask(`Criando "${product.name}" na conta "${account.accountName || account.id}"...`);
+        for (const op of operations) {
+            const { listing, accountId, accountName } = op;
+            const product = products.find(p => p.id === listing.productResultId);
+            if(!product) continue;
+            
+            completedOperations++;
+            setCurrentTask(`Criando "${listing.name}" na conta "${accountName}"...`);
 
-                const formData = new FormData();
-                formData.append('catalog_product_id', product.catalog_product_id);
-                formData.append('sellerSku', data.sellerSku || (isBulkMode ? '' : product.attributes.find(a => a.id === 'SELLER_SKU')?.value_name || '') );
-                formData.append('price', String(isBulkMode ? data.price : (data.price || product.price)));
-                formData.append('available_quantity', String(data.quantity));
-                formData.append('listing_type_id', data.listingTypeId);
-                formData.append('accountId', accountId);
-                formData.append('condition', data.condition);
-                formData.append('category_id', product.category_id);
-                if (!isBulkMode) formData.append('title', data.title || product.name);
-                
-                const result = await createCatalogListingAction(initialFormState, formData);
+            const formData = new FormData();
+            formData.append('catalog_product_id', product.catalog_product_id);
+            formData.append('sellerSku', listing.sellerSku || '');
+            formData.append('price', String(listing.price));
+            formData.append('available_quantity', String(listing.quantity));
+            formData.append('listing_type_id', listing.listingTypeId);
+            formData.append('accountId', accountId);
+            formData.append('condition', listing.condition);
+            formData.append('category_id', product.category_id);
+            formData.append('title', listing.name);
+            
+            const result = await createCatalogListingAction(initialFormState, formData);
 
-                setListingResults(prev => [...prev, {
-                    productName: product.name,
-                    accountId: accountId,
-                    accountName: account.accountName || accountId,
-                    status: result.success ? 'success' : 'error',
-                    message: result.error || 'Criado com sucesso!',
-                    payload: result.payload,
-                    response: result.result
-                }]);
-                
-                setProgress((completedOperations / totalOperations) * 100);
-            }
+            setListingResults(prev => [...prev, {
+                productName: listing.name,
+                accountId: accountId,
+                accountName: accountName,
+                status: result.success ? 'success' : 'error',
+                message: result.error || 'Criado com sucesso!',
+                payload: result.payload,
+                response: result.result
+            }]);
+            
+            setProgress((completedOperations / totalOperations) * 100);
         }
         
         setIsSubmitting(false);
         setCurrentTask('Concluído!');
-
-        const successCount = listingResults.filter(r => r.status === 'success').length;
-        const errorCount = totalOperations - successCount;
+        
+        const successCount = operations.length - listingResults.filter(r => r.status === 'error').length;
+        const errorCount = listingResults.filter(r => r.status === 'error').length;
 
         if (successCount > 0) {
             toast({ title: 'Criação Concluída!', description: `${successCount} anúncio(s) criado(s) com sucesso.` });
@@ -232,8 +362,9 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
     };
 
 
-    const onSubmit = async (data: ListingFormValues) => {
-        if (!isBulkMode && !data.sellerSku) {
+    const onSubmit = async (data: BulkListingFormValues) => {
+        const hasEmptySku = data.listings.some(l => !l.sellerSku);
+        if (hasEmptySku) {
             setPendingFormData(data);
             setIsAlertOpen(true);
         } else {
@@ -246,232 +377,65 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
     return (
         <>
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl flex flex-col h-auto max-h-[95vh]">
+            <DialogContent className="max-w-6xl flex flex-col h-[95vh]">
                 <DialogHeader>
                     <DialogTitle>
-                         {isBulkMode ? `Criar ${products.length} Anúncios` : `Criar Anúncio para: ${firstProduct.name}`}
+                         Criar {products.length} Anúncio(s) em Lote
                     </DialogTitle>
                     <DialogDescription>
-                        Preencha os detalhes abaixo para publicar este(s) produto(s) em uma ou mais de suas contas.
+                        Configure os detalhes para cada produto selecionado abaixo.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 flex-grow overflow-y-auto">
-                    <div>
-                        <Form {...form}>
-                            <form id="create-listing-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                 <FormField
-                                    control={form.control}
-                                    name="accountIds"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Publicar nas Contas</FormLabel>
-                                            <FormControl>
-                                                <div className="space-y-2 rounded-md border p-2 max-h-40 overflow-y-auto">
-                                                    {accountOptions.map(option => {
-                                                        const isAlreadyPosted = !isBulkMode && firstProduct.postedOnAccounts?.some(
-                                                            p => p.accountId === option.value && p.listingTypeId === form.watch('listingTypeId')
-                                                        );
-                                                        
-                                                        return (
-                                                            <div key={option.value} className={cn("flex items-center space-x-3 space-y-0 p-2 rounded-md", isAlreadyPosted && "opacity-50 cursor-not-allowed")}>
-                                                                <Checkbox
-                                                                    id={`account-${option.value}`}
-                                                                    checked={field.value?.includes(option.value)}
-                                                                    disabled={isAlreadyPosted}
-                                                                    onCheckedChange={(checked) => {
-                                                                        return checked
-                                                                            ? field.onChange([...field.value, option.value])
-                                                                            : field.onChange(field.value?.filter((value) => value !== option.value));
-                                                                    }}
-                                                                />
-                                                                <Label htmlFor={`account-${option.value}`} className={cn("font-normal", isAlreadyPosted && "cursor-not-allowed")}>
-                                                                    {option.label} {isAlreadyPosted && <span className="text-destructive text-xs">(Já postado como {form.watch('listingTypeId') === 'gold_pro' ? 'Premium' : 'Clássico'})</span>}
-                                                                </Label>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                
-                                {!isBulkMode && (
-                                    <FormField control={form.control} name="sellerSku" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Produto (para SKU)</FormLabel>
-                                            <Popover open={isSearchPopoverOpen} onOpenChange={setIsSearchPopoverOpen}>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    type="button"
-                                                    aria-expanded={isSearchPopoverOpen}
-                                                    className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
-                                                >
-                                                    <span className="truncate">
-                                                    {selectedProductInfo ? selectedProductInfo.name : "Buscar produto no Banco de Dados..."}
-                                                    </span>
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                    
-                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
-                                                <div className="flex flex-col">
-                                                <div className="border-b p-2">
-                                                    <Input
-                                                    ref={searchInputRef}
-                                                    placeholder="Buscar por nome ou SKU..."
-                                                    disabled={isFetchingFeedProducts}
-                                                    value={searchTerm}
-                                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                                    className="h-9"
-                                                    />
-                                                </div>
-                                                
-                                                <div className="max-h-[300px] overflow-y-auto overscroll-contain" onWheel={(e) => e.stopPropagation()}>
-                                                    {isFetchingFeedProducts ? (
-                                                    <div className="p-4 text-center text-sm text-muted-foreground"><Loader2 className="mx-auto h-4 w-4 animate-spin" /></div>
-                                                    ) : filteredFeedProducts.length === 0 ? (
-                                                    <div className="p-4 text-center text-sm text-muted-foreground">Nenhum produto encontrado.</div>
-                                                    ) : (
-                                                    <div className="p-1">
-                                                        {filteredFeedProducts.map((p, index) => (
-                                                        <div
-                                                            key={`${p.sku}-${index}`}
-                                                            onClick={() => handleProductSelect(p)}
-                                                            className={cn("flex items-start gap-2 rounded-sm px-2 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors", selectedProductInfo?.sku === p.sku && "bg-accent")}
-                                                        >
-                                                            <Check className={cn("mt-0.5 h-4 w-4 shrink-0", selectedProductInfo?.sku === p.sku ? "opacity-100" : "opacity-0")} />
-                                                            <div className="flex flex-col text-left flex-1 min-w-0">
-                                                            <span className="font-semibold text-sm truncate">{p.name}</span>
-                                                            <span className="text-xs text-muted-foreground">{p.sku}</span>
-                                                            </div>
-                                                        </div>
-                                                        ))}
-                                                    </div>
-                                                    )}
-                                                </div>
-                                                </div>
-                                            </PopoverContent>
-                                            </Popover>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                )}
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="price" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Preço de Venda</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" placeholder="299.90" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="quantity" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Estoque</FormLabel>
-                                            <FormControl><Input type="number" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                <div className="flex-grow overflow-hidden">
+                    <Form {...form}>
+                        <form id="create-listing-form" onSubmit={handleSubmit(onSubmit)} className="h-full flex flex-col">
+                           <ScrollArea className="flex-grow pr-4">
+                            <div className="space-y-6">
+                                {fields.map((field, index) => (
+                                    <ListingRow
+                                        key={field.id}
+                                        index={index}
+                                        control={control}
+                                        remove={remove}
+                                        accounts={accounts}
+                                        product={products.find(p => p.id === form.getValues(`listings.${index}.productResultId`))!}
+                                        allFeedProducts={allFeedProducts}
+                                    />
+                                ))}
+                            </div>
+                           </ScrollArea>
+                            {isSubmitting && (
+                                <div className="mt-4 space-y-2">
+                                    <Progress value={progress} />
+                                    <p className="text-center text-xs text-muted-foreground">{currentTask}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="listingTypeId" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Tipo de Anúncio</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="gold_special">Clássico</SelectItem>
-                                                    <SelectItem value="gold_pro">Premium</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="condition" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Condição</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="new">Novo</SelectItem>
-                                                    <SelectItem value="used">Usado</SelectItem>
-                                                    <SelectItem value="not_specified">Não especificado</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-                            </form>
-                        </Form>
-                    </div>
+                            )}
 
-                   <div className="space-y-4">
-                       {isBulkMode && products.length > 0 && (
-                            <Card>
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-2">
-                                        <Copy /> Produtos Selecionados
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <ScrollArea className="h-48">
-                                        <div className="p-4 space-y-3">
-                                            {products.map(p => (
-                                                <div key={p.id} className="flex items-center gap-2 text-sm p-2 border rounded-md">
-                                                    <div className="relative h-10 w-10 bg-muted rounded-sm overflow-hidden flex-shrink-0">
-                                                        <Image src={p.thumbnail} alt={p.name} fill className="object-contain"/>
+                           {listingResults.length > 0 && (
+                                <Card className="mt-4">
+                                    <CardHeader className="p-3">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Send /> Resultados da Publicação
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <ScrollArea className="bg-muted rounded-b-md text-xs max-h-48">
+                                            <div className="p-4 space-y-4">
+                                                {listingResults.map((res, index) => (
+                                                    <div key={index} className="space-y-2 p-2 border-l-4 rounded-r-md" style={{ borderColor: res.status === 'success' ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }}>
+                                                        <h4 className="font-semibold">{res.productName} ({res.accountName}): {res.status === 'success' ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
+                                                        <p className="text-muted-foreground text-[11px]">{res.message}</p>
                                                     </div>
-                                                    <p className="flex-1 truncate">{p.name}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                       )}
-                       {listingResults.length > 0 && (
-                            <Card>
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base flex items-center gap-2">
-                                        <Send /> Resultados da Publicação
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <ScrollArea className="bg-muted rounded-b-md text-xs max-h-80">
-                                        <div className="p-4 space-y-4">
-                                            {isSubmitting && (
-                                                <div className="space-y-2">
-                                                    <Progress value={progress} />
-                                                    <p className="text-center text-xs text-muted-foreground">{currentTask}</p>
-                                                </div>
-                                            )}
-                                            {listingResults.map((res, index) => (
-                                                <div key={index} className="space-y-2 p-2 border-l-4 rounded-r-md" style={{ borderColor: res.status === 'success' ? 'hsl(var(--primary))' : 'hsl(var(--destructive))' }}>
-                                                    <h4 className="font-semibold">{res.productName} ({res.accountName}): {res.status === 'success' ? <span className="text-green-600">Sucesso</span> : <span className="text-destructive">Falha</span>}</h4>
-                                                    <p className="text-muted-foreground text-[11px]">{res.message}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </form>
+                    </Form>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="pt-4 border-t">
                     <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
                     <Button type="submit" form="create-listing-form" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
@@ -485,10 +449,10 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
                         <AlertTriangle className="text-amber-500" />
-                        Criar anúncio sem SKU?
+                        Criar anúncio(s) sem SKU?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        Você não selecionou um produto do seu banco de dados. O anúncio será criado no Mercado Livre, mas não terá um SKU associado no sistema. Deseja continuar?
+                        Um ou mais produtos não foram associados a um SKU do seu banco de dados. O(s) anúncio(s) será(ão) criado(s) no Mercado Livre, mas não terão um SKU interno no sistema. Deseja continuar?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -507,4 +471,3 @@ export function CreateListingDialog({ isOpen, onClose, products, accounts }: Cre
      </>
     );
 }
-
