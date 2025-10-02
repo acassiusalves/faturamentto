@@ -133,9 +133,11 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
 
       const lowerSearchTerm = searchTerm.toLowerCase();
       const matchesSearch = searchTerm === "" ||
+        (sale as any).item_title?.toLowerCase().includes(lowerSearchTerm) ||
         (sale as any).item_sku?.toLowerCase().includes(lowerSearchTerm) ||
         (sale as any).order_code?.toLowerCase().includes(lowerSearchTerm) ||
-        (sale as any).order_id?.toString().toLowerCase().includes(lowerSearchTerm);
+        (sale as any).order_id?.toString().toLowerCase().includes(lowerSearchTerm) ||
+        (sale as any).product_name?.toLowerCase().includes(lowerSearchTerm);
       
       return matchesMarketplace && matchesSearch && matchesState && matchesAccount;
     });
@@ -319,7 +321,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
               <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Buscar por SKU, Pedido ou ID..."
+                placeholder="Buscar por produto, SKU, pedido..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -377,7 +379,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
             <SalesTable 
                 data={filteredSales}
                 products={products}
-                onUpdateSaleCosts={handleUpdateDashboardSaleCosts} 
+                onUpdateSaleData={handleUpdateDashboardSaleCosts} 
                 calculateTotalCost={calculateDashboardTotalCost}
                 calculateNetRevenue={calculateDashboardNetRevenue}
                 formatCurrency={formatCurrency}
@@ -391,3 +393,5 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
     </div>
   );
 }
+
+    
