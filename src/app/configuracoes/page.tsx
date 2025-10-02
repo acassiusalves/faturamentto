@@ -224,7 +224,7 @@ export default function SettingsPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Email do Usuário</TableHead>
-                                    <TableHead className="w-[180px]">Função (Role)</TableHead>
+                                    <TableHead className="w-[220px]">Função (Role)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

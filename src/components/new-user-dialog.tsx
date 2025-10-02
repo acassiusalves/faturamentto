@@ -26,7 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info, Loader2 } from 'lucide-react';
-import type { availableRoles } from '@/lib/permissions';
+import type { availableRoles as AvailableRolesType } from '@/lib/permissions';
+
 
 const newUserSchema = z.object({
   email: z.string().email({ message: "Por favor, insira um email válido." }),
@@ -39,7 +40,7 @@ interface NewUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (email: string, role: string) => Promise<void>;
-  availableRoles: typeof availableRoles;
+  availableRoles: typeof AvailableRolesType;
 }
 
 export function NewUserDialog({ isOpen, onClose, onSave, availableRoles }: NewUserDialogProps) {

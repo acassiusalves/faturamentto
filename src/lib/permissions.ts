@@ -9,6 +9,7 @@ export const availableRoles = [
   { key: 'admin', name: 'Administrador' },
   { key: 'socio', name: 'Sócio' },
   { key: 'financeiro', name: 'Financeiro' },
+  { key: 'gestor-de-contas', name: 'Gestor de Contas' },
   { key: 'expedicao', name: 'Expedição' },
   { key: 'sac', name: 'SAC' },
 ];
@@ -94,14 +95,14 @@ export const settingsLinks = [
 // Default permissions, will be overridden by Firestore settings if they exist.
 export const pagePermissions: Record<string, string[]> = {
     // Page route: Allowed roles
-    '/': ['admin', 'socio', 'financeiro', 'expedicao', 'sac'],
-    '/analise-por-conta': ['admin', 'socio', 'financeiro'],
+    '/': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas'],
+    '/analise-por-conta': ['admin', 'socio', 'financeiro', 'gestor-de-contas'],
     '/produtos': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque/conferencia': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque/devolucoes': ['admin', 'socio', 'expedicao'],
     '/picking': ['admin', 'socio', 'expedicao'],
-    '/conciliacao': ['admin', 'socio', 'financeiro'],
+    '/conciliacao': ['admin', 'socio', 'financeiro', 'gestor-de-contas'],
     '/compras': ['admin', 'socio', 'financeiro'],
     '/arquivo': ['admin', 'socio', 'expedicao', 'sac', 'financeiro'],
     '/arquivo/conferencia': ['admin', 'socio', 'financeiro'],
@@ -113,19 +114,19 @@ export const pagePermissions: Record<string, string[]> = {
     '/relatorios': ['admin', 'socio', 'financeiro'],
     '/dre': ['admin', 'socio', 'financeiro'],
     '/custos-geral': ['admin', 'socio', 'financeiro'],
-    '/sac': ['admin', 'socio', 'sac'],
+    '/sac': ['admin', 'socio', 'sac', 'gestor-de-contas'],
     '/memoria': ['admin'],
-    '/mapeamento': ['admin', 'socio'],
+    '/mapeamento': ['admin', 'socio', 'gestor-de-contas'],
     '/aprovacoes': ['admin', 'socio'],
     '/configuracoes': ['admin'],
-    '/perfil': ['admin', 'socio', 'financeiro', 'expedicao', 'sac'],
+    '/perfil': ['admin', 'socio', 'financeiro', 'expedicao', 'sac', 'gestor-de-contas'],
     '/feed-25': ['admin', 'socio'],
     '/feed-25/lista': ['admin', 'socio'],
     '/feed-25/analise-produtos-pdf': ['admin', 'socio'],
     '/feed-25/buscar-mercado-livre': ['admin', 'socio'],
     '/feed-25/buscar-categoria-mercado-livre': ['admin', 'socio'],
     '/avisos': ['admin'],
-    '/anuncios': ['admin', 'socio'],
+    '/anuncios': ['admin', 'socio', 'gestor-de-contas'],
     '/etiquetas': ['admin', 'socio', 'expedicao'],
     '/login': [], // Public page, no roles required
     '/laboratorio': ['admin', 'socio'],
@@ -134,5 +135,3 @@ export const pagePermissions: Record<string, string[]> = {
     '/laboratorio/analise-zpl': ['admin', 'socio'],
     '/laboratorio/testes-gpt': ['admin', 'socio'],
 };
-
-    

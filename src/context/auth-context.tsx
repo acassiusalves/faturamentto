@@ -51,7 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (appSettings) {
              if (appSettings.permissions) {
-                const dynamicPermissions = { ...appSettings.permissions };
+                const dynamicPermissions = { ...defaultPagePermissions };
+                for (const page in dynamicPermissions) {
+                  if (appSettings.permissions[page]) {
+                    dynamicPermissions[page] = appSettings.permissions[page];
+                  }
+                }
                 
                 // CRITICAL: Ensure admin always has access to all defined pages
                 for(const page in dynamicPermissions) {
