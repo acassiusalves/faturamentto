@@ -150,7 +150,15 @@ export default function SettingsPage() {
     const allRoutes = Object.keys(permissions);
     const pageRoutes = allRoutes.filter(p => !p.startsWith('/actions/'));
     const actionRoutesByPage = pageRoutes.reduce((acc, page) => {
-        acc[page] = allRoutes.filter(action => action.startsWith(page + '/') && action.includes('/actions/'));
+        const pageSpecificActions = allRoutes.filter(action => {
+            // Ação pertence a esta página se começar com o nome da página + /
+            // Ex: /feed-25/buscar-mercado-livre/actions/create-listing
+            // E a página é /feed-25/buscar-mercado-livre
+            return action.startsWith(`${page}/`) && action.includes('/actions/');
+        });
+        if (pageSpecificActions.length > 0) {
+            acc[page] = pageSpecificActions;
+        }
         return acc;
     }, {} as Record<string, string[]>);
 
@@ -233,7 +241,7 @@ export default function SettingsPage() {
                                                 <AccordionContent>
                                                     <div className="bg-muted/50 p-4 border-t">
                                                         {subActions.map(action => (
-                                                             <div key={action} className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center gap-4 py-2">
+                                                             <div key={action} className="grid grid-cols-[1fr,repeat(7,100px),100px] items-center py-2">
                                                                  <div className="pl-14 text-sm text-muted-foreground italic truncate">
                                                                     └ Ação: {action.split('/').pop()}
                                                                  </div>
@@ -250,7 +258,7 @@ export default function SettingsPage() {
                                                                         </div>
                                                                     )
                                                                  })}
-                                                                 <div /> 
+                                                                 <div />
                                                              </div>
                                                         ))}
                                                     </div>
@@ -340,3 +348,5 @@ export default function SettingsPage() {
         </>
     )
 }
+
+    
