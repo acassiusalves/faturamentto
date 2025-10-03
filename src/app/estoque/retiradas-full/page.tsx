@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { findInventoryItemBySN, deleteInventoryItem } from '@/services/firestore';
 import type { InventoryItem } from '@/lib/types';
