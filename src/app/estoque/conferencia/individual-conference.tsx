@@ -350,47 +350,69 @@ export function IndividualConference() {
                     <p className="text-sm text-muted-foreground">O histórico partilhado é guardado na base de dados e é automaticamente apagado após 7 dias.</p>
                 </div>
                 <Accordion type="single" collapsible className="w-full space-y-2">
-                   {history.map(entry => (
-                       <AccordionItem value={entry.id} key={entry.id} className="border-b-0">
-                           <Card>
-                                <AccordionTrigger className="p-4 hover:no-underline">
-                                    <div className="flex justify-between items-center w-full">
-                                        <div className="flex items-center gap-2">
-                                            <History className="h-5 w-5 text-primary"/>
-                                            <span className="font-semibold">Conferência de {format(new Date(entry.date), 'dd/MM/yyyy HH:mm:ss')}</span>
+                   {history.map(entry => {
+                       const entrySummaryStats = entry.results.found.reduce((acc, item) => {
+                           const condition = item.condition || 'N/A';
+                           acc[condition] = (acc[condition] || 0) + 1;
+                           return acc;
+                       }, {} as Record<string, number>);
+
+                       return (
+                           <AccordionItem value={entry.id} key={entry.id} className="border-b-0">
+                               <Card>
+                                    <AccordionTrigger className="p-4 hover:no-underline">
+                                        <div className="flex justify-between items-center w-full">
+                                            <div className="flex items-center gap-2">
+                                                <History className="h-5 w-5 text-primary"/>
+                                                <span className="font-semibold">Conferência de {format(new Date(entry.date), 'dd/MM/yyyy HH:mm:ss')}</span>
+                                            </div>
+                                            <div className="flex gap-4 text-sm">
+                                                <Badge variant="default" className="bg-green-100 text-green-800">Encontrados: {entry.results.found.length}</Badge>
+                                                <Badge variant="destructive">Não Encontrados: {entry.results.notFound.length}</Badge>
+                                                <Badge variant="secondary" className="bg-amber-100 text-amber-800">Não Bipados: {entry.results.notScanned.length}</Badge>
+                                            </div>
                                         </div>
-                                        <div className="flex gap-4 text-sm">
-                                            <Badge variant="default" className="bg-green-100 text-green-800">Encontrados: {entry.results.found.length}</Badge>
-                                            <Badge variant="destructive">Não Encontrados: {entry.results.notFound.length}</Badge>
-                                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">Não Bipados: {entry.results.notScanned.length}</Badge>
-                                        </div>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="p-4 pt-0">
-                                   <Tabs defaultValue="found" className="w-full">
-                                      <TabsList className="grid w-full grid-cols-3">
-                                        <TabsTrigger value="found">Encontrado ({entry.results.found.length})</TabsTrigger>
-                                        <TabsTrigger value="not_found">Não Encontrado ({entry.results.notFound.length})</TabsTrigger>
-                                        <TabsTrigger value="not_scanned">Não Bipado ({entry.results.notScanned.length})</TabsTrigger>
-                                      </TabsList>
-                                      <TabsContent value="found" className="mt-4">
-                                        <ResultTable items={entry.results.found} />
-                                      </TabsContent>
-                                      <TabsContent value="not_found" className="mt-4">
-                                         <div className="rounded-md border p-4 space-y-2">
-                                            {entry.results.notFound.length > 0 ? (
-                                                <div className="flex flex-wrap gap-2">{entry.results.notFound.map(sn => <Badge key={sn} variant="destructive">{sn}</Badge>)}</div>
-                                            ) : <p className="text-sm text-muted-foreground">Nenhum</p>}
-                                        </div>
-                                      </TabsContent>
-                                       <TabsContent value="not_scanned" className="mt-4">
-                                        <ResultTable items={entry.results.notScanned} />
-                                      </TabsContent>
-                                    </Tabs>
-                                </AccordionContent>
-                           </Card>
-                       </AccordionItem>
-                   ))}
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-4 pt-0">
+                                       <Tabs defaultValue="found" className="w-full">
+                                          <TabsList className="grid w-full grid-cols-3">
+                                            <TabsTrigger value="found">Encontrado ({entry.results.found.length})</TabsTrigger>
+                                            <TabsTrigger value="not_found">Não Encontrado ({entry.results.notFound.length})</TabsTrigger>
+                                            <TabsTrigger value="not_scanned">Não Bipado ({entry.results.notScanned.length})</TabsTrigger>
+                                          </TabsList>
+                                          <TabsContent value="found" className="mt-4">
+                                            {Object.keys(entrySummaryStats).length > 0 && (
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                                                    {Object.entries(entrySummaryStats).map(([condition, count]) => (
+                                                        <Card key={condition}>
+                                                            <CardHeader className="p-4">
+                                                                <CardTitle className="text-sm font-medium">{condition}</CardTitle>
+                                                            </CardHeader>
+                                                            <CardContent className="p-4 pt-0">
+                                                                <p className="text-2xl font-bold">{count}</p>
+                                                            </CardContent>
+                                                        </Card>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <ResultTable items={entry.results.found} />
+                                          </TabsContent>
+                                          <TabsContent value="not_found" className="mt-4">
+                                             <div className="rounded-md border p-4 space-y-2">
+                                                {entry.results.notFound.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">{entry.results.notFound.map(sn => <Badge key={sn} variant="destructive">{sn}</Badge>)}</div>
+                                                ) : <p className="text-sm text-muted-foreground">Nenhum</p>}
+                                            </div>
+                                          </TabsContent>
+                                           <TabsContent value="not_scanned" className="mt-4">
+                                            <ResultTable items={entry.results.notScanned} />
+                                          </TabsContent>
+                                        </Tabs>
+                                    </AccordionContent>
+                               </Card>
+                           </AccordionItem>
+                       )
+                   })}
                 </Accordion>
             </div>
        )}
