@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, FC, useEffect, useCallback } from 'react';
@@ -103,9 +102,16 @@ export function IndividualConference() {
     setNotScannedPageIndex(0);
     
     try {
+      // 1. Carrega TODOS os itens do inventário
       const allInventoryItems = await loadInventoryItems();
-      const inventorySnMap = new Map(allInventoryItems.map(item => [item.serialNumber, item]));
-      const allInventorySns = new Set(allInventoryItems.map(item => item.serialNumber));
+
+      // 2. Filtra APENAS os itens da categoria 'Celular'
+      const cellularInventory = allInventoryItems.filter(item => 
+        (item.category || 'Celular') === 'Celular'
+      );
+      
+      const inventorySnMap = new Map(cellularInventory.map(item => [item.serialNumber, item]));
+      const allInventorySns = new Set(cellularInventory.map(item => item.serialNumber));
       
       const scannedSnList = scannedSns
         .trim()
@@ -367,3 +373,5 @@ export function IndividualConference() {
     </div>
   );
 }
+
+    
