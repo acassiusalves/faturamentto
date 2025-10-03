@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -16,7 +17,7 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CostDialog } from '@/components/cost-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot, Search as SearchIcon, Ticket } from 'lucide-react';
+import { TrendingUp, Sheet, View, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, GripVertical, FileSpreadsheet, Package, Calculator, Loader2, RefreshCw, Bot, Search as SearchIcon, Ticket, Truck } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { iderisFields } from '@/lib/ideris-fields';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -90,8 +91,9 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
-const MetaItem = ({ label, value }: { label: string; value?: React.ReactNode }) => (
+const MetaItem = ({ label, value, icon: Icon }: { label: string; value?: React.ReactNode, icon?: React.ElementType }) => (
   <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
+    {Icon && <Icon className="h-3 w-3" />}
     <strong className="font-semibold text-foreground">{label}:</strong> {value ?? '—'}
   </span>
 );
@@ -137,6 +139,12 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
             <MetaItem label="SKU" value={saleData.item_sku} />
             <Dot />
             <MetaItem label="ID" value={saleData.order_id} />
+             {saleData.deliveryType && (
+                <>
+                <Dot />
+                <MetaItem label="Frete" value={saleData.deliveryType} icon={Truck} />
+                </>
+            )}
           </div>
         </div>
       </div>
@@ -889,3 +897,5 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
     </TooltipProvider>
   );
 }
+
+    

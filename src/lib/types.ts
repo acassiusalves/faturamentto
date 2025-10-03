@@ -666,6 +666,7 @@ export interface MyItem {
     listing_type_id?: string;
     precificacao_automatica?: boolean;
     seller_id?: number;
+    deliveryType?: string;
 }
 
 
@@ -795,6 +796,8 @@ export interface SavedPdfAnalysis {
     extractedProducts: SearchableProduct[];
     batchSearchResults: ProductResult[];
 }
+    
+
     
 
     

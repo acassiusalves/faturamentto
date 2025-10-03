@@ -1,9 +1,9 @@
 
+
 import type { SVGProps } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import React from 'react';
-import { HandCoins } from "lucide-react";
 
 
 export function MarketFlowLogo(props: SVGProps<SVGSVGElement>) {
@@ -46,9 +46,22 @@ export function MercadoLivreLogo({ className, ...props }: React.SVGProps<SVGSVGE
 }
 
 export function MercadoLivreIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <HandCoins {...props} />
-  )
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        xmlns="http://www.w3.org/2000/svg"
+        {...props}
+      >
+        <path d="M18.5 12.015c-1.373-.83-2.85-1.424-4.52-1.728.32-1.168.61-2.378.88-3.606.84-.424 1.68-.78 2.52-1.03a12.87 12.87 0 013.25-.015c.85.25 1.7.605 2.53 1.03.27 1.228.56 2.438.88 3.605-1.432.88-2.992 1.543-4.512 1.728a13.3 13.3 0 01-1.028 0z" fill="#fff"/>
+        <path d="M21.5 5.5A12.5 12.5 0 0012 2.5 12.5 12.5 0 00.5 13h21a12.5 12.5 0 000-7.5z" fill="#FFE600"/>
+        <path d="M.5 13A12.5 12.5 0 000 18.5c.78 5.545 5.4 9.89 10.93 9.89a12.5 12.5 0 0011.22-8.156l-5.98-1.494-5.98-1.495-5.98-1.494-5.28-1.32z" fill="#3483FA"/>
+        <path d="M14.5 15.5l-7.49-1.873-7.49-1.874a12.5 12.5 0 00-7.35 2.36l5.28 1.321 5.98 1.495 5.98 1.494 5.98 1.495a12.5 12.5 0 00-1.63-4.42z" fill="#2968C8"/>
+        <path d="M17.56 16.59l-7.05-1.762c-.967-.242-1.96-.36-2.96-.36-1.021 0-2.034.123-3.018.37L.5 15.903c.01.039.02.077.03.116l7.09-1.772c.983-.247 2-.37 3.02-.37s2.03.123 3.01.37l7.05 1.762c.01-.038.02-.077.03-.116z" fill="#fff"/>
+        <path d="M12.89 14.12l-.02.01-2.76-0.69-2.76-0.69.02-.01c-1.9-0.76-3.58-0.76-5.48 0l-0.02.01L1.87 12.06c1.9-0.76 3.58-0.76 5.48 0z" fill="#fff"/>
+        <path d="M8.05 16.14l1.54.386c.91.229 1.84.34 2.78.34s1.87-.111 2.78-.34l1.54-.386-1.54.386c-.91.229-1.84.34-2.78.34s-1.87-.111-2.78-.34z" fill="#fff"/>
+      </svg>
+    )
 }
 
 export function MagaluLogo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
@@ -154,3 +167,5 @@ export function MercadoEnviosIcon({ className }: { className?: string }) {
     />
   );
 }
+
+    
