@@ -16,7 +16,8 @@ import {
   orderBy,
   Timestamp,
   updateDoc,
-  getCountFromServer
+  getCountFromServer,
+  runTransaction
 } from 'firebase/firestore';
 import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials, SavedPdfAnalysis } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
@@ -135,17 +136,41 @@ export const loadInventoryItems = async (): Promise<InventoryItem[]> => {
 };
 
 export const saveInventoryItem = async (newItem: Omit<InventoryItem, 'id'>): Promise<InventoryItem> => {
-  const batch = writeBatch(db);
-  const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
-  const docRef = doc(inventoryCol);
+    const inventoryCol = collection(db, 'users', DEFAULT_USER_ID, 'inventory');
 
-  const itemWithId: InventoryItem = { ...newItem, id: docRef.id };
-  batch.set(docRef, toFirestore(itemWithId));
-  await logInventoryEntry(batch, itemWithId);
+    // For "Geral" items, check if an item with the same SKU already exists
+    if (newItem.category === 'Geral') {
+        const q = query(inventoryCol, where('sku', '==', newItem.sku), limit(1));
+        const existingSnapshot = await getDocs(q);
 
-  await batch.commit();
-  return itemWithId;
-}
+        if (!existingSnapshot.empty) {
+            // If it exists, update the quantity
+            const docToUpdate = existingSnapshot.docs[0];
+            const currentQuantity = docToUpdate.data().quantity || 0;
+            const newQuantity = currentQuantity + newItem.quantity;
+            await updateDoc(docToUpdate.ref, { quantity: newQuantity });
+            const updatedItem = fromFirestore({ ...docToUpdate.data(), id: docToUpdate.id, quantity: newQuantity })
+            // Log this as a new entry, even if it's an update
+            await runTransaction(db, async (transaction) => {
+                const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'entry-logs');
+                const logDocRef = doc(logCol);
+                const payload = { ...newItem, id: logDocRef.id, originalInventoryId: docToUpdate.id, entryDate: new Date(), logType: 'INVENTORY_ENTRY' };
+                transaction.set(logDocRef, toFirestore(payload));
+            });
+            return updatedItem as InventoryItem;
+        }
+    }
+    
+    // If it's a "Celular" item or a new "Geral" item, create a new document
+    const batch = writeBatch(db);
+    const docRef = doc(inventoryCol);
+    const itemWithId: InventoryItem = { ...newItem, id: docRef.id };
+    batch.set(docRef, toFirestore(itemWithId));
+    await logInventoryEntry(batch, itemWithId);
+
+    await batch.commit();
+    return itemWithId;
+};
 
 export async function saveMultipleInventoryItems(newItems: Omit<InventoryItem, 'id'>[]): Promise<InventoryItem[]> {
   const batch = writeBatch(db);
@@ -180,6 +205,76 @@ export const findInventoryItemBySN = async (serialNumber: string): Promise<Inven
   const docData = snapshot.docs[0];
   return fromFirestore({ ...docData.data(), id: docData.id }) as InventoryItem;
 };
+
+
+export const findProductByEanOrSku = async (code: string, category: 'Geral'): Promise<{ product: Product | null, inventoryItem: InventoryItem | null }> => {
+  const productsCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'products');
+  let qProduct = query(productsCol, where('category', '==', category), where('attributes.ean', '==', code), limit(1));
+  let productSnapshot = await getDocs(qProduct);
+
+  if (productSnapshot.empty) {
+    qProduct = query(productsCol, where('category', '==', category), where('sku', '==', code), limit(1));
+    productSnapshot = await getDocs(qProduct);
+  }
+
+  if (productSnapshot.empty) {
+    return { product: null, inventoryItem: null };
+  }
+
+  const productDoc = productSnapshot.docs[0];
+  const product = fromFirestore({ ...productDoc.data(), id: productDoc.id }) as Product;
+  
+  const inventoryCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory');
+  const qInventory = query(inventoryCol, where('productId', '==', product.id), limit(1));
+  const inventorySnapshot = await getDocs(qInventory);
+
+  if(inventorySnapshot.empty) {
+      throw new Error(`Produto "${product.name}" encontrado, mas não há registro dele no estoque.`);
+  }
+
+  const inventoryDoc = inventorySnapshot.docs[0];
+  const inventoryItem = fromFirestore({ ...inventoryDoc.data(), id: inventoryDoc.id }) as InventoryItem;
+  
+  return { product, inventoryItem };
+};
+
+
+export const updateInventoryQuantity = async (updates: { inventoryId: string, quantityToRemove: number }[]) => {
+  const batch = writeBatch(db);
+
+  for (const update of updates) {
+    const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', update.inventoryId);
+    
+    // We must use a transaction for read-then-write operations to avoid race conditions.
+    // However, Firestore batch writes don't support reading inside.
+    // For this use case, we'll fetch first and then write. This has a small risk of race condition
+    // if two users try to remove stock at the exact same time. For a more robust solution,
+    // a transaction or a Cloud Function with transaction would be needed.
+
+    const docSnap = await getDoc(inventoryDocRef);
+    if (docSnap.exists()) {
+      const currentQuantity = docSnap.data().quantity || 0;
+      const newQuantity = currentQuantity - update.quantityToRemove;
+
+      if (newQuantity < 0) {
+        throw new Error(`Estoque insuficiente para o item ${docSnap.data().name}. Tentou remover ${update.quantityToRemove}, mas só há ${currentQuantity}.`);
+      }
+      
+      if (newQuantity === 0) {
+        // If stock is zero, delete the document
+        batch.delete(inventoryDocRef);
+      } else {
+        // Otherwise, update the quantity
+        batch.update(inventoryDocRef, { quantity: newQuantity });
+      }
+    } else {
+        throw new Error(`Item de inventário com ID ${update.inventoryId} não encontrado.`);
+    }
+  }
+
+  await batch.commit();
+};
+
 
 
 // --- PRODUCTS ---

@@ -3,103 +3,145 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { findInventoryItemBySN, deleteInventoryItem } from '@/services/firestore';
-import type { InventoryItem } from '@/lib/types';
+import { findProductByEanOrSku, updateInventoryQuantity } from '@/services/firestore';
+import type { Product, InventoryItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ScanLine, Trash2, Package, Save, ArrowLeft } from 'lucide-react';
+import { Loader2, ScanLine, Trash2, Package, Save, ArrowLeft, PackageMinus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
+interface RemittanceItem {
+    product: Product;
+    inventoryItem: InventoryItem;
+    quantity: number;
+}
+
 export default function RetiradasFullPage() {
     const { toast } = useToast();
-    const [scannedItems, setScannedItems] = useState<InventoryItem[]>([]);
-    const [currentSN, setCurrentSN] = useState('');
+    const [remittanceItems, setRemittanceItems] = useState<RemittanceItem[]>([]);
+    const [currentCode, setCurrentCode] = useState('');
+    const [currentQuantity, setCurrentQuantity] = useState('1');
     const [isSearching, setIsSearching] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const snInputRef = useRef<HTMLInputElement>(null);
+    const codeInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        snInputRef.current?.focus();
+        codeInputRef.current?.focus();
     }, []);
 
     const handleAddItem = async () => {
-        if (!currentSN.trim()) return;
+        if (!currentCode.trim()) return;
         
         setIsSearching(true);
-        const snToAdd = currentSN.trim();
+        const codeToAdd = currentCode.trim();
+        const quantityToAdd = parseInt(currentQuantity, 10);
 
-        if (scannedItems.some(item => item.serialNumber === snToAdd)) {
-            toast({ variant: 'destructive', title: 'Item já adicionado', description: 'Este SN já está na lista de retirada.' });
+        if (isNaN(quantityToAdd) || quantityToAdd <= 0) {
+            toast({ variant: 'destructive', title: 'Quantidade inválida', description: 'Por favor, insira um número maior que zero.' });
             setIsSearching(false);
-            setCurrentSN('');
             return;
         }
 
         try {
-            const item = await findInventoryItemBySN(snToAdd);
-            if (item) {
-                setScannedItems(prev => [item, ...prev]);
-                toast({ title: 'Item Adicionado!', description: `${item.name} adicionado à remessa.` });
+            const { product, inventoryItem } = await findProductByEanOrSku(codeToAdd, 'Geral');
+
+            if (product && inventoryItem) {
+                if (inventoryItem.quantity < quantityToAdd) {
+                    toast({ 
+                        variant: 'destructive', 
+                        title: 'Estoque Insuficiente', 
+                        description: `Apenas ${inventoryItem.quantity} unidades de "${product.name}" estão disponíveis.` 
+                    });
+                    setIsSearching(false);
+                    return;
+                }
+
+                setRemittanceItems(prev => {
+                    const existingIndex = prev.findIndex(item => item.product.id === product.id);
+                    if (existingIndex > -1) {
+                        const newItems = [...prev];
+                        const newQuantity = newItems[existingIndex].quantity + quantityToAdd;
+                         if (newQuantity > inventoryItem.quantity) {
+                             toast({ 
+                                variant: 'destructive', 
+                                title: 'Estoque Insuficiente', 
+                                description: `Você já adicionou ${newItems[existingIndex].quantity}. Adicionar mais ${quantityToAdd} excederia o estoque de ${inventoryItem.quantity}.` 
+                            });
+                            return prev;
+                         }
+                        newItems[existingIndex].quantity = newQuantity;
+                        toast({ title: 'Quantidade Atualizada!', description: `${product.name} agora com ${newQuantity} unidades.` });
+                        return newItems;
+                    } else {
+                        toast({ title: 'Item Adicionado!', description: `${product.name} adicionado à remessa.` });
+                        return [...prev, { product, inventoryItem, quantity: quantityToAdd }];
+                    }
+                });
+
             } else {
-                toast({ variant: 'destructive', title: 'Item não encontrado', description: 'Nenhum item com este SN foi encontrado no estoque.' });
+                toast({ variant: 'destructive', title: 'Produto não encontrado', description: 'Nenhum produto com este EAN/código foi encontrado no estoque.' });
             }
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao buscar', description: 'Não foi possível buscar o item no estoque.' });
+            const msg = error instanceof Error ? error.message : 'Não foi possível buscar o produto.';
+            toast({ variant: 'destructive', title: 'Erro ao buscar', description: msg });
         } finally {
             setIsSearching(false);
-            setCurrentSN('');
-            snInputRef.current?.focus();
+            setCurrentCode('');
+            setCurrentQuantity('1');
+            codeInputRef.current?.focus();
         }
     };
-
-    const handleSNKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    
+    const handleCodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             handleAddItem();
         }
     };
 
-    const handleRemoveItem = (itemId: string) => {
-        setScannedItems(prev => prev.filter(item => item.id !== itemId));
+    const handleRemoveItem = (productId: string) => {
+        setRemittanceItems(prev => prev.filter(item => item.product.id !== productId));
     };
 
     const handleSaveBatch = async () => {
-        if (scannedItems.length === 0) {
+        if (remittanceItems.length === 0) {
             toast({ variant: 'destructive', title: 'Lista vazia', description: 'Adicione itens antes de salvar.' });
             return;
         }
 
         setIsSaving(true);
         try {
-            const deletePromises = scannedItems.map(item => deleteInventoryItem(item.id));
-            await Promise.all(deletePromises);
+            const updates = remittanceItems.map(item => ({
+                inventoryId: item.inventoryItem.id,
+                quantityToRemove: item.quantity
+            }));
             
-            // Aqui você pode adicionar a lógica para salvar um log da remessa, se necessário
+            await updateInventoryQuantity(updates);
             
             toast({
                 title: 'Remessa Salva!',
-                description: `${scannedItems.length} itens foram removidos do estoque e registrados como enviados para o Full.`,
+                description: `${remittanceItems.length} tipo(s) de produto foram baixados do estoque e registrados para o Full.`,
             });
-            setScannedItems([]);
+            setRemittanceItems([]);
 
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Não foi possível dar baixa nos itens do estoque.' });
+            const msg = error instanceof Error ? error.message : 'Não foi possível dar baixa nos itens do estoque.';
+            toast({ variant: 'destructive', title: 'Erro ao salvar', description: msg });
         } finally {
             setIsSaving(false);
         }
     };
 
     const totalCost = useMemo(() => {
-        return scannedItems.reduce((acc, item) => acc + (item.costPrice * item.quantity), 0);
-    }, [scannedItems]);
+        return remittanceItems.reduce((acc, item) => acc + (item.inventoryItem.costPrice * item.quantity), 0);
+    }, [remittanceItems]);
 
     const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
 
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -109,7 +151,7 @@ export default function RetiradasFullPage() {
             </Link>
             <div>
                 <h1 className="text-3xl font-bold font-headline">Registrar Retirada para o Full</h1>
-                <p className="text-muted-foreground">Bipe os produtos para adicioná-los à remessa de envio para o Fulfillment.</p>
+                <p className="text-muted-foreground">Bipe o EAN dos produtos gerais e informe a quantidade para adicioná-los à remessa.</p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 items-start">
@@ -117,22 +159,35 @@ export default function RetiradasFullPage() {
                     <CardHeader>
                         <CardTitle>Bipar Produto</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="sn-input">Número de Série (SN)</Label>
+                            <Label htmlFor="code-input">EAN / Código do Produto</Label>
                             <Input
-                                id="sn-input"
-                                ref={snInputRef}
-                                placeholder="Aguardando leitura do SN..."
-                                value={currentSN}
-                                onChange={e => setCurrentSN(e.target.value)}
-                                onKeyDown={handleSNKeyDown}
+                                id="code-input"
+                                ref={codeInputRef}
+                                placeholder="Aguardando leitura do código..."
+                                value={currentCode}
+                                onChange={e => setCurrentCode(e.target.value)}
+                                onKeyDown={handleCodeKeyDown}
+                                disabled={isSearching}
+                            />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="quantity-input">Quantidade</Label>
+                            <Input
+                                id="quantity-input"
+                                type="number"
+                                min="1"
+                                placeholder="1"
+                                value={currentQuantity}
+                                onChange={e => setCurrentQuantity(e.target.value)}
+                                onKeyDown={handleCodeKeyDown}
                                 disabled={isSearching}
                             />
                         </div>
                     </CardContent>
                     <CardFooter>
-                         <Button className="w-full" onClick={handleAddItem} disabled={isSearching || !currentSN}>
+                         <Button className="w-full" onClick={handleAddItem} disabled={isSearching || !currentCode}>
                             {isSearching ? <Loader2 className="animate-spin" /> : <ScanLine />}
                             Adicionar Item
                         </Button>
@@ -146,7 +201,7 @@ export default function RetiradasFullPage() {
                                 <div>
                                     <CardTitle>Remessa Atual</CardTitle>
                                     <CardDescription>
-                                        {scannedItems.length} item(ns) na lista para envio.
+                                        {remittanceItems.length} item(ns) na lista para envio.
                                     </CardDescription>
                                 </div>
                                  <div className="text-right">
@@ -162,23 +217,23 @@ export default function RetiradasFullPage() {
                                         <TableRow>
                                             <TableHead>Produto</TableHead>
                                             <TableHead>SKU</TableHead>
-                                            <TableHead>SN</TableHead>
-                                            <TableHead>Condição</TableHead>
-                                            <TableHead className="text-right">Custo</TableHead>
+                                            <TableHead className="text-center">Quantidade</TableHead>
+                                            <TableHead className="text-right">Custo Unit.</TableHead>
+                                            <TableHead className="text-right">Custo Total</TableHead>
                                             <TableHead className="text-center">Ação</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {scannedItems.length > 0 ? (
-                                            scannedItems.map(item => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="font-medium">{item.name}</TableCell>
-                                                    <TableCell><Badge variant="outline">{item.sku}</Badge></TableCell>
-                                                    <TableCell className="font-mono">{item.serialNumber}</TableCell>
-                                                    <TableCell><Badge variant="secondary">{item.condition}</Badge></TableCell>
-                                                    <TableCell className="text-right font-semibold">{formatCurrency(item.costPrice)}</TableCell>
+                                        {remittanceItems.length > 0 ? (
+                                            remittanceItems.map(item => (
+                                                <TableRow key={item.product.id}>
+                                                    <TableCell className="font-medium">{item.product.name}</TableCell>
+                                                    <TableCell><Badge variant="outline">{item.product.sku}</Badge></TableCell>
+                                                    <TableCell className="text-center font-bold">{item.quantity}</TableCell>
+                                                    <TableCell className="text-right font-semibold">{formatCurrency(item.inventoryItem.costPrice)}</TableCell>
+                                                    <TableCell className="text-right font-bold">{formatCurrency(item.inventoryItem.costPrice * item.quantity)}</TableCell>
                                                     <TableCell className="text-center">
-                                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.id)}>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.product.id)}>
                                                             <Trash2 className="h-4 w-4 text-destructive" />
                                                         </Button>
                                                     </TableCell>
@@ -201,7 +256,7 @@ export default function RetiradasFullPage() {
                         <CardFooter className="justify-end">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                     <Button size="lg" disabled={isSaving || scannedItems.length === 0}>
+                                     <Button size="lg" disabled={isSaving || remittanceItems.length === 0}>
                                         {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
                                         Finalizar e Salvar Remessa
                                     </Button>
@@ -210,7 +265,7 @@ export default function RetiradasFullPage() {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Finalizar Remessa?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Esta ação removerá permanentemente os {scannedItems.length} itens do estoque principal.
+                                            Esta ação dará baixa na quantidade dos {remittanceItems.length} tipo(s) de produto(s) do estoque principal.
                                             O custo total da remessa é de {formatCurrency(totalCost)}. Deseja continuar?
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
