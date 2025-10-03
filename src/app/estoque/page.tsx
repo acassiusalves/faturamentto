@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -567,11 +566,10 @@ export default function EstoquePage() {
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
         <div className="flex items-center gap-2">
-             <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
+             <Button asChild variant="outline" className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700">
                 <Link href="/estoque/retiradas-full">
                     <span className="flex items-center gap-1">
-                        <FullIcon className="h-5" />
-                        Retiradas
+                         Retiradas <FullIcon className="h-5" />
                     </span>
                 </Link>
             </Button>
@@ -1039,3 +1037,5 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
