@@ -180,6 +180,16 @@ export function IndividualConference() {
     return results.notScanned.slice(startIndex, startIndex + notScannedPageSize);
   }, [results?.notScanned, notScannedPageIndex, notScannedPageSize]);
 
+  const summaryStats = useMemo(() => {
+    if (!results) return {};
+    const stats: Record<string, number> = {};
+    results.found.forEach(item => {
+        const condition = item.condition || 'N/A';
+        stats[condition] = (stats[condition] || 0) + 1;
+    });
+    return stats;
+  }, [results]);
+
 
   const ResultTable = ({ items }: { items: InventoryItem[] }) => (
       <div className="rounded-md border">
@@ -283,6 +293,20 @@ export function IndividualConference() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="found" className="mt-4">
+                  {Object.keys(summaryStats).length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                        {Object.entries(summaryStats).map(([condition, count]) => (
+                            <Card key={condition}>
+                                <CardHeader className="p-4">
+                                    <CardTitle className="text-sm font-medium">{condition}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-0">
+                                    <p className="text-2xl font-bold">{count}</p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                      </div>
+                  )}
                   <ResultTable items={paginatedFoundItems} />
                   <ResultsPagination 
                     totalItems={results.found.length}
@@ -373,5 +397,3 @@ export function IndividualConference() {
     </div>
   );
 }
-
-    
