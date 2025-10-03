@@ -390,7 +390,7 @@ export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
 };
 
 export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
-  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+  const logCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'picking-log');
   const snapshot = await getDocs(query(logCol, orderBy('pickedAt', 'desc')));
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
 };
@@ -1220,3 +1220,4 @@ export async function deletePdfAnalysis(analysisId: string): Promise<void> {
     
 
     
+
