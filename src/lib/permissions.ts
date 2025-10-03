@@ -2,7 +2,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore, Undo2 } from 'lucide-react';
 import { MercadoLivreLogo, MagaluLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -37,7 +37,16 @@ export const navLinks = [
         { href: "/avisos", label: "Avisos", icon: Megaphone },
       ]
     },
-    { href: "/estoque", label: "Estoque", icon: Warehouse },
+    {
+      label: "Estoque",
+      icon: Warehouse,
+      subItems: [
+        { href: "/estoque", label: "Gerenciar Estoque", icon: Warehouse },
+        { href: "/estoque/retiradas-full", label: "Retiradas Full", icon: Truck },
+        { href: "/estoque/devolucoes", label: "Devoluções", icon: Undo2 },
+        { href: "/estoque/conferencia", label: "Conferência", icon: CheckSquare },
+      ]
+    },
     { href: "/picking", label: "Picking", icon: PackageCheck },
     { href: "/compras", label: "Compras", icon: ShoppingCart },
     {
@@ -102,6 +111,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/estoque': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque/conferencia': ['admin', 'socio', 'financeiro', 'expedicao'],
     '/estoque/devolucoes': ['admin', 'socio', 'expedicao'],
+    '/estoque/retiradas-full': ['admin', 'socio', 'expedicao'],
     '/picking': ['admin', 'socio', 'expedicao'],
     '/conciliacao': ['admin', 'socio', 'financeiro', 'gestor-de-contas'],
     '/compras': ['admin', 'socio', 'financeiro'],

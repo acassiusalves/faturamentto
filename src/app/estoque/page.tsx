@@ -567,9 +567,13 @@ export default function EstoquePage() {
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
         <div className="flex items-center gap-2">
-            <Button variant="outline" className="text-green-600 border-green-600 hover:bg-green-100 hover:text-green-700">
-                Retiradas
-                <FullIcon className="text-green-600" />
+             <Button asChild variant="outline" className="text-green-600 border-green-600 hover:bg-green-100/80 hover:text-green-700">
+                <Link href="/estoque/retiradas-full">
+                    <span className="flex items-center gap-1">
+                        Retiradas
+                        <FullIcon className="text-green-600" />
+                    </span>
+                </Link>
             </Button>
             <Button asChild>
                 <Link href="/estoque/devolucoes">
