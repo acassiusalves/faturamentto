@@ -1,10 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 26" role="img" aria-label="Full">
-  <g fill="#00A650">
-    <path d="M2 1h14l-5 8h8L6 25l4-10H1z"/>
-    <g transform="translate(22,3) skewX(-12)">
-      <text x="0" y="16"
-            font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,'Helvetica Neue',Arial,sans-serif"
-            font-weight="800" font-size="16">FULL</text>
-    </g>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="12" viewBox="0 0 40 12">
+  <g fill="#00A650" fill-rule="evenodd">
+    <path fill-rule="nonzero" d="M13.597 9h-1.892l1.617-7.337h5.379l-.363 1.65h-3.487l-.242 1.144h3.399l-.363 1.65h-3.41L13.597 9zm9.35.132c-2.255 0-3.366-1.078-3.366-2.618 0-.121.033-.374.055-.484l.968-4.367h1.925l-.957 4.323a1.62 1.62 0 0 0-.033.308c.011.605.473 1.188 1.408 1.188 1.012 0 1.529-.638 1.716-1.496l.957-4.323h1.914l-.957 4.356c-.396 1.782-1.364 3.113-3.63 3.113zM32.924 9h-4.84l1.617-7.337h1.892L30.35 7.35h2.937L32.924 9zm6.655 0h-4.84l1.617-7.337h1.892L37.005 7.35h2.937L39.579 9z"/>
+    <path d="M2.455 0L0 6.857h4.09L2.456 12 9 4.286H4.91L7.363 0z"/>
   </g>
 </svg>

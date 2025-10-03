@@ -111,7 +111,7 @@ const Dot = () => <span className="mx-2 text-muted-foreground">•</span>;
 const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: { sale: Sale; formatCurrency: (v: number) => string; productSkuMap: Map<string, string>; formatDate: (d?: string) => string; }) => {
   const saleData = sale as any;
   const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
-  const deliveryType = saleData.deliveryType;
+  const deliveryType = saleData.deliveryType as string || '';
 
   return (
     <div className="group flex flex-col md:flex-row items-stretch gap-4 p-4 border-b last:border-b-0 border-l-4 border-l-transparent hover:border-l-primary/70 hover:bg-muted/30 transition-colors">
@@ -153,8 +153,8 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
                 <Dot />
                 <MetaItem 
                     label="Frete" 
-                    value={deliveryType === 'fulfillment' ? <FullIcon /> : deliveryType} 
-                    icon={deliveryType !== 'fulfillment' ? Truck : undefined} 
+                    value={deliveryType.toLowerCase() === 'fulfillment' ? <FullIcon /> : deliveryType} 
+                    icon={deliveryType.toLowerCase() !== 'fulfillment' ? Truck : undefined} 
                 />
                 </>
             )}
@@ -910,4 +910,3 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
     </TooltipProvider>
   );
 }
-
