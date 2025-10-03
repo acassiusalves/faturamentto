@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Truck } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useAuth } from '@/context/auth-context';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { DetailedEntryHistory } from './conferencia/detailed-entry-history';
+import { FullIcon } from '@/components/icons';
 
 
 const inventorySchema = z.object({
@@ -567,7 +568,7 @@ export default function EstoquePage() {
         </div>
         <div className="flex items-center gap-2">
             <Button className="bg-green-600 hover:bg-green-700">
-                <Truck className="mr-2" />
+                <FullIcon className="mr-2" />
                 Retiradas Full
             </Button>
             <Button asChild>
@@ -1034,3 +1035,5 @@ export default function EstoquePage() {
     </>
   );
 }
+
+    
