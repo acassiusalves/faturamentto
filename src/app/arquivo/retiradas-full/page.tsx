@@ -67,7 +67,7 @@ export default function RetiradasFullHistoryPage() {
 
   const formatDateTime = (dateString: string) => {
     try {
-      return format(parseISO(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      return format(parseISO(dateString), "HH:mm:ss");
     } catch {
       return 'Data inválida';
     }

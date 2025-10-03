@@ -242,8 +242,8 @@ export default function PickingPage() {
             const newLogEntry: PickedItemLog = {
                 ...item,
                 orderNumber: (foundSale as any).order_code,
-                pickedAt: new Date(),
-                createdAt: new Date(),
+                pickedAt: new Date().toISOString(),
+                createdAt: new Date(item.createdAt).toISOString(),
                 logId: logDocRef.id,
             };
             batch.set(logDocRef, newLogEntry);

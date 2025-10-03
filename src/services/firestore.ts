@@ -385,7 +385,7 @@ export const saveProductSettings = async (categoryId: string, settings: ProductC
 
 // --- PICKING LOGS ---
 export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
-  const todayStart = startOfDay(new Date());
+  const todayStart = startOfDay(new Date()).toISOString();
   const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
   const q = query(logCol, where('pickedAt', '>=', todayStart), orderBy('pickedAt', 'desc'));
   const snapshot = await getDocs(q);
@@ -422,8 +422,7 @@ export const savePickLog = async (logs: PickedItemLog[]): Promise<void> => {
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
     logs.forEach(log => {
         const docRef = doc(logCol, log.logId);
-        const logToSave = {...log, pickedAt: new Date(log.pickedAt), createdAt: new Date(log.createdAt) };
-        batch.set(docRef, toFirestore(logToSave));
+        batch.set(docRef, toFirestore(log));
     });
     await batch.commit();
 };
@@ -438,8 +437,8 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
         productId: `manual-${logData.sku}`,
         origin: 'Manual',
         quantity: 1,
-        createdAt: new Date(logData.createdAt),
-        pickedAt: new Date(logData.pickedAt),
+        createdAt: logData.createdAt, // This is already an ISO string
+        pickedAt: logData.pickedAt, // This is already an ISO string
     };
     await setDoc(docRef, toFirestore(newLog));
 };
@@ -470,7 +469,7 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
     // Remove properties specific to the pick log before re-adding
     const { logId, orderNumber, pickedAt, ...itemToAddBack } = pickLog;
     // Update the createdAt timestamp to reflect re-entry
-    const itemWithDate = { ...itemToAddBack, createdAt: new Date() };
+    const itemWithDate = { ...itemToAddBack, createdAt: new Date().toISOString() };
     batch.set(inventoryDocRef, toFirestore(itemWithDate));
   }
 
@@ -478,7 +477,7 @@ export const revertPickingAction = async (pickLog: PickedItemLog) => {
 };
 
 export const clearTodaysPickingLog = async (): Promise<void> => {
-    const todayStart = startOfDay(new Date());
+    const todayStart = startOfDay(new Date()).toISOString();
     const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
     const q = query(logCol, where('pickedAt', '>=', todayStart));
     const snapshot = await getDocs(q);
@@ -645,8 +644,8 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
         const newLogEntry: PickedItemLog = {
             ...request.scannedItem,
             orderNumber: (request.orderData as any).order_code,
-            pickedAt: new Date(),
-            createdAt: new Date(),
+            pickedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
             logId: logDocRef.id,
         };
         batch.set(logDocRef, toFirestore(newLogEntry));
@@ -1216,6 +1215,8 @@ export async function deletePdfAnalysis(analysisId: string): Promise<void> {
     const docRef = doc(db, 'pdf-analyses', analysisId);
     await deleteDoc(docRef);
 }
+    
+
     
 
     
