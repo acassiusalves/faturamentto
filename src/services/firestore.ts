@@ -19,7 +19,7 @@ import {
   getCountFromServer,
   runTransaction
 } from 'firebase/firestore';
-import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials, SavedPdfAnalysis } from '@/lib/types';
+import type { InventoryItem, Product, Sale, PickedItemLog, AllMappingsState, ApiKeyStatus, CompanyCost, ProductCategorySettings, AppUser, SupportData, SupportFile, ReturnLog, AppSettings, PurchaseList, PurchaseListItem, Notice, ConferenceResult, ConferenceHistoryEntry, FeedEntry, SavedMlAnalysis, ApprovalRequest, EntryLog, PickingNotice, MLCategory, Trend, MercadoLivreCredentials, MyItem, MlAccount, MagaluCredentials, SavedPdfAnalysis, FullRemittanceLog } from '@/lib/types';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -244,9 +244,8 @@ export const updateInventoryQuantity = async (updates: {
 }) => {
     const batch = writeBatch(db);
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', updates.inventoryItem.id);
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+    const logCol = collection(db, 'full-remittance-log'); // Nova coleção aqui
 
-    // Fetch the current state to ensure atomicity
     const docSnap = await getDoc(inventoryDocRef);
     if (!docSnap.exists()) {
         throw new Error(`Item de inventário com ID ${updates.inventoryItem.id} não encontrado.`);
@@ -265,21 +264,17 @@ export const updateInventoryQuantity = async (updates: {
         batch.update(inventoryDocRef, { quantity: newQuantity });
     }
 
-    // Create the log entry
     const logDocRef = doc(logCol);
-    const newLogEntry: PickedItemLog = {
-        id: updates.inventoryItem.id,
+    const newLogEntry: FullRemittanceLog = {
+        id: logDocRef.id,
+        remittanceId: logDocRef.id, // Usando o ID do doc como ID da remessa individual
         productId: updates.inventoryItem.productId,
         name: updates.inventoryItem.name,
         sku: updates.inventoryItem.sku,
-        costPrice: updates.inventoryItem.costPrice,
-        serialNumber: updates.inventoryItem.serialNumber, // This is the EAN/Code for "Geral"
-        origin: updates.inventoryItem.origin,
+        eanOrCode: updates.inventoryItem.serialNumber, // SN é o EAN para produtos gerais
         quantity: updates.quantityToRemove,
-        createdAt: updates.inventoryItem.createdAt,
-        orderNumber: 'SAIDA-FULL', // Special identifier
-        pickedAt: new Date().toISOString(),
-        logId: logDocRef.id,
+        costPrice: updates.inventoryItem.costPrice,
+        remittedAt: new Date().toISOString(),
     };
     batch.set(logDocRef, toFirestore(newLogEntry));
 
@@ -398,12 +393,13 @@ export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
 };
 
-export const loadFullPickingLogs = async (): Promise<PickedItemLog[]> => {
-  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
-  const q = query(logCol, where('orderNumber', '==', 'SAIDA-FULL'), orderBy('pickedAt', 'desc'));
+export const loadFullRemittanceLogs = async (): Promise<FullRemittanceLog[]> => {
+  const logCol = collection(db, 'full-remittance-log');
+  const q = query(logCol, orderBy('remittedAt', 'desc'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as FullRemittanceLog);
 };
+
 
 export const updatePickingLogs = async (updates: { logId: string; costPrice: number }[]): Promise<void> => {
     const batch = writeBatch(db);
@@ -437,8 +433,8 @@ export const saveManualPickingLog = async (logData: Omit<PickedItemLog, 'logId' 
         productId: `manual-${logData.sku}`,
         origin: 'Manual',
         quantity: 1,
-        createdAt: logData.createdAt, // This is already an ISO string
-        pickedAt: logData.pickedAt, // This is already an ISO string
+        createdAt: new Date(logData.createdAt).toISOString(),
+        pickedAt: new Date(logData.pickedAt).toISOString(),
     };
     await setDoc(docRef, toFirestore(newLog));
 };
@@ -645,7 +641,7 @@ export const processApprovalRequest = async (request: ApprovalRequest, decision:
             ...request.scannedItem,
             orderNumber: (request.orderData as any).order_code,
             pickedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
+            createdAt: new Date(request.scannedItem.createdAt).toISOString(),
             logId: logDocRef.id,
         };
         batch.set(logDocRef, toFirestore(newLogEntry));
@@ -1215,6 +1211,8 @@ export async function deletePdfAnalysis(analysisId: string): Promise<void> {
     const docRef = doc(db, 'pdf-analyses', analysisId);
     await deleteDoc(docRef);
 }
+    
+
     
 
     

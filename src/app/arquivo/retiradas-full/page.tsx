@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { loadFullPickingLogs } from '@/services/firestore';
-import type { PickedItemLog } from '@/lib/types';
+import { loadFullRemittanceLogs } from '@/services/firestore';
+import type { FullRemittanceLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,20 +12,20 @@ import { Loader2, Search, History, PackageMinus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function RetiradasFullHistoryPage() {
   const { toast } = useToast();
 
-  const [allPicks, setAllPicks] = useState<PickedItemLog[]>([]);
+  const [allPicks, setAllPicks] = useState<FullRemittanceLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchFullPicks = useCallback(async () => {
     setIsLoading(true);
     try {
-      const picks = await loadFullPickingLogs();
+      const picks = await loadFullRemittanceLogs();
       setAllPicks(picks);
     } catch (error) {
       console.error(error);
@@ -49,16 +49,15 @@ export default function RetiradasFullHistoryPage() {
     return allPicks.filter(pick =>
       pick.name?.toLowerCase().includes(lowerCaseSearch) ||
       pick.sku?.toLowerCase().includes(lowerCaseSearch) ||
-      pick.serialNumber?.toLowerCase().includes(lowerCaseSearch)
+      pick.eanOrCode?.toLowerCase().includes(lowerCaseSearch)
     );
   }, [allPicks, searchTerm]);
 
   const groupedPicksByDate = useMemo(() => {
-    const groups = new Map<string, PickedItemLog[]>();
+    const groups = new Map<string, FullRemittanceLog[]>();
     filteredPicks.forEach(pick => {
-      // Garantir que `pickedAt` seja um objeto Date antes de formatar.
-      const pickedDate = typeof pick.pickedAt === 'string' ? new Date(pick.pickedAt) : pick.pickedAt;
-      if (isNaN(pickedDate.getTime())) return; // Ignora datas inválidas
+      const pickedDate = parseISO(pick.remittedAt);
+      if (isNaN(pickedDate.getTime())) return;
 
       const dateKey = format(pickedDate, 'yyyy-MM-dd');
       if (!groups.has(dateKey)) {
@@ -71,7 +70,7 @@ export default function RetiradasFullHistoryPage() {
 
   const formatDateTime = (dateValue: string | Date) => {
     try {
-      const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+      const date = typeof dateValue === 'string' ? parseISO(dateValue) : dateValue;
        if (isNaN(date.getTime())) return 'Data inválida';
       return format(date, "HH:mm:ss");
     } catch {
@@ -81,7 +80,7 @@ export default function RetiradasFullHistoryPage() {
   
   const formatDateOnly = (dateString: string) => {
     try {
-        return format(new Date(dateString.replace(/-/g, '/')), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+        return format(parseISO(dateString), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch {
       return "Data inválida";
     }
@@ -161,11 +160,11 @@ export default function RetiradasFullHistoryPage() {
                                             </TableHeader>
                                             <TableBody>
                                                 {picks.map(pick => (
-                                                    <TableRow key={pick.logId}>
-                                                        <TableCell>{formatDateTime(pick.pickedAt)}</TableCell>
+                                                    <TableRow key={pick.id}>
+                                                        <TableCell>{formatDateTime(pick.remittedAt)}</TableCell>
                                                         <TableCell>{pick.name}</TableCell>
                                                         <TableCell><Badge variant="outline">{pick.sku}</Badge></TableCell>
-                                                        <TableCell className="font-mono">{pick.serialNumber}</TableCell>
+                                                        <TableCell className="font-mono">{pick.eanOrCode}</TableCell>
                                                         <TableCell className="text-center font-bold">{pick.quantity}</TableCell>
                                                         <TableCell className="text-right font-semibold">{formatCurrency(pick.costPrice * pick.quantity)}</TableCell>
                                                     </TableRow>
@@ -191,3 +190,5 @@ export default function RetiradasFullHistoryPage() {
     </div>
   );
 }
+
+    

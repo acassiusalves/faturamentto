@@ -70,6 +70,19 @@ export interface EntryLog extends InventoryItem {
 export type PickedItem = InventoryItem & { orderNumber: string; pickedAt: string };
 export type PickedItemLog = PickedItem & { logId: string; };
 
+export interface FullRemittanceLog {
+    id: string;
+    remittanceId: string; // ID for the entire batch
+    productId: string;
+    name: string;
+    sku: string;
+    eanOrCode: string;
+    quantity: number;
+    costPrice: number;
+    remittedAt: string; // ISO Date
+}
+
+
 export interface ReturnLog {
     id: string;
     productName: string;
@@ -782,6 +795,8 @@ export interface SavedPdfAnalysis {
     extractedProducts: SearchableProduct[];
     batchSearchResults: ProductResult[];
 }
+    
+
     
 
     
