@@ -238,43 +238,53 @@ export const findProductByEanOrSku = async (code: string, category: 'Geral'): Pr
   return { product, inventoryItem };
 };
 
+export const updateInventoryQuantity = async (updates: { 
+    inventoryItem: InventoryItem; 
+    quantityToRemove: number;
+}) => {
+    const batch = writeBatch(db);
+    const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', updates.inventoryItem.id);
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
 
-export const updateInventoryQuantity = async (updates: { inventoryId: string, quantityToRemove: number }[]) => {
-  const batch = writeBatch(db);
-
-  for (const update of updates) {
-    const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', update.inventoryId);
-    
-    // We must use a transaction for read-then-write operations to avoid race conditions.
-    // However, Firestore batch writes don't support reading inside.
-    // For this use case, we'll fetch first and then write. This has a small risk of race condition
-    // if two users try to remove stock at the exact same time. For a more robust solution,
-    // a transaction or a Cloud Function with transaction would be needed.
-
+    // Fetch the current state to ensure atomicity
     const docSnap = await getDoc(inventoryDocRef);
-    if (docSnap.exists()) {
-      const currentQuantity = docSnap.data().quantity || 0;
-      const newQuantity = currentQuantity - update.quantityToRemove;
-
-      if (newQuantity < 0) {
-        throw new Error(`Estoque insuficiente para o item ${docSnap.data().name}. Tentou remover ${update.quantityToRemove}, mas só há ${currentQuantity}.`);
-      }
-      
-      if (newQuantity === 0) {
-        // If stock is zero, delete the document
-        batch.delete(inventoryDocRef);
-      } else {
-        // Otherwise, update the quantity
-        batch.update(inventoryDocRef, { quantity: newQuantity });
-      }
-    } else {
-        throw new Error(`Item de inventário com ID ${update.inventoryId} não encontrado.`);
+    if (!docSnap.exists()) {
+        throw new Error(`Item de inventário com ID ${updates.inventoryItem.id} não encontrado.`);
     }
-  }
 
-  await batch.commit();
+    const currentQuantity = docSnap.data().quantity || 0;
+    const newQuantity = currentQuantity - updates.quantityToRemove;
+
+    if (newQuantity < 0) {
+        throw new Error(`Estoque insuficiente para o item ${docSnap.data().name}. Tentou remover ${updates.quantityToRemove}, mas só há ${currentQuantity}.`);
+    }
+
+    if (newQuantity === 0) {
+        batch.delete(inventoryDocRef);
+    } else {
+        batch.update(inventoryDocRef, { quantity: newQuantity });
+    }
+
+    // Create the log entry
+    const logDocRef = doc(logCol);
+    const newLogEntry: PickedItemLog = {
+        id: updates.inventoryItem.id,
+        productId: updates.inventoryItem.productId,
+        name: updates.inventoryItem.name,
+        sku: updates.inventoryItem.sku,
+        costPrice: updates.inventoryItem.costPrice,
+        serialNumber: updates.inventoryItem.serialNumber, // This is the EAN/Code for "Geral"
+        origin: updates.inventoryItem.origin,
+        quantity: updates.quantityToRemove,
+        createdAt: updates.inventoryItem.createdAt,
+        orderNumber: 'SAIDA-FULL', // Special identifier
+        pickedAt: new Date().toISOString(),
+        logId: logDocRef.id,
+    };
+    batch.set(logDocRef, toFirestore(newLogEntry));
+
+    await batch.commit();
 };
-
 
 
 // --- PRODUCTS ---

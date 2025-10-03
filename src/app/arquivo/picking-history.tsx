@@ -8,7 +8,7 @@ import type { PickedItemLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle, Pencil, Save, Download } from 'lucide-react';
+import { Loader2, Search, History, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive, PlusCircle, Pencil, Save, Download, PackageMinus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -147,8 +147,13 @@ export function PickingHistory() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR');
+    } catch {
+        return 'Data inválida'
+    }
   }
   
   const formatCurrency = (value: number) => {
@@ -212,10 +217,10 @@ export function PickingHistory() {
           <div className="flex items-center gap-2">
             <History className="h-5 w-5" />
             <div>
-              <CardTitle>Histórico Completo de Picking</CardTitle>
+              <CardTitle>Histórico Completo de Saídas</CardTitle>
               <CardDescription>
                 Use os filtros para encontrar registros específicos de saídas de
-                estoque.
+                estoque (picking de pedidos e retiradas para o Full).
               </CardDescription>
             </div>
           </div>
@@ -271,9 +276,9 @@ export function PickingHistory() {
                             <TableHead>Datas (Entrada/Saída)</TableHead>
                             <TableHead>Produto</TableHead>
                             <TableHead>SKU</TableHead>
-                            <TableHead>Nº de Série (SN)</TableHead>
+                            <TableHead>Nº de Série / EAN</TableHead>
                             <TableHead>Custo</TableHead>
-                            <TableHead className="text-right">Pedido</TableHead>
+                            <TableHead className="text-right">Pedido / Motivo</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -317,7 +322,15 @@ export function PickingHistory() {
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-semibold">{item.orderNumber}</TableCell>
+                                    <TableCell className="text-right font-semibold">
+                                        {item.orderNumber === 'SAIDA-FULL' ? 
+                                            <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
+                                                <PackageMinus className="mr-2 h-4 w-4" />
+                                                Retirada p/ Full
+                                            </Badge>
+                                            : item.orderNumber
+                                        }
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : (

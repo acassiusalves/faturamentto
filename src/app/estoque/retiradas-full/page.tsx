@@ -116,12 +116,13 @@ export default function RetiradasFullPage() {
 
         setIsSaving(true);
         try {
-            const updates = remittanceItems.map(item => ({
-                inventoryId: item.inventoryItem.id,
-                quantityToRemove: item.quantity
-            }));
-            
-            await updateInventoryQuantity(updates);
+             for (const item of remittanceItems) {
+                const update = {
+                    inventoryItem: item.inventoryItem,
+                    quantityToRemove: item.quantity
+                };
+                 await updateInventoryQuantity(update);
+            }
             
             toast({
                 title: 'Remessa Salva!',
@@ -265,7 +266,7 @@ export default function RetiradasFullPage() {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Finalizar Remessa?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Esta ação dará baixa na quantidade dos {remittanceItems.length} tipo(s) de produto(s) do estoque principal.
+                                            Esta ação dará baixa na quantidade dos {remittanceItems.length} tipo(s) de produto(s) do estoque principal e irá registrar a saída no histórico.
                                             O custo total da remessa é de {formatCurrency(totalCost)}. Deseja continuar?
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
