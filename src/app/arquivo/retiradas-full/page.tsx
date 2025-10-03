@@ -12,7 +12,7 @@ import { Loader2, Search, History, PackageMinus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function RetiradasFullHistoryPage() {
@@ -56,7 +56,11 @@ export default function RetiradasFullHistoryPage() {
   const groupedPicksByDate = useMemo(() => {
     const groups = new Map<string, PickedItemLog[]>();
     filteredPicks.forEach(pick => {
-      const dateKey = format(parseISO(pick.pickedAt as string), 'yyyy-MM-dd');
+      // Garantir que `pickedAt` seja um objeto Date antes de formatar.
+      const pickedDate = typeof pick.pickedAt === 'string' ? new Date(pick.pickedAt) : pick.pickedAt;
+      if (isNaN(pickedDate.getTime())) return; // Ignora datas inválidas
+
+      const dateKey = format(pickedDate, 'yyyy-MM-dd');
       if (!groups.has(dateKey)) {
         groups.set(dateKey, []);
       }
@@ -65,9 +69,11 @@ export default function RetiradasFullHistoryPage() {
     return Array.from(groups.entries()).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
   }, [filteredPicks]);
 
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateValue: string | Date) => {
     try {
-      return format(parseISO(dateString), "HH:mm:ss");
+      const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+       if (isNaN(date.getTime())) return 'Data inválida';
+      return format(date, "HH:mm:ss");
     } catch {
       return 'Data inválida';
     }
@@ -156,7 +162,7 @@ export default function RetiradasFullHistoryPage() {
                                             <TableBody>
                                                 {picks.map(pick => (
                                                     <TableRow key={pick.logId}>
-                                                        <TableCell>{formatDateTime(pick.pickedAt as string)}</TableCell>
+                                                        <TableCell>{formatDateTime(pick.pickedAt)}</TableCell>
                                                         <TableCell>{pick.name}</TableCell>
                                                         <TableCell><Badge variant="outline">{pick.sku}</Badge></TableCell>
                                                         <TableCell className="font-mono">{pick.serialNumber}</TableCell>
