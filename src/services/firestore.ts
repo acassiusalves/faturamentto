@@ -244,7 +244,7 @@ export const updateInventoryQuantity = async (updates: {
 }) => {
     const batch = writeBatch(db);
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', updates.inventoryItem.id);
-    const logCol = collection(db, 'full-remittance-log');
+    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'full-remittance-log');
 
     const docSnap = await getDoc(inventoryDocRef);
     if (!docSnap.exists()) {
@@ -396,7 +396,7 @@ export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
 };
 
 export const loadFullRemittanceLogs = async (): Promise<FullRemittanceLog[]> => {
-  const logCol = collection(db, 'full-remittance-log');
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'full-remittance-log');
   const q = query(logCol, orderBy('remittedAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as FullRemittanceLog);
