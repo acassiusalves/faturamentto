@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3, TrendingUp } from "lucide-react";
+import { DollarSign, TrendingDown, Search, Filter, FileDown, Sheet, AlertCircle, Loader2, RefreshCw, CalendarCheck, ChevronsUpDown, BarChart3, TrendingUp, Truck } from "lucide-react";
 import { startOfMonth, endOfMonth, isSameDay, getDaysInMonth, getDate, format, subDays } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 
@@ -25,6 +25,7 @@ import { MarketplaceSalesChart } from "./marketplace-sales-chart";
 import { TopProductsChart } from "./top-products-chart";
 import { SalesByStateChart } from "./sales-by-state-chart";
 import { SalesByAccountList } from "./sales-by-account-list";
+import { FlexIcon, FullIcon } from "./icons";
 
 
 function StatsCard({ title, value, icon: Icon, description, comparison }: { title: string; value: string; icon: React.ElementType; description?: string; comparison?: { value: number; trend: 'up' | 'down' | 'neutral' } }) {
@@ -61,6 +62,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
   const [marketplace, setMarketplace] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
+  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [isTableOpen, setIsTableOpen] = useState(true);
@@ -130,6 +132,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
       const matchesMarketplace = marketplace === "all" || (sale as any).marketplace_name?.toLowerCase() === marketplace.toLowerCase();
       const matchesState = stateFilter === "all" || (sale as any).state_name === stateFilter;
       const matchesAccount = accountFilter === "all" || (sale as any).auth_name === accountFilter;
+      const matchesDeliveryType = deliveryTypeFilter === "all" || (sale as any).deliveryType?.toLowerCase() === deliveryTypeFilter.toLowerCase();
 
       const lowerSearchTerm = searchTerm.toLowerCase();
       const matchesSearch = searchTerm === "" ||
@@ -139,7 +142,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
         (sale as any).order_id?.toString().toLowerCase().includes(lowerSearchTerm) ||
         (sale as any).product_name?.toLowerCase().includes(lowerSearchTerm);
       
-      return matchesMarketplace && matchesSearch && matchesState && matchesAccount;
+      return matchesMarketplace && matchesSearch && matchesState && matchesAccount && matchesDeliveryType;
     });
 
     // Sort by payment_approved_date in descending order
@@ -149,7 +152,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
         return dateB - dateA;
     });
 
-  }, [sales, searchTerm, marketplace, dateRange, stateFilter, accountFilter]);
+  }, [sales, searchTerm, marketplace, dateRange, stateFilter, accountFilter, deliveryTypeFilter]);
 
   const pickingLogsMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -244,6 +247,7 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
   const marketplaces = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).marketplace_name).filter(Boolean)))], [sales]);
   const states = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).state_name).filter(Boolean)))], [sales]);
   const accounts = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).auth_name).filter(Boolean)))], [sales]);
+  const deliveryTypes = useMemo(() => ["all", ...Array.from(new Set(sales.map(s => (s as any).deliveryType).filter(Boolean)))], [sales]);
 
   const formatLastSyncTime = (date: Date | null): string => {
     if (!date) return 'Sincronizando pela primeira vez...';
@@ -357,9 +361,20 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
                     ))}
                 </SelectContent>
             </Select>
-            <div className="lg:col-span-2">
+             <div className="lg:col-span-2">
               <DateRangePicker date={dateRange} onDateChange={setDateRange} />
             </div>
+             <Select value={deliveryTypeFilter} onValueChange={setDeliveryTypeFilter} disabled={sales.length === 0}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por Tipo de Frete" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Todos os Fretes</SelectItem>
+                    {deliveryTypes.map(dt => (
+                        <SelectItem key={dt} value={dt}>{dt || 'N/A'}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
         </CardContent>
       </Card>
       
@@ -393,5 +408,3 @@ export function SalesDashboard({ isSyncing, lastSyncTime, pickingLogs }: SalesDa
     </div>
   );
 }
-
-    

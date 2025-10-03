@@ -168,4 +168,16 @@ export function MercadoEnviosIcon({ className }: { className?: string }) {
   );
 }
 
-    
+export function FlexIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/icons/mercado-livre-flex.svg"
+      alt="Mercado Livre Flex"
+      width={88}
+      height={26}
+      className={cn("h-5 w-auto", className)}
+      data-ai-hint="logo"
+    />
+  );
+}
+

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="12" viewBox="0 0 40 12" role="img" aria-label="FLEX">
+  <text
+    x="50%"
+    y="50%"
+    dy=".35em"
+    text-anchor="middle"
+    font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif"
+    font-weight="700"
+    font-style="italic"
+    font-size="9"
+    letter-spacing=".6"
+    fill="#00A650"
+  >FLEX</text>
+</svg>

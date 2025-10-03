@@ -35,7 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "./ui/input";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FullIcon } from './icons';
+import { FullIcon, FlexIcon } from './icons';
 
 
 interface SalesTableProps {
@@ -93,13 +93,15 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
 };
 
 const MetaItem = ({ label, value, icon: Icon }: { label: string; value?: React.ReactNode, icon?: React.ElementType }) => {
-    // Se o valor for o ícone do Full, não renderize o label "Frete:"
+    // Se o valor for o ícone do Full ou Flex, não renderize o label "Frete:"
     const isFullIcon = React.isValidElement(value) && (value.type === FullIcon);
-    const displayLabel = isFullIcon ? null : `${label}:`;
+    const isFlexIcon = React.isValidElement(value) && (value.type === FlexIcon);
+    const isShippingIcon = isFullIcon || isFlexIcon;
+    const displayLabel = isShippingIcon ? null : `${label}:`;
 
     return (
         <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
-            {Icon && !isFullIcon && <Icon className="h-3 w-3" />}
+            {Icon && !isShippingIcon && <Icon className="h-3 w-3" />}
             {displayLabel && <strong className="font-semibold text-foreground">{displayLabel}</strong>}
             {value ?? '—'}
         </span>
@@ -151,10 +153,14 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
              {deliveryType && (
                 <>
                 <Dot />
-                <MetaItem 
-                    label="Frete" 
-                    value={deliveryType.toLowerCase() === 'fulfillment' ? <FullIcon /> : deliveryType} 
-                    icon={deliveryType.toLowerCase() !== 'fulfillment' ? Truck : undefined} 
+                <MetaItem
+                    label="Frete"
+                    value={
+                        deliveryType.toLowerCase() === 'full' ? <FullIcon /> :
+                        deliveryType.toLowerCase() === 'flex' ? <FlexIcon /> :
+                        deliveryType
+                    }
+                    icon={deliveryType.toLowerCase() !== 'full' && deliveryType.toLowerCase() !== 'flex' ? Truck : undefined}
                 />
                 </>
             )}
