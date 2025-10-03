@@ -56,14 +56,18 @@ export default function RetiradasFullHistoryPage() {
   const groupedPicksByDate = useMemo(() => {
     const groups = new Map<string, FullRemittanceLog[]>();
     filteredPicks.forEach(pick => {
-      const pickedDate = parseISO(pick.remittedAt);
-      if (isNaN(pickedDate.getTime())) return;
-
-      const dateKey = format(pickedDate, 'yyyy-MM-dd');
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, []);
+      // Garantir que remittedAt seja uma string antes de usar
+      const remittedAtString = typeof pick.remittedAt === 'string' ? pick.remittedAt : new Date(pick.remittedAt).toISOString();
+      try {
+        const pickedDate = parseISO(remittedAtString);
+        const dateKey = format(pickedDate, 'yyyy-MM-dd');
+        if (!groups.has(dateKey)) {
+          groups.set(dateKey, []);
+        }
+        groups.get(dateKey)!.push(pick);
+      } catch (e) {
+        console.error("Data de remessa inválida para o item:", pick);
       }
-      groups.get(dateKey)!.push(pick);
     });
     return Array.from(groups.entries()).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
   }, [filteredPicks]);
@@ -80,7 +84,8 @@ export default function RetiradasFullHistoryPage() {
   
   const formatDateOnly = (dateString: string) => {
     try {
-        return format(parseISO(dateString), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+        // Adiciona T00:00:00 para tratar a data como local e evitar problemas de fuso
+        return format(parseISO(`${dateString}T00:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch {
       return "Data inválida";
     }
@@ -190,5 +195,3 @@ export default function RetiradasFullHistoryPage() {
     </div>
   );
 }
-
-    
