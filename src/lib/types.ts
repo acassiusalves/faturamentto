@@ -788,6 +788,13 @@ export interface CreateListingResult {
     payload?: CreateListingPayload;
 }
 
+export interface SuccessfulListing {
+    productResultId: string;
+    accountId: string;
+    listingTypeId: string;
+}
+
+
 export interface SavedPdfAnalysis {
     id: string;
     createdAt: string; // ISO date

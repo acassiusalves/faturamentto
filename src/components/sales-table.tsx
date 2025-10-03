@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "./ui/input";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { FullIcon } from './icons';
 
 
 interface SalesTableProps {
@@ -91,18 +92,26 @@ const DraggableHeader = ({ header, children }: { header: any, children: React.Re
     );
 };
 
-const MetaItem = ({ label, value, icon: Icon }: { label: string; value?: React.ReactNode, icon?: React.ElementType }) => (
-  <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
-    {Icon && <Icon className="h-3 w-3" />}
-    <strong className="font-semibold text-foreground">{label}:</strong> {value ?? '—'}
-  </span>
-);
+const MetaItem = ({ label, value, icon: Icon }: { label: string; value?: React.ReactNode, icon?: React.ElementType }) => {
+    // Se o valor for o ícone do Full, não renderize o label "Frete:"
+    const isFullIcon = React.isValidElement(value) && (value.type === FullIcon);
+    const displayLabel = isFullIcon ? null : `${label}:`;
+
+    return (
+        <span className="inline-flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
+            {Icon && !isFullIcon && <Icon className="h-3 w-3" />}
+            {displayLabel && <strong className="font-semibold text-foreground">{displayLabel}</strong>}
+            {value ?? '—'}
+        </span>
+    );
+};
 
 const Dot = () => <span className="mx-2 text-muted-foreground">•</span>;
 
 const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: { sale: Sale; formatCurrency: (v: number) => string; productSkuMap: Map<string, string>; formatDate: (d?: string) => string; }) => {
   const saleData = sale as any;
   const productName = productSkuMap.get(saleData.item_sku) || saleData.item_title;
+  const deliveryType = saleData.deliveryType;
 
   return (
     <div className="group flex flex-col md:flex-row items-stretch gap-4 p-4 border-b last:border-b-0 border-l-4 border-l-transparent hover:border-l-primary/70 hover:bg-muted/30 transition-colors">
@@ -139,10 +148,14 @@ const DashboardSaleItem = ({ sale, formatCurrency, productSkuMap, formatDate }: 
             <MetaItem label="SKU" value={saleData.item_sku} />
             <Dot />
             <MetaItem label="ID" value={saleData.order_id} />
-             {saleData.deliveryType && (
+             {deliveryType && (
                 <>
                 <Dot />
-                <MetaItem label="Frete" value={saleData.deliveryType} icon={Truck} />
+                <MetaItem 
+                    label="Frete" 
+                    value={deliveryType === 'fulfillment' ? <FullIcon /> : deliveryType} 
+                    icon={deliveryType !== 'fulfillment' ? Truck : undefined} 
+                />
                 </>
             )}
           </div>
@@ -898,4 +911,3 @@ export function SalesTable({ data, products, supportData, onUpdateSaleData, calc
   );
 }
 
-    
