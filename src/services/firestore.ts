@@ -244,7 +244,7 @@ export const updateInventoryQuantity = async (updates: {
 }) => {
     const batch = writeBatch(db);
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', updates.inventoryItem.id);
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+    const logCol = collection(db, 'full-remittance-log');
 
     const docSnap = await getDoc(inventoryDocRef);
     if (!docSnap.exists()) {
@@ -264,21 +264,24 @@ export const updateInventoryQuantity = async (updates: {
         batch.update(inventoryDocRef, { quantity: newQuantity });
     }
 
-    // Log the withdrawal in picking-log for consolidated history
+    // Log the withdrawal in the dedicated collection
     const logDocRef = doc(logCol);
-    const newLogEntry: PickedItemLog = {
-      ...updates.inventoryItem,
-      id: updates.inventoryItem.id, // Use inventory ID for traceability
-      logId: logDocRef.id,
-      orderNumber: 'SAIDA-FULL', // Special identifier
-      pickedAt: new Date().toISOString(),
+    const newLogEntry: FullRemittanceLog = {
+      id: logDocRef.id,
+      remittanceId: `rem-${Date.now()}`,
+      productId: updates.inventoryItem.productId,
+      name: updates.inventoryItem.name,
+      sku: updates.inventoryItem.sku,
+      eanOrCode: updates.inventoryItem.serialNumber || 'N/A', // Using serialNumber field for the code
       quantity: updates.quantityToRemove,
-      serialNumber: updates.inventoryItem.serialNumber || 'N/A', // EAN/Code for general products
+      costPrice: updates.inventoryItem.costPrice,
+      remittedAt: new Date().toISOString(),
     };
     batch.set(logDocRef, toFirestore(newLogEntry));
     
     await batch.commit();
 };
+
 
 
 // --- PRODUCTS ---

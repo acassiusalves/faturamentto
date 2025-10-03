@@ -38,7 +38,9 @@ export function PickingHistory() {
   const fetchAllPicks = useCallback(async () => {
     setIsLoading(true);
     const picks = await loadAllPickingLogs();
-    setAllPicks(picks);
+    // Filtra para remover as retiradas do FULL, que agora têm sua própria página
+    const salesPicks = picks.filter(p => p.orderNumber !== 'SAIDA-FULL');
+    setAllPicks(salesPicks);
     setIsLoading(false);
   }, []);
 
@@ -220,7 +222,7 @@ export function PickingHistory() {
               <CardTitle>Histórico Completo de Saídas</CardTitle>
               <CardDescription>
                 Use os filtros para encontrar registros específicos de saídas de
-                estoque (picking de pedidos e retiradas para o Full).
+                estoque por venda.
               </CardDescription>
             </div>
           </div>
@@ -323,13 +325,7 @@ export function PickingHistory() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right font-semibold">
-                                        {item.orderNumber === 'SAIDA-FULL' ? 
-                                            <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">
-                                                <PackageMinus className="mr-2 h-4 w-4" />
-                                                Retirada p/ Full
-                                            </Badge>
-                                            : item.orderNumber
-                                        }
+                                        {item.orderNumber}
                                     </TableCell>
                                 </TableRow>
                             ))

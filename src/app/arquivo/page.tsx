@@ -3,11 +3,14 @@
 
 import { PickingHistory } from "./picking-history";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DetailedEntryHistory } from './conferencia/detailed-entry-history';
+import { DetailedEntryHistory } from '../estoque/conferencia/detailed-entry-history';
 import { ArrowDownToDot, ArrowUpFromDot } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 
 export default function ArchivePage() {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
       <div>
