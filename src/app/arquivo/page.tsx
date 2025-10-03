@@ -3,7 +3,7 @@
 
 import { PickingHistory } from "./picking-history";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DetailedEntryHistory } from '../estoque/conferencia/detailed-entry-history';
+import { DetailedEntryHistory } from './conferencia/detailed-entry-history';
 import { ArrowDownToDot, ArrowUpFromDot } from "lucide-react";
 import { useRouter } from "next/navigation";
 
