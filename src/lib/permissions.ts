@@ -2,7 +2,7 @@
 
 "use client";
 
-import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore, Undo2 } from 'lucide-react';
+import { LayoutDashboard, PackagePlus, Warehouse, PackageCheck, Archive, BarChart3, DollarSign, Map, Settings, User, FilePieChart, CheckSquare, ShoppingCart, Sparkles, Megaphone, Headset, BrainCircuit, LineChart, FileText, ListChecks, Tags, FileDown, BookImage, Search, Database, Beaker, Truck, ClipboardPaste, HardDrive, ArchiveRestore, Undo2, PackageMinus } from 'lucide-react';
 import { MercadoLivreLogo, MagaluLogo } from '@/components/icons';
 
 export const availableRoles = [
@@ -42,7 +42,7 @@ export const navLinks = [
       icon: Warehouse,
       subItems: [
         { href: "/estoque", label: "Gerenciar Estoque", icon: Warehouse },
-        { href: "/estoque/retiradas-full", label: "Retiradas Full", icon: Truck },
+        { href: "/estoque/retiradas-full", label: "Retiradas Full", icon: PackageMinus },
         { href: "/estoque/devolucoes", label: "Devoluções", icon: Undo2 },
         { href: "/estoque/conferencia", label: "Conferência", icon: CheckSquare },
       ]
@@ -54,6 +54,7 @@ export const navLinks = [
       icon: Archive,
       subItems: [
         { href: "/arquivo", label: "Históricos de Atividades", icon: FileText },
+        { href: "/arquivo/retiradas-full", label: "Histórico Retiradas Full", icon: PackageMinus },
         { href: "/arquivo/status-ideris", label: "Status Ideris", icon: ListChecks },
         { href: "/arquivo/dados-mercado-livre", label: "Dados de Categoria (ML)", icon: Database },
         { href: "/arquivo/meus-anuncios-salvos", label: "Meus Anúncios Salvos", icon: HardDrive },
@@ -116,6 +117,7 @@ export const pagePermissions: Record<string, string[]> = {
     '/conciliacao': ['admin', 'socio', 'financeiro', 'gestor-de-contas'],
     '/compras': ['admin', 'socio', 'financeiro'],
     '/arquivo': ['admin', 'socio', 'expedicao', 'sac', 'financeiro'],
+    '/arquivo/retiradas-full': ['admin', 'socio', 'expedicao', 'financeiro'],
     '/arquivo/conferencia': ['admin', 'socio', 'financeiro'],
     '/arquivo/status-ideris': ['admin', 'socio', 'financeiro', 'sac'],
     '/arquivo/dados-mercado-livre': ['admin', 'socio', 'financeiro'],

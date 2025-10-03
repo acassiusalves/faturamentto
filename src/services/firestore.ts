@@ -398,6 +398,13 @@ export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
 };
 
+export const loadFullPickingLogs = async (): Promise<PickedItemLog[]> => {
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
+  const q = query(logCol, where('orderNumber', '==', 'SAIDA-FULL'), orderBy('pickedAt', 'desc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
+};
+
 export const updatePickingLogs = async (updates: { logId: string; costPrice: number }[]): Promise<void> => {
     const batch = writeBatch(db);
     updates.forEach(update => {
