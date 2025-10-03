@@ -570,7 +570,7 @@ export default function EstoquePage() {
              <Button asChild variant="outline">
                 <Link href="/estoque/retiradas-full">
                     <span className="flex items-center gap-1">
-                        <PackageMinus />
+                        <FullIcon className="h-5" />
                         Retiradas
                     </span>
                 </Link>
