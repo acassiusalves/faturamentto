@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View } from 'lucide-react';
+import { PlusCircle, Trash2, Package, DollarSign, Loader2, Edit, ChevronsUpDown, Check, Layers, ArrowUpDown, Search, XCircle, ScanSearch, Undo2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Columns, View, Truck } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -566,6 +566,10 @@ export default function EstoquePage() {
           <p className="text-muted-foreground">Adicione itens ao seu inventário selecionando um modelo de produto.</p>
         </div>
         <div className="flex items-center gap-2">
+            <Button className="bg-green-600 hover:bg-green-700">
+                <Truck className="mr-2" />
+                Retiradas Full
+            </Button>
             <Button asChild>
                 <Link href="/estoque/devolucoes">
                     <Undo2 />
@@ -1030,4 +1034,3 @@ export default function EstoquePage() {
     </>
   );
 }
-
