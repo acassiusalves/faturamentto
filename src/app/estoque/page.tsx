@@ -569,7 +569,7 @@ export default function EstoquePage() {
         <div className="flex items-center gap-2">
             <Button variant="outline" className="text-green-600 border-green-600 hover:bg-green-100 hover:text-green-700">
                 Retiradas
-                <FullIcon className="ml-2 text-green-600" />
+                <FullIcon className="text-green-600" />
             </Button>
             <Button asChild>
                 <Link href="/estoque/devolucoes">
