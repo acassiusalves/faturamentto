@@ -244,7 +244,7 @@ export const updateInventoryQuantity = async (updates: {
 }) => {
     const batch = writeBatch(db);
     const inventoryDocRef = doc(db, USERS_COLLECTION, DEFAULT_USER_ID, 'inventory', updates.inventoryItem.id);
-    const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'full-remittance-log');
+    const logCol = collection(db, 'retiradasfull');
 
     const docSnap = await getDoc(inventoryDocRef);
     if (!docSnap.exists()) {
@@ -390,13 +390,13 @@ export const loadTodaysPickingLog = async (): Promise<PickedItemLog[]> => {
 };
 
 export const loadAllPickingLogs = async (): Promise<PickedItemLog[]> => {
-  const logCol = collection(db, USERS_COLlection, DEFAULT_USER_ID, 'picking-log');
+  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'picking-log');
   const snapshot = await getDocs(query(logCol, orderBy('pickedAt', 'desc')));
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as PickedItemLog);
 };
 
 export const loadFullRemittanceLogs = async (): Promise<FullRemittanceLog[]> => {
-  const logCol = collection(db, USERS_COLLECTION, DEFAULT_USER_ID, 'full-remittance-log');
+  const logCol = collection(db, 'retiradasfull');
   const q = query(logCol, orderBy('remittedAt', 'desc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as FullRemittanceLog);
@@ -1220,4 +1220,5 @@ export async function deletePdfAnalysis(analysisId: string): Promise<void> {
     
 
     
+
 
