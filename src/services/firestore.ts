@@ -402,6 +402,22 @@ export const loadFullRemittanceLogs = async (): Promise<FullRemittanceLog[]> => 
   return snapshot.docs.map(doc => fromFirestore({ ...doc.data(), id: doc.id }) as FullRemittanceLog);
 };
 
+export const deleteFullRemittance = async (remittanceId: string): Promise<void> => {
+    const logCol = collection(db, 'retiradasfull');
+    const q = query(logCol, where('remittanceId', '==', remittanceId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        throw new Error("Nenhum registro encontrado para esta remessa.");
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+};
 
 export const updatePickingLogs = async (updates: { logId: string; costPrice: number }[]): Promise<void> => {
     const batch = writeBatch(db);
@@ -1220,5 +1236,3 @@ export async function deletePdfAnalysis(analysisId: string): Promise<void> {
     
 
     
-
-
